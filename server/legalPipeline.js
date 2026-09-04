@@ -1,33 +1,36 @@
 // domain === "법률" claim만 골라 법제처 공식 데이터로 조회하고,
 // 조회된 실제 텍스트를 근거로 grounding 판정을 내린 뒤 원래 claim에 병합한다.
+// 조문/판례 번호를 특정하지 못하거나 공식 조회가 실패해도 "모른다"로 끝내지 않고,
+// 웹 검색 폴백(verifyLegalClaimViaWeb)으로 최선의 답을 낸다.
 // 비법률 claim은 손대지 않고 그대로 통과시킨다.
 import { hasOC, searchStatute, getStatuteArticle, searchPrecedent, getPrecedentDetail } from "./lawApi.js";
-import { groundLegalClaim as defaultGround } from "./claude.js";
+import { groundLegalClaim as defaultGround, verifyLegalClaimViaWeb as defaultWebVerify } from "./claude.js";
 
-export async function resolveLegalClaims(claims, { ground = defaultGround } = {}) {
+export async function resolveLegalClaims(claims, { ground = defaultGround, webVerify = defaultWebVerify, onProgress = () => {} } = {}) {
   return Promise.all(
-    claims.map((claim) => (claim.domain === "법률" ? resolveOne(claim, ground) : claim))
+    claims.map((claim) => (claim.domain === "법률" ? resolveOne(claim, ground, webVerify, onProgress) : claim))
   );
 }
 
-async function resolveOne(claim, ground) {
+async function resolveOne(claim, ground, webVerify, onProgress) {
   if (!hasOC()) {
-    return unavailable(claim, "법제처 국가법령정보 공동활용 API가 아직 연동되지 않았습니다 (OC 코드 미설정) — 공식 데이터로 확인할 수 없습니다. 웹검색 결과가 아니라 미확인 상태임을 유의하세요.");
+    return webFallback(claim, webVerify, onProgress);
   }
 
   const ref = claim.legal_ref || { type: "unspecified" };
   try {
-    if (ref.type === "statute" && ref.law_name) return await resolveStatute(claim, ref, ground);
-    if (ref.type === "case" && ref.case_number) return await resolvePrecedent(claim, ref, ground);
-    return unavailable(claim, "구체적인 조문 번호나 판례 사건번호가 명시되지 않아 법제처 공식 데이터로 특정 조회를 할 수 없습니다.");
+    if (ref.type === "statute" && ref.law_name) return await resolveStatute(claim, ref, ground, webVerify, onProgress);
+    if (ref.type === "case" && ref.case_number) return await resolvePrecedent(claim, ref, ground, webVerify, onProgress);
+    return await webFallback(claim, webVerify, onProgress);
   } catch (e) {
-    return unavailable(claim, `법제처 API 조회 중 오류가 발생했습니다: ${e.message}`);
+    return webFallback(claim, webVerify, onProgress);
   }
 }
 
-async function resolveStatute(claim, ref, ground) {
+async function resolveStatute(claim, ref, ground, webVerify, onProgress) {
+  onProgress(`법제처에서 "${ref.law_name}" 조회 중…`);
   const search = await searchStatute(ref.law_name);
-  if (!search.ok) return unavailable(claim, "법령 검색 API 호출에 실패했습니다.");
+  if (!search.ok) return webFallback(claim, webVerify, onProgress);
   if (!search.found) {
     return official(claim, "false", `법제처 국가법령정보에서 "${ref.law_name}"이라는 법령을 찾을 수 없습니다.`, []);
   }
@@ -52,7 +55,7 @@ async function resolveStatute(claim, ref, ground) {
     );
   }
   const article = await getStatuteArticle(search.mst, ref.article);
-  if (!article.ok) return unavailable(claim, "조문 조회 API 호출에 실패했습니다.");
+  if (!article.ok) return webFallback(claim, webVerify, onProgress);
   if (!article.found) {
     return official(
       claim, "false",
@@ -61,6 +64,7 @@ async function resolveStatute(claim, ref, ground) {
       search.effectiveDate
     );
   }
+  onProgress(`"${search.lawNameOfficial}" 제${ref.article} 공식 조문과 대조 중…`);
   const effectiveDate = article.effectiveDate || search.effectiveDate;
   const grounded = await ground(claim.text, article.text, {
     label: `법제처 국가법령정보 - ${search.lawNameOfficial}`,
@@ -78,19 +82,31 @@ function formatDate(raw) {
   return `${raw.slice(0, 4)}.${raw.slice(4, 6)}.${raw.slice(6, 8)}.`;
 }
 
-async function resolvePrecedent(claim, ref, ground) {
+async function resolvePrecedent(claim, ref, ground, webVerify, onProgress) {
+  onProgress(`대법원 판례 ${ref.case_number} 조회 중…`);
   const search = await searchPrecedent(ref.case_number);
-  if (!search.ok) return unavailable(claim, "판례 검색 API 호출에 실패했습니다.");
+  if (!search.ok) return webFallback(claim, webVerify, onProgress);
   if (!search.found) {
     return official(claim, "false", `법제처 판례 데이터베이스에서 사건번호 "${ref.case_number}"를 찾을 수 없습니다.`, []);
   }
   const detail = await getPrecedentDetail(search.precId);
-  if (!detail.ok || !detail.found) return unavailable(claim, "판례 상세 조회에 실패했습니다.");
+  if (!detail.ok || !detail.found) return webFallback(claim, webVerify, onProgress);
+  onProgress(`판례 ${detail.caseNumber} 원문과 대조 중…`);
   const grounded = await ground(claim.text, detail.text, { label: `대법원 판례 ${detail.caseNumber}` });
   return official(
     claim, grounded.verdict || "uncertain", grounded.explanation || detail.text.slice(0, 150),
     [{ title: `${detail.court} ${detail.caseNumber} ${detail.caseName || ""}`.trim(), url: search.detailUrl }]
   );
+}
+
+async function webFallback(claim, webVerify, onProgress) {
+  onProgress(`공식 데이터로 특정할 수 없어, 웹에서 "${claim.text.slice(0, 24)}${claim.text.length > 24 ? "…" : ""}" 관련 최신 자료 확인 중…`);
+  try {
+    const result = await webVerify(claim.text);
+    return { ...claim, verdict: result.verdict, verified_via: "web", explanation: result.explanation, sources: result.sources || [] };
+  } catch (e) {
+    return unavailable(claim, `공식 데이터와 웹 검색 모두 확인하지 못했습니다: ${e.message}`);
+  }
 }
 
 function official(claim, verdict, explanation, sources, effectiveDateRaw) {

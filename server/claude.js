@@ -107,3 +107,25 @@ export async function groundLegalClaim(claimText, officialText, meta = {}) {
   });
   return extractJson(raw);
 }
+
+const WEB_FALLBACK_SYSTEM_PROMPT = `당신은 유메의 법률 리서치 보조입니다. 이 법률 관련 주장은 법제처 국가법령정보 공동활용 API로 조문·판례 번호를 특정해서 공식 조회를 할 수 없었습니다(조문/사건번호가 불명확하거나, 법령·판례 자체를 특정하지 못함).
+
+그렇다고 "모른다"고 답하지 마세요. web_search 도구로 실제로 검색해서(뉴스, 법률사무소·변호사 해설 블로그, 판례 정리 사이트, 정부 발표 자료 등) 이 주장이 맞는지 최선을 다해 판단하세요. 검색 없이 배경지식만으로 답하지 말고, 반드시 최소 1회 이상 검색하세요.
+
+판단 원칙:
+- 검색 결과가 명확히 뒷받침하거나 반박하면 confirmed/false로 판정하고, 실제로 찾은 출처를 제시하세요.
+- 검색해도 신뢰할 만한 근거를 전혀 찾지 못했을 때만 uncertain으로 하되, 이 경우에도 무엇을 검색해봤는지 explanation에 간단히 남기세요.
+
+반드시 아래 JSON 형식으로만 응답하세요. 다른 설명, 마크다운 코드블록을 추가하지 마세요.
+{"verdict": "confirmed|false|uncertain", "explanation": "구체적 근거 (100자 이내)", "sources": [{ "title": "출처 제목", "url": "https://..." }]}`;
+
+export async function verifyLegalClaimViaWeb(claimText) {
+  const raw = await callClaude({
+    system: WEB_FALLBACK_SYSTEM_PROMPT,
+    messages: [{ role: "user", content: `다음 법률 관련 주장을 검색해서 검증해줘:\n\n${claimText}` }],
+    tools: [{ type: "web_search_20250305", name: "web_search" }],
+    max_tokens: 2000,
+  });
+  const parsed = extractJson(raw);
+  return { verdict: parsed.verdict || "uncertain", explanation: parsed.explanation || "", sources: parsed.sources || [] };
+}

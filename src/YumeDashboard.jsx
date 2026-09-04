@@ -24,6 +24,12 @@ const VERDICT = {
 const VBORDER = { confirmed: "#E6EFE9", false: "#F5D8D3", uncertain: "#F3E3C4" };
 const VBG = { confirmed: "#F9FBF9", false: "#FDF4F3", uncertain: "#FFFBF3" };
 
+const PLANS = {
+  free: { label: "무료", price: "0원", period: "", tagline: "일상적인 사실관계 확인", features: ["간단한 사실 주장 확인", "웹검색 기반 교차검증", "검증 기록 최근 50건"] },
+  standard: { label: "스탠다드", price: "9,000원", period: "/월", tagline: "법률·의료 등 전문 분야 답변까지", features: ["무료 플랜 전체 포함", "법률 주장: 법제처 공식 데이터 이중검증", "검증 기록 무제한 저장", "우선 처리 속도"] },
+  expert: { label: "전문가", price: "29,000원", period: "/월", tagline: "조문·판례를 직접 대조하는 수준의 정확도", features: ["스탠다드 전체 포함", "조문·판례 원문 대조 상세 리포트", "여러 건 한 번에 검증(배치)", "API 사용량 포함", "우선 지원"] },
+};
+
 function StatusIcon({ verdict }) {
   const v = VERDICT[verdict] || VERDICT.uncertain;
   return (
@@ -35,14 +41,36 @@ function StatusIcon({ verdict }) {
   );
 }
 
+function BizRow({ title, desc, cta }) {
+  return (
+    <div style={{
+      display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12,
+      padding: "14px 16px", borderRadius: 12, background: "#F9FAFB", border: "1px solid #E7DEF7"
+    }}>
+      <div>
+        <div style={{ fontSize: 14, fontWeight: 700, color: "#241F33", marginBottom: 3 }}>{title}</div>
+        <div style={{ fontSize: 12, color: "#8577A8", lineHeight: 1.5 }}>{desc}</div>
+      </div>
+      <button style={{
+        flexShrink: 0, padding: "8px 14px", borderRadius: 999, border: "1px solid #E4D9F5",
+        background: "#fff", color: "#6B4FA8", fontSize: 12.5, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap"
+      }}>{cta}</button>
+    </div>
+  );
+}
+
 export default function YumeDashboard() {
   const [input, setInput] = useState("");
   const [stage, setStage] = useState("idle");
   const [result, setResult] = useState(null);
   const [revealed, setRevealed] = useState(0);
   const [errMsg, setErrMsg] = useState("");
+  const [progressMsg, setProgressMsg] = useState("");
   const [showAuth, setShowAuth] = useState(false);
   const [authMode, setAuthMode] = useState("login");
+  const [showBiz, setShowBiz] = useState(false);
+  const [showPricing, setShowPricing] = useState(false);
+  const [plan, setPlan] = useState("free"); // 데모용 — localStorage에 저장하지 않아 새로고침하면 항상 "free"로 리셋됨
   const [tab, setTab] = useState("result"); // result | sources | products
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [history, setHistory] = useState([]);
@@ -114,23 +142,53 @@ export default function YumeDashboard() {
   const runCheck = async () => {
     if (!input.trim()) return;
     setStage("loading"); setResult(null); setRevealed(0); setErrMsg(""); setTab("result");
+    setProgressMsg("사실 주장을 추출하고 실시간으로 검색 중…");
 
     // 주장 추출 + 도메인 분류 + (법률 도메인만) 법제처 공식 데이터 이중검증은
-    // 서버(server/index.js → legalPipeline.js)에서 처리한다.
-    // 프론트는 원문 텍스트만 넘기고, 완성된 결과 JSON을 그대로 받는다.
+    // 서버(server/index.js → legalPipeline.js)에서 SSE로 진행상황을 스트리밍하며 처리한다.
     try {
       const response = await fetch("/api/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: input })
       });
-      const parsed = await response.json();
-      if (!response.ok) throw new Error(parsed.error || "서버 오류가 발생했습니다.");
-      if (!Array.isArray(parsed.claims) || parsed.claims.length === 0) throw new Error("검증 가능한 주장을 찾지 못했습니다.");
-      setResult(parsed);
+      if (!response.ok || !response.body) {
+        const parsed = await response.json().catch(() => ({}));
+        throw new Error(parsed.error || "서버 오류가 발생했습니다.");
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let finalResult = null;
+      let serverError = null;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const chunks = buffer.split("\n\n");
+        buffer = chunks.pop(); // 마지막 조각은 아직 미완성일 수 있으니 보관
+        for (const chunk of chunks) {
+          const eventLine = chunk.split("\n").find(l => l.startsWith("event: "));
+          const dataLine = chunk.split("\n").find(l => l.startsWith("data: "));
+          if (!eventLine || !dataLine) continue;
+          const event = eventLine.slice("event: ".length);
+          const data = JSON.parse(dataLine.slice("data: ".length));
+          if (event === "progress") setProgressMsg(data.message);
+          else if (event === "result") finalResult = data;
+          else if (event === "error") serverError = data.error;
+        }
+      }
+
+      if (serverError) throw new Error(serverError);
+      if (!finalResult || !Array.isArray(finalResult.claims) || finalResult.claims.length === 0) {
+        throw new Error("검증 가능한 주장을 찾지 못했습니다.");
+      }
+      setResult(finalResult);
       setStage("done");
-      parsed.claims.forEach((_, i) => setTimeout(() => setRevealed(r => r + 1), 220 * (i + 1)));
-      saveToHistory(input, parsed);
+      finalResult.claims.forEach((_, i) => setTimeout(() => setRevealed(r => r + 1), 220 * (i + 1)));
+      saveToHistory(input, finalResult);
     } catch (e) {
       console.error(e);
       setErrMsg(e.message || "분석 중 문제가 발생했습니다.");
@@ -212,6 +270,16 @@ export default function YumeDashboard() {
             ))
           )}
         </div>
+        <div style={{ padding: "10px 12px", borderTop: "1px solid #EDE3FA" }}>
+          <button onClick={() => setShowBiz(true)} style={{
+            width: "100%", padding: "9px 10px", borderRadius: 10, border: "none", background: "transparent",
+            color: "#8577A8", fontSize: 13, fontWeight: 500, cursor: "pointer",
+            display: "flex", alignItems: "center", gap: 8
+          }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "#F1E8FB"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+          >⚙ 설정 · 비즈니스</button>
+        </div>
       </aside>
 
       {/* CONTENT — 항상 전체 너비 유지 */}
@@ -233,6 +301,10 @@ export default function YumeDashboard() {
           )}
         </div>
         <div style={{ display: "flex", gap: 10 }}>
+          <button onClick={() => setShowPricing(true)} style={{
+            padding: "8px 16px", borderRadius: 980, border: "1px solid #E4D9F5",
+            background: plan === "free" ? "transparent" : "#F1E9FC", color: "#6B4FA8", fontSize: 14, fontWeight: 600, cursor: "pointer"
+          }}>{PLANS[plan].label} 구독 ▾</button>
           <button onClick={() => { setAuthMode("login"); setShowAuth(true); }} style={{
             padding: "8px 16px", borderRadius: 980, border: "1px solid #E4D9F5",
             background: "transparent", color: "#241F33", fontSize: 14, fontWeight: 500, cursor: "pointer"
@@ -321,7 +393,12 @@ export default function YumeDashboard() {
           {stage === "loading" && (
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "48px 0", gap: 14 }}>
               <div style={{ width: 28, height: 28, borderRadius: 999, border: "3px solid #E4D9F5", borderTopColor: "#8B7FD8", animation: "yume-spin 0.8s linear infinite" }} />
-              <div style={{ fontSize: 14, color: "#9C8FC2" }}>사실 주장을 추출하고 실시간으로 검색 중…</div>
+              <AnimatePresence mode="wait">
+                <motion.div key={progressMsg} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} transition={{ duration: 0.25 }}
+                  style={{ fontSize: 14, color: "#9C8FC2", textAlign: "center", maxWidth: 420, padding: "0 16px" }}>
+                  {progressMsg || "사실 주장을 추출하고 실시간으로 검색 중…"}
+                </motion.div>
+              </AnimatePresence>
               <div style={{ fontSize: 12, color: "#B6A9D6" }}>내용이 길면 최대 30초 정도 걸릴 수 있어요</div>
               <style>{`@keyframes yume-spin { to { transform: rotate(360deg); } }`}</style>
             </div>
@@ -488,6 +565,81 @@ export default function YumeDashboard() {
               ) : (
                 <>이미 계정이 있으신가요? <span onClick={() => setAuthMode("login")} style={{ color: "#0A0A0A", cursor: "pointer", fontWeight: 600, textDecoration: "underline" }}>로그인</span></>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PRICING MODAL (B2C 구독 — 프로토타입: 결제 없이 즉시 적용, 새로고침하면 무료로 리셋) */}
+      {showPricing && (
+        <div onClick={() => setShowPricing(false)} style={{
+          position: "fixed", inset: 0, background: "rgba(75,55,120,0.28)", display: "flex",
+          alignItems: "center", justifyContent: "center", zIndex: 50, backdropFilter: "blur(2px)", padding: 20
+        }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: "min(920px, 100%)", background: "#fff", borderRadius: 20, padding: 32, boxShadow: "0 20px 60px rgba(75,55,120,0.22)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
+              <div>
+                <div style={{ fontSize: 20, fontWeight: 700 }}>요금제</div>
+                <div style={{ fontSize: 12.5, color: "#A99BC9" }}>데모 — 실제 결제 없이 즉시 적용되고, 새로고침하면 무료 플랜으로 초기화됩니다</div>
+              </div>
+              <button onClick={() => setShowPricing(false)} style={{ border: "none", background: "transparent", color: "#9C8FC2", fontSize: 18, cursor: "pointer" }}>×</button>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 14, marginTop: 20 }}>
+              {Object.entries(PLANS).map(([key, p]) => (
+                <div key={key} style={{
+                  border: plan === key ? "2px solid #6B4FA8" : "1px solid #E7DEF7", borderRadius: 16, padding: 20,
+                  background: key === "expert" ? "#FAF7FF" : "#fff", display: "flex", flexDirection: "column"
+                }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#6B4FA8", marginBottom: 4 }}>{p.label}</div>
+                  <div style={{ fontSize: 24, fontWeight: 700, marginBottom: 2 }}>{p.price}<span style={{ fontSize: 13, fontWeight: 500, color: "#A99BC9" }}>{p.period}</span></div>
+                  <div style={{ fontSize: 12.5, color: "#8577A8", marginBottom: 16 }}>{p.tagline}</div>
+                  <ul style={{ listStyle: "none", padding: 0, margin: "0 0 20px", display: "flex", flexDirection: "column", gap: 8, flex: 1 }}>
+                    {p.features.map((f, i) => (
+                      <li key={i} style={{ fontSize: 12.5, color: "#4C5266", display: "flex", gap: 6 }}>
+                        <span style={{ color: "#1F9D66" }}>✓</span>{f}
+                      </li>
+                    ))}
+                  </ul>
+                  <button
+                    onClick={() => { setPlan(key); setShowPricing(false); }}
+                    disabled={plan === key}
+                    style={{
+                      width: "100%", padding: "10px 0", borderRadius: 10, border: "none",
+                      background: plan === key ? "#EDE4FB" : (key === "free" ? "#F1E9FC" : "linear-gradient(90deg,#B49AEE,#6B4FA8)"),
+                      color: plan === key ? "#9C8FC2" : (key === "free" ? "#6B4FA8" : "#fff"),
+                      fontSize: 13.5, fontWeight: 600, cursor: plan === key ? "default" : "pointer"
+                    }}>{plan === key ? "현재 플랜" : key === "free" ? "무료로 전환" : "결제하기"}</button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* BUSINESS PANEL (설정 · 비즈니스 — API/데이터셋/B2B 라인업, 전부 데모용 정보 표시) */}
+      {showBiz && (
+        <div onClick={() => setShowBiz(false)} style={{
+          position: "fixed", inset: 0, background: "rgba(75,55,120,0.28)", display: "flex",
+          alignItems: "center", justifyContent: "center", zIndex: 50, backdropFilter: "blur(2px)", padding: 20
+        }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: "min(680px, 100%)", maxHeight: "85vh", overflowY: "auto", background: "#fff", borderRadius: 20, padding: 32, boxShadow: "0 20px 60px rgba(75,55,120,0.22)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
+              <div style={{ fontSize: 20, fontWeight: 700 }}>설정 · 비즈니스</div>
+              <button onClick={() => setShowBiz(false)} style={{ border: "none", background: "transparent", color: "#9C8FC2", fontSize: 18, cursor: "pointer" }}>×</button>
+            </div>
+            <div style={{ fontSize: 12.5, color: "#A99BC9", marginBottom: 22 }}>유메의 검증 엔진을 API·데이터·엔터프라이즈 솔루션으로 확장한 라인업입니다 (데모)</div>
+
+            <div style={{ fontSize: 11, fontWeight: 700, color: "#B0A2D6", letterSpacing: "0.03em", marginBottom: 10 }}>개발자 · 데이터</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 26 }}>
+              <BizRow title="유메 API" desc="검증 엔진을 그대로 API로 호출해 자체 서비스에 통합할 수 있습니다." cta="API 키 발급 (준비 중)" />
+              <BizRow title="데이터셋 라이선싱" desc="유메가 익명화·라벨링한 질의응답 검증 데이터셋을 제공합니다." cta="문의하기" />
+            </div>
+
+            <div style={{ fontSize: 11, fontWeight: 700, color: "#B0A2D6", letterSpacing: "0.03em", marginBottom: 10 }}>B2B 솔루션</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <BizRow title="법률 문서 자동검증 API" desc="로펌·기업 법무팀의 내부 문서 작성 워크플로우에 넣어 인용 조문·판례를 자동 검증합니다." cta="도입 문의" />
+              <BizRow title="의료·제약 정보 검증" desc="환자 대상 안내자료·교육자료의 의학적 사실관계를 검증합니다." cta="도입 문의" />
+              <BizRow title="금융기관 응대 검증" desc="고객 응대 스크립트·상품설명서의 사실관계를 사전 검증합니다." cta="도입 문의" />
             </div>
           </div>
         </div>

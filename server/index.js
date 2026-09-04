@@ -18,13 +18,29 @@ app.post("/api/verify", async (req, res) => {
   const text = (req.body?.text || "").trim();
   if (!text) return res.status(400).json({ error: "검증할 텍스트를 입력해주세요." });
 
+  res.writeHead(200, {
+    "Content-Type": "text/event-stream; charset=utf-8",
+    "Cache-Control": "no-cache, no-transform",
+    Connection: "keep-alive",
+  });
+  const send = (event, data) => res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+
   try {
+    send("progress", { message: "AI 답변에서 사실 주장을 추출하는 중…" });
     const extracted = await extractAndVerify(text);
-    const claims = await resolveLegalClaims(extracted.claims);
-    res.json({ ...extracted, claims });
+    send("progress", { message: `${extracted.claims.length}개 주장을 찾았습니다. 법률 주장은 공식 데이터와 대조합니다…` });
+
+    const claims = await resolveLegalClaims(extracted.claims, {
+      onProgress: (message) => send("progress", { message }),
+    });
+
+    send("progress", { message: "결과를 정리하는 중…" });
+    send("result", { ...extracted, claims });
   } catch (e) {
     console.error(e);
-    res.status(500).json({ error: e.message || "서버 오류가 발생했습니다." });
+    send("error", { error: e.message || "서버 오류가 발생했습니다." });
+  } finally {
+    res.end();
   }
 });
 
