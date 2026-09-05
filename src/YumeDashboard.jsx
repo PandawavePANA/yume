@@ -67,10 +67,20 @@ function YumeChatWidget() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const listRef = React.useRef(null);
+  const containerRef = React.useRef(null);
 
   React.useEffect(() => {
     if (listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight;
   }, [messages, loading, open]);
+
+  React.useEffect(() => {
+    if (!open) return;
+    const handleClickOutside = (e) => {
+      if (containerRef.current && !containerRef.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [open]);
 
   const send = async () => {
     const text = input.trim();
@@ -96,7 +106,7 @@ function YumeChatWidget() {
   };
 
   return (
-    <div style={{ position: "fixed", right: 20, bottom: 20, zIndex: 60, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 12 }}>
+    <div ref={containerRef} style={{ position: "fixed", right: 20, bottom: 20, zIndex: 60, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 12 }}>
       <AnimatePresence>
         {open && (
           <motion.div
