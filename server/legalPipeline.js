@@ -102,7 +102,7 @@ async function resolvePrecedent(claim, ref, ground, webVerify, onProgress) {
 async function webFallback(claim, webVerify, onProgress) {
   onProgress(`공식 데이터로 특정할 수 없어, 웹에서 "${claim.text.slice(0, 24)}${claim.text.length > 24 ? "…" : ""}" 관련 최신 자료 확인 중…`);
   try {
-    const result = await webVerify(claim.text);
+    const result = await webVerify(claim.text, onProgress);
     return { ...claim, verdict: result.verdict, verified_via: "web", explanation: result.explanation, sources: result.sources || [] };
   } catch (e) {
     return unavailable(claim, `공식 데이터와 웹 검색 모두 확인하지 못했습니다: ${e.message}`);

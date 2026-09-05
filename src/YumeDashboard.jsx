@@ -45,16 +45,105 @@ function BizRow({ title, desc, cta }) {
   return (
     <div style={{
       display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12,
-      padding: "14px 16px", borderRadius: 12, background: "#F9FAFB", border: "1px solid #E7DEF7"
+      padding: "14px 16px", borderRadius: 12, background: "#F9FAFB", border: "1px solid #D9BFF0"
     }}>
       <div>
         <div style={{ fontSize: 14, fontWeight: 700, color: "#241F33", marginBottom: 3 }}>{title}</div>
         <div style={{ fontSize: 12, color: "#8577A8", lineHeight: 1.5 }}>{desc}</div>
       </div>
       <button style={{
-        flexShrink: 0, padding: "8px 14px", borderRadius: 999, border: "1px solid #E4D9F5",
+        flexShrink: 0, padding: "8px 14px", borderRadius: 999, border: "1px solid #D4BEF0",
         background: "#fff", color: "#6B4FA8", fontSize: 12.5, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap"
       }}>{cta}</button>
+    </div>
+  );
+}
+
+function YumeChatWidget() {
+  const [open, setOpen] = useState(false);
+  const [messages, setMessages] = useState([
+    { role: "assistant", content: "안녕하세요! 유메에 대한 질문이든 그냥 편한 대화든, 뭐든 물어보세요 :)" },
+  ]);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const listRef = React.useRef(null);
+
+  React.useEffect(() => {
+    if (listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight;
+  }, [messages, loading, open]);
+
+  const send = async () => {
+    const text = input.trim();
+    if (!text || loading) return;
+    const next = [...messages, { role: "user", content: text }];
+    setMessages(next);
+    setInput("");
+    setLoading(true);
+    try {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: next.slice(-10) }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "오류가 발생했습니다.");
+      setMessages((m) => [...m, { role: "assistant", content: data.reply }]);
+    } catch (e) {
+      setMessages((m) => [...m, { role: "assistant", content: "죄송해요, 지금 답변드리기 어려워요. 잠시 후 다시 시도해주세요." }]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={{ position: "fixed", right: 20, bottom: 20, zIndex: 60, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 12 }}>
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: 24, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 24, scale: 0.95 }}
+            transition={{ duration: 0.22, ease: EASE_APPLE }}
+            style={{
+              width: 320, maxWidth: "calc(100vw - 40px)", height: 440, background: "#fff", borderRadius: 18,
+              boxShadow: "0 24px 60px rgba(75,45,140,0.32)", border: "1px solid #D9BFF0",
+              display: "flex", flexDirection: "column", overflow: "hidden",
+            }}>
+            <div style={{
+              padding: "14px 16px", display: "flex", alignItems: "center", justifyContent: "space-between",
+              background: "linear-gradient(90deg,#B49AEE,#6B4FA8)",
+            }}>
+              <span style={{ color: "#fff", fontSize: 14, fontWeight: 700 }}>유메에게 질문하기</span>
+              <button onClick={() => setOpen(false)} style={{ border: "none", background: "transparent", color: "#fff", fontSize: 18, cursor: "pointer", lineHeight: 1 }}>×</button>
+            </div>
+            <div ref={listRef} style={{ flex: 1, overflowY: "auto", padding: 14, display: "flex", flexDirection: "column", gap: 8, background: "#FBF7FE" }}>
+              {messages.map((m, i) => (
+                <div key={i} style={{
+                  alignSelf: m.role === "user" ? "flex-end" : "flex-start",
+                  maxWidth: "85%", padding: "9px 13px", borderRadius: 14, fontSize: 13, lineHeight: 1.5,
+                  background: m.role === "user" ? "#6B4FA8" : "#EDE0FA",
+                  color: m.role === "user" ? "#fff" : "#2A2440",
+                }}>{m.content}</div>
+              ))}
+              {loading && <div style={{ alignSelf: "flex-start", fontSize: 12, color: "#9C8FC2", padding: "0 4px" }}>입력 중…</div>}
+            </div>
+            <div style={{ display: "flex", gap: 6, padding: 10, borderTop: "1px solid #E3CEF5", background: "#fff" }}>
+              <input value={input} onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") send(); }}
+                placeholder="궁금한 점을 물어보세요"
+                style={{ flex: 1, padding: "9px 12px", borderRadius: 10, border: "1px solid #D9BFF0", fontSize: 13, outline: "none", minWidth: 0 }} />
+              <button onClick={send} disabled={loading || !input.trim()} style={{
+                padding: "9px 14px", borderRadius: 10, border: "none", flexShrink: 0,
+                background: input.trim() ? "#6B4FA8" : "#E3D9F2", color: "#fff", fontSize: 13, fontWeight: 600,
+                cursor: input.trim() ? "pointer" : "not-allowed",
+              }}>전송</button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <motion.button whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.94 }} onClick={() => setOpen((o) => !o)} style={{
+        width: 56, height: 56, borderRadius: 999, border: "none", cursor: "pointer",
+        background: "linear-gradient(135deg,#B49AEE,#6B4FA8)", color: "#fff", fontSize: 22,
+        boxShadow: "0 12px 32px rgba(107,79,168,0.45)", display: "flex", alignItems: "center", justifyContent: "center",
+      }}>{open ? "×" : "💬"}</motion.button>
     </div>
   );
 }
@@ -204,7 +293,7 @@ export default function YumeDashboard() {
   return (
     <div style={{
       minHeight: "100vh",
-      background: "radial-gradient(ellipse 80% 60% at 50% -10%, #EFE7FB 0%, #F6F2FC 45%, #FAF8FD 100%)",
+      background: "radial-gradient(ellipse 80% 60% at 50% -10%, #D3B8F5 0%, #E3CDF7 40%, #F1E3FA 75%, #F8F0FC 100%)",
       color: "#241F33",
       fontFamily: "-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI','Noto Sans KR',sans-serif",
       position: "relative"
@@ -222,8 +311,8 @@ export default function YumeDashboard() {
         width: 272, position: "fixed", top: 0, left: 0, height: "100vh", zIndex: 50,
         transform: sidebarOpen ? "translateX(0)" : "translateX(-100%)",
         transition: "transform 0.25s cubic-bezier(0.4,0,0.2,1)",
-        borderRight: "1px solid #E7DEF7",
-        background: "#F8F4FD", boxShadow: sidebarOpen ? "8px 0 32px rgba(107,79,168,0.12)" : "none",
+        borderRight: "1px solid #D9BFF0",
+        background: "#F3E7FC", boxShadow: sidebarOpen ? "8px 0 32px rgba(107,79,168,0.18)" : "none",
         display: "flex", flexDirection: "column"
       }}>
         <div style={{ padding: "18px 16px 12px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -235,11 +324,12 @@ export default function YumeDashboard() {
           }}>×</button>
         </div>
         <div style={{ padding: "0 12px 12px" }}>
-          <button onClick={startNew} style={{
+          <motion.button whileHover={{ backgroundColor: "#F1E6FB", borderColor: "#B993EE" }} whileTap={{ scale: 0.97 }}
+            onClick={startNew} style={{
             width: "100%", padding: "9px 12px", borderRadius: 10, border: "1px solid #E0D3F5",
             background: "#fff", color: "#4B3C73", fontSize: 13, fontWeight: 600, cursor: "pointer",
             display: "flex", alignItems: "center", gap: 6
-          }}>＋ 새 검증</button>
+          }}>＋ 새 검증</motion.button>
         </div>
         <div style={{ padding: "4px 16px 8px", fontSize: 11, fontWeight: 700, color: "#B0A2D6", letterSpacing: "0.03em" }}>
           최근 검증
@@ -286,33 +376,53 @@ export default function YumeDashboard() {
       <div>
       <nav style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "20px 32px", maxWidth: 1080, margin: "0 auto" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          <button onClick={() => setSidebarOpen(s => !s)} aria-label="기록 열기/닫기" style={{
-            width: 32, height: 32, borderRadius: 8, border: "1px solid #E4D9F5", background: "#fff",
+          <motion.button
+            initial={{ opacity: 0, scale: 0.3, rotate: -120 }} animate={{ opacity: 1, scale: 1, rotate: 0 }}
+            transition={{ type: "spring", stiffness: 260, damping: 16, delay: 0.05 }}
+            whileHover={{ backgroundColor: "#F1E6FB", borderColor: "#B993EE", scale: 1.06 }} whileTap={{ scale: 0.92 }}
+            onClick={() => setSidebarOpen(s => !s)} aria-label="기록 열기/닫기" style={{
+            width: 32, height: 32, borderRadius: 8, border: "1px solid #D4BEF0", background: "#fff",
             cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3
           }}>
             <span style={{ width: 14, height: 1.6, background: "#6E6389", borderRadius: 2 }} />
             <span style={{ width: 14, height: 1.6, background: "#6E6389", borderRadius: 2 }} />
             <span style={{ width: 14, height: 1.6, background: "#6E6389", borderRadius: 2 }} />
-          </button>
+          </motion.button>
           {!sidebarOpen && (
-            <div onClick={startNew} style={{ cursor: "pointer" }}>
+            <motion.div
+              initial={{ opacity: 0, x: -36, scale: 0.6, rotate: -15 }} animate={{ opacity: 1, x: 0, scale: 1, rotate: 0 }}
+              transition={{ type: "spring", stiffness: 220, damping: 15, delay: 0.15 }}
+              whileHover={{ scale: 1.08, rotate: -3 }} whileTap={{ scale: 0.95 }}
+              onClick={startNew} style={{ cursor: "pointer" }}>
               <YumeLogo height={20} />
-            </div>
+            </motion.div>
           )}
         </div>
         <div style={{ display: "flex", gap: 10 }}>
-          <button onClick={() => setShowPricing(true)} style={{
-            padding: "8px 16px", borderRadius: 980, border: "1px solid #E4D9F5",
-            background: plan === "free" ? "transparent" : "#F1E9FC", color: "#6B4FA8", fontSize: 14, fontWeight: 600, cursor: "pointer"
-          }}>{PLANS[plan].label} 구독 ▾</button>
-          <button onClick={() => { setAuthMode("login"); setShowAuth(true); }} style={{
-            padding: "8px 16px", borderRadius: 980, border: "1px solid #E4D9F5",
+          <motion.button
+            initial={{ opacity: 0, y: -28, scale: 0.7 }} animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ type: "spring", stiffness: 240, damping: 16, delay: 0.22 }}
+            whileHover={{ backgroundColor: "#DEC2F7", scale: 1.04 }} whileTap={{ scale: 0.96 }}
+            onClick={() => setShowPricing(true)} style={{
+            padding: "8px 16px", borderRadius: 980, border: "1px solid #D4BEF0",
+            background: plan === "free" ? "transparent" : "#EBD9FA", color: "#6B4FA8", fontSize: 14, fontWeight: 600, cursor: "pointer"
+          }}>{PLANS[plan].label} 구독 ▾</motion.button>
+          <motion.button
+            initial={{ opacity: 0, y: -28, scale: 0.7 }} animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ type: "spring", stiffness: 240, damping: 16, delay: 0.3 }}
+            whileHover={{ backgroundColor: "#F1E6FB", borderColor: "#B993EE", scale: 1.04 }} whileTap={{ scale: 0.96 }}
+            onClick={() => { setAuthMode("login"); setShowAuth(true); }} style={{
+            padding: "8px 16px", borderRadius: 980, border: "1px solid #D4BEF0",
             background: "transparent", color: "#241F33", fontSize: 14, fontWeight: 500, cursor: "pointer"
-          }}>로그인</button>
-          <button onClick={() => { setAuthMode("signup"); setShowAuth(true); }} style={{
+          }}>로그인</motion.button>
+          <motion.button
+            initial={{ opacity: 0, y: -28, scale: 0.5 }} animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ type: "spring", stiffness: 260, damping: 14, delay: 0.38 }}
+            whileHover={{ backgroundColor: "#3D3355", scale: 1.05 }} whileTap={{ scale: 0.95 }}
+            onClick={() => { setAuthMode("signup"); setShowAuth(true); }} style={{
             padding: "8px 18px", borderRadius: 980, border: "none",
             background: "#241F33", color: "#fff", fontSize: 14, fontWeight: 500, cursor: "pointer"
-          }}>시작하기</button>
+          }}>시작하기</motion.button>
         </div>
       </nav>
 
@@ -320,32 +430,44 @@ export default function YumeDashboard() {
       <AnimatePresence mode="wait">
         {stage === "idle" || stage === "error" ? (
           <motion.header key="hero-full"
-            initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.55, ease: EASE_APPLE }}
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.3 }}
             style={{ maxWidth: 720, margin: "36px auto 8px", padding: "0 24px", textAlign: "center" }}>
-            <div style={{ fontSize: "clamp(20px, 3.2vw, 26px)", fontWeight: 600, color: "#3B3159", marginBottom: 8 }}>
+            <motion.div
+              initial={{ opacity: 0, x: -90, y: -30, rotate: -10 }} animate={{ opacity: 1, x: 0, y: 0, rotate: 0 }}
+              transition={{ duration: 0.7, ease: EASE_APPLE, delay: 0.05 }}
+              style={{ fontSize: "clamp(20px, 3.2vw, 26px)", fontWeight: 600, color: "#3B3159", marginBottom: 8 }}>
               AI에게 질문하고
-            </div>
+            </motion.div>
             <div style={{ position: "relative", margin: "18px auto 20px", display: "flex", justifyContent: "center" }}>
               <motion.div
+                initial={{ opacity: 0 }}
                 animate={{ opacity: [0.6, 1, 0.6], scale: [1, 1.05, 1] }}
-                transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+                transition={{ opacity: { duration: 5, repeat: Infinity, ease: "easeInOut", delay: 0.6 }, scale: { duration: 5, repeat: Infinity, ease: "easeInOut", delay: 0.6 } }}
                 style={{
                   position: "absolute", width: 260, height: 140, left: "50%", top: "50%",
                   transform: "translate(-50%,-50%)",
-                  background: "radial-gradient(ellipse, rgba(180,154,238,0.45) 0%, rgba(180,154,238,0) 70%)",
+                  background: "radial-gradient(ellipse, rgba(150,100,225,0.55) 0%, rgba(150,100,225,0) 70%)",
                   filter: "blur(6px)", pointerEvents: "none"
                 }} />
-              <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ duration: 0.6, ease: EASE_APPLE, delay: 0.1 }}>
+              <motion.div
+                initial={{ scale: 0.2, opacity: 0, rotate: 20, y: -60 }} animate={{ scale: 1, opacity: 1, rotate: 0, y: 0 }}
+                transition={{ duration: 0.7, ease: EASE_APPLE, delay: 0.15 }}>
                 <YumeLogo height={92} />
               </motion.div>
             </div>
-            <div style={{ fontSize: "clamp(20px, 3.2vw, 26px)", fontWeight: 600, color: "#3B3159", marginBottom: 18 }}>
+            <motion.div
+              initial={{ opacity: 0, x: 90, y: -30, rotate: 10 }} animate={{ opacity: 1, x: 0, y: 0, rotate: 0 }}
+              transition={{ duration: 0.7, ease: EASE_APPLE, delay: 0.25 }}
+              style={{ fontSize: "clamp(20px, 3.2vw, 26px)", fontWeight: 600, color: "#3B3159", marginBottom: 18 }}>
               로 확인하세요
-            </div>
-            <p style={{ fontSize: 15.5, color: "#8577A8", lineHeight: 1.65, maxWidth: 480, margin: "0 auto" }}>
+            </motion.div>
+            <motion.p
+              initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, ease: EASE_APPLE, delay: 0.4 }}
+              style={{ fontSize: 15.5, color: "#8577A8", lineHeight: 1.65, maxWidth: 480, margin: "0 auto" }}>
               법률, 의료, 금융, 역사, 과학 — 어떤 주제든 상관없습니다. AI 답변 속 사실 주장을 실시간으로 확인합니다.
-            </p>
+            </motion.p>
           </motion.header>
         ) : (
           <motion.header key="hero-compact"
@@ -362,11 +484,13 @@ export default function YumeDashboard() {
 
       {/* MAIN PANEL */}
       <main style={{ maxWidth: 720, margin: "28px auto 100px", padding: "0 24px" }}>
-        <motion.div layout transition={{ duration: 0.4, ease: EASE_APPLE }} style={{
-          background: "#fff", borderRadius: 20, border: "1px solid #E7DEF7",
-          boxShadow: "0 1px 2px rgba(107,79,168,0.05), 0 16px 44px rgba(107,79,168,0.14)", overflow: "hidden"
+        <motion.div layout
+          initial={{ opacity: 0, y: 70, scale: 0.9, rotate: 3 }} animate={{ opacity: 1, y: 0, scale: 1, rotate: 0 }}
+          transition={{ duration: 0.6, ease: EASE_APPLE, delay: 0.5 }} style={{
+          background: "#fff", borderRadius: 20, border: "1px solid #D9BFF0",
+          boxShadow: "0 1px 2px rgba(107,79,168,0.08), 0 16px 44px rgba(107,79,168,0.22)", overflow: "hidden"
         }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "14px 20px", borderBottom: "1px solid #EFE7FA" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "14px 20px", borderBottom: "1px solid #E3CEF5" }}>
             <span style={{ width: 9, height: 9, borderRadius: 999, background: "#E2665E" }} />
             <span style={{ width: 9, height: 9, borderRadius: 999, background: "#E8B349" }} />
             <span style={{ width: 9, height: 9, borderRadius: 999, background: "#5FBD73" }} />
@@ -376,12 +500,12 @@ export default function YumeDashboard() {
           {(stage === "idle" || stage === "error") && (
             <div style={{ padding: 24 }}>
               <textarea value={input} onChange={(e) => setInput(e.target.value)} placeholder={PLACEHOLDER} rows={7}
-                style={{ width: "100%", fontSize: 14, lineHeight: 1.7, color: "#33363F", padding: 16, background: "#F8F4FD",
-                  borderRadius: 12, border: "1px solid #EFE7FA", marginBottom: 14, resize: "vertical", fontFamily: "inherit", boxSizing: "border-box" }} />
+                style={{ width: "100%", fontSize: 14, lineHeight: 1.7, color: "#33363F", padding: 16, background: "#F1E6FB",
+                  borderRadius: 12, border: "1px solid #DEC8F2", marginBottom: 14, resize: "vertical", fontFamily: "inherit", boxSizing: "border-box" }} />
               {stage === "error" && (
                 <div style={{ fontSize: 13, color: "#C6402F", background: "#FBE9E7", borderRadius: 10, padding: "10px 14px", marginBottom: 14 }}>{errMsg}</div>
               )}
-              <motion.button whileHover={input.trim() ? { scale: 1.008 } : {}} whileTap={input.trim() ? { scale: 0.985 } : {}}
+              <motion.button whileHover={input.trim() ? { scale: 1.015, boxShadow: "0 8px 24px rgba(107,79,168,0.35)" } : {}} whileTap={input.trim() ? { scale: 0.985 } : {}}
                 onClick={runCheck} disabled={!input.trim()} style={{
                 width: "100%", padding: "13px 0", borderRadius: 12, border: "none",
                 background: input.trim() ? "linear-gradient(90deg,#B49AEE,#6B4FA8)" : "#E3D9F2",
@@ -392,7 +516,7 @@ export default function YumeDashboard() {
 
           {stage === "loading" && (
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "48px 0", gap: 14 }}>
-              <div style={{ width: 28, height: 28, borderRadius: 999, border: "3px solid #E4D9F5", borderTopColor: "#8B7FD8", animation: "yume-spin 0.8s linear infinite" }} />
+              <div style={{ width: 28, height: 28, borderRadius: 999, border: "3px solid #D4BEF0", borderTopColor: "#8B7FD8", animation: "yume-spin 0.8s linear infinite" }} />
               <AnimatePresence mode="wait">
                 <motion.div key={progressMsg} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} transition={{ duration: 0.25 }}
                   style={{ fontSize: 14, color: "#9C8FC2", textAlign: "center", maxWidth: 420, padding: "0 16px" }}>
@@ -407,7 +531,7 @@ export default function YumeDashboard() {
           {stage === "done" && result && (
             <>
               {/* TAB BAR */}
-              <div style={{ display: "flex", borderBottom: "1px solid #EFE7FA" }}>
+              <div style={{ display: "flex", borderBottom: "1px solid #E3CEF5" }}>
                 {[
                   { id: "result", label: "검증 결과" },
                   { id: "sources", label: `근거 자료 ${allSources.length ? `(${allSources.length})` : ""}` },
@@ -434,7 +558,7 @@ export default function YumeDashboard() {
                 {/* TAB 1: RESULT */}
                 {tab === "result" && (
                   <>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", borderRadius: 12, background: "#F1E9FC", border: "1px solid #E4D9F5", marginBottom: 10 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", borderRadius: 12, background: "#EAD8FA", border: "1px solid #D4BEF0", marginBottom: 10 }}>
                       <span style={{ fontSize: 20, fontWeight: 700, color: "#0A0A0A" }}>{confirmedCount}/{totalCount}</span>
                       <span style={{ fontSize: 13.5, color: "#4C5266" }}>개 주장이 확인됨 · 도메인: {result.overall_domain}</span>
                     </div>
@@ -486,7 +610,7 @@ export default function YumeDashboard() {
                         {allSources.map((s, i) => (
                           <a key={i} href={s.url} target="_blank" rel="noreferrer" style={{
                             display: "block", padding: "12px 14px", borderRadius: 12,
-                            background: "#F9FAFB", border: "1px solid #E7DEF7", textDecoration: "none"
+                            background: "#F9FAFB", border: "1px solid #D9BFF0", textDecoration: "none"
                           }}>
                             <div style={{ fontSize: 10.5, color: "#A99BC9", marginBottom: 3 }}>관련 주장: {s.forClaim}</div>
                             <div style={{ fontSize: 13.5, color: "#7C5CD9", fontWeight: 600, marginBottom: 2 }}>{s.title || s.url}</div>
@@ -512,7 +636,7 @@ export default function YumeDashboard() {
                           <a key={i} href={`https://www.coupang.com/np/search?q=${encodeURIComponent(p.keyword)}`} target="_blank" rel="noreferrer" style={{
                             display: "flex", justifyContent: "space-between", alignItems: "center",
                             padding: "14px 16px", borderRadius: 12, background: "#F9FAFB",
-                            border: "1px solid #E7DEF7", textDecoration: "none"
+                            border: "1px solid #D9BFF0", textDecoration: "none"
                           }}>
                             <div>
                               <div style={{ fontSize: 14, fontWeight: 700, color: "#241F33", marginBottom: 3 }}>{p.keyword}</div>
@@ -528,9 +652,9 @@ export default function YumeDashboard() {
               </motion.div>
               </AnimatePresence>
 
-                <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }} onClick={reset} style={{
+                <motion.button whileHover={{ scale: 1.01, backgroundColor: "#F1E6FB" }} whileTap={{ scale: 0.98 }} onClick={reset} style={{
                   width: "100%", marginTop: 18, padding: "12px 0", borderRadius: 12,
-                  border: "1px solid #E4D9F5", background: "transparent", color: "#6E6389", fontSize: 14, fontWeight: 500, cursor: "pointer"
+                  border: "1px solid #D4BEF0", background: "transparent", color: "#6E6389", fontSize: 14, fontWeight: 500, cursor: "pointer"
                 }}>다른 답변 확인하기</motion.button>
               </div>
             </>
@@ -553,9 +677,9 @@ export default function YumeDashboard() {
             <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>{authMode === "login" ? "로그인" : "유메 시작하기"}</div>
             <div style={{ fontSize: 12.5, color: "#A99BC9", marginBottom: 20 }}>UI 데모 — 실제 인증은 동작하지 않습니다</div>
             <label style={{ fontSize: 12.5, color: "#6E6389", fontWeight: 500 }}>이메일</label>
-            <input placeholder="you@example.com" style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: "1px solid #E4D9F5", margin: "6px 0 14px", fontSize: 14, boxSizing: "border-box" }} />
+            <input placeholder="you@example.com" style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: "1px solid #D4BEF0", margin: "6px 0 14px", fontSize: 14, boxSizing: "border-box" }} />
             <label style={{ fontSize: 12.5, color: "#6E6389", fontWeight: 500 }}>비밀번호</label>
-            <input type="password" placeholder="••••••••" style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: "1px solid #E4D9F5", margin: "6px 0 18px", fontSize: 14, boxSizing: "border-box" }} />
+            <input type="password" placeholder="••••••••" style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: "1px solid #D4BEF0", margin: "6px 0 18px", fontSize: 14, boxSizing: "border-box" }} />
             <button style={{ width: "100%", padding: "12px 0", borderRadius: 12, border: "none", background: "#241F33", color: "#fff", fontSize: 14.5, fontWeight: 600, cursor: "pointer" }}>
               {authMode === "login" ? "로그인" : "계정 만들기"}
             </button>
@@ -587,7 +711,7 @@ export default function YumeDashboard() {
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 14, marginTop: 20 }}>
               {Object.entries(PLANS).map(([key, p]) => (
                 <div key={key} style={{
-                  border: plan === key ? "2px solid #6B4FA8" : "1px solid #E7DEF7", borderRadius: 16, padding: 20,
+                  border: plan === key ? "2px solid #6B4FA8" : "1px solid #D9BFF0", borderRadius: 16, padding: 20,
                   background: key === "expert" ? "#FAF7FF" : "#fff", display: "flex", flexDirection: "column"
                 }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: "#6B4FA8", marginBottom: 4 }}>{p.label}</div>
@@ -605,7 +729,7 @@ export default function YumeDashboard() {
                     disabled={plan === key}
                     style={{
                       width: "100%", padding: "10px 0", borderRadius: 10, border: "none",
-                      background: plan === key ? "#EDE4FB" : (key === "free" ? "#F1E9FC" : "linear-gradient(90deg,#B49AEE,#6B4FA8)"),
+                      background: plan === key ? "#EDE4FB" : (key === "free" ? "#EAD8FA" : "linear-gradient(90deg,#B49AEE,#6B4FA8)"),
                       color: plan === key ? "#9C8FC2" : (key === "free" ? "#6B4FA8" : "#fff"),
                       fontSize: 13.5, fontWeight: 600, cursor: plan === key ? "default" : "pointer"
                     }}>{plan === key ? "현재 플랜" : key === "free" ? "무료로 전환" : "결제하기"}</button>
@@ -644,6 +768,8 @@ export default function YumeDashboard() {
           </div>
         </div>
       )}
+
+      <YumeChatWidget />
     </div>
   );
 }

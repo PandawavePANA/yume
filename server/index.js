@@ -4,7 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import express from "express";
 import cors from "cors";
-import { extractAndVerify } from "./claude.js";
+import { extractAndVerify, chatReply } from "./claude.js";
 import { resolveLegalClaims } from "./legalPipeline.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -27,7 +27,7 @@ app.post("/api/verify", async (req, res) => {
 
   try {
     send("progress", { message: "AI 답변에서 사실 주장을 추출하는 중…" });
-    const extracted = await extractAndVerify(text);
+    const extracted = await extractAndVerify(text, (message) => send("progress", { message }));
     send("progress", { message: `${extracted.claims.length}개 주장을 찾았습니다. 법률 주장은 공식 데이터와 대조합니다…` });
 
     const claims = await resolveLegalClaims(extracted.claims, {
@@ -41,6 +41,18 @@ app.post("/api/verify", async (req, res) => {
     send("error", { error: e.message || "서버 오류가 발생했습니다." });
   } finally {
     res.end();
+  }
+});
+
+app.post("/api/chat", async (req, res) => {
+  const messages = Array.isArray(req.body?.messages) ? req.body.messages : [];
+  if (messages.length === 0) return res.status(400).json({ error: "메시지가 없습니다." });
+  try {
+    const reply = await chatReply(messages);
+    res.json({ reply });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: e.message || "서버 오류가 발생했습니다." });
   }
 });
 

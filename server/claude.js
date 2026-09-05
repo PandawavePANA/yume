@@ -25,6 +25,78 @@ async function callClaude({ system, messages, tools, max_tokens = 4000 }) {
   return text;
 }
 
+// 스트리밍 버전 — web_search 도구를 실제로 호출하는 순간(검색어가 확정되는 시점)을
+// onProgress로 실시간 중계하기 위해 사용한다 (로딩 중 "지금 뭘 하고 있는지" 노출용).
+async function callClaudeStreaming({ system, messages, tools, max_tokens = 4000, onProgress = () => {} }) {
+  const res = await fetch(ANTHROPIC_API_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": apiKey(),
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({ model: MODEL, max_tokens, system, messages, stream: true, ...(tools ? { tools } : {}) }),
+  });
+  if (!res.ok || !res.body) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.error?.message || `Claude API 오류 (${res.status})`);
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let fullText = "";
+  const blockKinds = {}; // index -> "text" | "tool_use"
+  const blockNames = {}; // index -> tool name (예: "web_search")
+  const partialJson = {}; // index -> 누적된 input_json_delta 문자열
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const chunks = buffer.split("\n\n");
+    buffer = chunks.pop();
+    for (const chunk of chunks) {
+      const dataLine = chunk.split("\n").find((l) => l.startsWith("data: "));
+      if (!dataLine) continue;
+      let evt;
+      try { evt = JSON.parse(dataLine.slice("data: ".length)); } catch { continue; }
+
+      if (evt.type === "content_block_start") {
+        const kind = evt.content_block?.type;
+        blockKinds[evt.index] = kind;
+        if (kind === "tool_use" || kind === "server_tool_use") {
+          blockNames[evt.index] = evt.content_block?.name || "";
+          partialJson[evt.index] = "";
+        }
+      } else if (evt.type === "content_block_delta") {
+        if (evt.delta?.type === "text_delta") {
+          fullText += evt.delta.text;
+        } else if (evt.delta?.type === "input_json_delta") {
+          partialJson[evt.index] = (partialJson[evt.index] || "") + (evt.delta.partial_json || "");
+        }
+      } else if (evt.type === "content_block_stop") {
+        const kind = blockKinds[evt.index];
+        if (kind === "tool_use" || kind === "server_tool_use") {
+          try {
+            const input = JSON.parse(partialJson[evt.index] || "{}");
+            if (blockNames[evt.index] === "web_search" && input.query) {
+              onProgress(`웹에서 "${input.query}" 검색하는 중…`);
+            }
+          } catch {
+            // 부분 JSON 파싱 실패 시 조용히 무시 (진행상황 표시는 부가 기능일 뿐)
+          }
+        }
+      } else if (evt.type === "error") {
+        throw new Error(evt.error?.message || "Claude API 스트리밍 오류");
+      }
+    }
+  }
+
+  if (!fullText.trim()) throw new Error("응답이 비어 있습니다. 입력을 조금 줄여서 다시 시도해주세요.");
+  return fullText;
+}
+
 function extractJson(text) {
   const cleaned = text.replace(/```json|```/g, "").trim();
   const start = cleaned.indexOf("{");
@@ -70,12 +142,13 @@ const EXTRACT_SYSTEM_PROMPT = `당신은 '유메'라는 AI 답변 팩트체크 �
 }
 legal_ref 필드는 domain이 "법률"인 항목에만 포함하고, 그 외 항목에는 넣지 마세요.`;
 
-export async function extractAndVerify(text) {
-  const raw = await callClaude({
+export async function extractAndVerify(text, onProgress = () => {}) {
+  const raw = await callClaudeStreaming({
     system: EXTRACT_SYSTEM_PROMPT,
     messages: [{ role: "user", content: `다음 AI 답변을 검증해줘:\n\n${text}` }],
     tools: [{ type: "web_search_20250305", name: "web_search" }],
     max_tokens: 8000,
+    onProgress,
   });
   const parsed = extractJson(raw);
   if (!Array.isArray(parsed.claims) || parsed.claims.length === 0) {
@@ -119,13 +192,35 @@ const WEB_FALLBACK_SYSTEM_PROMPT = `당신은 유메의 법률 리서치 보조�
 반드시 아래 JSON 형식으로만 응답하세요. 다른 설명, 마크다운 코드블록을 추가하지 마세요.
 {"verdict": "confirmed|false|uncertain", "explanation": "구체적 근거 (100자 이내)", "sources": [{ "title": "출처 제목", "url": "https://..." }]}`;
 
-export async function verifyLegalClaimViaWeb(claimText) {
-  const raw = await callClaude({
+export async function verifyLegalClaimViaWeb(claimText, onProgress = () => {}) {
+  const raw = await callClaudeStreaming({
     system: WEB_FALLBACK_SYSTEM_PROMPT,
     messages: [{ role: "user", content: `다음 법률 관련 주장을 검색해서 검증해줘:\n\n${claimText}` }],
     tools: [{ type: "web_search_20250305", name: "web_search" }],
     max_tokens: 2000,
+    onProgress,
   });
   const parsed = extractJson(raw);
   return { verdict: parsed.verdict || "uncertain", explanation: parsed.explanation || "", sources: parsed.sources || [] };
+}
+
+const CHAT_SYSTEM_PROMPT = `당신은 '유메(YUME)' 웹사이트 우측 하단에 떠 있는 대화형 AI 어시스턴트입니다. 유메 자체는 AI 답변을 공식 데이터·웹검색으로 대조해주는 팩트체크 서비스이지만, 당신은 그 기능에 국한되지 않는 자유로운 대화 상대입니다.
+
+- 유메 서비스에 대한 질문(무엇인지, 사용법, 요금제 — 무료/스탠다드 9,000원·월/전문가 29,000원·월, B2B·API·데이터셋 라인업 등)에는 정확히 안내하세요.
+- 그 외에는 일상 대화, 잡담, 일반 지식, 의견을 묻는 질문 등 어떤 주제든 자연스럽고 성실하게 답하세요 — "사과는 맛있어?" 같은 가벼운 질문에도 실제로 대화하듯 답하면 됩니다. 유메와 무관하다고 회피하거나 다른 곳으로 안내하지 마세요.
+- 친근하고 자연스러운 한국어로, 상황에 맞는 길이로 답하세요(보통 2~5문장).
+- 사실 여부가 중요한 긴 텍스트나 복잡한 법률·의료 주장을 검증해달라고 하면, 참고로 위쪽 검증창을 이용하면 더 꼼꼼히 봐준다고 안내는 하되, 대화 자체는 계속 이어가세요.
+- 모르는 것은 모른다고 솔직히 말하세요.`;
+
+export async function chatReply(messages) {
+  const safeMessages = messages
+    .filter((m) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
+    .slice(-10);
+  if (safeMessages.length === 0) throw new Error("메시지가 없습니다.");
+  const text = await callClaude({
+    system: CHAT_SYSTEM_PROMPT,
+    messages: safeMessages,
+    max_tokens: 400,
+  });
+  return text.trim();
 }
