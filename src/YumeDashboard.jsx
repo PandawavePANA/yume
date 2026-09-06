@@ -11,6 +11,22 @@ function YumeLogo({ height = 30 }) {
   );
 }
 
+// 로딩 중 서버 진행상황(SSE)이 잠깐 조용할 때 보여줄 필러 문구 — 사용자가 붙여넣은
+// 문장을 조각내서 "이 부분을 보는 중"처럼 보이게 해, 실제로 아무 일도 안 하는 것처럼
+// (버퍼링처럼) 느껴지지 않게 한다.
+function buildFillerMessages(text) {
+  const pieces = text
+    .split(/(?<=[.!?。！？\n])\s*/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 4);
+  const source = pieces.length > 0 ? pieces : [text.trim()];
+  const fillers = source.slice(0, 8).map((p) => {
+    const short = p.length > 24 ? p.slice(0, 24) + "…" : p;
+    return `"${short}" 부분을 분석하는 중…`;
+  });
+  return fillers.length > 0 ? fillers : ["내용을 분석하는 중…"];
+}
+
 const PLACEHOLDER = `여기에 ChatGPT, 클로드, 제미나이 등 AI의 답변을 그대로 붙여넣으세요.
 법률, 의료, 금융, 역사, 과학 등 어떤 주제든 상관없습니다.
 
@@ -243,6 +259,21 @@ export default function YumeDashboard() {
     setStage("loading"); setResult(null); setRevealed(0); setErrMsg(""); setTab("result");
     setProgressMsg("사실 주장을 추출하고 실시간으로 검색 중…");
 
+    // 서버가 실제 진행상황(SSE)을 보내주긴 하지만, 클로드가 다음 검색을 하기 전까지
+    // 몇 초씩 조용할 때가 있다 — 그동안 로딩 문구가 멈춰있으면 버퍼링처럼 보이므로,
+    // 최소 1.5초에 한 번은 (입력 문장 조각 기반) 필러 문구로라도 갱신해준다.
+    // 서버에서 진짜 진행상황이 오면 그게 우선하고, 타이머는 그 시점부터 다시 잰다.
+    let lastUpdateAt = Date.now();
+    const fillers = buildFillerMessages(input);
+    let fillerIdx = 0;
+    const fillerTimer = setInterval(() => {
+      if (Date.now() - lastUpdateAt >= 1500) {
+        setProgressMsg(fillers[fillerIdx % fillers.length]);
+        fillerIdx += 1;
+        lastUpdateAt = Date.now();
+      }
+    }, 400);
+
     // 주장 추출 + 도메인 분류 + (법률 도메인만) 법제처 공식 데이터 이중검증은
     // 서버(server/index.js → legalPipeline.js)에서 SSE로 진행상황을 스트리밍하며 처리한다.
     try {
@@ -274,7 +305,7 @@ export default function YumeDashboard() {
           if (!eventLine || !dataLine) continue;
           const event = eventLine.slice("event: ".length);
           const data = JSON.parse(dataLine.slice("data: ".length));
-          if (event === "progress") setProgressMsg(data.message);
+          if (event === "progress") { setProgressMsg(data.message); lastUpdateAt = Date.now(); }
           else if (event === "result") finalResult = data;
           else if (event === "error") serverError = data.error;
         }
@@ -292,6 +323,8 @@ export default function YumeDashboard() {
       console.error(e);
       setErrMsg(e.message || "분석 중 문제가 발생했습니다.");
       setStage("error");
+    } finally {
+      clearInterval(fillerTimer);
     }
   };
 
