@@ -46,6 +46,16 @@ const PLANS = {
   expert: { label: "전문가", price: "29,000원", period: "/월", tagline: "조문·판례를 직접 대조하는 수준의 정확도", features: ["스탠다드 전체 포함", "조문·판례 원문 대조 상세 리포트", "여러 건 한 번에 검증(배치)", "API 사용량 포함", "우선 지원"] },
 };
 
+// AI 할루시네이션이 발생하는 구조적 원인 5가지와, 유메가 도메인에 상관없이
+// 그 원인마다 붙이는 대응 로직. 법률 도메인에서 먼저 검증한 내용을 일반화했다.
+const HALLUCINATION_CAUSES = [
+  { title: "저빈도 값 붕괴", problem: "조문 번호·수치처럼 드문 값은 AI가 비슷한 값과 섞습니다.", fix: "원문을 항목 단위까지 펼쳐 문자열로 직접 대조" },
+  { title: "시점 붕괴", problem: "개정 전·후 버전이 둘 다 학습돼 어느 게 최신인지 AI는 모릅니다.", fix: "지금 유효한 버전만 기준으로 판정" },
+  { title: "자기회귀적 오류 전파", problem: "한 번 부정확한 표현이 나오면 뒤이어 계속 틀립니다.", fix: "답변 전체가 아니라 주장 단위로 쪼개 독립 검증" },
+  { title: "확신 편향", problem: "근거가 약해도 AI의 말투는 항상 자신 있게 나옵니다.", fix: "확인됨·사실과다름·판단보류, 3단계로 정직하게 판정" },
+  { title: "유사 개체 혼동", problem: "이름이나 맥락이 비슷한 두 개념이 서로 섞입니다.", fix: "유사도가 아니라 원문 일치 여부로 최종 판정" },
+];
+
 function StatusIcon({ verdict }) {
   const v = VERDICT[verdict] || VERDICT.uncertain;
   return (
@@ -1152,11 +1162,43 @@ export default function YumeDashboard() {
             </h2>
             <Reveal delay={0.1}>
               <p style={{ fontSize: 15, color: "#6E6389", lineHeight: 1.8, margin: 0 }}>
-                일반적인 팩트체크는 또 다른 AI의 짐작에 의존합니다. 유메는 법률 영역에서만큼은 법제처 국가법령정보 공동활용 API로 실제 조문·판례 원문을 직접 대조합니다. 짐작이 아니라, 확인입니다.
+                일반적인 팩트체크는 또 다른 AI의 짐작에 의존합니다. 유메는 법률 도메인에서 먼저 검증한 "공식 원천 데이터와 직접 대조하는 구조"를 도메인마다 반복합니다. 짐작이 아니라, 확인입니다.
               </p>
             </Reveal>
           </div>
           <RotatingShowcaseCard />
+        </div>
+      </section>
+
+      {/* 왜 AI는 틀릴까 — 할루시네이션 원인 5가지와 유메의 대응 */}
+      <section style={{ maxWidth: 1080, margin: "180px auto 0", padding: "0 24px", textAlign: "center" }}>
+        <Reveal>
+          <div style={{ fontSize: 12.5, fontWeight: 700, color: "#8B5FD9", letterSpacing: "0.08em", marginBottom: 14 }}>WHY AI HALLUCINATES</div>
+        </Reveal>
+        <h2 style={{ fontSize: "clamp(24px, 3.6vw, 34px)", fontWeight: 700, color: "#241F33", lineHeight: 1.35, margin: "0 0 12px" }}>
+          <WordReveal lines={["AI는 왜 틀릴까요,", "유메는 원인부터 봅니다."]} />
+        </h2>
+        <Reveal delay={0.08}>
+          <p style={{ fontSize: 15, color: "#6E6389", lineHeight: 1.8, margin: "0 auto 48px", maxWidth: 640 }}>
+            할루시네이션은 우연이 아니라, AI가 답을 만드는 방식 자체에서 반복되는 구조적 현상입니다. 유메는 이 원인 다섯 가지를 각각 뜯어보고, 원인마다 다른 검증 로직을 붙였습니다. 그래서 어느 도메인이든 같은 구조를 그대로 반복할 수 있습니다.
+          </p>
+        </Reveal>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 20 }}>
+          {HALLUCINATION_CAUSES.map((c, i) => (
+            <Reveal key={c.title} delay={i * 0.06}>
+              <TiltCard strength={8}>
+                <div style={{
+                  background: "#fff", border: "1px solid #D9BFF0", borderRadius: 18, padding: "24px 20px",
+                  height: "100%", textAlign: "left", boxShadow: "0 10px 28px rgba(107,79,168,0.08)"
+                }}>
+                  <div style={{ fontSize: 22, fontWeight: 700, color: "#DEC8F2", marginBottom: 10 }}>{String(i + 1).padStart(2, "0")}</div>
+                  <div style={{ fontSize: 14.5, fontWeight: 700, color: "#241F33", marginBottom: 6 }}>{c.title}</div>
+                  <div style={{ fontSize: 12.5, color: "#8577A8", lineHeight: 1.6, marginBottom: 10 }}>{c.problem}</div>
+                  <div style={{ fontSize: 12.5, color: "#5B3FA0", lineHeight: 1.6, fontWeight: 600 }}>→ {c.fix}</div>
+                </div>
+              </TiltCard>
+            </Reveal>
+          ))}
         </div>
       </section>
 
@@ -1266,10 +1308,11 @@ export default function YumeDashboard() {
             </div>
             <div style={{ fontSize: 12.5, color: "#A99BC9", marginBottom: 22 }}>유메의 검증 엔진을 API·데이터·엔터프라이즈 솔루션으로 확장한 라인업입니다 (데모)</div>
 
-            <div style={{ fontSize: 11, fontWeight: 700, color: "#B0A2D6", letterSpacing: "0.03em", marginBottom: 10 }}>개발자 · 데이터</div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "#B0A2D6", letterSpacing: "0.03em", marginBottom: 10 }}>개발자 · 데이터 · 파트너십</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 26 }}>
-              <BizRow title="유메 API" desc="검증 엔진을 그대로 API로 호출해 자체 서비스에 통합할 수 있습니다." cta="API 키 발급 (준비 중)" />
-              <BizRow title="데이터셋 라이선싱" desc="유메가 익명화·라벨링한 질의응답 검증 데이터셋을 제공합니다." cta="문의하기" />
+              <BizRow title="유메 API" desc="AI 기능이 있는 모든 서비스에 실시간 검증을 API로 붙일 수 있습니다. 호출량 기반 종량제." cta="API 키 발급 (준비 중)" />
+              <BizRow title="협업 파트너십" desc="검증 결과와 맞닿은 상품·서비스를 결과 화면에 노출하고, 노출당 정산받는 제휴 프로그램입니다." cta="제휴 문의" />
+              <BizRow title="데이터셋 라이선싱" desc="익명화된 질의·판정 데이터셋을 제공합니다. AI 모델의 할루시네이션 개선용 학습 데이터로 활용할 수 있습니다." cta="문의하기" />
             </div>
 
             <div style={{ fontSize: 11, fontWeight: 700, color: "#B0A2D6", letterSpacing: "0.03em", marginBottom: 10 }}>B2B 솔루션</div>
