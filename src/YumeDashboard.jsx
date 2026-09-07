@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useScroll, useTransform, useMotionValue, useSpring } from "framer-motion";
 
 const EASE_APPLE = [0.22, 1, 0.36, 1];
 
@@ -174,6 +174,344 @@ function YumeChatWidget() {
   );
 }
 
+// 헤드라인을 단어 단위로 흩뿌렸다가 스크롤 진입 시 블러가 걷히며 한 단어씩
+// 순차적으로 제자리에 안착하는 연출 (애플 키노트 타이포 인트로 스타일).
+function WordReveal({ lines, delay = 0, style }) {
+  let wordCount = 0;
+  return (
+    <>
+      {lines.map((line, li) => (
+        <span key={li} style={{ display: "block" }}>
+          {line.split(" ").map((word, wi) => {
+            const i = wordCount++;
+            return (
+              <motion.span key={wi}
+                initial={{ opacity: 0, y: 26, filter: "blur(8px)" }}
+                whileInView={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                viewport={{ once: false, amount: 0.6 }}
+                transition={{ duration: 0.55, ease: EASE_APPLE, delay: delay + i * 0.055 }}
+                style={{ display: "inline-block", marginRight: "0.28em", ...style }}
+              >{word}</motion.span>
+            );
+          })}
+        </span>
+      ))}
+    </>
+  );
+}
+
+// 뷰포트에 들어오는 순간 0에서 목표값까지 이징을 타며 세는 카운터 (통계 카드용).
+function CountUp({ to, suffix = "", duration = 1.4 }) {
+  const [value, setValue] = useState(0);
+  const startedRef = React.useRef(false);
+  return (
+    <motion.span
+      onViewportEnter={() => {
+        if (startedRef.current) return;
+        startedRef.current = true;
+        const start = performance.now();
+        const tick = (now) => {
+          const p = Math.min(1, (now - start) / (duration * 1000));
+          const eased = 1 - Math.pow(1 - p, 3);
+          setValue(Math.round(to * eased));
+          if (p < 1) requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      }}
+      viewport={{ once: true, amount: 0.8 }}
+    >{value}{suffix}</motion.span>
+  );
+}
+
+// "10건 → 73건" 통계 카드 전용 등장 애니메이션. 다른 곳의 범용 Reveal(전체가
+// 한 덩어리로 페이드인)과 다르게, 숫자·화살표·캡션이 순서대로 스프링으로 튀어
+// 오르고 특히 충격적인 숫자(73건)는 한 번 더 부풀었다가 보라색 섬광과 함께
+// 자리를 잡는다 — "10건에서 73건으로 급증했다"는 이야기를 움직임으로 보여준다.
+// 스크롤을 올렸다 내리면 매번 다시 재생된다(viewport once:false).
+function HallucinationStatCard() {
+  const container = {
+    hidden: {},
+    show: { transition: { staggerChildren: 0.16, delayChildren: 0.05 } },
+  };
+  const card = {
+    hidden: { opacity: 0, y: 16 },
+    show: { opacity: 1, y: 0, transition: { duration: 0.3, ease: EASE_APPLE } },
+  };
+  const numLeft = {
+    hidden: { opacity: 0, x: -24, scale: 0.7 },
+    show: { opacity: 1, x: 0, scale: 1, transition: { type: "spring", stiffness: 260, damping: 18 } },
+  };
+  const arrow = {
+    hidden: { opacity: 0, scaleX: 0 },
+    show: { opacity: 1, scaleX: 1, transition: { duration: 0.5, ease: EASE_APPLE } },
+  };
+  const numRight = {
+    hidden: { opacity: 0, scale: 1.8 },
+    show: { opacity: 1, scale: 1, transition: { type: "spring", stiffness: 200, damping: 13 } },
+  };
+  const glow = {
+    hidden: { opacity: 0, scale: 0.4 },
+    show: { opacity: [0, 0.9, 0], scale: [0.4, 1.6, 1.9], transition: { duration: 1, ease: "easeOut" } },
+  };
+  const caption = {
+    hidden: { opacity: 0, y: 10 },
+    show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: EASE_APPLE } },
+  };
+
+  return (
+    <motion.div variants={container} initial="hidden" whileInView="show" viewport={{ once: false, amount: 0.6 }}>
+      <TiltCard strength={10}>
+        <motion.div
+          variants={card}
+          whileHover={{ scale: 1.035, boxShadow: "0 22px 56px rgba(107,79,168,0.24)" }}
+          transition={{ duration: 0.35, ease: EASE_APPLE }}
+          style={{ background: "#fff", border: "1px solid #D9BFF0", borderRadius: 20, padding: "28px 36px", minWidth: 220, boxShadow: "0 16px 44px rgba(107,79,168,0.14)" }}
+        >
+          <div style={{ fontSize: "clamp(30px, 5vw, 44px)", fontWeight: 700, color: "#6B4FA8", display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
+            <motion.span variants={numLeft} style={{ display: "inline-block" }}>
+              <CountUp to={10} suffix="건" />
+            </motion.span>
+            <motion.span variants={arrow} style={{ display: "inline-block" }}>→</motion.span>
+            <motion.span variants={numRight} style={{ display: "inline-block", position: "relative" }}>
+              <motion.span
+                variants={glow}
+                style={{
+                  position: "absolute", inset: "-18px -14px", borderRadius: 999,
+                  background: "radial-gradient(circle, rgba(139,95,217,0.5) 0%, rgba(139,95,217,0) 70%)",
+                  zIndex: -1,
+                }}
+              />
+              <CountUp to={73} suffix="건" />
+            </motion.span>
+          </div>
+          <motion.div variants={caption} style={{ fontSize: 13, color: "#8577A8", marginTop: 8, lineHeight: 1.6 }}>
+            법정 문서에서 발견된 AI 할루시네이션<br />2023년 → 2025년 상반기
+          </motion.div>
+        </motion.div>
+      </TiltCard>
+    </motion.div>
+  );
+}
+
+// 스크롤해서 뷰포트에 들어올 때 한 번 페이드+슬라이드 인 되는 범용 래퍼.
+// once:false — 아래로 스크롤하면 나타나고, 다시 위로 스크롤해서 벗어나면 원래
+// 숨은 상태로 되돌아갔다가, 다시 내려오면 또 나타난다. 페이지가 정적인 "한 번 보고
+// 끝"이 아니라 스크롤 방향에 실시간으로 반응하는 상호작용처럼 느껴지게 한다.
+function Reveal({ children, delay = 0, y = 64, scale = 0.88, blur = 0, style }) {
+  const hidden = blur ? { opacity: 0, y, scale, filter: `blur(${blur}px)` } : { opacity: 0, y, scale };
+  const shown = blur ? { opacity: 1, y: 0, scale: 1, filter: "blur(0px)" } : { opacity: 1, y: 0, scale: 1 };
+  return (
+    <motion.div
+      initial={hidden}
+      whileInView={shown}
+      viewport={{ once: false, amount: 0.35 }}
+      transition={{ duration: 0.8, ease: EASE_APPLE, delay }}
+      style={style}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+// 마우스를 올리면 카드가 커서 방향으로 살짝 입체적으로 기울어지는 인터랙션.
+function TiltCard({ children, style, strength = 18, stiffness = 300, damping = 22 }) {
+  const ref = React.useRef(null);
+  const rotateX = useMotionValue(0);
+  const rotateY = useMotionValue(0);
+  const springX = useSpring(rotateX, { stiffness, damping });
+  const springY = useSpring(rotateY, { stiffness, damping });
+
+  const handleMouseMove = (e) => {
+    const el = ref.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const px = (e.clientX - rect.left) / rect.width - 0.5;
+    const py = (e.clientY - rect.top) / rect.height - 0.5;
+    rotateY.set(px * strength);
+    rotateX.set(py * -strength);
+  };
+  const handleMouseLeave = () => {
+    rotateX.set(0);
+    rotateY.set(0);
+  };
+
+  return (
+    <motion.div
+      ref={ref}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+      style={{ rotateX: springX, rotateY: springY, transformStyle: "preserve-3d", ...style }}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+// 로고와 똑같은 방식 — 글자 하나하나에 마우스를 올려놓은 동안만 그 글자가 계속
+// 빙글빙글(무한반복) 돌고, 마우스를 떼면 그 글자만 원상태(0,0)로 되돌아간다.
+// 문장 전체가 아니라 커서가 지나가는 글자만 반응해서 물결처럼 훑고 지나가는 느낌.
+function SpinOnHover({ children, style, hitPadding = 10, speedY = 0.9, speedX = 1.3 }) {
+  const [hovering, setHovering] = useState(false);
+  return (
+    <span
+      onMouseEnter={() => setHovering(true)}
+      onMouseLeave={() => setHovering(false)}
+      style={{ display: "inline-block", padding: hitPadding, margin: -hitPadding }}
+    >
+      <motion.span
+        style={{ display: "inline-block", transformStyle: "preserve-3d", ...style }}
+        animate={hovering ? { rotateY: [0, 360], rotateX: [0, 360] } : { rotateX: 0, rotateY: 0 }}
+        transition={hovering
+          ? {
+              rotateY: { duration: speedY, repeat: Infinity, ease: "linear" },
+              rotateX: { duration: speedX, repeat: Infinity, ease: "linear" },
+            }
+          : { duration: 0.5, ease: EASE_APPLE }}
+      >
+        {children}
+      </motion.span>
+    </span>
+  );
+}
+
+function SpinText({ text, style }) {
+  const words = text.split(" ");
+  return (
+    <span style={{ perspective: 400 }}>
+      {words.map((word, wi) => (
+        <SpinWord key={wi} word={word} isLast={wi === words.length - 1} style={style} />
+      ))}
+    </span>
+  );
+}
+
+function SpinWord({ word, isLast, style }) {
+  return (
+    <>
+      <span style={{ display: "inline-block", whiteSpace: "nowrap" }}>
+        {word.split("").map((ch, i) => (
+          <SpinOnHover key={i} hitPadding={3} style={style}>
+            {ch}
+          </SpinOnHover>
+        ))}
+      </span>
+      {isLast ? "" : " "}
+    </>
+  );
+}
+
+// 애플 제품 페이지 스타일의 "스크롤에 따라 계속 움직이는" 장식용 카드 —
+// 실제 검증 도구가 아니라, 유메가 어떻게 다른지 보여주는 시각적 쇼케이스.
+// useScroll로 이 섹션이 뷰포트를 지나가는 진행률(0→1)을 읽고, 그 값에 맞춰
+// 회전·기울기·스케일을 실시간으로 스크럽한다(비디오 재생하듯 스크롤에 종속).
+function RotatingShowcaseCard() {
+  const ref = React.useRef(null);
+  const { scrollYProgress } = useScroll({ target: ref, offset: ["start 0.9", "end 0.15"] });
+  const rotateY = useTransform(scrollYProgress, [0, 0.5, 1], [-70, 0, 46]);
+  const rotateX = useTransform(scrollYProgress, [0, 0.5, 1], [38, 0, -22]);
+  const scale = useTransform(scrollYProgress, [0, 0.5, 1], [0.72, 1, 0.98]);
+  const badgeOpacity = useTransform(scrollYProgress, [0.35, 0.55], [0, 1]);
+  const badgeY = useTransform(scrollYProgress, [0.35, 0.55], [16, 0]);
+
+  return (
+    <div ref={ref} style={{ perspective: 1400, display: "flex", justifyContent: "center", padding: "20px 0" }}>
+      <motion.div style={{
+        rotateY, rotateX, scale, transformStyle: "preserve-3d",
+        width: "min(420px, 88vw)", background: "#fff", borderRadius: 22,
+        border: "1px solid #D9BFF0", boxShadow: "0 30px 70px rgba(75,45,140,0.35)",
+        overflow: "hidden",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "13px 18px", borderBottom: "1px solid #E3CEF5" }}>
+          <span style={{ width: 9, height: 9, borderRadius: 999, background: "#E2665E" }} />
+          <span style={{ width: 9, height: 9, borderRadius: 999, background: "#E8B349" }} />
+          <span style={{ width: 9, height: 9, borderRadius: 999, background: "#5FBD73" }} />
+          <span style={{ marginLeft: 8, fontSize: 12, color: "#A99BC9", fontWeight: 600 }}>유메 검증 결과</span>
+        </div>
+        <div style={{ padding: 22 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
+            <span style={{
+              display: "inline-flex", alignItems: "center", justifyContent: "center", width: 20, height: 20, borderRadius: 999,
+              background: "#E7F6EE", color: "#1F9D66", fontSize: 11, fontWeight: 700,
+            }}>✓</span>
+            <span style={{ fontSize: 10.5, fontWeight: 700, color: "#A99BC9" }}>법률 · 확인됨</span>
+            <motion.span style={{
+              opacity: badgeOpacity, y: badgeY, fontSize: 9.5, fontWeight: 700, color: "#6B4FA8",
+              background: "#EDE4FB", borderRadius: 999, padding: "1px 7px",
+            }}>법제처 공식 확인</motion.span>
+          </div>
+          <div style={{ fontSize: 14, color: "#2A2440", fontWeight: 600, marginBottom: 8 }}>
+            민법 제750조: 고의·과실로 손해를 가하면 배상 책임이 있다
+          </div>
+          <div style={{ fontSize: 12.5, color: "#6E6389", lineHeight: 1.6 }}>
+            법제처 국가법령정보 공동활용 API로 실제 조문을 대조해, 짐작이 아니라 확인된 사실만 보여드립니다.
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+// "세 단계로, 확실하게" 카드 1개 — 부모(StepsSection)가 넘겨주는 스크롤 진행률
+// motion value를 받아, 그 값에 정비례해 계속 나타났다 사라진다(threshold로 한 번
+// 트리거되는 애니메이션이 아니라, 스크롤 위치 자체가 곧 애니메이션 진행률).
+function StepCard({ step, i, progress }) {
+  const start = i * 0.18;
+  const end = start + 0.55;
+  const opacity = useTransform(progress, [start, end], [0, 1]);
+  const y = useTransform(progress, [start, end], [90, 0]);
+  const x = useTransform(progress, [start, end], [(i - 1) * 60, 0]);
+  const rotate = useTransform(progress, [start, end], [(i - 1) * 14, 0]);
+  const scale = useTransform(progress, [start, end], [0.4, 1]);
+  const blur = useTransform(progress, [start, end], ["blur(8px)", "blur(0px)"]);
+  return (
+    <motion.div style={{ opacity, y, x, rotate, scale, filter: blur }}>
+      <TiltCard>
+        <div style={{
+          background: "#fff", border: "1px solid #D9BFF0", borderRadius: 20, padding: 28, height: "100%",
+          boxShadow: "0 12px 32px rgba(107,79,168,0.1)",
+        }}>
+          <div style={{ fontSize: 34, fontWeight: 700, color: "#DEC8F2", marginBottom: 12 }}>{step.n}</div>
+          <div style={{ fontSize: 17, fontWeight: 700, color: "#241F33", marginBottom: 8 }}>{step.title}</div>
+          <div style={{ fontSize: 13.5, color: "#6E6389", lineHeight: 1.65 }}>{step.desc}</div>
+        </div>
+      </TiltCard>
+    </motion.div>
+  );
+}
+
+const STEPS = [
+  { n: "01", title: "붙여넣기", desc: "ChatGPT·클로드·제미나이 등 어떤 AI의 답변이든 그대로 붙여넣으세요." },
+  { n: "02", title: "대조하기", desc: "법률은 법제처 공식 데이터베이스로, 그 외는 실시간 웹검색으로 하나하나 대조합니다." },
+  { n: "03", title: "확인하기", desc: "확인됨 · 사실과 다름 · 판단 보류로 명확하게, 근거와 출처까지 함께 보여드립니다." },
+];
+
+// 헤더(HOW IT WORKS + 제목)와 카드 3개 전부를, 이 섹션이 뷰포트를 지나가는
+// 스크롤 진행률(0→1) 하나에 종속시킨다 — 내려가면 서서히 나타나고, 다시 올리면
+// 정확히 그 진행률만큼 서서히 사라진다. 재생 시간이 고정된 애니메이션이 아니라
+// 스크롤 위치 자체가 애니메이션 진행률이라 스크롤 속도에 그대로 반응한다.
+function StepsSection() {
+  const ref = React.useRef(null);
+  const { scrollYProgress: progress } = useScroll({ target: ref, offset: ["start 0.9", "start 0.25"] });
+  const headerOpacity = useTransform(progress, [0, 0.4], [0, 1]);
+  const headerY = useTransform(progress, [0, 0.4], [50, 0]);
+  const headerScale = useTransform(progress, [0, 0.4], [0.5, 1]);
+  const headerBlur = useTransform(progress, [0, 0.4], ["blur(6px)", "blur(0px)"]);
+
+  return (
+    <section ref={ref} style={{ maxWidth: 1000, margin: "160px auto 0", padding: "0 24px" }}>
+      <motion.div style={{ textAlign: "center", marginBottom: 56, perspective: 1200, opacity: headerOpacity, y: headerY, scale: headerScale, filter: headerBlur }}>
+        <div style={{ fontSize: 12.5, fontWeight: 700, color: "#8B5FD9", letterSpacing: "0.08em", marginBottom: 14 }}>HOW IT WORKS</div>
+        <h2 style={{ fontSize: "clamp(24px, 3.6vw, 34px)", fontWeight: 700, color: "#241F33", margin: 0 }}>세 단계로, 확실하게</h2>
+      </motion.div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 24, perspective: 1000 }}>
+        {STEPS.map((step, i) => (
+          <StepCard key={step.n} step={step} i={i} progress={progress} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export default function YumeDashboard() {
   const [input, setInput] = useState("");
   const [stage, setStage] = useState("idle");
@@ -181,6 +519,29 @@ export default function YumeDashboard() {
   const [revealed, setRevealed] = useState(0);
   const [errMsg, setErrMsg] = useState("");
   const [progressMsg, setProgressMsg] = useState("");
+
+  // 실제 검증 카드가 스크롤 픽셀값(pageScrollY)에 직접 종속되어 회전한다 —
+  // 페이지 맨 위(0)에서 정확히 평평하고, 스크롤을 움직이는 그 순간부터 죽은 구간 없이
+  // 바로 돌기 시작하며, 다시 위로 스크롤하면 그대로 원상태로 되돌아간다(순수 함수라
+  // 방향에 상관없이 항상 가역적). 카드가 뷰포트 위로 완전히 사라지는 지점(약
+  // 840px, 히어로+카드 높이) 즈음에 회전이 끝나도록 범위를 맞췄다.
+  const { scrollY: pageScrollY } = useScroll();
+  // rotateX/rotateY는 카드의 진입 애니메이션(opacity/y/scale)이 건드리지 않는
+  // 속성이라 겹치지 않는다 — 두 애니메이션이 동시에 있어도 서로 충돌하지 않음.
+  const cardRotateX = useTransform(pageScrollY, [0, 840], [0, 80]);
+  const cardRotateY = useTransform(pageScrollY, [0, 840], [0, -56]);
+
+  // 히어로 문구/로고/설명까지 전부 같은 스크롤 값에 종속 — 스크롤할수록 계속
+  // 작아지고 흐려지며 옅어지다가, 다시 올리면 정확히 그만큼 되돌아온다.
+  const heroFadeOpacity = useTransform(pageScrollY, [0, 500], [1, 0]);
+  const heroFadeScale = useTransform(pageScrollY, [0, 500], [1, 0.6]);
+  const heroFadeBlur = useTransform(pageScrollY, [0, 500], ["blur(0px)", "blur(6px)"]);
+
+  // 배경에 은은하게 떠다니는 블러 오브 — 페이지 전체 스크롤량에 따라 서로 다른
+  // 속도로 움직여서(패럴랙스) 스크롤하는 내내 배경이 살아있는 느낌을 준다.
+  const orb1Y = useTransform(pageScrollY, [0, 6000], [0, -800]);
+  const orb2Y = useTransform(pageScrollY, [0, 6000], [0, 680]);
+  const orb3Y = useTransform(pageScrollY, [0, 6000], [0, -420]);
   const [showAuth, setShowAuth] = useState(false);
   const [authMode, setAuthMode] = useState("login");
   const [showBiz, setShowBiz] = useState(false);
@@ -341,6 +702,23 @@ export default function YumeDashboard() {
       fontFamily: "-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI','Noto Sans KR',sans-serif",
       position: "relative"
     }}>
+      {/* 배경 패럴랙스 오브 — 클릭 통과, 콘텐츠 뒤로 */}
+      <motion.div style={{
+        position: "fixed", top: "-15%", left: "-10%", width: 560, height: 560, borderRadius: "50%",
+        background: "radial-gradient(circle, rgba(180,130,240,0.4), transparent 70%)", filter: "blur(70px)",
+        y: orb1Y, zIndex: -1, pointerEvents: "none",
+      }} />
+      <motion.div style={{
+        position: "fixed", top: "40%", right: "-15%", width: 620, height: 620, borderRadius: "50%",
+        background: "radial-gradient(circle, rgba(120,90,220,0.32), transparent 70%)", filter: "blur(80px)",
+        y: orb2Y, zIndex: -1, pointerEvents: "none",
+      }} />
+      <motion.div style={{
+        position: "fixed", bottom: "-20%", left: "20%", width: 500, height: 500, borderRadius: "50%",
+        background: "radial-gradient(circle, rgba(200,160,250,0.35), transparent 70%)", filter: "blur(70px)",
+        y: orb3Y, zIndex: -1, pointerEvents: "none",
+      }} />
+
       {/* BACKDROP (오버레이용) */}
       {sidebarOpen && (
         <div onClick={() => setSidebarOpen(false)} style={{
@@ -415,8 +793,17 @@ export default function YumeDashboard() {
         </div>
       </aside>
 
-      {/* CONTENT — 항상 전체 너비 유지 */}
-      <div>
+      {/* CONTENT — 항상 전체 너비 유지.
+          perspective를 여기(콘텐츠 전용 래퍼)에 둔 이유: 이전에는 최상위 루트 div에
+          perspective가 있었는데, perspective(다른 transform 계열 속성과 마찬가지로)는
+          그 값을 가진 요소를 position:fixed 자식들의 containing block으로 바꿔버린다.
+          그 결과 배경 오브·사이드바·챗봇 버튼·모달처럼 "뷰포트에 고정"되어야 할
+          요소들이 실제로는 이 루트 div 기준으로 고정되면서, 오브에 걸린 음수/퍼센트
+          오프셋(top:-15%, bottom:-20% 등)이 루트 div의 실제 콘텐츠 높이보다 훨씬
+          아래까지 박스를 늘려버려 푸터 밑에 스크롤 가능한 빈 공간이 생겼다. 회전
+          연출이 필요한 히어로/카드 쪽만 이 안쪽 래퍼에서 perspective를 갖게 하면
+          오브·사이드바 등은 다시 진짜 뷰포트 기준 fixed로 동작한다. */}
+      <div style={{ perspective: 1500 }}>
       <nav style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "20px 32px", maxWidth: 1080, margin: "0 auto" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
           <motion.button
@@ -475,14 +862,19 @@ export default function YumeDashboard() {
           <motion.header key="hero-full"
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.3 }}
-            style={{ maxWidth: 720, margin: "36px auto 8px", padding: "0 24px", textAlign: "center" }}>
-            <motion.div
-              initial={{ opacity: 0, x: -90, y: -30, rotate: -10 }} animate={{ opacity: 1, x: 0, y: 0, rotate: 0 }}
-              transition={{ duration: 0.7, ease: EASE_APPLE, delay: 0.05 }}
-              style={{ fontSize: "clamp(20px, 3.2vw, 26px)", fontWeight: 600, color: "#3B3159", marginBottom: 8 }}>
-              AI에게 질문하고
+            style={{
+              maxWidth: 720, margin: "36px auto 8px", padding: "0 24px", textAlign: "center",
+              rotateY: cardRotateY, transformStyle: "preserve-3d",
+            }}>
+            <motion.div style={{ opacity: heroFadeOpacity, scale: heroFadeScale, filter: heroFadeBlur }}>
+              <motion.div
+                initial={{ opacity: 0, x: -90, y: -30, rotate: -10 }} animate={{ opacity: 1, x: 0, y: 0, rotate: 0 }}
+                transition={{ duration: 0.7, ease: EASE_APPLE, delay: 0.05 }}
+                style={{ fontSize: "clamp(20px, 3.2vw, 26px)", fontWeight: 600, color: "#3B3159", marginBottom: 8 }}>
+                <SpinText text="AI에게 질문하고" />
+              </motion.div>
             </motion.div>
-            <div style={{ position: "relative", margin: "18px auto 20px", display: "flex", justifyContent: "center" }}>
+            <motion.div style={{ position: "relative", margin: "18px auto 20px", display: "flex", justifyContent: "center", opacity: heroFadeOpacity, scale: heroFadeScale, filter: heroFadeBlur }}>
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: [0.6, 1, 0.6], scale: [1, 1.05, 1] }}
@@ -495,22 +887,29 @@ export default function YumeDashboard() {
                 }} />
               <motion.div
                 initial={{ scale: 0.2, opacity: 0, rotate: 20, y: -60 }} animate={{ scale: 1, opacity: 1, rotate: 0, y: 0 }}
-                transition={{ duration: 0.7, ease: EASE_APPLE, delay: 0.15 }}>
-                <YumeLogo height={92} />
+                transition={{ duration: 0.7, ease: EASE_APPLE, delay: 0.15 }}
+                style={{ perspective: 600 }}>
+                <SpinOnHover hitPadding={14}>
+                  <YumeLogo height={92} />
+                </SpinOnHover>
               </motion.div>
-            </div>
+            </motion.div>
+            <motion.div style={{ opacity: heroFadeOpacity, scale: heroFadeScale, filter: heroFadeBlur }}>
             <motion.div
               initial={{ opacity: 0, x: 90, y: -30, rotate: 10 }} animate={{ opacity: 1, x: 0, y: 0, rotate: 0 }}
               transition={{ duration: 0.7, ease: EASE_APPLE, delay: 0.25 }}
               style={{ fontSize: "clamp(20px, 3.2vw, 26px)", fontWeight: 600, color: "#3B3159", marginBottom: 18 }}>
-              로 확인하세요
+              <SpinText text="로 확인하세요" />
             </motion.div>
-            <motion.p
-              initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, ease: EASE_APPLE, delay: 0.4 }}
-              style={{ fontSize: 15.5, color: "#8577A8", lineHeight: 1.65, maxWidth: 480, margin: "0 auto" }}>
-              법률, 의료, 금융, 역사, 과학 — 어떤 주제든 상관없습니다. AI 답변 속 사실 주장을 실시간으로 확인합니다.
-            </motion.p>
+            </motion.div>
+            <motion.div style={{ opacity: heroFadeOpacity, scale: heroFadeScale, filter: heroFadeBlur }}>
+              <motion.p
+                initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, ease: EASE_APPLE, delay: 0.4 }}
+                style={{ fontSize: 15.5, color: "#8577A8", lineHeight: 1.65, maxWidth: 480, margin: "0 auto" }}>
+                <SpinText text="법률, 의료, 금융, 역사, 과학 — 어떤 주제든 상관없습니다. AI 답변 속 사실 주장을 실시간으로 확인합니다." />
+              </motion.p>
+            </motion.div>
           </motion.header>
         ) : (
           <motion.header key="hero-compact"
@@ -526,7 +925,11 @@ export default function YumeDashboard() {
       </AnimatePresence>
 
       {/* MAIN PANEL */}
-      <main style={{ maxWidth: 720, margin: "28px auto 100px", padding: "0 24px" }}>
+      <main style={{ maxWidth: 720, margin: "28px auto 100px", padding: "0 24px", perspective: 1400 }}>
+        {/* 스크롤 회전 전용 래퍼 — framer-motion의 layout 애니메이션(안쪽 카드, 단계
+            전환 시 크기 변화)과 rotateX/rotateY(스크롤 종속) 계산이 같은 요소에서
+            충돌하지 않도록 별도 motion.div로 분리했다. */}
+        <motion.div style={{ rotateX: cardRotateX, rotateY: cardRotateY, transformStyle: "preserve-3d" }}>
         <motion.div layout
           initial={{ opacity: 0, y: 70, scale: 0.9, rotate: 3 }} animate={{ opacity: 1, y: 0, scale: 1, rotate: 0 }}
           transition={{ duration: 0.6, ease: EASE_APPLE, delay: 0.5 }} style={{
@@ -703,11 +1106,78 @@ export default function YumeDashboard() {
             </>
           )}
         </motion.div>
+        </motion.div>
 
-        <p style={{ textAlign: "center", fontSize: 12.5, color: "#B6A9D6", marginTop: 14, lineHeight: 1.6 }}>
-          법률 주장은 법제처 국가법령정보 공동활용 API로 실제 조회해 이중 확인합니다. 의료·금융 등 다른 도메인은 아직 웹검색 기반 MVP이며, 쿠팡파트너스 등 제휴 연동은 적용되지 않았습니다.
-        </p>
+        <Reveal y={30} scale={1} style={{ rotateX: cardRotateX, rotateY: cardRotateY, transformStyle: "preserve-3d" }}>
+          <p style={{ textAlign: "center", fontSize: 12.5, color: "#B6A9D6", marginTop: 14, lineHeight: 1.6 }}>
+            법률 주장은 법제처 국가법령정보 공동활용 API로 실제 조회해 이중 확인합니다. 의료·금융 등 다른 도메인은 아직 웹검색 기반 MVP이며, 쿠팡파트너스 등 제휴 연동은 적용되지 않았습니다.
+          </p>
+        </Reveal>
       </main>
+
+      {/* ================= 스크롤 스토리텔링 섹션 (마케팅 랜딩) ================= */}
+
+      {/* 왜 유메인가 — 문제 제기 */}
+      <section style={{ maxWidth: 860, margin: "140px auto 0", padding: "0 24px", textAlign: "center" }}>
+        <Reveal>
+          <div style={{ fontSize: 12.5, fontWeight: 700, color: "#8B5FD9", letterSpacing: "0.08em", marginBottom: 14 }}>WHY YUME</div>
+        </Reveal>
+        <h2 style={{ fontSize: "clamp(26px, 4vw, 40px)", fontWeight: 700, color: "#241F33", lineHeight: 1.3, margin: "0 0 40px" }}>
+          <WordReveal delay={0.05} lines={["AI는 확신에 찬 목소리로,", "틀린 말을 합니다."]} />
+        </h2>
+        <div style={{
+          display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 20, margin: "0 auto 32px",
+        }}>
+          <HallucinationStatCard />
+        </div>
+        <Reveal delay={0.15}>
+          <p style={{ fontSize: 15.5, color: "#6E6389", lineHeight: 1.8, maxWidth: 560, margin: "0 auto" }}>
+            유메는 창업자가 실제로 겪은 법정 분쟁에서 시작됐습니다. AI가 알려준 정보를 그대로 믿었다가 피해를 입은 경험이, "확인된 사실"만 전달하는 서비스를 만들게 했습니다.
+          </p>
+        </Reveal>
+      </section>
+
+
+      <StepsSection />
+
+      {/* 무엇이 다른가 — 회전 쇼케이스 카드 */}
+      <section style={{ maxWidth: 1080, margin: "180px auto 0", padding: "0 24px" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 48, alignItems: "center" }}>
+          <div>
+            <Reveal>
+              <div style={{ fontSize: 12.5, fontWeight: 700, color: "#8B5FD9", letterSpacing: "0.08em", marginBottom: 14 }}>WHAT MAKES US DIFFERENT</div>
+            </Reveal>
+            <h2 style={{ fontSize: "clamp(24px, 3.6vw, 34px)", fontWeight: 700, color: "#241F33", lineHeight: 1.35, margin: "0 0 20px" }}>
+              <WordReveal lines={["AI에게 AI를", "검증하게 하지 않습니다."]} />
+            </h2>
+            <Reveal delay={0.1}>
+              <p style={{ fontSize: 15, color: "#6E6389", lineHeight: 1.8, margin: 0 }}>
+                일반적인 팩트체크는 또 다른 AI의 짐작에 의존합니다. 유메는 법률 영역에서만큼은 법제처 국가법령정보 공동활용 API로 실제 조문·판례 원문을 직접 대조합니다. 짐작이 아니라, 확인입니다.
+              </p>
+            </Reveal>
+          </div>
+          <RotatingShowcaseCard />
+        </div>
+      </section>
+
+      {/* FOOTER */}
+      <footer style={{ marginTop: 320, borderTop: "1px solid #D9BFF0", background: "rgba(255,255,255,0.5)" }}>
+        <div style={{ maxWidth: 1080, margin: "0 auto", padding: "48px 24px 28px", display: "flex", flexDirection: "column", gap: 28 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", gap: 24 }}>
+            <div>
+              <YumeLogo height={22} />
+              <div style={{ fontSize: 13, color: "#8577A8", marginTop: 10, maxWidth: 280, lineHeight: 1.6 }}>AI 답변, 확인하고 믿으세요.</div>
+            </div>
+            <div style={{ display: "flex", gap: 32, flexWrap: "wrap" }}>
+              <button onClick={() => setShowPricing(true)} style={{ border: "none", background: "transparent", color: "#4C5266", fontSize: 13.5, fontWeight: 600, cursor: "pointer", padding: 0 }}>요금제</button>
+              <button onClick={() => setShowBiz(true)} style={{ border: "none", background: "transparent", color: "#4C5266", fontSize: 13.5, fontWeight: 600, cursor: "pointer", padding: 0 }}>비즈니스 · API</button>
+            </div>
+          </div>
+          <div style={{ borderTop: "1px solid #E3CEF5", paddingTop: 20, fontSize: 12, color: "#B6A9D6" }}>
+            © 2026 Reamer. All rights reserved.
+          </div>
+        </div>
+      </footer>
       </div>
 
       {/* AUTH MODAL */}
