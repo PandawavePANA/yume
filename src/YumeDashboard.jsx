@@ -132,7 +132,12 @@ function YumeChatWidget() {
   };
 
   return (
-    <div ref={containerRef} style={{ position: "fixed", right: 20, bottom: 20, zIndex: 60, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 12 }}>
+    <div ref={containerRef} style={{
+      position: "fixed",
+      right: "calc(16px + env(safe-area-inset-right, 0px))",
+      bottom: "calc(16px + env(safe-area-inset-bottom, 0px))",
+      zIndex: 60, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 12
+    }}>
       <AnimatePresence>
         {open && (
           <motion.div
@@ -814,7 +819,7 @@ export default function YumeDashboard() {
           연출이 필요한 히어로/카드 쪽만 이 안쪽 래퍼에서 perspective를 갖게 하면
           오브·사이드바 등은 다시 진짜 뷰포트 기준 fixed로 동작한다. */}
       <div style={{ perspective: 1500 }}>
-      <nav style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "20px 32px", maxWidth: 1080, margin: "0 auto" }}>
+      <nav style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "10px 16px", padding: "20px clamp(16px, 5vw, 32px)", maxWidth: 1080, margin: "0 auto" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
           <motion.button
             initial={{ opacity: 0, scale: 0.3, rotate: -120 }} animate={{ opacity: 1, scale: 1, rotate: 0 }}
@@ -838,30 +843,30 @@ export default function YumeDashboard() {
             </motion.div>
           )}
         </div>
-        <div style={{ display: "flex", gap: 10 }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
           <motion.button
             initial={{ opacity: 0, y: -28, scale: 0.7 }} animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ type: "spring", stiffness: 240, damping: 16, delay: 0.22 }}
             whileHover={{ backgroundColor: "#DEC2F7", scale: 1.04 }} whileTap={{ scale: 0.96 }}
             onClick={() => setShowPricing(true)} style={{
-            padding: "8px 16px", borderRadius: 980, border: "1px solid #D4BEF0",
-            background: plan === "free" ? "transparent" : "#EBD9FA", color: "#6B4FA8", fontSize: 14, fontWeight: 600, cursor: "pointer"
+            padding: "7px 14px", borderRadius: 980, border: "1px solid #D4BEF0", whiteSpace: "nowrap",
+            background: plan === "free" ? "transparent" : "#EBD9FA", color: "#6B4FA8", fontSize: 13.5, fontWeight: 600, cursor: "pointer"
           }}>{PLANS[plan].label} 구독 ▾</motion.button>
           <motion.button
             initial={{ opacity: 0, y: -28, scale: 0.7 }} animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ type: "spring", stiffness: 240, damping: 16, delay: 0.3 }}
             whileHover={{ backgroundColor: "#F1E6FB", borderColor: "#B993EE", scale: 1.04 }} whileTap={{ scale: 0.96 }}
             onClick={() => { setAuthMode("login"); setShowAuth(true); }} style={{
-            padding: "8px 16px", borderRadius: 980, border: "1px solid #D4BEF0",
-            background: "transparent", color: "#241F33", fontSize: 14, fontWeight: 500, cursor: "pointer"
+            padding: "7px 14px", borderRadius: 980, border: "1px solid #D4BEF0", whiteSpace: "nowrap",
+            background: "transparent", color: "#241F33", fontSize: 13.5, fontWeight: 500, cursor: "pointer"
           }}>로그인</motion.button>
           <motion.button
             initial={{ opacity: 0, y: -28, scale: 0.5 }} animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ type: "spring", stiffness: 260, damping: 14, delay: 0.38 }}
             whileHover={{ backgroundColor: "#3D3355", scale: 1.05 }} whileTap={{ scale: 0.95 }}
             onClick={() => { setAuthMode("signup"); setShowAuth(true); }} style={{
-            padding: "8px 18px", borderRadius: 980, border: "none",
-            background: "#241F33", color: "#fff", fontSize: 14, fontWeight: 500, cursor: "pointer"
+            padding: "7px 16px", borderRadius: 980, border: "none", whiteSpace: "nowrap",
+            background: "#241F33", color: "#fff", fontSize: 13.5, fontWeight: 500, cursor: "pointer"
           }}>시작하기</motion.button>
         </div>
       </nav>
