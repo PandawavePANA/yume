@@ -29,6 +29,23 @@ function esc(s = "") {
   return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
 
+// 카카오톡에서 붙여넣는 원문은 몇 문단씩 되는 경우가 많아서, 그걸 그대로 다
+// 펼쳐두면 정작 중요한 판정 결과를 보려고 한참 스크롤해야 한다. 짧으면 그대로
+// 보여주고, 길면 <details>/<summary>로 접어둔다 — 자바스크립트 없이 순수 HTML
+// 만으로 동작해서 카카오톡 인앱 브라우저에서도 안전하게 펼치고 접을 수 있다.
+const INPUT_PREVIEW_LEN = 90;
+function inputBox(input) {
+  const text = input || "";
+  if (text.length <= INPUT_PREVIEW_LEN) {
+    return `<div class="input-box">${esc(text)}</div>`;
+  }
+  const preview = text.slice(0, INPUT_PREVIEW_LEN).trim();
+  return `<details class="input-box">
+    <summary style="cursor:pointer;">${esc(preview)}… <span style="color:#8B5FD9;font-weight:600;">전체 보기 (${text.length}자)</span></summary>
+    <div style="margin-top:10px;padding-top:10px;border-top:1px solid #DEC8F2;">${esc(text)}</div>
+  </details>`;
+}
+
 const BASE_STYLE = `
   * { box-sizing: border-box; }
   body {
@@ -88,7 +105,7 @@ export function renderResultPage({ id, input, status, result, createdAt }) {
     return page({
       head: `<meta http-equiv="refresh" content="4">`,
       cardBody: `
-        <div class="input-box">${esc(input)}</div>
+        ${inputBox(input)}
         <div style="display:flex;flex-direction:column;align-items:center;padding:40px 0 12px;gap:14px;">
           <div style="width:28px;height:28px;border-radius:999px;border:3px solid #D4BEF0;border-top-color:#8B7FD8;animation:yume-spin 0.8s linear infinite;"></div>
           <div style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:#8B7FD8;background:#F1E6FB;border-radius:999px;padding:4px 12px;">
@@ -104,7 +121,7 @@ export function renderResultPage({ id, input, status, result, createdAt }) {
   if (status === "error") {
     return page({
       cardBody: `
-        <div class="input-box">${esc(input)}</div>
+        ${inputBox(input)}
         <div style="padding:14px 16px;border-radius:12px;background:#FBEDEA;border:1px solid #F0BCB0;font-size:13.5px;color:#2A2440;line-height:1.6;">
           확인 중 오류가 발생했어요. 카카오톡 채널에 다시 한번 보내주세요.
         </div>`,
@@ -151,7 +168,7 @@ export function renderResultPage({ id, input, status, result, createdAt }) {
   return page({
     head: `<meta property="og:title" content="유메 검증 결과" />\n<meta property="og:description" content="${esc(result.overall?.detail || result.summary || "AI 답변 팩트체크 결과")}" />`,
     cardBody: `
-      <div class="input-box">${esc(input)}</div>
+      ${inputBox(input)}
       <div style="padding:14px 16px;border-radius:12px;background:${tone.bg};border:1px solid ${tone.border};margin-bottom:10px;">
         <div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:4px;">
           <span style="font-size:13px;font-weight:700;color:${tone.fg};background:${tone.chipBg};border-radius:999px;padding:3px 10px;">${esc(result.overall?.label || "판단 보류")}</span>
