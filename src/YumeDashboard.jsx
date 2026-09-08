@@ -56,6 +56,13 @@ const HALLUCINATION_CAUSES = [
   { title: "유사 개체 혼동", problem: "이름이나 맥락이 비슷한 두 개념이 서로 섞입니다.", fix: "유사도가 아니라 원문 일치 여부로 최종 판정" },
 ];
 
+// 총평 배너 색상 — 서버가 계산한 tone(confirmed/uncertain/false)에 맞춰 색만 바꾼다.
+const OVERALL_TONE = {
+  confirmed: { bg: "#EAF7F0", border: "#B7E4CC", fg: "#fff", chipBg: "#1F9D66" },
+  uncertain: { bg: "#FFF6E0", border: "#F0D98C", fg: "#7A5B00", chipBg: "#FCE7A6" },
+  false: { bg: "#FBEDEA", border: "#F0BCB0", fg: "#fff", chipBg: "#C6402F" },
+};
+
 function StatusIcon({ verdict }) {
   const v = VERDICT[verdict] || VERDICT.uncertain;
   return (
@@ -87,6 +94,21 @@ function BizRow({ title, desc, cta }) {
 
 function YumeChatWidget() {
   const [open, setOpen] = useState(false);
+  // 떠다니는 챗봇 버튼이 화면 아무 위치에나 고정돼 있다 보니, 스크롤하는 동안
+  // 그 자리의 텍스트를 가리는 순간이 반드시 생긴다(모바일에서 특히 두드러짐).
+  // 완전히 숨기면 탭할 수 없게 되니, 스크롤 중에만 살짝 옅어지게 해서 아래
+  // 콘텐츠가 비쳐 보이게 하고, 스크롤이 멈추면 곧바로 원래 밝기로 돌아온다.
+  const [scrolling, setScrolling] = useState(false);
+  React.useEffect(() => {
+    let timer;
+    const onScroll = () => {
+      setScrolling(true);
+      clearTimeout(timer);
+      timer = setTimeout(() => setScrolling(false), 450);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => { window.removeEventListener("scroll", onScroll); clearTimeout(timer); };
+  }, []);
   const [messages, setMessages] = useState([
     { role: "assistant", content: "안녕하세요! 유메에 대한 질문이든 그냥 편한 대화든, 뭐든 물어보세요 :)" },
   ]);
@@ -180,11 +202,29 @@ function YumeChatWidget() {
           </motion.div>
         )}
       </AnimatePresence>
-      <motion.button whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.94 }} onClick={() => setOpen((o) => !o)} style={{
-        width: 56, height: 56, borderRadius: 999, border: "none", cursor: "pointer",
-        background: "linear-gradient(135deg,#B49AEE,#6B4FA8)", color: "#fff", fontSize: 22,
+      {/* 그냥 말풍선 아이콘만 있으면 이게 사람 상담원인지 AI인지 구분이 안 된다는
+          피드백 — 닫혀 있을 때는 반짝임 아이콘 + "AI에게 물어보기" 글자를 같이
+          보여줘서 AI 기능이라는 게 한눈에 티 나게 한다. 열려 있을 때만 원형 닫기
+          버튼으로 축소된다. */}
+      <motion.button
+        layout
+        animate={{ opacity: scrolling && !open ? 0.32 : 1, scale: scrolling && !open ? 0.82 : 1 }}
+        transition={{ layout: { duration: 0.25, ease: EASE_APPLE }, default: { duration: 0.25, ease: EASE_APPLE } }}
+        whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.94 }} onClick={() => setOpen((o) => !o)} style={{
+        height: 52, borderRadius: 999, border: "none", cursor: "pointer",
+        background: "linear-gradient(135deg,#B49AEE,#6B4FA8)", color: "#fff",
         boxShadow: "0 12px 32px rgba(107,79,168,0.45)", display: "flex", alignItems: "center", justifyContent: "center",
-      }}>{open ? "×" : "💬"}</motion.button>
+        gap: 7, padding: open ? 0 : "0 18px 0 15px", width: open ? 52 : "auto",
+      }}>
+        {open ? (
+          <span style={{ fontSize: 21 }}>×</span>
+        ) : (
+          <>
+            <span style={{ fontSize: 17 }}>✨</span>
+            <span style={{ fontSize: 13.5, fontWeight: 700, whiteSpace: "nowrap" }}>AI에게 물어보기</span>
+          </>
+        )}
+      </motion.button>
     </div>
   );
 }
@@ -534,6 +574,12 @@ export default function YumeDashboard() {
   const [revealed, setRevealed] = useState(0);
   const [errMsg, setErrMsg] = useState("");
   const [progressMsg, setProgressMsg] = useState("");
+  // 클로드처럼 "지금까지 몇 초 걸리고 있는지"를 실시간으로 보여주기 위한 타이머.
+  // 서버 시계가 아니라 클라이언트에서 요청을 보낸 순간부터 직접 재서, 네트워크
+  // 왕복 시간까지 포함한 사용자 체감 시간과 항상 일치하게 한다.
+  const [elapsedSec, setElapsedSec] = useState(0);
+  const timerRef = React.useRef(null);
+  const startTimeRef = React.useRef(null);
 
   // 실제 검증 카드가 스크롤 픽셀값(pageScrollY)에 직접 종속되어 회전한다 —
   // 페이지 맨 위(0)에서 정확히 평평하고, 스크롤을 움직이는 그 순간부터 죽은 구간 없이
@@ -635,6 +681,13 @@ export default function YumeDashboard() {
     setStage("loading"); setResult(null); setRevealed(0); setErrMsg(""); setTab("result");
     setProgressMsg("사실 주장을 추출하고 실시간으로 검색 중…");
 
+    startTimeRef.current = Date.now();
+    setElapsedSec(0);
+    clearInterval(timerRef.current);
+    timerRef.current = setInterval(() => {
+      setElapsedSec(Math.floor((Date.now() - startTimeRef.current) / 1000));
+    }, 1000);
+
     // 서버가 실제 진행상황(SSE)을 보내주긴 하지만, 클로드가 다음 검색을 하기 전까지
     // 몇 초씩 조용할 때가 있다 — 그동안 로딩 문구가 멈춰있으면 버퍼링처럼 보이므로,
     // 최소 1.5초에 한 번은 (입력 문장 조각 기반) 필러 문구로라도 갱신해준다.
@@ -691,6 +744,7 @@ export default function YumeDashboard() {
       if (!finalResult || !Array.isArray(finalResult.claims) || finalResult.claims.length === 0) {
         throw new Error("검증 가능한 주장을 찾지 못했습니다.");
       }
+      setElapsedSec(Math.floor((Date.now() - startTimeRef.current) / 1000));
       setResult(finalResult);
       setStage("done");
       finalResult.claims.forEach((_, i) => setTimeout(() => setRevealed(r => r + 1), 220 * (i + 1)));
@@ -701,6 +755,7 @@ export default function YumeDashboard() {
       setStage("error");
     } finally {
       clearInterval(fillerTimer);
+      clearInterval(timerRef.current);
     }
   };
 
@@ -895,8 +950,12 @@ export default function YumeDashboard() {
                 animate={{ opacity: [0.6, 1, 0.6], scale: [1, 1.05, 1] }}
                 transition={{ opacity: { duration: 5, repeat: Infinity, ease: "easeInOut", delay: 0.6 }, scale: { duration: 5, repeat: Infinity, ease: "easeInOut", delay: 0.6 } }}
                 style={{
-                  position: "absolute", width: 260, height: 140, left: "50%", top: "50%",
-                  transform: "translate(-50%,-50%)",
+                  // framer-motion의 animate가 scale을 다루기 시작하면 transform 전체를
+                  // 자기 값으로 덮어써 버려서, 정적인 transform:"translate(-50%,-50%)"는
+                  // 무시된다(모바일에서 이 글로우가 중앙이 아니라 오른쪽 아래로 밀려나
+                  // 가로 스크롤이 생기던 원인). x/y를 framer 쪽 모션 값으로 넘겨야
+                  // scale과 하나의 transform으로 합쳐져서 정상적으로 중앙에 유지된다.
+                  position: "absolute", width: 260, height: 140, left: "50%", top: "50%", x: "-50%", y: "-50%",
                   background: "radial-gradient(ellipse, rgba(150,100,225,0.55) 0%, rgba(150,100,225,0) 70%)",
                   filter: "blur(6px)", pointerEvents: "none"
                 }} />
@@ -978,6 +1037,12 @@ export default function YumeDashboard() {
           {stage === "loading" && (
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "48px 0", gap: 14 }}>
               <div style={{ width: 28, height: 28, borderRadius: 999, border: "3px solid #D4BEF0", borderTopColor: "#8B7FD8", animation: "yume-spin 0.8s linear infinite" }} />
+              <div style={{
+                display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 600, color: "#8B7FD8",
+                background: "#F1E6FB", borderRadius: 999, padding: "4px 12px",
+              }}>
+                <span style={{ fontVariantNumeric: "tabular-nums" }}>{elapsedSec}초</span> 동안 확인하는 중…
+              </div>
               <AnimatePresence mode="wait">
                 <motion.div key={progressMsg} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} transition={{ duration: 0.25 }}
                   style={{ fontSize: 14, color: "#9C8FC2", textAlign: "center", maxWidth: 420, padding: "0 16px" }}>
@@ -1019,10 +1084,28 @@ export default function YumeDashboard() {
                 {/* TAB 1: RESULT */}
                 {tab === "result" && (
                   <>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", borderRadius: 12, background: "#EAD8FA", border: "1px solid #D4BEF0", marginBottom: 10 }}>
-                      <span style={{ fontSize: 20, fontWeight: 700, color: "#0A0A0A" }}>{confirmedCount}/{totalCount}</span>
-                      <span style={{ fontSize: 13.5, color: "#4C5266" }}>개 주장이 확인됨 · 도메인: {result.overall_domain}</span>
-                    </div>
+                    {result.overall && (() => {
+                      const tone = OVERALL_TONE[result.overall.tone] || OVERALL_TONE.uncertain;
+                      return (
+                        <div style={{
+                          padding: "14px 16px", borderRadius: 12, background: tone.bg, border: `1px solid ${tone.border}`, marginBottom: 10,
+                        }}>
+                          <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 8, marginBottom: 4 }}>
+                            <span style={{
+                              fontSize: 13, fontWeight: 700, color: tone.fg, background: tone.chipBg,
+                              borderRadius: 999, padding: "3px 10px",
+                            }}>{result.overall.label}</span>
+                            <span style={{ fontSize: 12.5, color: "#6E6389" }}>{confirmedCount}/{totalCount}개 확인됨 · 도메인: {result.overall_domain}</span>
+                            {(result.elapsedMs || elapsedSec > 0) && (
+                              <span style={{ fontSize: 11.5, color: "#A99BC9", marginLeft: "auto" }}>
+                                {Math.max(1, Math.round((result.elapsedMs ?? elapsedSec * 1000) / 1000))}초 만에 확인
+                              </span>
+                            )}
+                          </div>
+                          <div style={{ fontSize: 13.5, color: "#2A2440", lineHeight: 1.6 }}>{result.overall.detail}</div>
+                        </div>
+                      );
+                    })()}
                     {result.summary && <p style={{ fontSize: 13, color: "#6E6389", margin: "0 0 16px", lineHeight: 1.6 }}>{result.summary}</p>}
                     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                       {(result.claims || []).map((c, i) => (
