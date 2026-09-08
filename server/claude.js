@@ -220,7 +220,7 @@ export async function chatReply(messages) {
   const text = await callClaude({
     system: CHAT_SYSTEM_PROMPT,
     messages: safeMessages,
-    max_tokens: 400,
+    max_tokens: 2000,
   });
   return text.trim();
 }
