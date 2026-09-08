@@ -32,10 +32,10 @@ import { getHistory, appendTurns } from "./chatHistory.js";
 // 않는다.
 
 const VERIFY_TRIGGER = /검증|팩트\s*체크/;
-const ONBOARDING_TEXT =
-  "안녕하세요! 저는 AI 답변 팩트체크 서비스 유메예요 🌙\n\n" +
-  "편하게 아무 얘기나 물어보셔도 되고, 궁금한 소문이나 정보가 사실인지 확인하고 싶으면 " +
-  "내용을 붙여넣으면서 \"검증해줘\"라고 말씀해주세요. 검증 결과는 대시보드 링크로 보내드려요.\n\n";
+// 안내 문구는 짧게 — 아래 chatReply 호출에서 모델에게 "이미 인사는 전달됐으니
+// 또 인사하지 마라"는 힌트를 같이 주지만, 그래도 문구 자체가 길면 답변과 합쳐졌을
+// 때 부담스러우니 한두 문장으로 줄였다.
+const ONBOARDING_TEXT = "저는 AI 답변 팩트체크 서비스 유메예요 🌙 편하게 대화하다가, 소문이나 정보가 진짜인지 궁금하면 내용과 함께 \"검증해줘\"라고 말해주세요.\n\n";
 
 function baseUrl(req) {
   if (process.env.PUBLIC_BASE_URL) return process.env.PUBLIC_BASE_URL.replace(/\/$/, "");
@@ -122,7 +122,14 @@ export function kakaoSkillHandler(req, res) {
   (async () => {
     try {
       const history = getHistory(userId);
-      const reply = await chatReply([...history, { role: "user", content: utterance }]);
+      // 첫 턴에는 안내 문구를 앞에 붙이는데, 모델은 그 문구를 본 적이 없어서
+      // 자기도 또 인사/자기소개를 반복하는 경우가 있었다(안내 문구 + 모델의
+      // 인사가 겹쳐서 메시지가 너무 길어짐). 저장되는 대화 기록은 원문 그대로
+      // 두고, 이번 호출에만 짧은 안내를 덧붙여서 중복 인사를 막는다.
+      const messageForModel = isFirstTurn
+        ? `${utterance}\n\n(참고: 방금 사용자에게 서비스 소개가 이미 전달됐음. 다시 인사하거나 자기소개하지 말고 위 메시지에 바로 답할 것.)`
+        : utterance;
+      const reply = await chatReply([...history, { role: "user", content: messageForModel }]);
       appendTurns(userId, [{ role: "user", content: utterance }, { role: "assistant", content: reply }]);
       res.json(textReply(prefix + reply));
     } catch (e) {
