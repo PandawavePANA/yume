@@ -59,8 +59,8 @@ const BASE_STYLE = `
   .dot { width: 9px; height: 9px; border-radius: 999px; display: inline-block; }
   .card-title { margin-left: 10px; font-size: 12.5px; color: #A99BC9; font-weight: 500; }
   .card-body { padding: 24px; }
-  .input-box { background: #F1E6FB; border: 1px solid #DEC8F2; border-radius: 12px; padding: 16px; margin-bottom: 16px; font-size: 13.5px; color: #33363F; line-height: 1.7; white-space: pre-wrap; }
-  .section-label { font-size: 11px; font-weight: 700; color: #B0A2D6; letter-spacing: 0.03em; margin: 22px 0 10px; }
+  .input-box { background: #F1E6FB; border: 1px solid #DEC8F2; border-radius: 12px; padding: 16px; margin-bottom: 16px; font-size: 14.5px; color: #33363F; line-height: 1.75; white-space: pre-wrap; }
+  .section-label { font-size: 12px; font-weight: 700; color: #8B7FD8; letter-spacing: 0.03em; margin: 24px 0 12px; }
   .footer { text-align: center; font-size: 12px; color: #A99BC9; margin-top: 20px; }
   a.cta { display: block; text-align: center; margin-top: 20px; background: linear-gradient(90deg,#B49AEE,#6B4FA8); color: #fff; text-decoration: none; font-weight: 600; font-size: 14.5px; padding: 13px 0; border-radius: 12px; }
   @keyframes yume-spin { to { transform: rotate(360deg); } }
@@ -133,20 +133,20 @@ export function renderResultPage({ id, input, status, result, createdAt }) {
     .map((c) => {
       const v = VERDICT[c.verdict] || VERDICT.uncertain;
       const officialBadge = c.verified_via === "official"
-        ? `<span style="font-size:9.5px;font-weight:700;color:#6B4FA8;background:#EDE4FB;border-radius:999px;padding:1px 7px;">법제처 공식 확인${c.effective_date ? ` · ${esc(c.effective_date)} 시행 기준` : ""}</span>`
+        ? `<span style="font-size:11px;font-weight:700;color:#6B4FA8;background:#EDE4FB;border-radius:999px;padding:2px 9px;">법제처 공식 확인${c.effective_date ? ` · ${esc(c.effective_date)} 시행 기준` : ""}</span>`
         : c.verified_via === "unavailable"
-        ? `<span style="font-size:9.5px;font-weight:700;color:#9C8FC2;background:#F1ECFA;border-radius:999px;padding:1px 7px;">공식 API 미연동</span>`
+        ? `<span style="font-size:11px;font-weight:700;color:#9C8FC2;background:#F1ECFA;border-radius:999px;padding:2px 9px;">공식 API 미연동</span>`
         : "";
       return `
-        <div style="display:flex;gap:10px;padding:12px 14px;border-radius:12px;background:${VBG[c.verdict] || VBG.uncertain};border:1px solid ${VBORDER[c.verdict] || VBORDER.uncertain};margin-bottom:10px;">
-          <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:999px;background:${v.bg};color:${v.color};font-size:12px;font-weight:700;flex-shrink:0;">${v.glyph}</span>
+        <div style="display:flex;gap:12px;padding:16px;border-radius:14px;background:${VBG[c.verdict] || VBG.uncertain};border:1px solid ${VBORDER[c.verdict] || VBORDER.uncertain};margin-bottom:12px;">
+          <span style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:999px;background:${v.bg};color:${v.color};font-size:13.5px;font-weight:700;flex-shrink:0;margin-top:1px;">${v.glyph}</span>
           <div>
-            <div style="font-size:10.5px;font-weight:700;letter-spacing:0.02em;color:#A99BC9;margin-bottom:3px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+            <div style="font-size:12px;font-weight:700;letter-spacing:0.01em;color:#8577A8;margin-bottom:6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
               <span>${esc(c.domain || "")} · ${v.label}</span>
               ${officialBadge}
             </div>
-            <div style="font-size:13.5px;color:#2A2440;line-height:1.55;margin-bottom:3px;">${esc(c.text)}</div>
-            <div style="font-size:12px;color:#6E6389;">${esc(c.explanation || "")}</div>
+            <div style="font-size:15px;font-weight:600;color:#241F33;line-height:1.6;margin-bottom:5px;">${esc(c.text)}</div>
+            <div style="font-size:13.5px;color:#5B5470;line-height:1.65;">${esc(c.explanation || "")}</div>
           </div>
         </div>`;
     })
@@ -157,26 +157,26 @@ export function renderResultPage({ id, input, status, result, createdAt }) {
     ? sources
         .map(
           (s) => `
-        <div style="padding:10px 12px;border-radius:10px;background:#F9F6FD;border:1px solid #E3D9F2;margin-bottom:8px;">
-          <a href="${esc(s.url)}" style="font-size:13px;color:#6B4FA8;font-weight:600;text-decoration:none;">${esc(s.title || s.url)}</a>
-          <div style="font-size:11.5px;color:#9C8FC2;margin-top:2px;">${esc(s.forClaim)}</div>
+        <div style="padding:12px 14px;border-radius:10px;background:#F9F6FD;border:1px solid #E3D9F2;margin-bottom:8px;">
+          <a href="${esc(s.url)}" style="font-size:14px;color:#6B4FA8;font-weight:600;text-decoration:none;line-height:1.5;">${esc(s.title || s.url)}</a>
+          <div style="font-size:12.5px;color:#9C8FC2;margin-top:3px;line-height:1.5;">${esc(s.forClaim)}</div>
         </div>`
         )
         .join("\n")
-    : `<div style="font-size:13px;color:#9C8FC2;">이 검증에는 표시할 출처가 없습니다.</div>`;
+    : `<div style="font-size:14px;color:#9C8FC2;">이 검증에는 표시할 출처가 없습니다.</div>`;
 
   return page({
     head: `<meta property="og:title" content="유메 검증 결과" />\n<meta property="og:description" content="${esc(result.overall?.detail || result.summary || "AI 답변 팩트체크 결과")}" />`,
     cardBody: `
       ${inputBox(input)}
-      <div style="padding:14px 16px;border-radius:12px;background:${tone.bg};border:1px solid ${tone.border};margin-bottom:10px;">
-        <div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:4px;">
-          <span style="font-size:13px;font-weight:700;color:${tone.fg};background:${tone.chipBg};border-radius:999px;padding:3px 10px;">${esc(result.overall?.label || "판단 보류")}</span>
-          <span style="font-size:12.5px;color:#6E6389;">도메인: ${esc(result.overall_domain || "일반")}</span>
+      <div style="padding:16px;border-radius:14px;background:${tone.bg};border:1px solid ${tone.border};margin-bottom:14px;">
+        <div style="display:flex;align-items:center;flex-wrap:wrap;gap:9px;margin-bottom:8px;">
+          <span style="font-size:14px;font-weight:700;color:${tone.fg};background:${tone.chipBg};border-radius:999px;padding:4px 12px;">${esc(result.overall?.label || "판단 보류")}</span>
+          <span style="font-size:13px;color:#6E6389;font-weight:500;">도메인: ${esc(result.overall_domain || "일반")}</span>
         </div>
-        <div style="font-size:13.5px;color:#2A2440;line-height:1.6;">${esc(result.overall?.detail || result.summary || "")}</div>
+        <div style="font-size:14.5px;color:#2A2440;line-height:1.7;">${esc(result.overall?.detail || result.summary || "")}</div>
       </div>
-      ${result.summary ? `<p style="font-size:13px;color:#6E6389;margin:0 0 16px;line-height:1.6;">${esc(result.summary)}</p>` : ""}
+      ${result.summary ? `<p style="font-size:14px;color:#4C5266;margin:0 0 18px;line-height:1.7;">${esc(result.summary)}</p>` : ""}
       <div class="section-label">검증 결과</div>
       ${claimsHtml}
       <div class="section-label">근거 자료 ${sources.length ? `(${sources.length})` : ""}</div>

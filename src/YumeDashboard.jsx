@@ -68,8 +68,8 @@ function StatusIcon({ verdict }) {
   return (
     <span style={{
       display: "inline-flex", alignItems: "center", justifyContent: "center",
-      width: 22, height: 22, borderRadius: 999, background: v.bg,
-      color: v.color, fontSize: 12, fontWeight: 700, flexShrink: 0
+      width: 26, height: 26, borderRadius: 999, background: v.bg,
+      color: v.color, fontSize: 13.5, fontWeight: 700, flexShrink: 0, marginTop: 1
     }}>{v.glyph}</span>
   );
 }
@@ -1090,48 +1090,48 @@ export default function YumeDashboard() {
                         <div style={{
                           padding: "14px 16px", borderRadius: 12, background: tone.bg, border: `1px solid ${tone.border}`, marginBottom: 10,
                         }}>
-                          <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 8, marginBottom: 4 }}>
+                          <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 9, marginBottom: 8 }}>
                             <span style={{
-                              fontSize: 13, fontWeight: 700, color: tone.fg, background: tone.chipBg,
-                              borderRadius: 999, padding: "3px 10px",
+                              fontSize: 14, fontWeight: 700, color: tone.fg, background: tone.chipBg,
+                              borderRadius: 999, padding: "4px 12px",
                             }}>{result.overall.label}</span>
-                            <span style={{ fontSize: 12.5, color: "#6E6389" }}>{confirmedCount}/{totalCount}개 확인됨 · 도메인: {result.overall_domain}</span>
+                            <span style={{ fontSize: 13, color: "#6E6389", fontWeight: 500 }}>{confirmedCount}/{totalCount}개 확인됨 · {result.overall_domain}</span>
                             {(result.elapsedMs || elapsedSec > 0) && (
-                              <span style={{ fontSize: 11.5, color: "#A99BC9", marginLeft: "auto" }}>
+                              <span style={{ fontSize: 12, color: "#A99BC9", marginLeft: "auto" }}>
                                 {Math.max(1, Math.round((result.elapsedMs ?? elapsedSec * 1000) / 1000))}초 만에 확인
                               </span>
                             )}
                           </div>
-                          <div style={{ fontSize: 13.5, color: "#2A2440", lineHeight: 1.6 }}>{result.overall.detail}</div>
+                          <div style={{ fontSize: 14.5, color: "#2A2440", lineHeight: 1.7 }}>{result.overall.detail}</div>
                         </div>
                       );
                     })()}
-                    {result.summary && <p style={{ fontSize: 13, color: "#6E6389", margin: "0 0 16px", lineHeight: 1.6 }}>{result.summary}</p>}
-                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    {result.summary && <p style={{ fontSize: 14, color: "#4C5266", margin: "0 0 18px", lineHeight: 1.7 }}>{result.summary}</p>}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                       {(result.claims || []).map((c, i) => (
                         <motion.div key={i}
                           initial={{ opacity: 0, y: 10 }}
                           animate={i < revealed ? { opacity: 1, y: 0 } : { opacity: 0, y: 10 }}
                           transition={{ duration: 0.45, ease: EASE_APPLE }}
                           style={{
-                            display: "flex", gap: 10, padding: "12px 14px", borderRadius: 12,
+                            display: "flex", gap: 12, padding: "16px", borderRadius: 14,
                             background: VBG[c.verdict] || VBG.uncertain, border: `1px solid ${VBORDER[c.verdict] || VBORDER.uncertain}`
                           }}>
                           <StatusIcon verdict={c.verdict} />
                           <div>
-                            <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.02em", color: "#A99BC9", marginBottom: 3, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                            <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.01em", color: "#8577A8", marginBottom: 6, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                               <span>{c.domain} · {VERDICT[c.verdict]?.label || "판단 보류"}</span>
                               {c.verified_via === "official" && (
-                                <span style={{ fontSize: 9.5, fontWeight: 700, color: "#6B4FA8", background: "#EDE4FB", borderRadius: 999, padding: "1px 7px" }}>
+                                <span style={{ fontSize: 10.5, fontWeight: 700, color: "#6B4FA8", background: "#EDE4FB", borderRadius: 999, padding: "2px 8px" }}>
                                   법제처 공식 확인{c.effective_date ? ` · ${c.effective_date} 시행 기준` : ""}
                                 </span>
                               )}
                               {c.verified_via === "unavailable" && (
-                                <span style={{ fontSize: 9.5, fontWeight: 700, color: "#9C8FC2", background: "#F1ECFA", borderRadius: 999, padding: "1px 7px" }}>공식 API 미연동</span>
+                                <span style={{ fontSize: 10.5, fontWeight: 700, color: "#9C8FC2", background: "#F1ECFA", borderRadius: 999, padding: "2px 8px" }}>공식 API 미연동</span>
                               )}
                             </div>
-                            <div style={{ fontSize: 13.5, color: "#2A2440", lineHeight: 1.55, marginBottom: 3 }}>{c.text}</div>
-                            <div style={{ fontSize: 12, color: "#6E6389" }}>{c.explanation}</div>
+                            <div style={{ fontSize: 15, fontWeight: 600, color: "#241F33", lineHeight: 1.6, marginBottom: 5 }}>{c.text}</div>
+                            <div style={{ fontSize: 13.5, color: "#5B5470", lineHeight: 1.65 }}>{c.explanation}</div>
                           </div>
                         </motion.div>
                       ))}
