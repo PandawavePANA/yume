@@ -10,6 +10,8 @@ import { buildOverallVerdict } from "./overallVerdict.js";
 import { kakaoSkillHandler } from "./kakaoWebhook.js";
 import { getResult } from "./resultsStore.js";
 import { renderResultPage } from "./renderResultPage.js";
+import { getCached, setCached } from "./verifyCache.js";
+import { resolveProductLinks } from "./coupang.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const distDir = path.join(__dirname, "..", "dist");
@@ -31,6 +33,13 @@ app.post("/api/verify", async (req, res) => {
   const send = (event, data) => res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
 
   try {
+    const cached = getCached(text);
+    if (cached) {
+      send("progress", { message: "이전에 검증한 것과 똑같은 내용이라 저장된 결과를 바로 보여드려요…" });
+      send("result", { ...cached, elapsedMs: Date.now() - startedAt, fromCache: true });
+      return;
+    }
+
     send("progress", { message: "AI 답변에서 사실 주장을 추출하는 중…" });
     const extracted = await extractAndVerify(text, (message) => send("progress", { message }));
     send("progress", { message: `${extracted.claims.length}개 주장을 찾았습니다. 법률 주장은 공식 데이터와 대조합니다…` });
@@ -41,7 +50,10 @@ app.post("/api/verify", async (req, res) => {
 
     send("progress", { message: "결과를 정리하는 중…" });
     const overall = buildOverallVerdict(claims);
-    send("result", { ...extracted, claims, overall, elapsedMs: Date.now() - startedAt });
+    const relatedProducts = await resolveProductLinks(extracted.related_products);
+    const payload = { ...extracted, claims, overall, related_products: relatedProducts };
+    setCached(text, payload);
+    send("result", { ...payload, elapsedMs: Date.now() - startedAt });
   } catch (e) {
     console.error(e);
     send("error", { error: e.message || "서버 오류가 발생했습니다." });

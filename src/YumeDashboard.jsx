@@ -1098,7 +1098,7 @@ export default function YumeDashboard() {
                             <span style={{ fontSize: 13, color: "#6E6389", fontWeight: 500 }}>{confirmedCount}/{totalCount}개 확인됨 · {result.overall_domain}</span>
                             {(result.elapsedMs || elapsedSec > 0) && (
                               <span style={{ fontSize: 12, color: "#A99BC9", marginLeft: "auto" }}>
-                                {Math.max(1, Math.round((result.elapsedMs ?? elapsedSec * 1000) / 1000))}초 만에 확인
+                                {result.fromCache ? "⚡ 이전 검증 결과 재사용" : `${Math.max(1, Math.round((result.elapsedMs ?? elapsedSec * 1000) / 1000))}초 만에 확인`}
                               </span>
                             )}
                           </div>
@@ -1170,14 +1170,14 @@ export default function YumeDashboard() {
                 {tab === "products" && (
                   <>
                     <p style={{ fontSize: 12.5, color: "#9C8FC2", margin: "0 0 16px" }}>
-                      이 내용과 관련해 참고할 만한 상품 카테고리입니다. (데모: 쿠팡 검색 연결 · 실제 서비스는 쿠팡파트너스 API로 자동 매칭)
+                      이 내용과 관련해 참고할 만한 상품입니다. 쿠팡파트너스 활동을 통해 일정액의 수수료를 제공받을 수 있습니다.
                     </p>
                     {(!result.related_products || result.related_products.length === 0) ? (
                       <div style={{ fontSize: 13.5, color: "#A99BC9", padding: "30px 0", textAlign: "center" }}>추천할 상품을 찾지 못했습니다.</div>
                     ) : (
                       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                         {result.related_products.map((p, i) => (
-                          <a key={i} href={`https://www.coupang.com/np/search?q=${encodeURIComponent(p.keyword)}`} target="_blank" rel="noreferrer" style={{
+                          <a key={i} href={p.url || `https://www.coupang.com/np/search?q=${encodeURIComponent(p.keyword)}`} target="_blank" rel="noreferrer" style={{
                             display: "flex", justifyContent: "space-between", alignItems: "center",
                             padding: "14px 16px", borderRadius: 12, background: "#F9FAFB",
                             border: "1px solid #D9BFF0", textDecoration: "none"
@@ -1208,7 +1208,7 @@ export default function YumeDashboard() {
 
         <Reveal y={30} scale={1} style={{ rotateX: cardRotateX, rotateY: cardRotateY, transformStyle: "preserve-3d" }}>
           <p style={{ textAlign: "center", fontSize: 12.5, color: "#B6A9D6", marginTop: 14, lineHeight: 1.6 }}>
-            법률 주장은 법제처 국가법령정보 공동활용 API로 실제 조회해 이중 확인합니다. 의료·금융 등 다른 도메인은 아직 웹검색 기반 MVP이며, 쿠팡파트너스 등 제휴 연동은 적용되지 않았습니다.
+            법률 주장은 법제처 국가법령정보 공동활용 API로 실제 조회해 이중 확인합니다. 의료·금융 등 다른 도메인은 아직 웹검색 기반 MVP입니다.
           </p>
         </Reveal>
       </main>

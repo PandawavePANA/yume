@@ -165,6 +165,24 @@ export function renderResultPage({ id, input, status, result, createdAt }) {
         .join("\n")
     : `<div style="font-size:14px;color:#9C8FC2;">이 검증에는 표시할 출처가 없습니다.</div>`;
 
+  const products = result.related_products || [];
+  const productsHtml = products.length
+    ? `<div class="section-label">관련 상품</div>
+       <p style="font-size:12.5px;color:#9C8FC2;margin:0 0 10px;">쿠팡파트너스 활동을 통해 일정액의 수수료를 제공받을 수 있습니다.</p>` +
+      products
+        .map(
+          (p) => `
+        <a href="${esc(p.url || `https://www.coupang.com/np/search?q=${encodeURIComponent(p.keyword)}`)}" style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:14px 16px;border-radius:12px;background:#F9FAFB;border:1px solid #D9BFF0;margin-bottom:8px;text-decoration:none;">
+          <div>
+            <div style="font-size:14px;font-weight:700;color:#241F33;margin-bottom:3px;">${esc(p.keyword)}</div>
+            <div style="font-size:12px;color:#9C8FC2;">${esc(p.reason || "")}</div>
+          </div>
+          <span style="font-size:12px;color:#7C5CD9;font-weight:600;white-space:nowrap;">쿠팡에서 보기 →</span>
+        </a>`
+        )
+        .join("\n")
+    : "";
+
   return page({
     head: `<meta property="og:title" content="유메 검증 결과" />\n<meta property="og:description" content="${esc(result.overall?.detail || result.summary || "AI 답변 팩트체크 결과")}" />`,
     cardBody: `
@@ -180,7 +198,8 @@ export function renderResultPage({ id, input, status, result, createdAt }) {
       <div class="section-label">검증 결과</div>
       ${claimsHtml}
       <div class="section-label">근거 자료 ${sources.length ? `(${sources.length})` : ""}</div>
-      ${sourcesHtml}`,
+      ${sourcesHtml}
+      ${productsHtml}`,
     footer: `<div class="footer">id: ${esc(id)}</div>`,
   });
 }
