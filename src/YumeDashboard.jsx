@@ -41,8 +41,8 @@ const VBORDER = { confirmed: "#E6EFE9", false: "#F5D8D3", uncertain: "#F3E3C4" }
 const VBG = { confirmed: "#F9FBF9", false: "#FDF4F3", uncertain: "#FFFBF3" };
 
 const PLANS = {
-  free: { label: "무료", price: "0원", period: "", tagline: "일상적인 사실관계 확인", features: ["간단한 사실 주장 확인", "웹검색 기반 교차검증", "검증 기록 최근 50건"] },
-  standard: { label: "스탠다드", price: "9,000원", period: "/월", tagline: "법률·의료 등 전문 분야 답변까지", features: ["무료 플랜 전체 포함", "법률 주장: 법제처 공식 데이터 이중검증", "검증 기록 무제한 저장", "우선 처리 속도"] },
+  free: { label: "무료", price: "0원", period: "", tagline: "일상적인 사실관계 확인", features: ["간단한 사실 주장 확인", "웹검색 기반 교차검증", "검증 기록 최근 50건", "하루 5회까지 확인 (초과 시 1건당 토큰 100원)"] },
+  standard: { label: "스탠다드", price: "9,000원", period: "/월", tagline: "법률·의료 등 전문 분야 답변까지", features: ["무료 플랜 기능 전체 포함, 일일 횟수 제한 없음", "법률 주장: 법제처 공식 데이터 이중검증", "검증 기록 무제한 저장", "우선 처리 속도"] },
   expert: { label: "전문가", price: "29,000원", period: "/월", tagline: "조문·판례를 직접 대조하는 수준의 정확도", features: ["스탠다드 전체 포함", "조문·판례 원문 대조 상세 리포트", "여러 건 한 번에 검증(배치)", "API 사용량 포함", "우선 지원"] },
 };
 

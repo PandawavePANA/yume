@@ -45,7 +45,7 @@ const CHARGE_TRIGGER = /토큰\s*충전\s*(\d+)?/;
 // 안내 문구는 짧게 — 아래 chatReply 호출에서 모델에게 "이미 인사는 전달됐으니
 // 또 인사하지 마라"는 힌트를 같이 주지만, 그래도 문구 자체가 길면 답변과 합쳐졌을
 // 때 부담스러우니 한두 문장으로 줄였다.
-const ONBOARDING_TEXT = "저는 AI 답변 팩트체크 서비스 유메예요 🌙 편하게 대화하다가, 소문이나 정보가 진짜인지 궁금하면 내용과 함께 \"검증해줘\"라고 말해주세요.\n\n";
+const ONBOARDING_TEXT = "저는 AI 답변 팩트체크 서비스 유메예요 🌙 편하게 대화하다가, 소문이나 정보가 진짜인지 궁금하면 내용과 함께 \"검증해줘\"라고 말해주세요. 하루 5회까지 무료예요.\n\n";
 
 function baseUrl(req) {
   if (process.env.PUBLIC_BASE_URL) return process.env.PUBLIC_BASE_URL.replace(/\/$/, "");
