@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<title>유메 개발 문서 · API 사용법</title>
+<style>
+  @page { size: A4; margin: 22mm 18mm; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Malgun Gothic', 'Noto Sans KR', sans-serif;
+    color: #241F33; line-height: 1.65; font-size: 13px; margin: 0;
+  }
+  .cover {
+    height: 250mm; display: flex; flex-direction: column; justify-content: center; align-items: center;
+    text-align: center; page-break-after: always;
+  }
+  .cover .logo { font-size: 46px; font-weight: 800; letter-spacing: 0.04em; color: #6B4FA8; margin-bottom: 10px; }
+  .cover .tag { font-size: 15px; color: #8577A8; margin-bottom: 60px; }
+  .cover h1 { font-size: 26px; margin: 0 0 12px; color: #241F33; }
+  .cover .meta { font-size: 12px; color: #A99BC9; margin-top: 40px; }
+  h1 { font-size: 20px; color: #241F33; border-bottom: 2px solid #B49AEE; padding-bottom: 8px; margin: 0 0 16px; }
+  h2 { font-size: 15.5px; color: #4C2E8E; margin: 26px 0 10px; }
+  h3 { font-size: 13.5px; color: #6B4FA8; margin: 18px 0 8px; }
+  section { page-break-before: always; }
+  section:first-of-type { page-break-before: auto; }
+  p { margin: 0 0 10px; }
+  .lead { color: #5B5470; }
+  table { width: 100%; border-collapse: collapse; margin: 10px 0 18px; font-size: 12px; page-break-inside: avoid; }
+  th, td { border: 1px solid #E3CEF5; padding: 7px 9px; text-align: left; vertical-align: top; }
+  th { background: #F3EAFB; color: #4C2E8E; font-weight: 700; }
+  tr:nth-child(even) td { background: #FBF8FE; }
+  code, pre { font-family: 'SFMono-Regular', Consolas, Menlo, monospace; }
+  code { background: #F1E6FB; color: #5B3A9E; padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+  pre {
+    background: #241A38; color: #E8E1FA; padding: 12px 14px; border-radius: 8px; font-size: 11.5px;
+    line-height: 1.6; overflow-x: auto; white-space: pre-wrap; word-break: break-all; page-break-inside: avoid;
+  }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 10.5px; font-weight: 700; color: #fff; }
+  .badge.post { background: #3B82C4; }
+  .badge.get { background: #1F9D66; }
+  .note { background: #FFF6E0; border: 1px solid #F0D98C; border-radius: 8px; padding: 10px 14px; font-size: 12px; color: #7A5B00; margin: 10px 0; page-break-inside: avoid; }
+  .warn { background: #FBEDEA; border: 1px solid #F0BCB0; border-radius: 8px; padding: 10px 14px; font-size: 12px; color: #8A3A2A; margin: 10px 0; page-break-inside: avoid; }
+  ul, ol { margin: 6px 0 12px; padding-left: 20px; }
+  li { margin-bottom: 4px; }
+  .footer-note { font-size: 10.5px; color: #A99BC9; text-align: center; margin-top: 40px; }
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <div class="logo">YUME</div>
+  <div class="tag">AI 답변 팩트체크 서비스</div>
+  <h1>유메 개발 문서<br/>코드 구성 · 검증 API 사용 설명서</h1>
+  <div class="meta">v1.0 · 2026년 9월 작성 · 내부/파트너 배포용</div>
+</div>
+
+<section>
+<h1>1. 서비스 개요</h1>
+<p class="lead">유메(YUME)는 ChatGPT, 클로드, 제미나이 등 AI가 답변한 내용 속 사실 주장을 실시간으로 검증해주는 팩트체크 서비스입니다. 법률·의료·금융·역사·과학 등 도메인을 가리지 않고, AI 답변을 그대로 붙여넣으면 각 주장을 확인됨(confirmed)/사실과 다름(false)/판단 보류(uncertain)로 판정하고 근거 출처를 함께 제시합니다.</p>
+<ul>
+  <li><strong>웹 서비스</strong> — 누구나 무료로 하루 5회까지 사용, 결과 화면에서 개별 주장과 전체 총평을 확인</li>
+  <li><strong>카카오톡 채널</strong> — 카카오 i 오픈빌더 스킬로 연동, 대화 중 "검증해줘"라고 요청하면 검증 대시보드 링크를 발급</li>
+  <li><strong>검증 API (v1)</strong> — 외부 서비스가 유메의 검증 엔진을 직접 호출할 수 있는 개발자용 API (본 문서 4장)</li>
+  <li><strong>관리자 대시보드</strong> — 운영자가 사용 현황을 모니터링하는 내부 페이지 (본 문서 5장)</li>
+</ul>
+<div class="note">현재 단계는 프로토타입입니다. 결제(구독/토큰 충전)는 실제 PG 연동 없이 데모로만 동작하며, 모든 사용량 데이터는 서버 메모리에만 저장되어 재배포 시 초기화됩니다.</div>
+</section>
+
+<section>
+<h1>2. 시스템 구성</h1>
+<h2>2.1 스택</h2>
+<table>
+  <tr><th>영역</th><th>구성</th></tr>
+  <tr><td>프론트엔드</td><td>Vite + React (단일 페이지, <code>src/YumeDashboard.jsx</code>)</td></tr>
+  <tr><td>백엔드</td><td>Node.js + Express (<code>server/*.js</code>)</td></tr>
+  <tr><td>AI 모델</td><td>Anthropic Claude (Messages API, 웹 검색 툴 사용)</td></tr>
+  <tr><td>법률 공식 데이터</td><td>법제처 국가법령정보 공동활용 Open API</td></tr>
+  <tr><td>배포</td><td>Railway (GitHub push 시 자동 배포, 프론트/백엔드 동일 서버·도메인)</td></tr>
+  <tr><td>저장소</td><td>메모리 내 Map 기반 (DB 미도입 — 프로토타입 단계의 의도적 선택)</td></tr>
+</table>
+
+<h2>2.2 요청 흐름 개요</h2>
+<pre>사용자(웹/카카오/외부 API 파트너)
+    │
+    ▼
+extractAndVerify (claude.js)  — AI 답변에서 사실 주장 추출 + 1차 판정
+    │
+    ▼
+resolveLegalClaims (legalPipeline.js)
+    ├─ 법률 주장 → 법제처 공식 API 조회 (lawApi.js)
+    │      └─ 특정 실패 시 → 웹 검색 폴백 (claude.js: verifyLegalClaimViaWeb)
+    └─ 비법률 주장 → 그대로 통과
+    │
+    ▼
+buildOverallVerdict (overallVerdict.js) — 결정론적 전체 총평 계산
+    │
+    ▼
+resolveProductLinks (coupang.js) — 관련 상품 쿠팡파트너스 링크 변환
+    │
+    ▼
+결과 저장/캐싱 (resultsStore.js, verifyCache.js) → 응답</pre>
+</section>
+
+<section>
+<h1>3. 코드 구성 (server/*.js)</h1>
+<table>
+  <tr><th>파일</th><th>역할</th></tr>
+  <tr><td><code>index.js</code></td><td>Express 앱 진입점. 라우트 등록, 정적 파일 서빙(dist/), 웹사이트용 IP 기반 무료 한도 적용.</td></tr>
+  <tr><td><code>claude.js</code></td><td>Anthropic Messages API 호출 전담. AI 답변에서 사실 주장 추출(extractAndVerify), 법률 주장 웹 검색 폴백(verifyLegalClaimViaWeb), 일반 대화(chatReply).</td></tr>
+  <tr><td><code>legalPipeline.js</code></td><td>법률(domain==="법률") 주장만 골라 법제처 공식 데이터로 재검증. 조문/판례를 특정 못하면 웹 검색 폴백으로 넘겨 "확인 불가"로 끝내지 않는다.</td></tr>
+  <tr><td><code>lawApi.js</code></td><td>법제처 국가법령정보 공동활용 Open API 클라이언트 (조문 검색·본문 조회, 판례 검색·상세 조회).</td></tr>
+  <tr><td><code>overallVerdict.js</code></td><td>개별 주장 판정 배열로부터 "전체적으로는 맞지만 이 부분은 틀렸다" 식 총평을 AI 호출 없이 결정론적으로 계산 — 총평이 개별 판정과 항상 일치하도록 보장.</td></tr>
+  <tr><td><code>verifyPipeline.js</code></td><td>카카오 채널과 검증 API(v1)가 공유하는 백그라운드 검증 실행 함수(runVerificationJob). 캐시 확인 → 추출·검증 → 저장까지 한 번에 처리.</td></tr>
+  <tr><td><code>resultsStore.js</code></td><td>검증 결과를 id로 저장/조회하는 메모리 저장소. 카카오 링크, API 폴링(<code>GET /v1/verify/:id</code>), 관리자 대시보드가 공유해서 쓴다.</td></tr>
+  <tr><td><code>verifyCache.js</code></td><td>완전히 동일한 텍스트 재검증을 막는 캐시. SHA-256 해시 키, 7일 TTL. 원문 자체는 저장하지 않고 결과만 저장한다.</td></tr>
+  <tr><td><code>usageStore.js</code></td><td>웹사이트(IP 기준) + 카카오(사용자 id 기준) 공용 사용량 관리. 하루 무료 5회 + 초과 시 토큰(1개=100원) 차감. 날짜가 바뀌면 무료 횟수만 리셋, 토큰은 이월.</td></tr>
+  <tr><td><code>chatHistory.js</code></td><td>카카오 채널 사용자별 최근 대화(최대 12턴) 기억 — 스킬 요청이 원래 무상태(stateless)라 대화가 이어지는 것처럼 보이게 한다.</td></tr>
+  <tr><td><code>coupang.js</code></td><td>쿠팡파트너스 Open API 딥링크 생성(HMAC-SHA256 서명). 키 미설정 시 일반 검색 링크로 자동 폴백.</td></tr>
+  <tr><td><code>kakaoWebhook.js</code></td><td>카카오 i 오픈빌더 스킬 서버 핸들러. "검증"/"팩트체크" 트리거 시 검증 파이프라인 + 대시보드 링크, 그 외에는 일반 대화 응답.</td></tr>
+  <tr><td><code>renderResultPage.js</code></td><td>카카오톡 등으로 공유되는 결과 페이지(<code>/r/:id</code>)의 서버 렌더링 HTML. React 앱과 별개의 정적 페이지지만 동일한 색상·마크업으로 시각적 일관성을 유지.</td></tr>
+  <tr><td><code>apiKeys.js</code></td><td>검증 API(v1) 키 발급·검증·일일 호출량 관리. 데모 발급이라 가입/결제 절차 없이 즉시 키가 나온다.</td></tr>
+  <tr><td><code>apiV1.js</code></td><td>외부 개발자가 호출하는 공개 검증 API 라우터(<code>/v1/*</code>). 본 문서 4장에서 상세히 다룬다.</td></tr>
+  <tr><td><code>adminAuth.js</code></td><td>관리자 대시보드 인증 미들웨어. <code>ADMIN_SECRET</code> 환경변수 또는 서버 기동 시 자동 생성되는 임시 키로 보호.</td></tr>
+  <tr><td><code>adminApi.js</code></td><td>관리자 통계 API(<code>/api/admin/stats</code>) — 웹/카카오 사용자 수, API 키 목록, 캐시·결과 저장소 현황을 한 번에 반환.</td></tr>
+  <tr><td><code>renderAdminPage.js</code></td><td>관리자 대시보드 페이지(<code>/admin</code>)의 서버 렌더링 HTML + 조회용 클라이언트 스크립트.</td></tr>
+</table>
+
+<h2>3.1 프론트엔드</h2>
+<table>
+  <tr><th>파일</th><th>역할</th></tr>
+  <tr><td><code>src/YumeDashboard.jsx</code></td><td>단일 페이지 React 앱 전체 — 검증 입력·결과 화면, 요금제/구독 모달, 설정·비즈니스 패널(개발자 API 데모 키 발급 포함), 플로팅 AI 채팅 위젯.</td></tr>
+</table>
+</section>
+
+<section>
+<h1>4. 유메 검증 API (v1)</h1>
+<p class="lead">외부 서비스가 유메의 팩트체크 엔진을 직접 호출할 수 있는 공개 API입니다. 웹사이트가 쓰는 내부 <code>/api/verify</code>(SSE 스트리밍, 세션 기반)와는 완전히 분리되어 있으며, API 키 인증과 폴링(polling) 방식으로 동작합니다.</p>
+
+<h2>4.1 인증</h2>
+<p>모든 <code>/v1/*</code> 요청(키 발급 제외)에는 <code>X-API-Key</code> 헤더가 필요합니다. 키가 없다면 아래 발급 엔드포인트로 즉시 데모 키를 받을 수 있습니다(가입·결제 없음).</p>
+
+<h2>4.2 엔드포인트</h2>
+<table>
+  <tr><th>Method</th><th>Path</th><th>설명</th></tr>
+  <tr><td><span class="badge post">POST</span></td><td><code>/v1/keys</code></td><td>데모 API 키 발급</td></tr>
+  <tr><td><span class="badge post">POST</span></td><td><code>/v1/verify</code></td><td>텍스트 검증 요청 (비동기 — id를 즉시 반환)</td></tr>
+  <tr><td><span class="badge get">GET</span></td><td><code>/v1/verify/:id</code></td><td>검증 결과 조회 (폴링)</td></tr>
+  <tr><td><span class="badge get">GET</span></td><td><code>/v1/usage</code></td><td>내 API 키의 오늘 호출량 조회</td></tr>
+  <tr><td><span class="badge get">GET</span></td><td><code>/v1/</code></td><td>API 개요 JSON (엔드포인트 목록)</td></tr>
+</table>
+
+<h3>POST /v1/keys — 데모 키 발급</h3>
+<pre>curl -X POST https://yume-production-0788.up.railway.app/v1/keys \
+  -H "Content-Type: application/json" \
+  -d '{"label":"우리 서비스 이름"}'</pre>
+<p>응답:</p>
+<pre>{
+  "apiKey": "yume_demo_a0fb6bca3e205d2bc6aab1788282a848",
+  "label": "우리 서비스 이름",
+  "dailyLimit": 200,
+  "note": "데모 키입니다 — 실제 결제 없이 즉시 발급되며, 서버 재배포 시 초기화될 수 있어요."
+}</pre>
+<div class="note">IP당 발급 가능한 데모 키 수는 남용 방지를 위해 제한되어 있습니다(최대 10개).</div>
+
+<h3>POST /v1/verify — 검증 요청</h3>
+<pre>curl -X POST https://yume-production-0788.up.railway.app/v1/verify \
+  -H "X-API-Key: yume_demo_xxxxxxxxxxxxxxxx" \
+  -H "Content-Type: application/json" \
+  -d '{"text":"비타민 C를 하루 10g 이상 섭취하면 감기를 완전히 예방할 수 있다"}'</pre>
+<p>검증에 보통 10~30초가 걸리므로, 이 요청은 결과를 기다리지 않고 <code>id</code>를 즉시 반환합니다(HTTP 202). 이미 동일한 텍스트가 캐시돼 있다면 곧바로 완료된 결과를 반환합니다(HTTP 200).</p>
+<pre>// 아직 처리 중일 때 (202)
+{ "id": "5a96d1ca6994", "status": "pending", "pollUrl": "/v1/verify/5a96d1ca6994", "usage": {...} }
+
+// 캐시 히트일 때 (200)
+{ "id": "5a96d1ca6994", "status": "done", "cached": true, "result": { ... }, "usage": {...} }</pre>
+
+<h3>GET /v1/verify/:id — 결과 조회 (폴링)</h3>
+<pre>curl https://yume-production-0788.up.railway.app/v1/verify/5a96d1ca6994 \
+  -H "X-API-Key: yume_demo_xxxxxxxxxxxxxxxx"</pre>
+<pre>{
+  "id": "5a96d1ca6994",
+  "status": "done",
+  "input": "비타민 C를 하루 10g 이상 섭취하면 감기를 완전히 예방할 수 있다",
+  "result": {
+    "overall_domain": "의료",
+    "summary": "일부 사실과 다른 주장이 포함되어 있습니다.",
+    "overall": { "label": "일부 틀림", "detail": "...", "tone": "false" },
+    "claims": [
+      {
+        "text": "비타민 C 하루 10g 이상 섭취 시 감기를 완전히 예방할 수 있다",
+        "domain": "의료",
+        "verdict": "false",
+        "explanation": "...",
+        "sources": [ { "title": "...", "url": "..." } ]
+      }
+    ],
+    "related_products": [ { "keyword": "비타민C", "reason": "...", "url": "...", "isAffiliate": true } ]
+  }
+}</pre>
+<p>결과가 아직 준비되지 않았다면 <code>status: "pending"</code>과 <code>result: null</code>이 반환됩니다. 보통 3~5초 간격으로 재조회(폴링)하는 것을 권장합니다.</p>
+
+<h3>GET /v1/usage — 사용량 조회</h3>
+<pre>curl https://yume-production-0788.up.railway.app/v1/usage \
+  -H "X-API-Key: yume_demo_xxxxxxxxxxxxxxxx"</pre>
+<pre>{
+  "label": "우리 서비스 이름",
+  "createdAt": 1788905621911,
+  "requestCount": 12,
+  "dailyCount": 3,
+  "dailyLimit": 200,
+  "remainingToday": 197
+}</pre>
+
+<h2>4.3 오류 응답</h2>
+<table>
+  <tr><th>상태 코드</th><th>상황</th></tr>
+  <tr><td>400</td><td><code>text</code> 필드 누락/빈 값</td></tr>
+  <tr><td>401</td><td>API 키 누락 또는 유효하지 않음</td></tr>
+  <tr><td>404</td><td>존재하지 않거나 만료된 결과 id</td></tr>
+  <tr><td>429</td><td>일일 호출 한도(기본 200회) 초과, 또는 키 발급 IP 한도 초과</td></tr>
+</table>
+
+<h2>4.4 요금 모델 (기획)</h2>
+<p>현재는 데모 단계로 모든 키가 하루 200회 무료 한도만 적용됩니다. 정식 출시 시 호출량 기반 종량제(예: 1,000건당 과금)로 전환할 계획이며, 이 경우 <code>server/apiKeys.js</code>의 메모리 저장을 실제 결제 연동 + DB로 교체합니다.</p>
+</section>
+
+<section>
+<h1>5. 관리자 대시보드</h1>
+<p class="lead">사이트 운영자가 웹/카카오/API 사용 현황을 한 화면에서 확인하는 내부 전용 페이지입니다.</p>
+<table>
+  <tr><th>항목</th><th>내용</th></tr>
+  <tr><td>접속 주소</td><td><code>/admin</code></td></tr>
+  <tr><td>인증</td><td>관리자 키 (환경변수 <code>ADMIN_SECRET</code>, 미설정 시 서버 기동 로그에 임시 키 출력)</td></tr>
+  <tr><td>확인 가능 정보</td><td>웹 무료 사용자 수(IP 기준)·오늘 무료 사용 횟수·토큰 보유 총량, 카카오 대화중 사용자 수, 발급된 API 키 목록과 호출량, 최근 검증 요청 목록, 최근 캐시된 검증 요약</td></tr>
+</table>
+<div class="warn">이 페이지는 사용자 IP, 발급된 API 키(마스킹), 검증 요청 내용 미리보기 등 민감한 운영 정보를 보여줍니다. <code>ADMIN_SECRET</code>을 반드시 추측하기 어려운 값으로 설정하고 외부에 공유하지 마세요.</div>
+</section>
+
+<section>
+<h1>6. 환경변수 (.env)</h1>
+<table>
+  <tr><th>변수명</th><th>필수 여부</th><th>설명</th></tr>
+  <tr><td><code>ANTHROPIC_API_KEY</code></td><td>필수</td><td>Claude API 호출용 키</td></tr>
+  <tr><td><code>LAW_OC</code></td><td>권장</td><td>법제처 국가법령정보 공동활용 API 신청 시 발급받는 OC 코드. 없으면 법률 주장도 웹 검색 폴백으로만 처리.</td></tr>
+  <tr><td><code>CLAUDE_MODEL</code></td><td>선택</td><td>기본값 <code>claude-sonnet-5</code></td></tr>
+  <tr><td><code>PORT</code></td><td>선택</td><td>기본값 8787</td></tr>
+  <tr><td><code>PUBLIC_BASE_URL</code></td><td>권장(배포 시)</td><td>카카오 대시보드 링크 생성에 쓰이는 공개 도메인</td></tr>
+  <tr><td><code>COUPANG_ACCESS_KEY</code> / <code>COUPANG_SECRET_KEY</code></td><td>선택</td><td>쿠팡파트너스 Open API 키. 없으면 일반 검색 링크로 폴백.</td></tr>
+  <tr><td><code>ADMIN_SECRET</code></td><td>권장(배포 시)</td><td>관리자 대시보드 로그인 키. 미설정 시 재시작마다 임시 값 자동 생성.</td></tr>
+</table>
+</section>
+
+<div class="footer-note">본 문서는 프로토타입 단계의 코드를 기준으로 작성되었습니다. 실제 서비스 전환 시 DB 도입·실 결제 연동·API 요금제 확정에 따라 내용이 달라질 수 있습니다.</div>
+
+</body>
+</html>

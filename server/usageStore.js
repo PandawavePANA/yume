@@ -57,4 +57,31 @@ export function peekUsage(userId) {
   return { freeUsed: e.freeUsed, remainingFree: Math.max(0, FREE_DAILY_LIMIT - e.freeUsed), tokens: e.tokens };
 }
 
+// 관리자 대시보드용 — 웹/카카오 사용자 수, 오늘 무료 사용량, 토큰 보유 총량을
+// 한눈에 보여준다. userId 자체가 "web:"+IP 또는 카카오 user id라서 접두사로
+// 구분한다.
+export function getUsageStats() {
+  const d = today();
+  let webUsers = 0, kakaoUsers = 0, totalFreeUsedToday = 0, totalTokens = 0;
+  for (const [id, e] of usage) {
+    if (id.startsWith("web:")) webUsers += 1; else kakaoUsers += 1;
+    if (e.date === d) totalFreeUsedToday += e.freeUsed;
+    totalTokens += e.tokens;
+  }
+  return { totalUsers: usage.size, webUsers, kakaoUsers, totalFreeUsedToday, totalTokens };
+}
+
+export function listUsageEntries(limit = 50) {
+  const d = today();
+  return [...usage.entries()]
+    .map(([id, e]) => ({
+      id,
+      type: id.startsWith("web:") ? "web" : "kakao",
+      freeUsedToday: e.date === d ? e.freeUsed : 0,
+      tokens: e.tokens,
+    }))
+    .sort((a, b) => (b.freeUsedToday - a.freeUsedToday) || (b.tokens - a.tokens))
+    .slice(0, limit);
+}
+
 export { FREE_DAILY_LIMIT, TOKEN_PRICE_KRW };

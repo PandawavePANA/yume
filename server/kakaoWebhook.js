@@ -1,12 +1,11 @@
 import crypto from "node:crypto";
-import { extractAndVerify, chatReply } from "./claude.js";
-import { resolveLegalClaims } from "./legalPipeline.js";
+import { chatReply } from "./claude.js";
 import { saveResult } from "./resultsStore.js";
-import { buildOverallVerdict } from "./overallVerdict.js";
 import { getHistory, appendTurns } from "./chatHistory.js";
-import { getCached, setCached } from "./verifyCache.js";
-import { resolveProductLinks } from "./coupang.js";
+import { getCached } from "./verifyCache.js";
 import { checkAndConsume, addTokensDemo, FREE_DAILY_LIMIT, TOKEN_PRICE_KRW } from "./usageStore.js";
+import { runVerificationJob } from "./verifyPipeline.js";
+import { logError } from "./errorLog.js";
 
 // 카카오 i 오픈빌더 "스킬" 서버 규격. 오픈빌더 쪽에서 사용자가 채널에 보낸 메시지를
 // 이 엔드포인트로 그대로 넘겨준다.
@@ -91,26 +90,6 @@ function usageLimitMessage() {
   );
 }
 
-async function runVerification(id, verifyText) {
-  try {
-    const cached = getCached(verifyText);
-    if (cached) {
-      saveResult(id, { input: verifyText, status: "done", result: cached });
-      return;
-    }
-    const extracted = await extractAndVerify(verifyText);
-    const claims = await resolveLegalClaims(extracted.claims);
-    const overall = buildOverallVerdict(claims);
-    const relatedProducts = await resolveProductLinks(extracted.related_products);
-    const result = { ...extracted, claims, overall, related_products: relatedProducts };
-    saveResult(id, { input: verifyText, status: "done", result });
-    setCached(verifyText, result);
-  } catch (e) {
-    console.error("카카오 스킬 검증 오류:", e);
-    saveResult(id, { input: verifyText, status: "error" });
-  }
-}
-
 export function kakaoSkillHandler(req, res) {
   const utterance = (req.body?.userRequest?.utterance || "").trim();
   const userId = req.body?.userRequest?.user?.id;
@@ -152,9 +131,9 @@ export function kakaoSkillHandler(req, res) {
     const cached = getCached(verifyText);
     const id = crypto.randomBytes(6).toString("hex");
     if (cached) {
-      saveResult(id, { input: verifyText, status: "done", result: cached });
+      saveResult(id, { input: verifyText, status: "done", result: cached, source: "kakao" });
     } else {
-      saveResult(id, { input: verifyText, status: "pending" });
+      saveResult(id, { input: verifyText, status: "pending", source: "kakao" });
     }
     const resultUrl = `${origin}/r/${id}`;
     appendTurns(userId, [
@@ -167,7 +146,7 @@ export function kakaoSkillHandler(req, res) {
     res.json(linkReply({ resultUrl, text: `${prefix}${introText} ${usageNote}` }));
 
     if (!cached) {
-      runVerification(id, verifyText);
+      runVerificationJob(id, verifyText, "kakao");
     }
     return;
   }
@@ -188,6 +167,7 @@ export function kakaoSkillHandler(req, res) {
       res.json(textReply(prefix + reply));
     } catch (e) {
       console.error("카카오 스킬 대화 오류:", e);
+      logError("kakaoWebhook:chat", e);
       res.json(textReply(prefix + "죄송해요, 지금 답변드리기 어려워요. 잠시 후 다시 시도해주세요."));
     }
   })();

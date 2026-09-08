@@ -1,4 +1,5 @@
 import "dotenv/config";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -8,11 +9,16 @@ import { extractAndVerify, chatReply } from "./claude.js";
 import { resolveLegalClaims } from "./legalPipeline.js";
 import { buildOverallVerdict } from "./overallVerdict.js";
 import { kakaoSkillHandler } from "./kakaoWebhook.js";
-import { getResult } from "./resultsStore.js";
+import { getResult, saveResult } from "./resultsStore.js";
 import { renderResultPage } from "./renderResultPage.js";
 import { getCached, setCached } from "./verifyCache.js";
 import { resolveProductLinks } from "./coupang.js";
 import { checkAndConsume, addTokensDemo, peekUsage, FREE_DAILY_LIMIT, TOKEN_PRICE_KRW } from "./usageStore.js";
+import { appendTurns } from "./chatHistory.js";
+import { logError } from "./errorLog.js";
+import apiV1Router from "./apiV1.js";
+import adminApiRouter from "./adminApi.js";
+import { renderAdminPage } from "./renderAdminPage.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const distDir = path.join(__dirname, "..", "dist");
@@ -60,12 +66,17 @@ app.post("/api/verify", async (req, res) => {
     Connection: "keep-alive",
   });
   const send = (event, data) => res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+  // 관리자 대시보드에서 웹사이트 쪽 검증도 카카오/API와 동일하게 보이도록,
+  // 요청 하나당 id를 만들어 resultsStore에도 남긴다(사이트 UI는 SSE로 바로
+  // 받아서 이 id를 쓰지 않지만, 대시보드의 "최근 검증 요청" 목록에는 필요하다).
+  const resultId = crypto.randomBytes(6).toString("hex");
 
   try {
     const cached = getCached(text);
     if (cached) {
       send("progress", { message: "이전에 검증한 것과 똑같은 내용이라 저장된 결과를 바로 보여드려요…" });
       send("result", { ...cached, elapsedMs: Date.now() - startedAt, fromCache: true, usage: usageInfo });
+      saveResult(resultId, { input: text, status: "done", result: cached, source: "web" });
       return;
     }
 
@@ -83,9 +94,12 @@ app.post("/api/verify", async (req, res) => {
     const payload = { ...extracted, claims, overall, related_products: relatedProducts };
     setCached(text, payload);
     send("result", { ...payload, elapsedMs: Date.now() - startedAt, usage: usageInfo });
+    saveResult(resultId, { input: text, status: "done", result: payload, source: "web" });
   } catch (e) {
     console.error(e);
+    logError("web:/api/verify", e);
     send("error", { error: e.message || "서버 오류가 발생했습니다." });
+    saveResult(resultId, { input: text, status: "error", source: "web" });
   } finally {
     res.end();
   }
@@ -110,9 +124,17 @@ app.post("/api/chat", async (req, res) => {
   if (messages.length === 0) return res.status(400).json({ error: "메시지가 없습니다." });
   try {
     const reply = await chatReply(messages);
+    // 관리자 대시보드에서 카카오 채널과 마찬가지로 웹사이트 AI 위젯 대화도 볼 수
+    // 있도록, 새로 오간 한 턴만 기록한다(요청마다 전체 히스토리를 다시 쌓지
+    // 않기 위해 마지막 사용자 메시지만 사용 — chatHistory.js는 카카오/웹 공용).
+    const lastUserMsg = messages[messages.length - 1];
+    if (lastUserMsg?.role === "user") {
+      appendTurns(webUsageKey(req), [{ role: "user", content: lastUserMsg.content }, { role: "assistant", content: reply }]);
+    }
     res.json({ reply });
   } catch (e) {
     console.error(e);
+    logError("web:/api/chat", e);
     res.status(500).json({ error: e.message || "서버 오류가 발생했습니다." });
   }
 });
@@ -129,6 +151,20 @@ app.get("/api/health", (req, res) => {
 // 스킬로 등록하면, 채널로 온 메시지가 여기로 그대로 전달된다. 실제 채널 생성과
 // 오픈빌더 스킬 등록은 카카오 비즈니스 계정에서 직접 해야 하는 별도 절차다.
 app.post("/api/kakao/skill", kakaoSkillHandler);
+
+// 외부 개발자·B2B 파트너가 직접 호출하는 공개 검증 API (경연용 수익모델 시연).
+// 프론트엔드가 쓰는 /api/verify(세션 기반, SSE)와는 완전히 별개 — API 키로
+// 인증하고, 진행상황 스트리밍 대신 폴링 방식으로 응답한다. server/apiV1.js 참고.
+app.use("/v1", apiV1Router);
+
+// 운영자 전용 내부 대시보드 — 사이트/카카오/API 사용 현황 확인용. adminApi.js가
+// 실제 데이터 API(/api/admin/stats)를 관리자 키로 막아두고, 이 페이지는 로그인
+// 화면 + 빈 틀만 서버가 내려준다(server/adminAuth.js에 키 발급/확인 로직).
+app.use("/api/admin", adminApiRouter);
+app.get("/admin", (req, res) => {
+  res.set("Content-Type", "text/html; charset=utf-8");
+  res.send(renderAdminPage());
+});
 
 // 카카오톡 등 외부 채널로 보낸 검증 결과를 링크로 열어보는 읽기 전용 페이지.
 // React 앱과 분리된 서버 렌더링 페이지라 새로고침·직접 접속 모두 그대로 동작한다.

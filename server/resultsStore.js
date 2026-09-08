@@ -16,3 +16,29 @@ export function saveResult(id, data) {
 export function getResult(id) {
   return store.get(id) || null;
 }
+
+// 관리자 대시보드용 — 상태별 건수와 최근 요청 목록(입력 원문은 미리보기만)을 보여준다.
+export function getResultsStats() {
+  let pending = 0, done = 0, error = 0;
+  for (const entry of store.values()) {
+    if (entry.status === "pending") pending += 1;
+    else if (entry.status === "error") error += 1;
+    else done += 1;
+  }
+  return { total: store.size, pending, done, error };
+}
+
+// 관리자 대시보드에서 요청 원문·전체 판정 결과를 그대로 볼 수 있도록 잘라내지 않고 반환한다.
+export function listRecentResults(limit = 30) {
+  return [...store.entries()]
+    .map(([id, entry]) => ({
+      id,
+      status: entry.status,
+      source: entry.source || "unknown",
+      createdAt: entry.createdAt,
+      input: entry.input || "",
+      result: entry.result || null,
+    }))
+    .sort((a, b) => b.createdAt - a.createdAt)
+    .slice(0, limit);
+}

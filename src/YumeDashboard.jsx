@@ -612,6 +612,29 @@ export default function YumeDashboard() {
   // (진짜 로그인이 없어서 그게 최선), 여기서는 화면에 보여주기 위한 값만 들고 있는다.
   const [usage, setUsage] = useState(null); // { usedFree, remainingFree, tokens }
   const [limitReached, setLimitReached] = useState(null); // { message, tokens } — 무료 소진 시
+  // 설정·비즈니스 패널의 "유메 API" 데모 키 발급 — 경연에서 개발자 API를 말로만
+  // 설명하지 않고 실제로 curl까지 바로 보여주기 위한 상태.
+  const [apiDemoKey, setApiDemoKey] = useState(null); // { apiKey, dailyLimit }
+  const [apiDemoLoading, setApiDemoLoading] = useState(false);
+  const [apiDemoError, setApiDemoError] = useState("");
+
+  const issueDemoApiKey = async () => {
+    setApiDemoLoading(true);
+    setApiDemoError("");
+    try {
+      const res = await fetch("/v1/keys", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ label: "대시보드 데모" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "발급에 실패했어요.");
+      setApiDemoKey(data);
+    } catch (e) {
+      setApiDemoError(e.message || "발급에 실패했어요.");
+    } finally {
+      setApiDemoLoading(false);
+    }
+  };
 
   React.useEffect(() => {
     if (plan !== "free") { setUsage(null); return; }
@@ -1456,7 +1479,36 @@ export default function YumeDashboard() {
 
             <div style={{ fontSize: 11, fontWeight: 700, color: "#B0A2D6", letterSpacing: "0.03em", marginBottom: 10 }}>개발자 · 데이터 · 파트너십</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 26 }}>
-              <BizRow title="유메 API" desc="AI 기능이 있는 모든 서비스에 실시간 검증을 API로 붙일 수 있습니다. 호출량 기반 종량제." cta="API 키 발급 (준비 중)" />
+              <div style={{
+                display: "flex", flexDirection: "column", gap: 10,
+                padding: "14px 16px", borderRadius: 12, background: "#F9FAFB", border: "1px solid #D9BFF0"
+              }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: "#241F33", marginBottom: 3 }}>유메 검증 API</div>
+                    <div style={{ fontSize: 12, color: "#8577A8", lineHeight: 1.5 }}>AI 기능이 있는 모든 서비스에 실시간 팩트체크를 API로 붙일 수 있습니다. 호출량 기반 종량제.</div>
+                  </div>
+                  <button onClick={issueDemoApiKey} disabled={apiDemoLoading} style={{
+                    flexShrink: 0, padding: "8px 14px", borderRadius: 999, border: "1px solid #D4BEF0",
+                    background: "#fff", color: "#6B4FA8", fontSize: 12.5, fontWeight: 600,
+                    cursor: apiDemoLoading ? "default" : "pointer", whiteSpace: "nowrap", opacity: apiDemoLoading ? 0.6 : 1
+                  }}>{apiDemoLoading ? "발급 중…" : "데모 키 발급받기"}</button>
+                </div>
+                {apiDemoError && <div style={{ fontSize: 12, color: "#C0392B" }}>{apiDemoError}</div>}
+                {apiDemoKey && (
+                  <div style={{ background: "#211A32", borderRadius: 10, padding: "12px 14px", fontSize: 11.5, color: "#E8E1FA", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}>
+                    <div style={{ marginBottom: 6, color: "#B7A9DD" }}>API 키 (하루 {apiDemoKey.dailyLimit}회, 데모·실제 과금 없음)</div>
+                    <div style={{ wordBreak: "break-all", marginBottom: 10 }}>{apiDemoKey.apiKey}</div>
+                    <div style={{ color: "#B7A9DD", marginBottom: 4 }}>curl 예시</div>
+                    <div style={{ whiteSpace: "pre-wrap", wordBreak: "break-all", lineHeight: 1.6 }}>
+{`curl -X POST ${typeof window !== "undefined" ? window.location.origin : ""}/v1/verify \\
+  -H "X-API-Key: ${apiDemoKey.apiKey}" \\
+  -H "Content-Type: application/json" \\
+  -d '{"text":"확인하고 싶은 내용"}'`}
+                    </div>
+                  </div>
+                )}
+              </div>
               <BizRow title="협업 파트너십" desc="검증 결과와 맞닿은 상품·서비스를 결과 화면에 노출하고, 노출당 정산받는 제휴 프로그램입니다." cta="제휴 문의" />
               <BizRow title="데이터셋 라이선싱" desc="익명화된 질의·판정 데이터셋을 제공합니다. AI 모델의 할루시네이션 개선용 학습 데이터로 활용할 수 있습니다." cta="문의하기" />
             </div>

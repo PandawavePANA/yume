@@ -30,9 +30,25 @@ export function getCached(text) {
 
 export function setCached(text, data) {
   const key = hashKey(text);
-  cache.set(key, { data, cachedAt: Date.now() });
+  // 캐시 매칭 자체는 여전히 해시로만 하지만(정확 일치 판단 로직은 그대로),
+  // 관리자 대시보드에서 "이게 무슨 내용이었는지" 볼 수 있도록 원문도 같이 들고 있는다.
+  cache.set(key, { data, cachedAt: Date.now(), input: text });
   if (cache.size > MAX_ENTRIES) {
     const oldestKey = cache.keys().next().value;
     cache.delete(oldestKey);
   }
+}
+
+// 관리자 대시보드용 — 캐시 크기와 최근 캐시된 항목의 원문·전체 결과를 그대로 보여준다.
+export function getCacheStats(limit = 30) {
+  const recent = [...cache.values()]
+    .sort((a, b) => b.cachedAt - a.cachedAt)
+    .slice(0, limit)
+    .map((e) => ({
+      cachedAt: e.cachedAt,
+      input: e.input || "",
+      domain: e.data?.overall_domain || null,
+      result: e.data,
+    }));
+  return { size: cache.size, maxEntries: MAX_ENTRIES, recent };
 }
