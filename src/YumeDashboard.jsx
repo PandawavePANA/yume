@@ -608,6 +608,31 @@ export default function YumeDashboard() {
   const [showBiz, setShowBiz] = useState(false);
   const [showPricing, setShowPricing] = useState(false);
   const [plan, setPlan] = useState("free"); // 데모용 — localStorage에 저장하지 않아 새로고침하면 항상 "free"로 리셋됨
+  // 무료 플랜에만 적용되는 하루 확인 한도 + 토큰 잔액. 서버가 IP 기준으로 관리하고
+  // (진짜 로그인이 없어서 그게 최선), 여기서는 화면에 보여주기 위한 값만 들고 있는다.
+  const [usage, setUsage] = useState(null); // { usedFree, remainingFree, tokens }
+  const [limitReached, setLimitReached] = useState(null); // { message, tokens } — 무료 소진 시
+
+  React.useEffect(() => {
+    if (plan !== "free") { setUsage(null); return; }
+    fetch("/api/usage").then(r => r.json()).then(setUsage).catch(() => {});
+  }, [plan]);
+
+  const buyTokensDemo = async (count = 1) => {
+    try {
+      const res = await fetch("/api/tokens/buy", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ count }),
+      });
+      const data = await res.json();
+      setUsage(u => ({ ...(u || {}), tokens: data.tokens }));
+      setLimitReached(null);
+      setErrMsg("");
+      setStage("idle");
+    } catch (e) {
+      console.error("토큰 충전 실패", e);
+    }
+  };
   const [tab, setTab] = useState("result"); // result | sources | products
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [history, setHistory] = useState([]);
@@ -678,7 +703,7 @@ export default function YumeDashboard() {
 
   const runCheck = async () => {
     if (!input.trim()) return;
-    setStage("loading"); setResult(null); setRevealed(0); setErrMsg(""); setTab("result");
+    setStage("loading"); setResult(null); setRevealed(0); setErrMsg(""); setLimitReached(null); setTab("result");
     setProgressMsg("사실 주장을 추출하고 실시간으로 검색 중…");
 
     startTimeRef.current = Date.now();
@@ -709,10 +734,13 @@ export default function YumeDashboard() {
       const response = await fetch("/api/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: input })
+        body: JSON.stringify({ text: input, plan })
       });
       if (!response.ok || !response.body) {
         const parsed = await response.json().catch(() => ({}));
+        if (response.status === 402 && parsed.limitReached) {
+          setLimitReached({ message: parsed.error, tokens: parsed.tokens });
+        }
         throw new Error(parsed.error || "서버 오류가 발생했습니다.");
       }
 
@@ -746,6 +774,7 @@ export default function YumeDashboard() {
       }
       setElapsedSec(Math.floor((Date.now() - startTimeRef.current) / 1000));
       setResult(finalResult);
+      if (finalResult.usage) setUsage(finalResult.usage);
       setStage("done");
       finalResult.claims.forEach((_, i) => setTimeout(() => setRevealed(r => r + 1), 220 * (i + 1)));
       saveToHistory(input, finalResult);
@@ -1019,10 +1048,39 @@ export default function YumeDashboard() {
 
           {(stage === "idle" || stage === "error") && (
             <div style={{ padding: 24 }}>
+              {plan === "free" && usage && (
+                <div style={{
+                  display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#8577A8",
+                  marginBottom: 10, flexWrap: "wrap",
+                }}>
+                  <span style={{ background: "#F1E6FB", borderRadius: 999, padding: "3px 10px", fontWeight: 600 }}>
+                    오늘 무료 {usage.remainingFree ?? 5}/5 남음
+                  </span>
+                  {usage.tokens > 0 && (
+                    <span style={{ background: "#EDE4FB", borderRadius: 999, padding: "3px 10px", fontWeight: 600, color: "#6B4FA8" }}>
+                      토큰 {usage.tokens}개 보유
+                    </span>
+                  )}
+                </div>
+              )}
               <textarea value={input} onChange={(e) => setInput(e.target.value)} placeholder={PLACEHOLDER} rows={7}
                 style={{ width: "100%", fontSize: 14, lineHeight: 1.7, color: "#33363F", padding: 16, background: "#F1E6FB",
                   borderRadius: 12, border: "1px solid #DEC8F2", marginBottom: 14, resize: "vertical", fontFamily: "inherit", boxSizing: "border-box" }} />
-              {stage === "error" && (
+              {stage === "error" && limitReached ? (
+                <div style={{ fontSize: 13, color: "#7A5B00", background: "#FFF6E0", border: "1px solid #F0D98C", borderRadius: 10, padding: "14px 16px", marginBottom: 14 }}>
+                  <div style={{ marginBottom: 10, lineHeight: 1.6 }}>{limitReached.message}</div>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <button onClick={() => buyTokensDemo(1)} style={{
+                      padding: "8px 14px", borderRadius: 999, border: "1px solid #E8C468", background: "#fff",
+                      color: "#7A5B00", fontSize: 12.5, fontWeight: 600, cursor: "pointer",
+                    }}>데모로 토큰 1개 받기 (실제 결제 없음)</button>
+                    <button onClick={() => setShowPricing(true)} style={{
+                      padding: "8px 14px", borderRadius: 999, border: "1px solid #D4BEF0", background: "#fff",
+                      color: "#6B4FA8", fontSize: 12.5, fontWeight: 600, cursor: "pointer",
+                    }}>요금제 보기</button>
+                  </div>
+                </div>
+              ) : stage === "error" && (
                 <div style={{ fontSize: 13, color: "#C6402F", background: "#FBE9E7", borderRadius: 10, padding: "10px 14px", marginBottom: 14 }}>{errMsg}</div>
               )}
               <motion.button whileHover={input.trim() ? { scale: 1.015, boxShadow: "0 8px 24px rgba(107,79,168,0.35)" } : {}} whileTap={input.trim() ? { scale: 0.985 } : {}}
