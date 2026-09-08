@@ -81,7 +81,7 @@ app.get("/r/:id", (req, res) => {
   const entry = getResult(req.params.id);
   if (!entry) return res.status(404).send("결과를 찾을 수 없습니다. 링크가 만료되었을 수 있어요.");
   res.set("Content-Type", "text/html; charset=utf-8");
-  res.send(renderResultPage({ id: req.params.id, input: entry.input, status: entry.status, result: entry.result }));
+  res.send(renderResultPage({ id: req.params.id, input: entry.input, status: entry.status, result: entry.result, createdAt: entry.createdAt }));
 });
 
 // 배포 환경: `npm run build`로 만든 프론트엔드 정적 파일을 같은 서버·같은 도메인에서 서빙한다.
