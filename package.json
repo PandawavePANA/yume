@@ -12,16 +12,23 @@
     "dev:client": "vite",
     "build": "vite build",
     "start": "node server/index.js",
+    "build:reamer": "vite build --config vite.reamer.config.mjs && node scripts/rename-reamer-index.mjs",
+    "start:reamer": "serve dist-reamer -s -l ${PORT:-3000}",
     "test:legal": "node server/legalPipeline.test.js"
   },
   "dependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "fast-xml-parser": "^4.5.0",
     "framer-motion": "^11.11.17",
+    "motion": "^13.2.0",
+    "postcss": "^8.5.28",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "serve": "^14.2.4",
+    "tailwindcss": "^4.3.3"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.3",

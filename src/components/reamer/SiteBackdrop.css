@@ -1,0 +1,21 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: var(--bg);
+}
+
+.backdrop__layer {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* The trail sits behind the copy on purpose: tiles pass *under* text, and
+   the characters flip dark (.is-trail) so they stay legible. */
+.backdrop__layer--trail {
+  z-index: 1;
+}
