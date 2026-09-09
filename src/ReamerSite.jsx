@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import "./reamer.css";
 import "@/components/reamer/site.css";
 import SiteBackdrop from "@/components/reamer/SiteBackdrop";
+import Logo from "@/components/reamer/Logo";
 
 // Characters are split into spans so the global cursor-tile trail can flip
 // them dark as a tile passes underneath.
@@ -189,7 +190,7 @@ const ReamerSite = () => {
 
         <nav className="nav" aria-label="Primary" ref={navRef}>
           <a className="nav__brand" href="#top">
-            <span className="nav__mark" aria-hidden />
+            <Logo size={40} full />
             <span className="nav__word">REAMER</span>
           </a>
           <ul className="nav__links">
@@ -413,11 +414,11 @@ const ReamerSite = () => {
               </p>
               <a
                 className="contact__mail"
-                href="mailto:hello@d-reamer.com"
+                href="mailto:ksapask123@gmail.com"
                 data-reveal
                 style={{ "--d": "0.24s" }}
               >
-                <Chars text="hello@d-reamer.com" />
+                <Chars text="ksapask123@gmail.com" />
               </a>
             </div>
           </section>
@@ -426,7 +427,7 @@ const ReamerSite = () => {
         <footer className="footer">
           <div className="wrap footer__row">
             <a className="nav__brand" href="#top">
-              <span className="nav__mark" aria-hidden />
+              <Logo size={40} full />
               <span className="nav__word">REAMER</span>
             </a>
             <ul className="footer__links">

@@ -224,14 +224,14 @@
   text-decoration: none;
   color: var(--ink);
 }
-.nav__mark {
-  width: 15px;
-  height: 15px;
-  border: 1px solid currentColor;
-  transform: rotate(45deg);
-  transition: transform 0.7s var(--ease);
+.logo-mark { flex: none; color: var(--ink); }
+.logo-mark--spin .logo-mark__turbine {
+  transform-origin: 110px 110px;
+  transition: transform 0.9s var(--ease);
 }
-.nav__brand:hover .nav__mark { transform: rotate(225deg); }
+.nav__brand:hover .logo-mark--spin .logo-mark__turbine {
+  transform: rotate(150deg);
+}
 .nav__word {
   font: 600 15px/1 var(--mono);
   letter-spacing: 0.22em;
