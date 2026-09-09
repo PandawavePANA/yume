@@ -11,8 +11,13 @@ const RADIUS = 54;
 const DENSITY = 20;
 const HOLD = 12;
 
-export function createTrailLayer(canvas) {
+export function createTrailLayer(canvas, { coarse = false } = {}) {
   const ctx = canvas.getContext("2d");
+  // A finger is a blunter instrument than a cursor, and a phone GPU has
+  // less headroom — a slightly bigger, sparser radius reads just as well
+  // for less fill-rate.
+  const radius = coarse ? RADIUS * 1.15 : RADIUS;
+  const density = coarse ? DENSITY * 0.75 : DENSITY;
 
   let W = 0;
   let H = 0;
@@ -99,10 +104,10 @@ export function createTrailLayer(canvas) {
       trailY += dy * ease;
 
       if (moving) {
-        const c0 = Math.max(0, Math.floor((trailX - RADIUS) / CELL));
-        const c1 = Math.min(cols, Math.ceil((trailX + RADIUS) / CELL));
-        const r0 = Math.max(0, Math.floor((trailY - RADIUS) / CELL));
-        const r1 = Math.min(rows, Math.ceil((trailY + RADIUS) / CELL));
+        const c0 = Math.max(0, Math.floor((trailX - radius) / CELL));
+        const c1 = Math.min(cols, Math.ceil((trailX + radius) / CELL));
+        const r0 = Math.max(0, Math.floor((trailY - radius) / CELL));
+        const r1 = Math.min(rows, Math.ceil((trailY + radius) / CELL));
 
         for (let cy = r0; cy < r1; cy++) {
           for (let cx = c0; cx < c1; cx++) {
@@ -111,9 +116,9 @@ export function createTrailLayer(canvas) {
             const cellX = cx * CELL + CELL / 2;
             const cellY = cy * CELL + CELL / 2;
             const dist = Math.hypot(cellX - trailX, cellY - trailY);
-            if (dist > RADIUS) continue;
-            const falloff = Math.pow(1 - dist / RADIUS, 1.5);
-            if (Math.random() < falloff * (DENSITY / 8)) {
+            if (dist > radius) continue;
+            const falloff = Math.pow(1 - dist / radius, 1.5);
+            if (Math.random() < falloff * (density / 8)) {
               live.set(key, {
                 x: cellX,
                 y: cellY,
@@ -158,7 +163,7 @@ export function createTrailLayer(canvas) {
       const b = boxes[i];
       const nx = Math.min(Math.max(trailX, b.left), b.right);
       const ny = Math.min(Math.max(trailY, b.top), b.bottom);
-      const hit = active && Math.hypot(trailX - nx, trailY - ny) <= RADIUS;
+      const hit = active && Math.hypot(trailX - nx, trailY - ny) <= radius;
       if (b.el.classList.contains("is-trail") !== hit) {
         b.el.classList.toggle("is-trail", hit);
       }

@@ -43,7 +43,10 @@ export const SiteBackdrop = () => {
     const disc = createDiscLayer(discCanvas, {
       count: coarse ? 1100 : 2400,
     });
-    const trail = coarse ? null : createTrailLayer(trailCanvas);
+    // Touch fires pointermove too (that's what a scroll drag is), so the
+    // trail works there as well — it was previously skipped on coarse
+    // pointers, which is why it never showed up on a phone.
+    const trail = createTrailLayer(trailCanvas, { coarse });
 
     let vw = 0;
     let vh = 0;
@@ -75,11 +78,18 @@ export const SiteBackdrop = () => {
     const onPointerLeave = () => {
       m.pointerInside = false;
     };
+    // Touch doesn't reliably fire pointerleave when the finger lifts —
+    // without this the last touch position would stay "hot" forever.
+    const onPointerEnd = (e) => {
+      if (e.pointerType === "touch") m.pointerInside = false;
+    };
 
     window.addEventListener("scroll", readScroll, { passive: true });
     window.addEventListener("resize", resize);
     window.addEventListener("pointermove", onPointerMove, { passive: true });
     document.addEventListener("pointerleave", onPointerLeave);
+    window.addEventListener("pointerup", onPointerEnd, { passive: true });
+    window.addEventListener("pointercancel", onPointerEnd, { passive: true });
     document.fonts?.ready.then(() => trail?.markDirty());
 
     let raf = 0;
@@ -115,6 +125,8 @@ export const SiteBackdrop = () => {
       window.removeEventListener("resize", resize);
       window.removeEventListener("pointermove", onPointerMove);
       document.removeEventListener("pointerleave", onPointerLeave);
+      window.removeEventListener("pointerup", onPointerEnd);
+      window.removeEventListener("pointercancel", onPointerEnd);
       bloom.dispose();
       disc.dispose();
       trail?.dispose();
