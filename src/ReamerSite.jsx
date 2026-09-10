@@ -95,7 +95,7 @@ const NAV = [
 const SPECS = [
   { k: "설립", v: "2026" },
   { k: "대표", v: "정원영" },
-  { k: "제품", v: "유메 · 아이픽 · 오토레이" },
+  { k: "제품", v: "유메 · 아이픽 · AMM" },
   { k: "분야", v: "AI 소프트웨어" },
 ];
 
@@ -121,9 +121,9 @@ const PRODUCTS = [
   {
     no: "03",
     status: "개발 중",
-    name: "오토레이",
-    en: "AutoRay",
-    desc: "자동 매매 프로그램. 사람이 붙어 있지 않아도 정해둔 규칙대로 시장을 읽고 진입과 청산을 실행합니다.",
+    name: "AMM 프로토콜",
+    en: "Auto Make Money Protocol",
+    desc: "자동 매매 프로토콜. 사람이 화면 앞에 붙어 있지 않아도 정해둔 규칙대로 시장을 읽고 진입과 청산을 실행합니다.",
     go: "출시 예정",
   },
 ];
@@ -150,6 +150,22 @@ const PORTFOLIO = [
     title: "유메 검증 파이프라인",
     desc: "AI 답변에서 검증 가능한 사실 주장만 골라내고, 도메인에 따라 검증 경로를 나눕니다. 일반 주제는 웹 교차검증으로, 법률은 법제처 국가법령정보 공동활용 API를 직접 조회해 이중으로 확인합니다.",
     tags: ["React", "Express", "법제처 Open API", "Claude API"],
+  },
+  {
+    year: "2024",
+    kind: "판다웨이브 · 핀테크",
+    title: "펀드메이트",
+    en: "Fund Mate",
+    desc: "대화형 AI로 투자 포트폴리오를 짜주는 개인 자산관리 서비스. “당신의 경제 비서”를 목표로, 복잡한 상품 비교 대신 대화만으로 자기 상황에 맞는 포트폴리오가 나오도록 설계했습니다.",
+    tags: ["대화형 AI", "개인 자산관리", "포트폴리오 설계"],
+  },
+  {
+    year: "2024",
+    kind: "판다웨이브 · 생산성",
+    title: "데일리메이트",
+    en: "Daily Mate",
+    desc: "일정 관리와 습관 분석을 함께 다루는 서비스. 기록을 쌓는 데서 끝내지 않고, 쌓인 기록에서 반복되는 패턴을 찾아 다음 하루를 설계하도록 만들었습니다.",
+    tags: ["일정 관리", "습관 분석", "행동 데이터"],
   },
   {
     year: "20XX",
@@ -197,9 +213,9 @@ const TIMELINE = [
     desc: "흉부 엑스레이 이미지에서 폐렴 소견을 판독하는 딥러닝 모델을 만들었습니다.",
   },
   {
-    year: "20XX",
-    title: "前 판다웨이브 대표",
-    desc: "첫 창업을 통해 제품을 처음부터 끝까지 만들고 책임지는 경험을 했습니다.",
+    year: "2024",
+    title: "판다웨이브 설립 · 대표",
+    desc: "대화형 AI로 투자 포트폴리오를 짜주는 펀드메이트(Fund Mate)와, 일정·습관을 분석하는 데일리메이트(Daily Mate)를 만들었습니다. 첫 창업으로 제품을 처음부터 끝까지 만들고 책임지는 경험을 했습니다.",
   },
   {
     year: "20XX",
@@ -228,8 +244,8 @@ const TIMELINE = [
   },
   {
     year: "진행 중",
-    title: "아이픽 · 오토레이 개발",
-    desc: "대화형 AI 상품 추천 아이픽과 자동 매매 프로그램 오토레이를 함께 준비하고 있습니다. 유메까지 세 개 제품 체제로 운영합니다.",
+    title: "아이픽 · AMM 프로토콜 개발",
+    desc: "대화형 AI 상품 추천 아이픽과 자동 매매 프로토콜 AMM을 함께 준비하고 있습니다. 유메까지 세 개 제품 체제로 운영합니다.",
     now: true,
   },
 ];
@@ -343,7 +359,7 @@ const ReamerSite = () => {
                 <Chars text="하나의 기준." />
               </h2>
               <p className="lede" data-reveal style={{ "--d": "0.14s" }}>
-                리머는 유메 · 아이픽 · 오토레이 세 개 제품 체제로
+                리머는 유메 · 아이픽 · AMM 프로토콜 세 개 제품 체제로
                 운영합니다. 각각 다른 시장을 보지만, 기준은 하나입니다 —
                 흐릿한 판단을 정확한 판단으로 바꾼다.
               </p>
@@ -491,7 +507,9 @@ const ReamerSite = () => {
                       )}
                     </>
                   );
-                  const cls = `folio__item${item.featured ? " folio__item--wide" : ""}`;
+                  const cls = `folio__item${item.featured ? " folio__item--featured" : ""}${
+                    item.featured || item.wide ? " folio__item--wide" : ""
+                  }`;
                   const style = { "--d": `${0.12 + i * 0.06}s` };
                   return item.href ? (
                     <a
@@ -563,7 +581,7 @@ const ReamerSite = () => {
               </li>
               <li>
                 <a className="footer__link" href="#products">
-                  오토레이
+                  AMM 프로토콜
                 </a>
               </li>
               <li>

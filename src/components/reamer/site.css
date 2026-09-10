@@ -510,7 +510,7 @@ a.folio__item:hover {
   font-size: clamp(24px, 2.6vw, 36px);
   line-height: 1.18;
 }
-.folio__item--wide .folio__title {
+.folio__item--featured .folio__title {
   font-size: clamp(28px, 3.4vw, 46px);
   max-width: 20ch;
 }
