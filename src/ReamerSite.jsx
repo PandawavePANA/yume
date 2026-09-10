@@ -180,8 +180,25 @@ const PORTFOLIO = [
     year: "20XX",
     kind: "트레이딩 시스템",
     title: "저스트로맨스 — 트레이딩 지표",
-    desc: "시장을 읽는 관점을 세 갈래로 나눠 각각 독립된 프로그램으로 개발한 지표 프로젝트입니다.",
-    tags: ["다윗", "골리앗", "노아"],
+    desc: "트레이딩뷰 차트 위에서 사람이 직접 판단하도록 돕는 지표를, 파인 스크립트로 전부 직접 짰습니다. 시장을 읽는 관점을 세 갈래로 나눠 각각 독립된 프로그램으로 만들었고, 이름이 곧 역할입니다 — 다윗은 흐름을 거스르고, 골리앗은 흐름을 타고, 노아는 물이 차오르기 전에 배를 띄웁니다.",
+    subs: [
+      {
+        name: "다윗",
+        role: "역추세",
+        desc: "오더블록, FVG 등 스마트 머니 컨셉(SMC)을 기반으로, 흐름이 되돌아서는 자리를 잡아냅니다.",
+      },
+      {
+        name: "골리앗",
+        role: "추세",
+        desc: "이동평균선과 매수강도를 비롯해 500가지가 넘는 기법을 학습시켜, 살아 있는 추세를 끝까지 따라갑니다.",
+      },
+      {
+        name: "노아",
+        role: "붕괴 대비",
+        desc: "ICT를 기반으로 큰 하락을 미리 읽어, 사용자가 빠져나올 시간을 벌어주는 것을 목표로 만들었습니다.",
+      },
+    ],
+    tags: ["Pine Script", "TradingView API", "SMC", "ICT"],
   },
   {
     year: "20XX",
@@ -487,6 +504,19 @@ const ReamerSite = () => {
                       <p className="folio__desc">{item.desc}</p>
                       {item.formula && (
                         <p className="folio__formula">{item.formula}</p>
+                      )}
+                      {item.subs && (
+                        <ul className="folio__subs">
+                          {item.subs.map((s) => (
+                            <li className="folio__sub" key={s.name}>
+                              <p className="folio__sub-head">
+                                <span className="folio__sub-name">{s.name}</span>
+                                <span className="folio__sub-role">{s.role}</span>
+                              </p>
+                              <p className="folio__sub-desc">{s.desc}</p>
+                            </li>
+                          ))}
+                        </ul>
                       )}
                       {item.tags && (
                         <ul className="folio__tags">
