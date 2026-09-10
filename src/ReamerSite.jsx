@@ -414,11 +414,11 @@ const ReamerSite = () => {
               </p>
               <a
                 className="contact__mail"
-                href="mailto:ksapask123@gmail.com"
+                href="mailto:reamer@d-reamer.com"
                 data-reveal
                 style={{ "--d": "0.24s" }}
               >
-                <Chars text="ksapask123@gmail.com" />
+                <Chars text="reamer@d-reamer.com" />
               </a>
             </div>
           </section>
