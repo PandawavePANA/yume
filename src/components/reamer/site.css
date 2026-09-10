@@ -430,6 +430,14 @@
   line-height: 1.1;
   font-weight: 400;
 }
+
+.card__en {
+  margin: 6px 0 0;
+  font: 500 11px/1 var(--mono);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
 .card__desc {
   margin: 16px 0 0;
   font-size: 15px;
@@ -446,6 +454,123 @@
   transition: color 0.35s var(--ease);
 }
 .card:hover .card__go { color: var(--ink); }
+
+/* ---------- 개발 포트폴리오 ---------- */
+
+.folio {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  margin-top: clamp(52px, 7vw, 84px);
+  background: var(--line);
+  border: 1px solid var(--line);
+}
+@media (max-width: 860px) {
+  .folio { grid-template-columns: 1fr; }
+}
+
+.folio__item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: clamp(28px, 3vw, 44px);
+  background: rgba(10, 10, 10, 0.72);
+  text-decoration: none;
+  color: inherit;
+  transition: background-color 0.5s var(--ease);
+}
+.folio__item--wide {
+  grid-column: 1 / -1;
+}
+a.folio__item:hover {
+  background: rgba(18, 18, 18, 0.82);
+}
+
+.folio__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 22px;
+  border-bottom: 1px solid var(--line);
+}
+.folio__kind,
+.folio__year {
+  font: 500 10px/1 var(--mono);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.folio__kind { color: var(--ink); }
+
+.folio__title {
+  margin: 26px 0 0;
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: clamp(24px, 2.6vw, 36px);
+  line-height: 1.18;
+}
+.folio__item--wide .folio__title {
+  font-size: clamp(28px, 3.4vw, 46px);
+  max-width: 20ch;
+}
+
+.folio__en {
+  margin: 10px 0 0;
+  font: 500 11px/1.5 var(--mono);
+  letter-spacing: 0.08em;
+  color: var(--ink-faint);
+}
+
+.folio__desc {
+  margin: 18px 0 0;
+  max-width: 62ch;
+  font-size: 15px;
+  line-height: 1.75;
+  color: var(--ink-dim);
+}
+
+/* The patent's own formula, set like a spec line — it belongs to the
+   blueprint language the rest of the site already speaks. */
+.folio__formula {
+  margin: 22px 0 0;
+  padding: 14px 18px;
+  border: 1px solid var(--line);
+  border-left: 2px solid var(--line-strong);
+  font: 500 13px/1.6 var(--mono);
+  letter-spacing: 0.02em;
+  color: var(--ink);
+  overflow-x: auto;
+}
+
+.folio__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 22px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.folio__tag {
+  padding: 7px 12px;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  font: 500 11px/1 var(--mono);
+  letter-spacing: 0.06em;
+  color: var(--ink-dim);
+  white-space: nowrap;
+}
+
+.folio__go {
+  margin-top: auto;
+  padding-top: 28px;
+  font: 500 12px/1 var(--mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  transition: color 0.35s var(--ease);
+}
+a.folio__item:hover .folio__go { color: var(--ink); }
 
 /* ---------- founder / 소개 ---------- */
 
