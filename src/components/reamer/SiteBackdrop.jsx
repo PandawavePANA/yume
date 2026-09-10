@@ -113,7 +113,7 @@ export const SiteBackdrop = () => {
 
       bloom.draw(m, dt);
       disc.draw(m, dt);
-      trail?.draw(m, dt);
+      trail?.draw(m, dt, now);
 
       raf = requestAnimationFrame(frame);
     };

@@ -32,8 +32,8 @@ export function createTrailLayer(canvas, { coarse = false } = {}) {
   let seeded = false;
 
   let boxes = [];
-  let boxesScrollY = -1;
   let boxesDirty = true;
+  let lastMeasureAt = -Infinity;
 
   function resize(vw, vh, nextDpr) {
     dpr = Math.min(nextDpr, 2);
@@ -53,10 +53,14 @@ export function createTrailLayer(canvas, { coarse = false } = {}) {
     boxesDirty = true;
   }
 
-  // Only characters currently on screen are measured, and only when the
-  // page has actually moved — otherwise this would be a layout read per
-  // frame across the whole document.
-  function measure() {
+  // querySelectorAll + getBoundingClientRect over every .trail-ch is a
+  // real layout read — cheap once, but running it on every animation
+  // frame during a scroll (as "scrollY changed since last frame" would)
+  // was enough to drop frames on a phone. Dropped frames meant trailX/Y
+  // jumped in bigger steps than the tile radius could bridge, which is
+  // what showed up as "only part of the swipe leaves a trail". Now it's
+  // just time-throttled instead of tied to the scroll position.
+  function measure(now) {
     const els = document.querySelectorAll(".trail-ch");
     const next = [];
     for (let i = 0; i < els.length; i++) {
@@ -77,11 +81,44 @@ export function createTrailLayer(canvas, { coarse = false } = {}) {
       });
     }
     boxes = next;
-    boxesScrollY = window.scrollY;
     boxesDirty = false;
+    lastMeasureAt = now;
   }
 
-  function draw(m, dt) {
+  // Spawns lit tiles within `radius` of one point. Called once per sampled
+  // point along the swept path each frame (see draw()) rather than once
+  // for the frame's endpoint only, so a fast swipe doesn't leave gaps.
+  function spawnNear(x, y) {
+    const c0 = Math.max(0, Math.floor((x - radius) / CELL));
+    const c1 = Math.min(cols, Math.ceil((x + radius) / CELL));
+    const r0 = Math.max(0, Math.floor((y - radius) / CELL));
+    const r1 = Math.min(rows, Math.ceil((y + radius) / CELL));
+
+    for (let cy = r0; cy < r1; cy++) {
+      for (let cx = c0; cx < c1; cx++) {
+        const key = cy * cols + cx;
+        if (live.has(key)) continue;
+        const cellX = cx * CELL + CELL / 2;
+        const cellY = cy * CELL + CELL / 2;
+        const dist = Math.hypot(cellX - x, cellY - y);
+        if (dist > radius) continue;
+        const falloff = Math.pow(1 - dist / radius, 1.5);
+        if (Math.random() < falloff * (density / 8)) {
+          live.set(key, {
+            x: cellX,
+            y: cellY,
+            glyph: GLYPHS[(Math.random() * GLYPHS.length) | 0],
+            elapsed: 0,
+            delay: (0.03 + Math.random() * 0.05) * (HOLD / 10),
+            duration: (0.1 + Math.random() * 0.16) * (HOLD / 10),
+            ghost: Math.random() < 0.05,
+          });
+        }
+      }
+    }
+  }
+
+  function draw(m, dt, now) {
     if (!W || !H) return;
 
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -96,6 +133,8 @@ export function createTrailLayer(canvas, { coarse = false } = {}) {
         trailY = py;
         seeded = true;
       }
+      const prevX = trailX;
+      const prevY = trailY;
       const ease = 1 - Math.exp(-dt / 0.045);
       const dx = px - trailX;
       const dy = py - trailY;
@@ -104,32 +143,14 @@ export function createTrailLayer(canvas, { coarse = false } = {}) {
       trailY += dy * ease;
 
       if (moving) {
-        const c0 = Math.max(0, Math.floor((trailX - radius) / CELL));
-        const c1 = Math.min(cols, Math.ceil((trailX + radius) / CELL));
-        const r0 = Math.max(0, Math.floor((trailY - radius) / CELL));
-        const r1 = Math.min(rows, Math.ceil((trailY + radius) / CELL));
-
-        for (let cy = r0; cy < r1; cy++) {
-          for (let cx = c0; cx < c1; cx++) {
-            const key = cy * cols + cx;
-            if (live.has(key)) continue;
-            const cellX = cx * CELL + CELL / 2;
-            const cellY = cy * CELL + CELL / 2;
-            const dist = Math.hypot(cellX - trailX, cellY - trailY);
-            if (dist > radius) continue;
-            const falloff = Math.pow(1 - dist / radius, 1.5);
-            if (Math.random() < falloff * (density / 8)) {
-              live.set(key, {
-                x: cellX,
-                y: cellY,
-                glyph: GLYPHS[(Math.random() * GLYPHS.length) | 0],
-                elapsed: 0,
-                delay: (0.03 + Math.random() * 0.05) * (HOLD / 10),
-                duration: (0.1 + Math.random() * 0.16) * (HOLD / 10),
-                ghost: Math.random() < 0.05,
-              });
-            }
-          }
+        // Walk the segment from last frame's point to this one — a quick
+        // swipe (or a scroll-drag, which is the same gesture) can easily
+        // cover more than one tile radius between two animation frames.
+        const segLen = Math.hypot(trailX - prevX, trailY - prevY);
+        const steps = Math.min(24, Math.max(1, Math.ceil(segLen / (CELL * 0.6))));
+        for (let s = 1; s <= steps; s++) {
+          const t = s / steps;
+          spawnNear(prevX + (trailX - prevX) * t, prevY + (trailY - prevY) * t);
         }
       }
     } else {
@@ -156,7 +177,7 @@ export function createTrailLayer(canvas, { coarse = false } = {}) {
       ctx.fillText(cell.glyph, cell.x, cell.y + 1);
     }
 
-    if (boxesDirty || window.scrollY !== boxesScrollY) measure();
+    if (boxesDirty || now - lastMeasureAt > 150) measure(now);
 
     const active = m.pointerInside;
     for (let i = 0; i < boxes.length; i++) {
