@@ -68,13 +68,14 @@ export const SiteBackdrop = () => {
     readScroll();
     m.progressSmooth = m.progress;
 
-    const onPointerMove = (e) => {
-      m.pointerPx = e.clientX;
-      m.pointerPy = e.clientY;
-      m.pointerX = e.clientX / Math.max(vw, 1);
-      m.pointerY = e.clientY / Math.max(vh, 1);
+    const setPointer = (x, y) => {
+      m.pointerPx = x;
+      m.pointerPy = y;
+      m.pointerX = x / Math.max(vw, 1);
+      m.pointerY = y / Math.max(vh, 1);
       m.pointerInside = true;
     };
+    const onPointerMove = (e) => setPointer(e.clientX, e.clientY);
     const onPointerLeave = () => {
       m.pointerInside = false;
     };
@@ -84,12 +85,30 @@ export const SiteBackdrop = () => {
       if (e.pointerType === "touch") m.pointerInside = false;
     };
 
+    // The moment a touch turns into a page scroll, the browser cancels the
+    // *pointer* event stream (fires pointercancel) and drives scrolling
+    // itself — pointermove goes silent for the rest of the gesture. That's
+    // why the trail worked for an instant and then stopped. touchmove is
+    // the lower-level event and keeps firing throughout native scrolling
+    // as long as the listener is passive, so it's what actually tracks a
+    // swipe/scroll drag start to finish.
+    const onTouchMove = (e) => {
+      const t = e.touches[0];
+      if (t) setPointer(t.clientX, t.clientY);
+    };
+    const onTouchEnd = () => {
+      m.pointerInside = false;
+    };
+
     window.addEventListener("scroll", readScroll, { passive: true });
     window.addEventListener("resize", resize);
     window.addEventListener("pointermove", onPointerMove, { passive: true });
     document.addEventListener("pointerleave", onPointerLeave);
     window.addEventListener("pointerup", onPointerEnd, { passive: true });
     window.addEventListener("pointercancel", onPointerEnd, { passive: true });
+    window.addEventListener("touchmove", onTouchMove, { passive: true });
+    window.addEventListener("touchend", onTouchEnd, { passive: true });
+    window.addEventListener("touchcancel", onTouchEnd, { passive: true });
     document.fonts?.ready.then(() => trail?.markDirty());
 
     let raf = 0;
@@ -127,6 +146,9 @@ export const SiteBackdrop = () => {
       document.removeEventListener("pointerleave", onPointerLeave);
       window.removeEventListener("pointerup", onPointerEnd);
       window.removeEventListener("pointercancel", onPointerEnd);
+      window.removeEventListener("touchmove", onTouchMove);
+      window.removeEventListener("touchend", onTouchEnd);
+      window.removeEventListener("touchcancel", onTouchEnd);
       bloom.dispose();
       disc.dispose();
       trail?.dispose();
