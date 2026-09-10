@@ -28,6 +28,11 @@
   color: var(--ink);
   font-family: var(--sans);
   -webkit-font-smoothing: antialiased;
+  /* Inherited site-wide: default CJK line-breaking splits between any two
+     characters, mid-word — keep-all wraps at spaces instead, so Korean
+     copy never breaks in the middle of a word on a narrow screen. */
+  word-break: keep-all;
+  overflow-wrap: break-word;
 }
 
 /* Blueprint rails, drawn once for the full page height so they read as one
@@ -88,6 +93,11 @@
   line-height: 1.04;
   letter-spacing: -0.015em;
   text-shadow: 0 2px 40px rgba(0, 0, 0, 0.55);
+  /* Default CJK wrapping breaks between any two characters — mid-word.
+     keep-all wraps at spaces instead, so a run like "니치마켓" never
+     splits in two. */
+  word-break: keep-all;
+  overflow-wrap: break-word;
 }
 
 .title {
@@ -98,6 +108,8 @@
   line-height: 1.1;
   letter-spacing: -0.012em;
   text-shadow: 0 2px 36px rgba(0, 0, 0, 0.5);
+  word-break: keep-all;
+  overflow-wrap: break-word;
 }
 
 .lede {
@@ -105,6 +117,7 @@
   max-width: 46ch;
   font-size: clamp(16px, 1.3vw, 19px);
   line-height: 1.65;
+  word-break: keep-all;
   letter-spacing: -0.01em;
   color: var(--ink-dim);
   text-shadow: 0 1px 20px rgba(0, 0, 0, 0.5);
@@ -147,6 +160,20 @@
   transition: transform 0.4s var(--ease);
 }
 .btn:hover .btn__arrow { transform: translateX(4px); }
+
+/* A deliberate 2-line break on desktop, where there's room to design the
+   wrap point — but forcing that same break on a narrow phone often means
+   the line ALSO wraps a second, unintended time. Below 640px this hides
+   the <br> and lets the sentence flow and wrap wherever it naturally
+   needs to instead. */
+.force-break {
+  display: block;
+}
+@media (max-width: 639px) {
+  .force-break {
+    display: none;
+  }
+}
 
 .actions {
   display: flex;

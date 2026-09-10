@@ -214,9 +214,10 @@ const ReamerSite = () => {
                 AI 소프트웨어 스튜디오
               </p>
               <h1 className="display" data-reveal style={{ "--d": "0.08s" }}>
-                <Chars text="정밀하게 다듬는다." />
-                <br />
-                <Chars text="몇 번이고, 다시." />
+                <Chars text="레드오션 속에" />
+                <br className="force-break" />
+                {" "}
+                <Chars text="니치마켓이 있다" />
               </h1>
               <p className="lede" data-reveal style={{ "--d": "0.16s" }}>
                 리머는 흐릿하게 남겨진 시장을 위한 소프트웨어를 만듭니다.
@@ -272,7 +273,8 @@ const ReamerSite = () => {
               </p>
               <h2 className="title" data-reveal style={{ "--d": "0.08s" }}>
                 <Chars text="두 개의 제품." />
-                <br />
+                <br className="force-break" />
+                {" "}
                 <Chars text="하나의 기준." />
               </h2>
 
