@@ -231,15 +231,18 @@ const CHAT_SYSTEM_PROMPT = `당신은 '유메(YUME)' 웹사이트 우측 하단�
 - 사실 여부가 중요한 긴 텍스트나 복잡한 법률·의료 주장을 검증해달라고 하면, 참고로 위쪽 검증창을 이용하면 더 꼼꼼히 봐준다고 안내는 하되, 대화 자체는 계속 이어가세요.
 - 모르는 것은 모른다고 솔직히 말하세요.`;
 
-export async function chatReply(messages) {
+// 카카오톡은 5초 안에 답해야 하므로 짧게 답하도록 따로 요청한다.
+const KAKAO_CHAT_HINT = "\n\n지금은 카카오톡 채팅창이라 답은 3문장 이내로 짧게 하세요. 긴 설명이 필요하면 핵심만 말하고 더 궁금하면 물어보라고 하세요.";
+
+export async function chatReply(messages, { channel = "web" } = {}) {
   const safeMessages = messages
     .filter((m) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
     .slice(-10);
   if (safeMessages.length === 0) throw new Error("메시지가 없습니다.");
   const text = await callClaude({
-    system: CHAT_SYSTEM_PROMPT,
+    system: channel === "kakao" ? CHAT_SYSTEM_PROMPT + KAKAO_CHAT_HINT : CHAT_SYSTEM_PROMPT,
     messages: safeMessages,
-    max_tokens: 2000,
+    max_tokens: channel === "kakao" ? 400 : 2000,
   });
   return text.trim();
 }

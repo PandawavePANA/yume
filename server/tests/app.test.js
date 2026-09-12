@@ -290,3 +290,28 @@ test("검증 기록·결과 페이지·내 데이터 내려받기·탈퇴", asyn
   assert.equal((await db.one("SELECT COUNT(*) AS n FROM verifications WHERE user_id = :id OR id = 'seedme00000000001'", { id: uid })).n, 0);
   assert.equal((await db.one("SELECT COUNT(*) AS n FROM claims WHERE verification_id = 'seedme00000000001'")).n, 0);
 });
+
+test("카카오 스킬: 비밀 헤더 확인과 응답 형식", async () => {
+  const body = (utterance, id = "kakao-test-user") => JSON.stringify({ userRequest: { utterance, user: { id } } });
+  const post = (b, headers = {}) =>
+    fetch(`${base}/api/kakao/skill`, { method: "POST", headers: { "Content-Type": "application/json", ...headers }, body: b });
+  process.env.KAKAO_SKILL_SECRET = "kakao-test-secret";
+  try {
+    assert.equal((await post(body(""))).status, 401, "헤더 없으면 거부");
+    assert.equal((await post(body(""), { "X-Yume-Skill-Token": "wrong" })).status, 401);
+    const ok = await post(body(""), { "X-Yume-Skill-Token": "  kakao-test-secret  " });
+    assert.equal(ok.status, 200, "앞뒤 공백은 허용");
+    const j = await ok.json();
+    assert.equal(j.version, "2.0");
+    assert.match(j.template.outputs[0].simpleText.text, /유메/);
+    const verifyEmpty = await (await post(body("검증해줘"), { "X-Yume-Skill-Token": "kakao-test-secret" })).json();
+    assert.match(verifyEmpty.template.outputs[0].simpleText.text, /함께 붙여넣어/);
+    // Claude 키가 없는 테스트 환경 — 대화는 5초 안에 오류 안내로 끝나야 한다
+    const t = Date.now();
+    const chat = await (await post(body("안녕"), { "X-Yume-Skill-Token": "kakao-test-secret" })).json();
+    assert.ok(Date.now() - t < 5000);
+    assert.equal(chat.version, "2.0");
+  } finally {
+    delete process.env.KAKAO_SKILL_SECRET;
+  }
+});

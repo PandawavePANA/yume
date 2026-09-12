@@ -46,31 +46,52 @@ function stripVerifyTrigger(raw) {
   const stripped = raw
     .replace(/(그거|이거|이거는|이 내용|이 답변|위 내용)?\s*(검증|팩트\s*체크)\s*(좀)?\s*(해)?\s*줘?\s*[.!?~]*$/u, "")
     .trim();
-  return stripped || raw;
+  // 트리거 문구만 보낸 경우 빈 문자열을 돌려줘서 "내용을 함께 보내달라"고 안내하게 한다.
+  return stripped;
 }
 
+// 카카오는 5초가 지나면 응답을 버린다. 네트워크 여유를 두고 이 시간 안에 못 끝낸 대화 답변은
+// 기억해뒀다가, 사용자가 "계속"이라고 보내면 바로 돌려준다(서버 1대 기준 메모리 보관).
+const CHAT_DEADLINE_MS = 4000;
+const PENDING_TTL_MS = 10 * 60 * 1000;
+const CONTINUE_TRIGGER = /^(계속|ㄱ+|응|네|답변|답)\s*[.!?~]*$/;
+const pendingReplies = new Map(); // kakaoId → { reply, at }
+setInterval(() => {
+  const cutoff = Date.now() - PENDING_TTL_MS;
+  for (const [k, v] of pendingReplies) if (v.at < cutoff) pendingReplies.delete(k);
+}, 60_000).unref();
+
 export async function kakaoSkillHandler(req, res) {
+  const startedAt = Date.now();
   const utterance = String(req.body?.userRequest?.utterance || "").trim();
   const kakaoId = req.body?.userRequest?.user?.id;
   if (!kakaoId) return res.json(textReply("사용자 정보를 확인할 수 없어요. 잠시 후 다시 시도해주세요."));
   const clientKey = `kakao:${kakaoId}`;
+  // 대화 기록 저장은 응답을 보낸 뒤에 한다(카카오 5초 제한 안에서 DB 왕복을 줄이기 위해).
+  const remember = (turns) => appendTurns(clientKey, turns, { channel: "kakao" }).catch((e) => logError("kakaoWebhook:history", e));
+
+  const pending = pendingReplies.get(kakaoId);
+  if (pending && CONTINUE_TRIGGER.test(utterance)) {
+    pendingReplies.delete(kakaoId);
+    return res.json(textReply(pending.reply));
+  }
+
   const history = await getHistory(clientKey);
   const isFirstTurn = history.length === 0;
   const prefix = isFirstTurn ? ONBOARDING_TEXT : "";
-  const remember = (turns) => appendTurns(clientKey, turns, { channel: "kakao" }).catch((e) => logError("kakaoWebhook:history", e));
 
   if (!utterance) return res.json(textReply(prefix + "확인하고 싶은 내용을 그대로 붙여넣어 보내주세요."));
 
   if (VERIFY_TRIGGER.test(utterance)) {
     const verifyText = stripVerifyTrigger(utterance).slice(0, MAX_INPUT_CHARS);
     if (!verifyText) {
-      await remember([{ role: "user", content: utterance }]);
-      return res.json(textReply(prefix + '검증하고 싶은 내용을 함께 붙여넣어 주세요. 예: "[뉴스 내용] 검증해줘"'));
+      res.json(textReply(prefix + '검증하고 싶은 내용을 함께 붙여넣어 주세요. 예: "[뉴스 내용] 검증해줘"'));
+      return remember([{ role: "user", content: utterance }]);
     }
     const usage = await checkAndConsume({ kakaoId });
     if (!usage.allowed) {
-      await remember([{ role: "user", content: utterance }]);
-      return res.json(textReply(prefix + `오늘 무료 확인 ${FREE_DAILY_LIMIT}회를 다 쓰셨어요. 내일 다시 이용해주세요. 더 많이 확인하려면 유메 웹사이트에서 가입해 요금제를 이용할 수 있어요.`));
+      res.json(textReply(prefix + `오늘 무료 확인 ${FREE_DAILY_LIMIT}회를 다 쓰셨어요. 내일 다시 이용해주세요. 더 많이 확인하려면 유메 웹사이트에서 가입해 요금제를 이용할 수 있어요.`));
+      return remember([{ role: "user", content: utterance }]);
     }
     const usageNote = usage.usedFree ? `(오늘 무료 확인 ${FREE_DAILY_LIMIT - usage.remainingFree}/${FREE_DAILY_LIMIT}회 사용)` : `(토큰 1개 사용 · 남은 토큰 ${usage.tokens}개)`;
 
@@ -78,27 +99,42 @@ export async function kakaoSkillHandler(req, res) {
     const { done } = await startVerification({ id, text: verifyText, source: "kakao", clientKey, dataConsent: false });
     done.catch(() => refundOne({ kakaoId, usedFree: usage.usedFree }).catch(() => {}));
     const resultUrl = `${baseUrl(req)}/r/${id}`;
-    await remember([
-      { role: "user", content: utterance },
-      { role: "assistant", content: `(검증 요청을 결과 페이지로 안내함: ${resultUrl})` },
-    ]);
-    // 같은 내용을 이미 검증했다면 캐시로 곧바로 끝나므로 아주 잠깐만 기다려 본다(카카오 5초 제한 안).
+    // 같은 내용을 이미 검증했다면 캐시로 곧바로 끝나므로 아주 잠깐만 기다려 본다.
     await Promise.race([done.catch(() => null), new Promise((r) => setTimeout(r, 300))]);
     const finished = (await getVerification(id))?.status === "done";
     const introText = finished ? "이전에 확인한 것과 같은 내용이라 바로 결과를 보여드려요 ⚡" : "유메가 확인하고 있어요 🔎 아래 링크에서 결과를 확인해보세요.";
-    return res.json(linkReply({ resultUrl, text: `${prefix}${introText} ${usageNote}` }));
+    res.json(linkReply({ resultUrl, text: `${prefix}${introText} ${usageNote}` }));
+    return remember([
+      { role: "user", content: utterance },
+      { role: "assistant", content: `(검증 요청을 결과 페이지로 안내함: ${resultUrl})` },
+    ]);
   }
 
+  // 첫 턴에는 안내 문구를 앞에 붙이므로, 모델이 인사·자기소개를 반복하지 않게 이번 호출에만 힌트를 준다.
+  const messageForModel = isFirstTurn
+    ? `${utterance}\n\n(참고: 방금 사용자에게 서비스 소개가 이미 전달됐음. 다시 인사하거나 자기소개하지 말고 위 메시지에 바로 답할 것.)`
+    : utterance;
+  const replyPromise = chatReply([...history, { role: "user", content: messageForModel }], { channel: "kakao" });
+  const TIMEOUT = Symbol("timeout");
+  const remaining = Math.max(500, CHAT_DEADLINE_MS - (Date.now() - startedAt));
+  let reply;
   try {
-    // 첫 턴에는 안내 문구를 앞에 붙이므로, 모델이 인사·자기소개를 반복하지 않게 이번 호출에만 힌트를 준다.
-    const messageForModel = isFirstTurn
-      ? `${utterance}\n\n(참고: 방금 사용자에게 서비스 소개가 이미 전달됐음. 다시 인사하거나 자기소개하지 말고 위 메시지에 바로 답할 것.)`
-      : utterance;
-    const reply = await chatReply([...history, { role: "user", content: messageForModel }]);
-    await remember([{ role: "user", content: utterance }, { role: "assistant", content: reply }]);
-    res.json(textReply(prefix + reply));
+    reply = await Promise.race([replyPromise, new Promise((r) => setTimeout(() => r(TIMEOUT), remaining))]);
   } catch (e) {
     logError("kakaoWebhook:chat", e);
-    res.json(textReply(prefix + "죄송해요, 지금 답변드리기 어려워요. 잠시 후 다시 시도해주세요."));
+    return res.json(textReply(prefix + "죄송해요, 지금 답변드리기 어려워요. 잠시 후 다시 시도해주세요."));
   }
+
+  if (reply === TIMEOUT) {
+    res.json(textReply(prefix + '답을 정리하는 데 조금 오래 걸리고 있어요. 잠시 후 "계속"이라고 보내주시면 바로 보여드릴게요 🙏'));
+    replyPromise
+      .then((late) => {
+        pendingReplies.set(kakaoId, { reply: late, at: Date.now() });
+        return remember([{ role: "user", content: utterance }, { role: "assistant", content: late }]);
+      })
+      .catch((e) => logError("kakaoWebhook:chat-late", e));
+    return;
+  }
+  res.json(textReply(prefix + reply));
+  return remember([{ role: "user", content: utterance }, { role: "assistant", content: reply }]);
 }
