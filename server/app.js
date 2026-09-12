@@ -145,8 +145,14 @@ function requireKakaoSecret(req, res, next) {
     if (process.env.NODE_ENV === "production") return res.status(503).json({ error: "카카오 스킬이 설정되지 않았어요." });
     return next();
   }
-  const got = req.get("x-yume-skill-token") || "";
-  if (got.length !== secret.length || !timingSafeEqual(Buffer.from(got), Buffer.from(secret))) return res.status(401).json({ error: "unauthorized" });
+  // 오픈빌더에 값을 붙여넣을 때 앞뒤 공백이 섞이는 경우가 많아 양쪽을 다듬어 비교한다.
+  const got = (req.get("x-yume-skill-token") || "").trim();
+  const want = secret.trim();
+  if (got.length !== want.length || !timingSafeEqual(Buffer.from(got), Buffer.from(want))) {
+    // 값은 절대 남기지 않고, 무엇이 틀렸는지만 기록한다(관리자 대시보드 → 오류 탭).
+    logError("kakao:auth", new Error(got ? `스킬 헤더 값 불일치 (받은 길이 ${got.length}자, 기대 ${want.length}자)` : "스킬 헤더 X-Yume-Skill-Token 없음"));
+    return res.status(401).json({ error: "unauthorized" });
+  }
   next();
 }
 app.post("/api/kakao/skill", requireKakaoSecret, kakaoSkillHandler);
