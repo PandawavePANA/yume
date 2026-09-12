@@ -1016,7 +1016,7 @@ export default function YumeDashboard() {
                         ["계정 설정", () => setAccountTab("profile")],
                         ["API 키", () => setAccountTab("api")],
                         ["데이터 · 개인정보", () => setAccountTab("data")],
-                        ...(user.role === "admin" ? [["운영 대시보드", () => { window.location.href = "/admin"; }]] : []),
+                        ...(user.role === "admin" ? [["운영 대시보드", () => { window.open("/admin", "_blank", "noopener"); }]] : []),
                         ["로그아웃", logout],
                       ].map(([label, fn]) => (
                         <button key={label} role="menuitem" onClick={() => { setUserMenuOpen(false); fn(); }} style={{
@@ -1477,14 +1477,14 @@ export default function YumeDashboard() {
             <div style={{ display: "flex", gap: 32, flexWrap: "wrap" }}>
               <button onClick={() => setShowPricing(true)} style={{ border: "none", background: "transparent", color: "#4C5266", fontSize: 13.5, fontWeight: 600, cursor: "pointer", padding: 0 }}>요금제</button>
               <button onClick={() => setShowBiz(true)} style={{ border: "none", background: "transparent", color: "#4C5266", fontSize: 13.5, fontWeight: 600, cursor: "pointer", padding: 0 }}>비즈니스 · API</button>
-              <a href="/docs/api" style={{ color: "#4C5266", fontSize: 13.5, fontWeight: 600, textDecoration: "none" }}>API 문서</a>
+              <a href="/docs/api" target="_blank" rel="noopener noreferrer" style={{ color: "#4C5266", fontSize: 13.5, fontWeight: 600, textDecoration: "none" }}>API 문서</a>
             </div>
           </div>
           <div style={{ borderTop: "1px solid #E3CEF5", paddingTop: 20, fontSize: 12, color: "#B6A9D6", display: "flex", flexWrap: "wrap", gap: "8px 18px", justifyContent: "space-between" }}>
             <span>© 2026 리머(REAMER) · 대표 정원영 · <a href={`mailto:${CONTACT_EMAIL}`} style={{ color: "#B6A9D6" }}>{CONTACT_EMAIL}</a></span>
             <span style={{ display: "flex", gap: 14 }}>
-              <a href="/terms" style={{ color: "#8577A8", textDecoration: "none" }}>이용약관</a>
-              <a href="/privacy" style={{ color: "#6B4FA8", textDecoration: "none", fontWeight: 700 }}>개인정보처리방침</a>
+              <a href="/terms" target="_blank" rel="noopener noreferrer" style={{ color: "#8577A8", textDecoration: "none" }}>이용약관</a>
+              <a href="/privacy" target="_blank" rel="noopener noreferrer" style={{ color: "#6B4FA8", textDecoration: "none", fontWeight: 700 }}>개인정보처리방침</a>
             </span>
           </div>
         </div>
@@ -1586,7 +1586,7 @@ export default function YumeDashboard() {
                     background: "#fff", color: "#6B4FA8", fontSize: 12.5, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap",
                   }}>{user ? "API 키 관리" : "가입하고 키 받기"}</button>
                 </div>
-                <a href="/docs/api" style={{ fontSize: 12, color: "#6B4FA8", fontWeight: 600, textDecoration: "none" }}>API 문서 보기 →</a>
+                <a href="/docs/api" target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: "#6B4FA8", fontWeight: 600, textDecoration: "none" }}>API 문서 보기 →</a>
               </div>
               <BizRow title="협업 파트너십" desc="검증 결과와 맞닿은 상품·서비스를 결과 화면에 노출하고, 노출당 정산받는 제휴 프로그램입니다." cta="제휴 문의" />
               <BizRow title="데이터셋 라이선싱" desc="이용자가 동의한 검증 기록을 가명처리한 주장·판정 데이터셋입니다. 지어낸 판례·문헌을 가려낸 부존재 신뢰도 레코드를 포함해, AI 모델의 할루시네이션 개선에 쓸 수 있습니다." cta="문의하기" />
