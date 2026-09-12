@@ -65,9 +65,10 @@ const run = async () => {
   assert.ok(!resolved[0].sources[0].url.includes("OC="), "공개 링크에 OC 코드가 노출되면 안 됨");
   assert.ok(resolved[0].effective_date, "현행 조문 시행일자가 함께 표시되어야 함");
 
-  // 검증 2: 존재하지 않는 법률 → false 처리
+  // 검증 2: 존재하지 않는 법률 → 부존재 신뢰도로 false 처리
   assert.equal(resolved[1].verdict, "false");
-  assert.equal(resolved[1].verified_via, "official");
+  assert.equal(resolved[1].verified_via, "nec");
+  assert.equal(resolved[1].nec.grade, "nonexistent");
 
   // 검증 3: 실재하는 판례 → 공식 확인, 출처 있음
   assert.equal(resolved[2].verified_via, "official");
@@ -75,6 +76,34 @@ const run = async () => {
 
   // 검증 4: 비법률(의료) claim은 절대 건드리지 않아야 함
   assert.deepEqual(resolved[3], claims[3], "비법률 claim은 그대로 통과해야 함");
+
+  console.log("\n=== 1-1) 부존재 신뢰도(NEC) — 실제 law.go.kr 탐색 ===");
+  const necClaims = [
+    { text: "대법원 2019다999991 판결은 임대인이 언제든 계약을 해지할 수 있다고 판시했다.", domain: "법률", verdict: "pending_legal_check", sources: [], legal_ref: { type: "case", case_number: "2019다999991", court: "대법원" } },
+    { text: "대법원 2016다254476 판결은 채권조사확정재판에 관한 판단이다.", domain: "법률", verdict: "pending_legal_check", sources: [], legal_ref: { type: "case", case_number: "2016다254476", court: "대법원" } },
+    { text: "헌법재판소 1985헌마123 결정은 표현의 자유를 인정했다.", domain: "법률", verdict: "pending_legal_check", sources: [], legal_ref: { type: "case", case_number: "1985헌마123", court: "헌법재판소" } },
+    { text: "주택임대차법 제3조는 대항력을 규정한다.", domain: "법률", verdict: "pending_legal_check", sources: [], legal_ref: { type: "statute", law_name: "주택임대차법", article: "3조" } },
+    { text: "근기법 제60조는 연차 유급휴가를 규정한다.", domain: "법률", verdict: "pending_legal_check", sources: [], legal_ref: { type: "statute", law_name: "근기법", article: "60조" } },
+    { text: "민법 제9999조는 존재한다.", domain: "법률", verdict: "pending_legal_check", sources: [], legal_ref: { type: "statute", law_name: "민법", article: "9999조" } },
+  ];
+  const necResolved = await resolveLegalClaims(necClaims, { ground: stubGround, webVerify: stubWebVerify });
+  necResolved.forEach((c, i) => {
+    console.log(`\n[nec ${i}] verdict=${c.verdict} via=${c.verified_via} nec=${c.nec ? `${c.nec.score} ${c.nec.gradeLabel} C=${c.nec.coverage.value} F=${c.nec.formatError.value} P=${c.nec.proximity.value}` : "-"}`);
+    console.log(`    ${c.explanation}`);
+    if (c.nec?.proximity?.similar?.length) console.log(`    유사: ${c.nec.proximity.similar.map((s) => `${s.value}(${s.similarity})`).join(", ")}`);
+  });
+  assert.equal(necResolved[0].verdict, "false", "지어낸 대법원 사건번호는 공식DB·인용·웹 모두 없으면 부존재 확실");
+  assert.equal(necResolved[0].nec.grade, "nonexistent");
+  assert.equal(necResolved[1].nec.grade, "unverifiable", "한 글자 바뀐 실재 판례가 있으면 단정하지 않음");
+  assert.ok(necResolved[1].nec.proximity.similar.some((s) => s.value.startsWith("2016다254467")), "근접 실재 판례를 제시");
+  assert.equal(necResolved[2].verdict, "false");
+  assert.equal(necResolved[2].nec.formatError.skippedSearch, true, "헌재 설립 전 번호는 탐색 없이 판정");
+  assert.equal(necResolved[3].verified_via, "official", "이름이 조금 틀린 법령은 가장 가까운 법령 조문과 대조");
+  assert.match(necResolved[3].explanation, /주택임대차보호법/);
+  assert.equal(necResolved[4].verified_via, "official", "약칭은 정식 명칭으로 풀어서 조회");
+  assert.match(necResolved[4].sources[0].title, /근로기준법/);
+  assert.equal(necResolved[5].verdict, "false");
+  assert.equal(necResolved[5].nec.grade, "nonexistent", "마지막 조문을 넘는 조문 번호");
 
   console.log("\n=== 2) OC 코드 없는 상태 시뮬레이션 (웹 폴백으로 넘어가는지 확인) ===");
   const savedOC = process.env.LAW_OC;

@@ -1,6 +1,9 @@
 // Anthropic Messages API 호출 (서버 전용 — API 키는 절대 클라이언트로 내려가지 않음).
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 const MODEL = process.env.CLAUDE_MODEL || "claude-sonnet-5";
+// 웹검색을 여러 번 하는 추출 단계도 보통 1분 안에 끝난다. 응답이 영영 오지 않는 연결을
+// 붙들고 있지 않도록 상한을 둔다.
+const CLAUDE_TIMEOUT_MS = 150_000;
 
 function apiKey() {
   const key = process.env.ANTHROPIC_API_KEY;
@@ -17,6 +20,7 @@ async function callClaude({ system, messages, tools, max_tokens = 4000 }) {
       "anthropic-version": "2023-06-01",
     },
     body: JSON.stringify({ model: MODEL, max_tokens, system, messages, ...(tools ? { tools } : {}) }),
+    signal: AbortSignal.timeout(CLAUDE_TIMEOUT_MS),
   });
   const data = await res.json();
   if (data.type === "error") throw new Error(data.error?.message || "Claude API 오류");
@@ -36,6 +40,7 @@ async function callClaudeStreaming({ system, messages, tools, max_tokens = 4000,
       "anthropic-version": "2023-06-01",
     },
     body: JSON.stringify({ model: MODEL, max_tokens, system, messages, stream: true, ...(tools ? { tools } : {}) }),
+    signal: AbortSignal.timeout(CLAUDE_TIMEOUT_MS),
   });
   if (!res.ok || !res.body) {
     const errData = await res.json().catch(() => ({}));
@@ -117,6 +122,8 @@ const EXTRACT_SYSTEM_PROMPT = `당신은 '유메'라는 AI 답변 팩트체크 �
   - 특정 법령 조문을 언급하면: {"type":"statute","law_name":"정확한 법령명(예: 민법, 형법)","article":"조문 번호(예: 750조, 32조 1항)"}
   - 특정 판례를 언급하면: {"type":"case","case_number":"사건번호(예: 2016다254467)","court":"법원명(모르면 생략 가능)"}
   - 조문이나 판례를 특정할 수 없을 만큼 모호하면: {"type":"unspecified","keyword":"검색에 쓸 핵심 키워드"}
+  - 사건번호·법령명·조문은 원문에 적힌 그대로 옮기세요. 틀려 보여도 고치거나 다른 번호로 바꾸지 마세요(존재 여부는 이후 단계에서 확인합니다).
+- 주장에 학술·서지 식별자가 원문에 명시적으로 적혀 있으면 identifiers 배열에 원문 그대로 넣으세요: DOI("10."으로 시작), arXiv 번호, PMID, ISBN. 원문에 없는 식별자를 추측해 만들지 말고, 없으면 빈 배열로 두세요.
 - domain이 "법률"이 아닌 주장은 기존처럼 웹검색으로 confirmed/false/uncertain을 직접 판단하고, 거짓이거나 부정확하면 정확히 무엇이 왜 틀렸는지 구체적으로 설명하세요.
 - domain이 "법률"이 아닌 주장마다 실제로 검색에서 찾은 출처(제목, URL)를 1~2개씩 함께 제시하세요. 검색으로 못 찾았으면 sources는 빈 배열로 두세요.
 - 답변 전체의 주제와 관련해서, 이 내용을 읽는 사람에게 유용할 만한 실제 구매 가능한 상품 카테고리(쿠팡 등에서 검색할 만한 키워드)를 2~4개 제안하세요. 광고처럼 과장하지 말고, 주제와 자연스럽게 연결되는 실용적인 상품이어야 합니다.
@@ -133,6 +140,7 @@ const EXTRACT_SYSTEM_PROMPT = `당신은 '유메'라는 AI 답변 팩트체크 �
       "verdict": "confirmed|false|uncertain|pending_legal_check",
       "explanation": "구체적 근거 (100자 이내, 법률 주장이면 빈 문자열도 가능)",
       "sources": [{ "title": "출처 제목", "url": "https://..." }],
+      "identifiers": [{ "type": "doi|arxiv|pmid|isbn", "value": "원문에 적힌 그대로" }],
       "legal_ref": { "type": "statute|case|unspecified", "law_name": "", "article": "", "case_number": "", "court": "", "keyword": "" }
     }
   ],
@@ -189,19 +197,29 @@ const WEB_FALLBACK_SYSTEM_PROMPT = `당신은 유메의 법률 리서치 보조�
 - 검색 결과가 명확히 뒷받침하거나 반박하면 confirmed/false로 판정하고, 실제로 찾은 출처를 제시하세요.
 - 검색해도 신뢰할 만한 근거를 전혀 찾지 못했을 때만 uncertain으로 하되, 이 경우에도 무엇을 검색해봤는지 explanation에 간단히 남기세요.
 
-반드시 아래 JSON 형식으로만 응답하세요. 다른 설명, 마크다운 코드블록을 추가하지 마세요.
-{"verdict": "confirmed|false|uncertain", "explanation": "구체적 근거 (100자 이내)", "sources": [{ "title": "출처 제목", "url": "https://..." }]}`;
+식별자 확인이 함께 요청된 경우(요청에 "인용된 식별자"가 적혀 있으면):
+- 그 판례 사건번호·법령·조문이 실제로 존재하는지도 검색으로 확인하세요. 법원·정부·언론·법률 전문 사이트처럼 신뢰할 만한 출처에서 그 식별자가 실제 사건·법령을 가리키는 것이 확인될 때만 identifier_found를 true로 하세요. AI가 만든 글이나 출처 없는 요약에만 나오면 false입니다.
+- 공식 데이터베이스에서는 이미 찾지 못한 상태이므로, 존재를 확인하지 못했다면 주장 내용이 그럴듯해 보여도 verdict를 confirmed로 하지 마세요.
 
-export async function verifyLegalClaimViaWeb(claimText, onProgress = () => {}) {
+반드시 아래 JSON 형식으로만 응답하세요. 다른 설명, 마크다운 코드블록을 추가하지 마세요.
+{"verdict": "confirmed|false|uncertain", "explanation": "구체적 근거 (100자 이내)", "sources": [{ "title": "출처 제목", "url": "https://..." }], "identifier_found": true|false}`;
+
+export async function verifyLegalClaimViaWeb(claimText, onProgress = () => {}, { identifier = null } = {}) {
+  const idLine = identifier ? `\n\n인용된 식별자: ${identifier} (법제처 공식 데이터베이스에서는 찾지 못함)` : "";
   const raw = await callClaudeStreaming({
     system: WEB_FALLBACK_SYSTEM_PROMPT,
-    messages: [{ role: "user", content: `다음 법률 관련 주장을 검색해서 검증해줘:\n\n${claimText}` }],
+    messages: [{ role: "user", content: `다음 법률 관련 주장을 검색해서 검증해줘:\n\n${claimText}${idLine}` }],
     tools: [{ type: "web_search_20250305", name: "web_search" }],
     max_tokens: 2000,
     onProgress,
   });
   const parsed = extractJson(raw);
-  return { verdict: parsed.verdict || "uncertain", explanation: parsed.explanation || "", sources: parsed.sources || [] };
+  return {
+    verdict: parsed.verdict || "uncertain",
+    explanation: parsed.explanation || "",
+    sources: parsed.sources || [],
+    identifier_found: parsed.identifier_found === true,
+  };
 }
 
 const CHAT_SYSTEM_PROMPT = `당신은 '유메(YUME)' 웹사이트 우측 하단에 떠 있는 대화형 AI 어시스턴트입니다. 유메 자체는 AI 답변을 공식 데이터·웹검색으로 대조해주는 팩트체크 서비스이지만, 당신은 그 기능에 국한되지 않는 자유로운 대화 상대입니다.

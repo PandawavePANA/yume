@@ -29,6 +29,53 @@ function esc(s = "") {
   return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
 
+// 출처 URL은 웹 검색 결과에서 오므로 http(s)만 링크로 쓴다(javascript: 등 차단).
+function safeUrl(u) {
+  try {
+    const url = new URL(String(u || ""));
+    return url.protocol === "http:" || url.protocol === "https:" ? url.toString() : "#";
+  } catch {
+    return "#";
+  }
+}
+
+function bar(label, value, hint) {
+  const pct = Math.round((value || 0) * 100);
+  return `<div style="margin-bottom:8px;">
+    <div style="display:flex;justify-content:space-between;font-size:11.5px;color:#6E6389;margin-bottom:3px;"><span>${esc(label)}</span><span style="font-variant-numeric:tabular-nums;font-weight:700;">${(value || 0).toFixed(2)}</span></div>
+    <div style="height:6px;border-radius:999px;background:#EFE6FA;overflow:hidden;"><div style="width:${pct}%;height:100%;background:linear-gradient(90deg,#B49AEE,#6B4FA8);"></div></div>
+    ${hint ? `<div style="font-size:11px;color:#A99BC9;margin-top:3px;">${esc(hint)}</div>` : ""}
+  </div>`;
+}
+
+// 특허 도 6 — 판정 결과 화면: 부존재 신뢰도·커버리지·형식오류·근접도·미탐색 영역 안내.
+export function necPanelHtml(nec) {
+  if (!nec) return "";
+  const sure = nec.grade === "nonexistent";
+  const similar = (nec.proximity?.similar || [])
+    .map((s) => `<li style="margin-bottom:3px;"><a href="${esc(safeUrl(s.url))}" style="color:#6B4FA8;">${esc(s.value)}</a>${s.title ? ` <span style="color:#9C8FC2;">${esc(s.title)}</span>` : ""} <span style="color:#B6A9D6;">(유사도 ${Number(s.similarity).toFixed(2)})</span></li>`)
+    .join("");
+  const uncovered = (nec.uncovered || [])
+    .map((u) => `<li style="margin-bottom:4px;"><b style="color:#4C5266;">${esc(u.area)}</b><br/><span style="color:#8577A8;">→ ${esc(u.howToCheck)}</span></li>`)
+    .join("");
+  const failing = (nec.formatError?.checks || []).filter((c) => c.score > 0).map((c) => `${c.name}: ${c.note}`).join(" / ");
+  return `<details style="margin-top:10px;border:1px solid #E3D9F2;border-radius:12px;background:#FCFAFF;">
+    <summary style="cursor:pointer;padding:10px 12px;font-size:12.5px;font-weight:700;color:#5B3FA0;">
+      부존재 신뢰도 ${Number(nec.score).toFixed(2)} · ${esc(nec.gradeLabel)} <span style="font-weight:500;color:#A99BC9;">(기준 ${nec.threshold}) — 판정 근거 보기</span>
+    </summary>
+    <div style="padding:4px 14px 14px;font-size:12.5px;color:#4C5266;line-height:1.6;">
+      <div style="margin-bottom:8px;">${esc(nec.summary || "")}</div>
+      <div style="margin-bottom:10px;">대상: <b>${esc(nec.identifier?.canonical || "")}</b> · 검색공간: ${esc(nec.identifier?.searchSpace || "")}</div>
+      ${bar("탐색 커버리지 C (추정)", nec.coverage?.value, nec.coverage?.logical ? "형식상 존재할 수 없어 전체 검색공간이 배제됨" : (nec.coverage?.searched || []).filter((x) => x.ok).map((x) => `${x.label} ${Math.round(x.completeness * 100)}%`).join(" + "))}
+      ${bar("형식오류 지수 F", nec.formatError?.value, failing || "형식 오류 없음")}
+      ${bar("유사항목 근접도 P", nec.proximity?.value, similar ? "" : "가까운 실재 항목 없음")}
+      ${similar ? `<div style="font-size:12px;margin:6px 0 8px;"><b>혹시 이것인가요?</b><ul style="margin:4px 0 0 16px;padding:0;">${similar}</ul></div>` : ""}
+      <div style="font-size:11.5px;color:#8577A8;margin:6px 0;">NEC = ${nec.weights.w1}·C + ${nec.weights.w2}·F + ${nec.weights.w3}·(1 − P) ${sure ? "≥" : "<"} ${nec.threshold}</div>
+      ${uncovered ? `<div style="margin-top:8px;"><b>아직 확인하지 못한 영역</b><ul style="margin:4px 0 0 16px;padding:0;">${uncovered}</ul></div>` : ""}
+    </div>
+  </details>`;
+}
+
 // 카카오톡에서 붙여넣는 원문은 몇 문단씩 되는 경우가 많아서, 그걸 그대로 다
 // 펼쳐두면 정작 중요한 판정 결과를 보려고 한참 스크롤해야 한다. 짧으면 그대로
 // 보여주고, 길면 <details>/<summary>로 접어둔다 — 자바스크립트 없이 순수 HTML
@@ -123,7 +170,7 @@ export function renderResultPage({ id, input, status, result, createdAt }) {
       cardBody: `
         ${inputBox(input)}
         <div style="padding:14px 16px;border-radius:12px;background:#FBEDEA;border:1px solid #F0BCB0;font-size:13.5px;color:#2A2440;line-height:1.6;">
-          확인 중 오류가 발생했어요. 카카오톡 채널에 다시 한번 보내주세요.
+          확인 중 오류가 발생했어요. 다시 한번 요청해주세요. 이번 요청은 이용 횟수에서 차감되지 않아요.
         </div>`,
     });
   }
@@ -134,6 +181,8 @@ export function renderResultPage({ id, input, status, result, createdAt }) {
       const v = VERDICT[c.verdict] || VERDICT.uncertain;
       const officialBadge = c.verified_via === "official"
         ? `<span style="font-size:11px;font-weight:700;color:#6B4FA8;background:#EDE4FB;border-radius:999px;padding:2px 9px;">법제처 공식 확인${c.effective_date ? ` · ${esc(c.effective_date)} 시행 기준` : ""}</span>`
+        : c.verified_via === "nec"
+        ? `<span style="font-size:11px;font-weight:700;color:#8E3B2F;background:#FBE9E7;border-radius:999px;padding:2px 9px;">부존재 신뢰도 판정</span>`
         : c.verified_via === "unavailable"
         ? `<span style="font-size:11px;font-weight:700;color:#9C8FC2;background:#F1ECFA;border-radius:999px;padding:2px 9px;">공식 API 미연동</span>`
         : "";
@@ -147,6 +196,7 @@ export function renderResultPage({ id, input, status, result, createdAt }) {
             </div>
             <div style="font-size:15px;font-weight:600;color:#241F33;line-height:1.6;margin-bottom:5px;">${esc(c.text)}</div>
             <div style="font-size:13.5px;color:#5B5470;line-height:1.65;">${esc(c.explanation || "")}</div>
+            ${necPanelHtml(c.nec)}
           </div>
         </div>`;
     })
@@ -158,7 +208,7 @@ export function renderResultPage({ id, input, status, result, createdAt }) {
         .map(
           (s) => `
         <div style="padding:12px 14px;border-radius:10px;background:#F9F6FD;border:1px solid #E3D9F2;margin-bottom:8px;">
-          <a href="${esc(s.url)}" style="font-size:14px;color:#6B4FA8;font-weight:600;text-decoration:none;line-height:1.5;">${esc(s.title || s.url)}</a>
+          <a href="${esc(safeUrl(s.url))}" rel="noopener" style="font-size:14px;color:#6B4FA8;font-weight:600;text-decoration:none;line-height:1.5;">${esc(s.title || s.url)}</a>
           <div style="font-size:12.5px;color:#9C8FC2;margin-top:3px;line-height:1.5;">${esc(s.forClaim)}</div>
         </div>`
         )
@@ -172,7 +222,7 @@ export function renderResultPage({ id, input, status, result, createdAt }) {
       products
         .map(
           (p) => `
-        <a href="${esc(p.url || `https://www.coupang.com/np/search?q=${encodeURIComponent(p.keyword)}`)}" style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:14px 16px;border-radius:12px;background:#F9FAFB;border:1px solid #D9BFF0;margin-bottom:8px;text-decoration:none;">
+        <a href="${esc(safeUrl(p.url || `https://www.coupang.com/np/search?q=${encodeURIComponent(p.keyword)}`))}" rel="noopener sponsored" style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:14px 16px;border-radius:12px;background:#F9FAFB;border:1px solid #D9BFF0;margin-bottom:8px;text-decoration:none;">
           <div>
             <div style="font-size:14px;font-weight:700;color:#241F33;margin-bottom:3px;">${esc(p.keyword)}</div>
             <div style="font-size:12px;color:#9C8FC2;">${esc(p.reason || "")}</div>

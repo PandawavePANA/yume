@@ -1,15 +1,17 @@
-// 관리자 대시보드에서 "무슨 오류가 있었는지"까지 볼 수 있도록 서버 곳곳의
-// catch 블록에서 발생한 오류를 메모리에 모아둔다. 프로토타입이라 여기도
-// 재시작하면 초기화된다 — 실제 서비스로 넘어가면 Sentry 등 외부 로깅으로 교체.
-const MAX_ENTRIES = 300;
-const errors = [];
+import { all, now, run } from "./db.js";
 
+// 호출한 쪽을 막지 않도록 기다리지 않아도 되게 만든다(실패해도 콘솔에만 남김).
 export function logError(source, error) {
   const message = error instanceof Error ? error.message : String(error);
-  errors.unshift({ source, message, at: Date.now() });
-  if (errors.length > MAX_ENTRIES) errors.length = MAX_ENTRIES;
+  const stack = error instanceof Error ? (error.stack || "").slice(0, 4000) : null;
+  return run("INSERT INTO error_logs (source, message, stack, created_at) VALUES (:source, :message, :stack, :at)", {
+    source,
+    message: message.slice(0, 2000),
+    stack,
+    at: now(),
+  }).catch((e) => console.error("오류 로그 저장 실패:", e.message, "원래 오류:", message));
 }
 
 export function listErrors(limit = 50) {
-  return errors.slice(0, limit);
+  return all("SELECT id, source, message, stack, created_at FROM error_logs ORDER BY id DESC LIMIT :limit", { limit });
 }

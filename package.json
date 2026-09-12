@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "engines": {
-    "node": ">=20"
+    "node": "24.x"
   },
   "scripts": {
     "dev": "concurrently -k -n SERVER,CLIENT -c yellow,cyan \"npm:dev:server\" \"npm:dev:client\"",
@@ -14,9 +14,11 @@
     "start": "node server/index.js",
     "build:reamer": "vite build --config vite.reamer.config.mjs && node scripts/rename-reamer-index.mjs",
     "start:reamer": "serve dist-reamer -s -l ${PORT:-3000}",
-    "test:legal": "node server/legalPipeline.test.js"
+    "test:legal": "node server/legalPipeline.test.js",
+    "test": "node --test \"server/tests/*.test.js\""
   },
   "dependencies": {
+    "@electric-sql/pglite": "^0.5.8",
     "@tailwindcss/postcss": "^4.3.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
@@ -24,6 +26,7 @@
     "fast-xml-parser": "^4.5.0",
     "framer-motion": "^11.11.17",
     "motion": "^13.2.0",
+    "pg": "^8.23.0",
     "postcss": "^8.5.28",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

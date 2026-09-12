@@ -4,3 +4,8 @@ dist-reamer/
 .env
 .claude/
 .originkit/
+data/
+*.db
+*.db-wal
+*.db-shm
+.env.railway

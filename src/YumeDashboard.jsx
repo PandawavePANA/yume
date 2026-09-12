@@ -1,5 +1,10 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence, useScroll, useTransform, useMotionValue, useSpring } from "framer-motion";
+import CatMouseGame from "@/components/yume/CatMouseGame";
+import AuthModal from "@/components/yume/AuthModal";
+import AccountModal from "@/components/yume/AccountModal";
+import NecPanel from "@/components/yume/NecPanel";
+import { apiJson, safeUrl, CONTACT_EMAIL } from "@/components/yume/api";
 
 const EASE_APPLE = [0.22, 1, 0.36, 1];
 
@@ -41,9 +46,9 @@ const VBORDER = { confirmed: "#E6EFE9", false: "#F5D8D3", uncertain: "#F3E3C4" }
 const VBG = { confirmed: "#F9FBF9", false: "#FDF4F3", uncertain: "#FFFBF3" };
 
 const PLANS = {
-  free: { label: "무료", price: "0원", period: "", tagline: "일상적인 사실관계 확인", features: ["간단한 사실 주장 확인", "웹검색 기반 교차검증", "검증 기록 최근 50건", "하루 5회까지 확인 (초과 시 1건당 토큰 100원)"] },
-  standard: { label: "스탠다드", price: "9,000원", period: "/월", tagline: "법률·의료 등 전문 분야 답변까지", features: ["무료 플랜 기능 전체 포함, 일일 횟수 제한 없음", "법률 주장: 법제처 공식 데이터 이중검증", "검증 기록 무제한 저장", "우선 처리 속도"] },
-  expert: { label: "전문가", price: "29,000원", period: "/월", tagline: "조문·판례를 직접 대조하는 수준의 정확도", features: ["스탠다드 전체 포함", "조문·판례 원문 대조 상세 리포트", "여러 건 한 번에 검증(배치)", "API 사용량 포함", "우선 지원"] },
+  free: { label: "무료", price: "0원", period: "", tagline: "일상적인 사실관계 확인", features: ["하루 5회 확인", "법률 주장 법제처 공식 대조", "인용된 판례·법령·논문의 부존재 신뢰도", "로그인 시 검증 기록 최근 50건 저장"] },
+  standard: { label: "스탠다드", price: "9,000원", period: "/월", tagline: "매일 AI 답변을 확인하는 분께", features: ["무료 플랜 기능 전체 포함", "하루 200회 확인 (공정 이용 한도)", "검증 기록 무제한 저장", "API 월 1,000회"] },
+  expert: { label: "전문가", price: "29,000원", period: "/월", tagline: "업무에서 조문·판례를 자주 확인하는 분께", features: ["스탠다드 전체 포함", "하루 500회 확인 (공정 이용 한도)", "API 월 5,000회", "우선 지원"] },
 };
 
 // AI 할루시네이션이 발생하는 구조적 원인 5가지와, 유메가 도메인에 상관없이
@@ -84,10 +89,10 @@ function BizRow({ title, desc, cta }) {
         <div style={{ fontSize: 14, fontWeight: 700, color: "#241F33", marginBottom: 3 }}>{title}</div>
         <div style={{ fontSize: 12, color: "#8577A8", lineHeight: 1.5 }}>{desc}</div>
       </div>
-      <button style={{
-        flexShrink: 0, padding: "8px 14px", borderRadius: 999, border: "1px solid #D4BEF0",
+      <a href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(`[유메] ${title} 문의`)}`} style={{
+        flexShrink: 0, padding: "8px 14px", borderRadius: 999, border: "1px solid #D4BEF0", textDecoration: "none",
         background: "#fff", color: "#6B4FA8", fontSize: 12.5, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap"
-      }}>{cta}</button>
+      }}>{cta}</a>
     </div>
   );
 }
@@ -603,58 +608,57 @@ export default function YumeDashboard() {
   const orb1Y = useTransform(pageScrollY, [0, 6000], [0, -800]);
   const orb2Y = useTransform(pageScrollY, [0, 6000], [0, 680]);
   const orb3Y = useTransform(pageScrollY, [0, 6000], [0, -420]);
-  const [showAuth, setShowAuth] = useState(false);
-  const [authMode, setAuthMode] = useState("login");
+  const [authModal, setAuthModal] = useState(null); // null | "login" | "signup"
+  const [accountTab, setAccountTab] = useState(null); // null | "profile" | "api" | "data" | "security"
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [showBiz, setShowBiz] = useState(false);
   const [showPricing, setShowPricing] = useState(false);
-  const [plan, setPlan] = useState("free"); // 데모용 — localStorage에 저장하지 않아 새로고침하면 항상 "free"로 리셋됨
-  // 무료 플랜에만 적용되는 하루 확인 한도 + 토큰 잔액. 서버가 IP 기준으로 관리하고
-  // (진짜 로그인이 없어서 그게 최선), 여기서는 화면에 보여주기 위한 값만 들고 있는다.
-  const [usage, setUsage] = useState(null); // { usedFree, remainingFree, tokens }
-  const [limitReached, setLimitReached] = useState(null); // { message, tokens } — 무료 소진 시
-  // 설정·비즈니스 패널의 "유메 API" 데모 키 발급 — 경연에서 개발자 API를 말로만
-  // 설명하지 않고 실제로 curl까지 바로 보여주기 위한 상태.
-  const [apiDemoKey, setApiDemoKey] = useState(null); // { apiKey, dailyLimit }
-  const [apiDemoLoading, setApiDemoLoading] = useState(false);
-  const [apiDemoError, setApiDemoError] = useState("");
+  const [toast, setToast] = useState("");
+  // 로그인 세션과 오늘 남은 확인 횟수는 서버가 기준이다(요금제도 서버가 결정).
+  const [user, setUser] = useState(null);
+  const [authChecked, setAuthChecked] = useState(false);
+  const [usage, setUsage] = useState(null); // { plan, dailyLimit, remainingFree, tokens }
+  const [limitReached, setLimitReached] = useState(null); // { message, loggedIn }
+  const plan = user?.plan || "free";
 
-  const issueDemoApiKey = async () => {
-    setApiDemoLoading(true);
-    setApiDemoError("");
+  const refreshSession = React.useCallback(async () => {
     try {
-      const res = await fetch("/v1/keys", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ label: "대시보드 데모" }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "발급에 실패했어요.");
-      setApiDemoKey(data);
-    } catch (e) {
-      setApiDemoError(e.message || "발급에 실패했어요.");
+      const r = await apiJson("/api/auth/me");
+      setUser(r.user);
+      setUsage(r.usage);
+    } catch {
+      setUser(null);
     } finally {
-      setApiDemoLoading(false);
+      setAuthChecked(true);
     }
-  };
+  }, []);
+  React.useEffect(() => { refreshSession(); }, [refreshSession]);
 
   React.useEffect(() => {
-    if (plan !== "free") { setUsage(null); return; }
-    fetch("/api/usage").then(r => r.json()).then(setUsage).catch(() => {});
-  }, [plan]);
+    if (!toast) return undefined;
+    const id = setTimeout(() => setToast(""), 4000);
+    return () => clearTimeout(id);
+  }, [toast]);
 
-  const buyTokensDemo = async (count = 1) => {
-    try {
-      const res = await fetch("/api/tokens/buy", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ count }),
-      });
-      const data = await res.json();
-      setUsage(u => ({ ...(u || {}), tokens: data.tokens }));
-      setLimitReached(null);
-      setErrMsg("");
-      setStage("idle");
-    } catch (e) {
-      console.error("토큰 충전 실패", e);
-    }
+  const onAuthed = (u) => {
+    setAuthModal(null);
+    setLimitReached(null);
+    setToast(`${u.name || u.email}님, 반가워요.`);
+    refreshSession();
+  };
+
+  const logout = async () => {
+    setUserMenuOpen(false);
+    await apiJson("/api/auth/logout", { method: "POST" }).catch(() => {});
+    setUser(null);
+    setToast("로그아웃했어요.");
+    refreshSession();
+  };
+
+  const openApiKeys = () => {
+    setShowBiz(false);
+    if (user) setAccountTab("api");
+    else setAuthModal("signup");
   };
   const [tab, setTab] = useState("result"); // result | sources | products
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -662,26 +666,38 @@ export default function YumeDashboard() {
   const [activeId, setActiveId] = useState(null);
   const [historyLoaded, setHistoryLoaded] = useState(false);
 
-  // 저장된 히스토리 불러오기 (브라우저 localStorage 기반 — 유저별 서버 저장은 아님)
+  // 로그인하면 서버에 저장된 기록을, 아니면 이 브라우저에만 남는 기록을 보여준다.
   React.useEffect(() => {
+    if (!authChecked) return;
+    setHistoryLoaded(false);
+    if (user) {
+      apiJson("/api/history")
+        .then((r) => setHistory(r.items))
+        .catch(() => setHistory([]))
+        .finally(() => setHistoryLoaded(true));
+      return;
+    }
     try {
       const raw = window.localStorage.getItem("yume-history-index");
-      if (raw) setHistory(JSON.parse(raw));
-    } catch (e) {
-      // 저장된 기록 없음 (처음 사용) — 정상 상황
+      setHistory(raw ? JSON.parse(raw) : []);
+    } catch {
+      setHistory([]);
     } finally {
       setHistoryLoaded(true);
     }
-  }, []);
+  }, [user?.id, authChecked]);
 
-  const saveToHistory = async (inputText, resultData) => {
+  const saveToHistory = (inputText, resultData) => {
+    const preview = inputText.trim().slice(0, 36) + (inputText.trim().length > 36 ? "…" : "");
+    const domain = resultData.overall_domain || "일반";
+    if (user) {
+      const entry = { id: resultData.id, timestamp: Date.now(), preview, domain };
+      setHistory((h) => [entry, ...h.filter((x) => x.id !== entry.id)]);
+      setActiveId(entry.id);
+      return;
+    }
     const id = Date.now().toString();
-    const entry = {
-      id,
-      timestamp: new Date().toISOString(),
-      preview: inputText.trim().slice(0, 36) + (inputText.trim().length > 36 ? "…" : ""),
-      domain: resultData.overall_domain || "일반",
-    };
+    const entry = { id, timestamp: new Date().toISOString(), preview, domain };
     try {
       const newHistory = [entry, ...history].slice(0, 50); // 최근 50개까지만
       window.localStorage.setItem("yume-history-index", JSON.stringify(newHistory));
@@ -695,30 +711,40 @@ export default function YumeDashboard() {
 
   const loadFromHistory = async (id) => {
     try {
-      const raw = window.localStorage.getItem(`yume-history:${id}`);
-      if (!raw) return;
-      const record = JSON.parse(raw);
+      let record;
+      if (user) {
+        record = await apiJson(`/api/history/${id}`);
+      } else {
+        const raw = window.localStorage.getItem(`yume-history:${id}`);
+        if (!raw) return;
+        record = JSON.parse(raw);
+      }
       setInput(record.input);
       setResult(record.result);
-      setRevealed((record.result.claims || []).length);
+      setRevealed((record.result?.claims || []).length);
       setStage("done");
       setTab("result");
       setActiveId(id);
     } catch (e) {
-      console.error("히스토리 불러오기 실패", e);
+      setToast(e.message || "기록을 불러오지 못했어요.");
     }
   };
 
   const deleteHistoryItem = async (id, e) => {
     e.stopPropagation();
     try {
-      const newHistory = history.filter(h => h.id !== id);
-      window.localStorage.setItem("yume-history-index", JSON.stringify(newHistory));
-      window.localStorage.removeItem(`yume-history:${id}`);
-      setHistory(newHistory);
+      if (user) {
+        await apiJson(`/api/history/${id}`, { method: "DELETE" });
+        setHistory((h) => h.filter((x) => x.id !== id));
+      } else {
+        const newHistory = history.filter((h) => h.id !== id);
+        window.localStorage.setItem("yume-history-index", JSON.stringify(newHistory));
+        window.localStorage.removeItem(`yume-history:${id}`);
+        setHistory(newHistory);
+      }
       if (activeId === id) { setActiveId(null); reset(); }
-    } catch (e) {
-      console.error("히스토리 삭제 실패", e);
+    } catch (err) {
+      setToast(err.message || "삭제하지 못했어요.");
     }
   };
 
@@ -757,12 +783,12 @@ export default function YumeDashboard() {
       const response = await fetch("/api/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: input, plan })
+        body: JSON.stringify({ text: input })
       });
       if (!response.ok || !response.body) {
         const parsed = await response.json().catch(() => ({}));
         if (response.status === 402 && parsed.limitReached) {
-          setLimitReached({ message: parsed.error, tokens: parsed.tokens });
+          setLimitReached({ message: parsed.error, loggedIn: parsed.loggedIn });
         }
         throw new Error(parsed.error || "서버 오류가 발생했습니다.");
       }
@@ -958,23 +984,74 @@ export default function YumeDashboard() {
             onClick={() => setShowPricing(true)} style={{
             padding: "7px 14px", borderRadius: 980, border: "1px solid #D4BEF0", whiteSpace: "nowrap",
             background: plan === "free" ? "transparent" : "#EBD9FA", color: "#6B4FA8", fontSize: 13.5, fontWeight: 600, cursor: "pointer"
-          }}>{PLANS[plan].label} 구독 ▾</motion.button>
-          <motion.button
-            initial={{ opacity: 0, y: -28, scale: 0.7 }} animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ type: "spring", stiffness: 240, damping: 16, delay: 0.3 }}
-            whileHover={{ backgroundColor: "#F1E6FB", borderColor: "#B993EE", scale: 1.04 }} whileTap={{ scale: 0.96 }}
-            onClick={() => { setAuthMode("login"); setShowAuth(true); }} style={{
-            padding: "7px 14px", borderRadius: 980, border: "1px solid #D4BEF0", whiteSpace: "nowrap",
-            background: "transparent", color: "#241F33", fontSize: 13.5, fontWeight: 500, cursor: "pointer"
-          }}>로그인</motion.button>
-          <motion.button
-            initial={{ opacity: 0, y: -28, scale: 0.5 }} animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ type: "spring", stiffness: 260, damping: 14, delay: 0.38 }}
-            whileHover={{ backgroundColor: "#3D3355", scale: 1.05 }} whileTap={{ scale: 0.95 }}
-            onClick={() => { setAuthMode("signup"); setShowAuth(true); }} style={{
-            padding: "7px 16px", borderRadius: 980, border: "none", whiteSpace: "nowrap",
-            background: "#241F33", color: "#fff", fontSize: 13.5, fontWeight: 500, cursor: "pointer"
-          }}>시작하기</motion.button>
+          }}>{PLANS[plan]?.label || user?.planLabel || "무료"} 플랜 ▾</motion.button>
+          {user ? (
+            <div style={{ position: "relative" }}>
+              <motion.button
+                initial={{ opacity: 0, y: -28, scale: 0.7 }} animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ type: "spring", stiffness: 240, damping: 16, delay: 0.1 }}
+                whileHover={{ backgroundColor: "#3D3355", scale: 1.04 }} whileTap={{ scale: 0.96 }}
+                onClick={() => setUserMenuOpen((o) => !o)} aria-haspopup="menu" aria-expanded={userMenuOpen} style={{
+                padding: "7px 14px", borderRadius: 980, border: "none", whiteSpace: "nowrap", maxWidth: 200,
+                overflow: "hidden", textOverflow: "ellipsis",
+                background: "#241F33", color: "#fff", fontSize: 13.5, fontWeight: 500, cursor: "pointer"
+              }}>{user.name || user.email.split("@")[0]} ▾</motion.button>
+              <AnimatePresence>
+                {userMenuOpen && (
+                  <>
+                    <div onClick={() => setUserMenuOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 44 }} />
+                    <motion.div role="menu"
+                      initial={{ opacity: 0, y: -6, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -6, scale: 0.97 }}
+                      transition={{ duration: 0.16 }}
+                      style={{
+                        position: "absolute", right: 0, top: "calc(100% + 8px)", zIndex: 45, width: 220,
+                        background: "#fff", border: "1px solid #E3D5F6", borderRadius: 14, padding: 6,
+                        boxShadow: "0 14px 40px rgba(75,55,120,0.18)",
+                      }}>
+                      <div style={{ padding: "8px 10px 10px", borderBottom: "1px solid #F1EAFB", marginBottom: 4 }}>
+                        <div style={{ fontSize: 12.5, fontWeight: 700, color: "#241F33", overflow: "hidden", textOverflow: "ellipsis" }}>{user.email}</div>
+                        <div style={{ fontSize: 11.5, color: "#8577A8" }}>{user.planLabel} 플랜{usage ? ` · 오늘 ${usage.remainingFree}회 남음` : ""}</div>
+                      </div>
+                      {[
+                        ["계정 설정", () => setAccountTab("profile")],
+                        ["API 키", () => setAccountTab("api")],
+                        ["데이터 · 개인정보", () => setAccountTab("data")],
+                        ...(user.role === "admin" ? [["운영 대시보드", () => { window.location.href = "/admin"; }]] : []),
+                        ["로그아웃", logout],
+                      ].map(([label, fn]) => (
+                        <button key={label} role="menuitem" onClick={() => { setUserMenuOpen(false); fn(); }} style={{
+                          display: "block", width: "100%", textAlign: "left", border: "none", background: "transparent",
+                          padding: "9px 10px", borderRadius: 9, fontSize: 13, color: label === "로그아웃" ? "#8577A8" : "#372B54", cursor: "pointer",
+                        }}
+                          onMouseEnter={(e) => { e.currentTarget.style.background = "#F5EEFD"; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+                        >{label}</button>
+                      ))}
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
+            </div>
+          ) : (
+            <>
+              <motion.button
+                initial={{ opacity: 0, y: -28, scale: 0.7 }} animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ type: "spring", stiffness: 240, damping: 16, delay: 0.3 }}
+                whileHover={{ backgroundColor: "#F1E6FB", borderColor: "#B993EE", scale: 1.04 }} whileTap={{ scale: 0.96 }}
+                onClick={() => setAuthModal("login")} style={{
+                padding: "7px 14px", borderRadius: 980, border: "1px solid #D4BEF0", whiteSpace: "nowrap",
+                background: "transparent", color: "#241F33", fontSize: 13.5, fontWeight: 500, cursor: "pointer"
+              }}>로그인</motion.button>
+              <motion.button
+                initial={{ opacity: 0, y: -28, scale: 0.5 }} animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ type: "spring", stiffness: 260, damping: 14, delay: 0.38 }}
+                whileHover={{ backgroundColor: "#3D3355", scale: 1.05 }} whileTap={{ scale: 0.95 }}
+                onClick={() => setAuthModal("signup")} style={{
+                padding: "7px 16px", borderRadius: 980, border: "none", whiteSpace: "nowrap",
+                background: "#241F33", color: "#fff", fontSize: 13.5, fontWeight: 500, cursor: "pointer"
+              }}>시작하기</motion.button>
+            </>
+          )}
         </div>
       </nav>
 
@@ -1071,17 +1148,22 @@ export default function YumeDashboard() {
 
           {(stage === "idle" || stage === "error") && (
             <div style={{ padding: 24 }}>
-              {plan === "free" && usage && (
+              {usage && (
                 <div style={{
                   display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#8577A8",
                   marginBottom: 10, flexWrap: "wrap",
                 }}>
                   <span style={{ background: "#F1E6FB", borderRadius: 999, padding: "3px 10px", fontWeight: 600 }}>
-                    오늘 무료 {usage.remainingFree ?? 5}/5 남음
+                    오늘 {usage.remainingFree}/{usage.dailyLimit}회 남음
                   </span>
                   {usage.tokens > 0 && (
                     <span style={{ background: "#EDE4FB", borderRadius: 999, padding: "3px 10px", fontWeight: 600, color: "#6B4FA8" }}>
                       토큰 {usage.tokens}개 보유
+                    </span>
+                  )}
+                  {authChecked && !user && (
+                    <span style={{ color: "#A99BC9" }}>
+                      <span onClick={() => setAuthModal("signup")} style={{ color: "#6B4FA8", fontWeight: 600, cursor: "pointer", textDecoration: "underline" }}>가입</span>하면 검증 기록이 계정에 저장돼요
                     </span>
                   )}
                 </div>
@@ -1093,10 +1175,12 @@ export default function YumeDashboard() {
                 <div style={{ fontSize: 13, color: "#7A5B00", background: "#FFF6E0", border: "1px solid #F0D98C", borderRadius: 10, padding: "14px 16px", marginBottom: 14 }}>
                   <div style={{ marginBottom: 10, lineHeight: 1.6 }}>{limitReached.message}</div>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    <button onClick={() => buyTokensDemo(1)} style={{
-                      padding: "8px 14px", borderRadius: 999, border: "1px solid #E8C468", background: "#fff",
-                      color: "#7A5B00", fontSize: 12.5, fontWeight: 600, cursor: "pointer",
-                    }}>데모로 토큰 1개 받기 (실제 결제 없음)</button>
+                    {!limitReached.loggedIn && (
+                      <button onClick={() => setAuthModal("login")} style={{
+                        padding: "8px 14px", borderRadius: 999, border: "1px solid #E8C468", background: "#fff",
+                        color: "#7A5B00", fontSize: 12.5, fontWeight: 600, cursor: "pointer",
+                      }}>로그인하기</button>
+                    )}
                     <button onClick={() => setShowPricing(true)} style={{
                       padding: "8px 14px", borderRadius: 999, border: "1px solid #D4BEF0", background: "#fff",
                       color: "#6B4FA8", fontSize: 12.5, fontWeight: 600, cursor: "pointer",
@@ -1131,6 +1215,10 @@ export default function YumeDashboard() {
                 </motion.div>
               </AnimatePresence>
               <div style={{ fontSize: 12, color: "#B6A9D6" }}>내용이 길면 최대 30초 정도 걸릴 수 있어요</div>
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.35, ease: EASE_APPLE }}
+                style={{ width: "100%", display: "flex", justifyContent: "center", marginTop: 6 }}>
+                <CatMouseGame />
+              </motion.div>
               <style>{`@keyframes yume-spin { to { transform: rotate(360deg); } }`}</style>
             </div>
           )}
@@ -1207,12 +1295,19 @@ export default function YumeDashboard() {
                                   법제처 공식 확인{c.effective_date ? ` · ${c.effective_date} 시행 기준` : ""}
                                 </span>
                               )}
+                              {c.verified_via === "nec" && (
+                                <span style={{ fontSize: 10.5, fontWeight: 700, color: "#A23A2B", background: "#FBE9E7", borderRadius: 999, padding: "2px 8px" }}>부존재 신뢰도 판정</span>
+                              )}
                               {c.verified_via === "unavailable" && (
-                                <span style={{ fontSize: 10.5, fontWeight: 700, color: "#9C8FC2", background: "#F1ECFA", borderRadius: 999, padding: "2px 8px" }}>공식 API 미연동</span>
+                                <span style={{ fontSize: 10.5, fontWeight: 700, color: "#9C8FC2", background: "#F1ECFA", borderRadius: 999, padding: "2px 8px" }}>공식 자료 조회 실패</span>
+                              )}
+                              {(c.identifiers || []).some((x) => x.status === "found") && (
+                                <span style={{ fontSize: 10.5, fontWeight: 700, color: "#1F7A52", background: "#E7F6EE", borderRadius: 999, padding: "2px 8px" }}>인용 문헌 실재 확인</span>
                               )}
                             </div>
                             <div style={{ fontSize: 15, fontWeight: 600, color: "#241F33", lineHeight: 1.6, marginBottom: 5 }}>{c.text}</div>
                             <div style={{ fontSize: 13.5, color: "#5B5470", lineHeight: 1.65 }}>{c.explanation}</div>
+                            <NecPanel nec={c.nec} />
                           </div>
                         </motion.div>
                       ))}
@@ -1233,7 +1328,7 @@ export default function YumeDashboard() {
                     ) : (
                       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                         {allSources.map((s, i) => (
-                          <a key={i} href={s.url} target="_blank" rel="noreferrer" style={{
+                          <a key={i} href={safeUrl(s.url)} target="_blank" rel="noreferrer" style={{
                             display: "block", padding: "12px 14px", borderRadius: 12,
                             background: "#F9FAFB", border: "1px solid #D9BFF0", textDecoration: "none"
                           }}>
@@ -1258,7 +1353,7 @@ export default function YumeDashboard() {
                     ) : (
                       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                         {result.related_products.map((p, i) => (
-                          <a key={i} href={p.url || `https://www.coupang.com/np/search?q=${encodeURIComponent(p.keyword)}`} target="_blank" rel="noreferrer" style={{
+                          <a key={i} href={safeUrl(p.url) || `https://www.coupang.com/np/search?q=${encodeURIComponent(p.keyword)}`} target="_blank" rel="noreferrer sponsored" style={{
                             display: "flex", justifyContent: "space-between", alignItems: "center",
                             padding: "14px 16px", borderRadius: 12, background: "#F9FAFB",
                             border: "1px solid #D9BFF0", textDecoration: "none"
@@ -1289,7 +1384,7 @@ export default function YumeDashboard() {
 
         <Reveal y={30} scale={1} style={{ rotateX: cardRotateX, rotateY: cardRotateY, transformStyle: "preserve-3d" }}>
           <p style={{ textAlign: "center", fontSize: 12.5, color: "#B6A9D6", marginTop: 14, lineHeight: 1.6 }}>
-            법률 주장은 법제처 국가법령정보 공동활용 API로 실제 조회해 이중 확인합니다. 의료·금융 등 다른 도메인은 아직 웹검색 기반 MVP입니다.
+            법률 주장은 법제처 국가법령정보와 직접 대조하고, 인용된 판례·법령·논문이 공식 자료에 없으면 부존재 신뢰도로 판정합니다. 판정은 참고 정보이며 전문가의 자문을 대신하지 않습니다.
           </p>
         </Reveal>
       </main>
@@ -1382,43 +1477,33 @@ export default function YumeDashboard() {
             <div style={{ display: "flex", gap: 32, flexWrap: "wrap" }}>
               <button onClick={() => setShowPricing(true)} style={{ border: "none", background: "transparent", color: "#4C5266", fontSize: 13.5, fontWeight: 600, cursor: "pointer", padding: 0 }}>요금제</button>
               <button onClick={() => setShowBiz(true)} style={{ border: "none", background: "transparent", color: "#4C5266", fontSize: 13.5, fontWeight: 600, cursor: "pointer", padding: 0 }}>비즈니스 · API</button>
+              <a href="/docs/api" style={{ color: "#4C5266", fontSize: 13.5, fontWeight: 600, textDecoration: "none" }}>API 문서</a>
             </div>
           </div>
-          <div style={{ borderTop: "1px solid #E3CEF5", paddingTop: 20, fontSize: 12, color: "#B6A9D6" }}>
-            © 2026 Reamer. All rights reserved.
+          <div style={{ borderTop: "1px solid #E3CEF5", paddingTop: 20, fontSize: 12, color: "#B6A9D6", display: "flex", flexWrap: "wrap", gap: "8px 18px", justifyContent: "space-between" }}>
+            <span>© 2026 리머(REAMER) · 대표 정원영 · <a href={`mailto:${CONTACT_EMAIL}`} style={{ color: "#B6A9D6" }}>{CONTACT_EMAIL}</a></span>
+            <span style={{ display: "flex", gap: 14 }}>
+              <a href="/terms" style={{ color: "#8577A8", textDecoration: "none" }}>이용약관</a>
+              <a href="/privacy" style={{ color: "#6B4FA8", textDecoration: "none", fontWeight: 700 }}>개인정보처리방침</a>
+            </span>
           </div>
         </div>
       </footer>
       </div>
 
-      {/* AUTH MODAL */}
-      {showAuth && (
-        <div onClick={() => setShowAuth(false)} style={{
-          position: "fixed", inset: 0, background: "rgba(75,55,120,0.28)", display: "flex",
-          alignItems: "center", justifyContent: "center", zIndex: 50, backdropFilter: "blur(2px)"
-        }}>
-          <div onClick={(e) => e.stopPropagation()} style={{ width: 360, background: "#fff", borderRadius: 20, padding: 28, boxShadow: "0 20px 60px rgba(75,55,120,0.22)" }}>
-            <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>{authMode === "login" ? "로그인" : "유메 시작하기"}</div>
-            <div style={{ fontSize: 12.5, color: "#A99BC9", marginBottom: 20 }}>UI 데모 — 실제 인증은 동작하지 않습니다</div>
-            <label style={{ fontSize: 12.5, color: "#6E6389", fontWeight: 500 }}>이메일</label>
-            <input placeholder="you@example.com" style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: "1px solid #D4BEF0", margin: "6px 0 14px", fontSize: 14, boxSizing: "border-box" }} />
-            <label style={{ fontSize: 12.5, color: "#6E6389", fontWeight: 500 }}>비밀번호</label>
-            <input type="password" placeholder="••••••••" style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: "1px solid #D4BEF0", margin: "6px 0 18px", fontSize: 14, boxSizing: "border-box" }} />
-            <button style={{ width: "100%", padding: "12px 0", borderRadius: 12, border: "none", background: "#241F33", color: "#fff", fontSize: 14.5, fontWeight: 600, cursor: "pointer" }}>
-              {authMode === "login" ? "로그인" : "계정 만들기"}
-            </button>
-            <div style={{ textAlign: "center", marginTop: 14, fontSize: 13, color: "#9C8FC2" }}>
-              {authMode === "login" ? (
-                <>계정이 없으신가요? <span onClick={() => setAuthMode("signup")} style={{ color: "#0A0A0A", cursor: "pointer", fontWeight: 600, textDecoration: "underline" }}>가입하기</span></>
-              ) : (
-                <>이미 계정이 있으신가요? <span onClick={() => setAuthMode("login")} style={{ color: "#0A0A0A", cursor: "pointer", fontWeight: 600, textDecoration: "underline" }}>로그인</span></>
-              )}
-            </div>
-          </div>
-        </div>
+      {authModal && <AuthModal mode={authModal} onClose={() => setAuthModal(null)} onAuthed={onAuthed} />}
+      {accountTab && user && (
+        <AccountModal
+          user={user}
+          usage={usage}
+          initialTab={accountTab}
+          onClose={() => setAccountTab(null)}
+          onUserChange={(u) => setUser(u)}
+          onLoggedOut={(message) => { setAccountTab(null); setUser(null); setHistory([]); setToast(message); refreshSession(); }}
+        />
       )}
 
-      {/* PRICING MODAL (B2C 구독 — 프로토타입: 결제 없이 즉시 적용, 새로고침하면 무료로 리셋) */}
+      {/* PRICING MODAL — 결제 연동 전이라 유료 플랜은 문의로 개통한다(가짜 결제 버튼을 두지 않음). */}
       {showPricing && (
         <div onClick={() => setShowPricing(false)} style={{
           position: "fixed", inset: 0, background: "rgba(75,55,120,0.28)", display: "flex",
@@ -1428,7 +1513,7 @@ export default function YumeDashboard() {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
               <div>
                 <div style={{ fontSize: 20, fontWeight: 700 }}>요금제</div>
-                <div style={{ fontSize: 12.5, color: "#A99BC9" }}>데모 — 실제 결제 없이 즉시 적용되고, 새로고침하면 무료 플랜으로 초기화됩니다</div>
+                <div style={{ fontSize: 12.5, color: "#A99BC9" }}>온라인 결제는 준비 중이에요. 유료 플랜은 문의해주시면 바로 열어드려요.</div>
               </div>
               <button onClick={() => setShowPricing(false)} style={{ border: "none", background: "transparent", color: "#9C8FC2", fontSize: 18, cursor: "pointer" }}>×</button>
             </div>
@@ -1448,15 +1533,23 @@ export default function YumeDashboard() {
                       </li>
                     ))}
                   </ul>
-                  <button
-                    onClick={() => { setPlan(key); setShowPricing(false); }}
-                    disabled={plan === key}
-                    style={{
-                      width: "100%", padding: "10px 0", borderRadius: 10, border: "none",
-                      background: plan === key ? "#EDE4FB" : (key === "free" ? "#EAD8FA" : "linear-gradient(90deg,#B49AEE,#6B4FA8)"),
-                      color: plan === key ? "#9C8FC2" : (key === "free" ? "#6B4FA8" : "#fff"),
-                      fontSize: 13.5, fontWeight: 600, cursor: plan === key ? "default" : "pointer"
-                    }}>{plan === key ? "현재 플랜" : key === "free" ? "무료로 전환" : "결제하기"}</button>
+                  {plan === key ? (
+                    <div style={{ width: "100%", padding: "10px 0", borderRadius: 10, background: "#EDE4FB", color: "#9C8FC2", fontSize: 13.5, fontWeight: 600, textAlign: "center" }}>현재 플랜</div>
+                  ) : key === "free" ? (
+                    user ? null : (
+                      <button onClick={() => { setShowPricing(false); setAuthModal("signup"); }} style={{
+                        width: "100%", padding: "10px 0", borderRadius: 10, border: "none", background: "#EAD8FA",
+                        color: "#6B4FA8", fontSize: 13.5, fontWeight: 600, cursor: "pointer",
+                      }}>무료로 가입하기</button>
+                    )
+                  ) : (
+                    <a href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(`[유메] ${p.label} 플랜 이용 문의`)}&body=${encodeURIComponent(`가입 이메일: ${user?.email || ""}
+원하는 플랜: ${p.label}
+`)}`} style={{
+                      display: "block", width: "100%", padding: "10px 0", borderRadius: 10, textAlign: "center", textDecoration: "none",
+                      background: "linear-gradient(90deg,#B49AEE,#6B4FA8)", color: "#fff", fontSize: 13.5, fontWeight: 600,
+                    }}>이용 문의하기</a>
+                  )}
                 </div>
               ))}
             </div>
@@ -1475,7 +1568,7 @@ export default function YumeDashboard() {
               <div style={{ fontSize: 20, fontWeight: 700 }}>설정 · 비즈니스</div>
               <button onClick={() => setShowBiz(false)} style={{ border: "none", background: "transparent", color: "#9C8FC2", fontSize: 18, cursor: "pointer" }}>×</button>
             </div>
-            <div style={{ fontSize: 12.5, color: "#A99BC9", marginBottom: 22 }}>유메의 검증 엔진을 API·데이터·엔터프라이즈 솔루션으로 확장한 라인업입니다 (데모)</div>
+            <div style={{ fontSize: 12.5, color: "#A99BC9", marginBottom: 22 }}>유메의 검증 엔진을 API·데이터·엔터프라이즈 솔루션으로 제공합니다</div>
 
             <div style={{ fontSize: 11, fontWeight: 700, color: "#B0A2D6", letterSpacing: "0.03em", marginBottom: 10 }}>개발자 · 데이터 · 파트너십</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 26 }}>
@@ -1486,31 +1579,17 @@ export default function YumeDashboard() {
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
                   <div>
                     <div style={{ fontSize: 14, fontWeight: 700, color: "#241F33", marginBottom: 3 }}>유메 검증 API</div>
-                    <div style={{ fontSize: 12, color: "#8577A8", lineHeight: 1.5 }}>AI 기능이 있는 모든 서비스에 실시간 팩트체크를 API로 붙일 수 있습니다. 호출량 기반 종량제.</div>
+                    <div style={{ fontSize: 12, color: "#8577A8", lineHeight: 1.5 }}>AI 기능이 있는 서비스에 팩트체크를 API로 붙일 수 있습니다. 주장별 판정·근거와 부존재 신뢰도를 그대로 받아 쓰세요. 호출량 기반 종량제.</div>
                   </div>
-                  <button onClick={issueDemoApiKey} disabled={apiDemoLoading} style={{
+                  <button onClick={openApiKeys} style={{
                     flexShrink: 0, padding: "8px 14px", borderRadius: 999, border: "1px solid #D4BEF0",
-                    background: "#fff", color: "#6B4FA8", fontSize: 12.5, fontWeight: 600,
-                    cursor: apiDemoLoading ? "default" : "pointer", whiteSpace: "nowrap", opacity: apiDemoLoading ? 0.6 : 1
-                  }}>{apiDemoLoading ? "발급 중…" : "데모 키 발급받기"}</button>
+                    background: "#fff", color: "#6B4FA8", fontSize: 12.5, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap",
+                  }}>{user ? "API 키 관리" : "가입하고 키 받기"}</button>
                 </div>
-                {apiDemoError && <div style={{ fontSize: 12, color: "#C0392B" }}>{apiDemoError}</div>}
-                {apiDemoKey && (
-                  <div style={{ background: "#211A32", borderRadius: 10, padding: "12px 14px", fontSize: 11.5, color: "#E8E1FA", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}>
-                    <div style={{ marginBottom: 6, color: "#B7A9DD" }}>API 키 (하루 {apiDemoKey.dailyLimit}회, 데모·실제 과금 없음)</div>
-                    <div style={{ wordBreak: "break-all", marginBottom: 10 }}>{apiDemoKey.apiKey}</div>
-                    <div style={{ color: "#B7A9DD", marginBottom: 4 }}>curl 예시</div>
-                    <div style={{ whiteSpace: "pre-wrap", wordBreak: "break-all", lineHeight: 1.6 }}>
-{`curl -X POST ${typeof window !== "undefined" ? window.location.origin : ""}/v1/verify \\
-  -H "X-API-Key: ${apiDemoKey.apiKey}" \\
-  -H "Content-Type: application/json" \\
-  -d '{"text":"확인하고 싶은 내용"}'`}
-                    </div>
-                  </div>
-                )}
+                <a href="/docs/api" style={{ fontSize: 12, color: "#6B4FA8", fontWeight: 600, textDecoration: "none" }}>API 문서 보기 →</a>
               </div>
               <BizRow title="협업 파트너십" desc="검증 결과와 맞닿은 상품·서비스를 결과 화면에 노출하고, 노출당 정산받는 제휴 프로그램입니다." cta="제휴 문의" />
-              <BizRow title="데이터셋 라이선싱" desc="익명화된 질의·판정 데이터셋을 제공합니다. AI 모델의 할루시네이션 개선용 학습 데이터로 활용할 수 있습니다." cta="문의하기" />
+              <BizRow title="데이터셋 라이선싱" desc="이용자가 동의한 검증 기록을 가명처리한 주장·판정 데이터셋입니다. 지어낸 판례·문헌을 가려낸 부존재 신뢰도 레코드를 포함해, AI 모델의 할루시네이션 개선에 쓸 수 있습니다." cta="문의하기" />
             </div>
 
             <div style={{ fontSize: 11, fontWeight: 700, color: "#B0A2D6", letterSpacing: "0.03em", marginBottom: 10 }}>B2B 솔루션</div>
@@ -1522,6 +1601,17 @@ export default function YumeDashboard() {
           </div>
         </div>
       )}
+
+      <AnimatePresence>
+        {toast && (
+          <motion.div role="status"
+            initial={{ opacity: 0, y: 16, x: "-50%" }} animate={{ opacity: 1, y: 0, x: "-50%" }} exit={{ opacity: 0, y: 16, x: "-50%" }}
+            style={{
+              position: "fixed", bottom: 28, left: "50%", zIndex: 70, background: "#241F33", color: "#fff",
+              fontSize: 13.5, padding: "10px 18px", borderRadius: 999, boxShadow: "0 10px 30px rgba(36,31,51,0.3)", maxWidth: "90vw",
+            }}>{toast}</motion.div>
+        )}
+      </AnimatePresence>
 
       <YumeChatWidget />
     </div>
