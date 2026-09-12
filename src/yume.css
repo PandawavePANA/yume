@@ -1,0 +1,98 @@
+/* 유메 전역 기본 스타일 — 컴포넌트 인라인 스타일로는 줄 수 없는 것들(글꼴 렌더링,
+   포커스 링, 선택 색, 줄바꿈, 모션 줄이기)만 둔다. */
+:root {
+  --yume-font: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "SF Pro Display", "Apple SD Gothic Neo",
+    "Noto Sans KR", "Segoe UI", sans-serif;
+  color-scheme: light;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--yume-font);
+  background: #f6f2fc;
+  color: #1d1a24;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  /* 한국어가 단어 중간에서 끊기지 않게 */
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+
+button,
+input,
+textarea,
+select {
+  font-family: inherit;
+}
+
+::selection {
+  background: rgba(180, 154, 238, 0.35);
+}
+
+/* 입력칸 포커스 — 애플식 부드러운 링 */
+.yume-field {
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+.yume-field:focus {
+  outline: none;
+  border-color: #b49aee !important;
+  background-color: #fff !important;
+  box-shadow: 0 0 0 4px rgba(180, 154, 238, 0.22) !important;
+}
+
+button:focus-visible,
+a:focus-visible,
+[role="switch"]:focus-visible {
+  outline: 2px solid #8b6fd8;
+  outline-offset: 3px;
+}
+
+.yume-link {
+  color: #6b4fa8;
+  text-decoration: none;
+}
+.yume-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.yume-footer-link {
+  transition: color 0.2s ease;
+}
+.yume-footer-link:hover {
+  color: #1d1a24 !important;
+  text-decoration: underline !important;
+  text-underline-offset: 3px;
+}
+
+/* 좁은 폰에서도 상단 바가 한 줄에 들어가게 */
+@media (max-width: 440px) {
+  .yume-nav {
+    flex-wrap: nowrap !important;
+    gap: 8px !important;
+  }
+  .yume-nav-left,
+  .yume-nav-right {
+    gap: 6px !important;
+    flex-wrap: nowrap !important;
+  }
+  .yume-nav-pill {
+    padding: 6px 10px !important;
+    font-size: 12.5px !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
