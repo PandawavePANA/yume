@@ -169,6 +169,8 @@ app.get("/terms", (req, res) => html(res, renderTermsPage()));
 app.get("/privacy", (req, res) => html(res, renderPrivacyPage()));
 app.get("/account-deletion", (req, res) => html(res, renderAccountDeletionPage()));
 app.get("/docs/api", (req, res) => html(res, renderApiDocsPage(process.env.PUBLIC_BASE_URL || `${req.protocol}://${req.get("host")}`)));
+// 서비스 소개 릴(화면 녹화용) — 빌드에 포함된 정적 파일을 확장자 없는 주소로도 열어준다.
+app.get("/showreel", (req, res, next) => res.sendFile(path.join(distDir, "showreel.html"), (err) => (err ? next() : undefined)));
 
 // 카카오톡 등 외부 채널로 보낸 검증 결과를 링크로 여는 읽기 전용 페이지.
 app.get("/r/:id", async (req, res) => {

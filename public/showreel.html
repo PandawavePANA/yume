@@ -1,0 +1,704 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<!-- 소개용 초안 릴이라 검색에는 걸리지 않게 한다(링크를 받은 사람만 보도록). -->
+<meta name="robots" content="noindex, nofollow" />
+<title>유메 쇼릴 — AI 답변 팩트체크</title>
+<meta property="og:type" content="website" />
+<meta property="og:title" content="유메 쇼릴" />
+<meta property="og:description" content="AI 답변 팩트체크 서비스 유메 소개 영상 — 17개 장면, 약 2분" />
+<meta property="og:url" content="https://www.yume-reamer.com/showreel" />
+<meta name="theme-color" content="#181025" />
+<link rel="icon" type="image/png" href="/favicon.png" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --ink:#181025;
+    --ink-2:#241938;
+    --ink-3:#2E2148;
+    --paper:#F5F1FB;
+    --paper-line:#E1D6F5;
+    --accent:#7C56D9;
+    --accent-deep:#4E3391;
+    --accent-soft:#EDE4FC;
+    --confirmed:#1F9D66;
+    --confirmed-soft:#E4F5EC;
+    --false:#C6402F;
+    --false-soft:#FBE8E5;
+    --uncertain:#B4690E;
+    --uncertain-soft:#FBEEDA;
+    --ink-text:#241F33;
+    --muted:#5B5470;
+    --paper-ink:#F5F1FB;
+    --muted-inverse:#9C8FC2;
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    background:var(--ink);
+    color:var(--paper-ink);
+    font-family:'Noto Sans KR', system-ui, sans-serif;
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding:3vh 14px 24px;
+    overflow-x:hidden;
+  }
+  h1,h2,h3{text-wrap:balance; margin:0;}
+  .mono{font-family:'IBM Plex Mono', ui-monospace, monospace; font-variant-numeric:tabular-nums;}
+
+  .masthead{
+    width:min(94vw,1160px);
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    margin-bottom:12px;
+    padding:0 4px;
+  }
+  .masthead .brand{
+    font-family:'Black Han Sans', sans-serif;
+    font-size:15px;
+    letter-spacing:0.04em;
+    color:var(--paper-ink);
+  }
+  .masthead .kicker{
+    font-size:10.5px;
+    letter-spacing:0.14em;
+    color:var(--muted-inverse);
+    text-transform:uppercase;
+  }
+
+  /* ---------- 영상 프레임 ---------- */
+  .stage{
+    width:min(94vw,1160px);
+    aspect-ratio:16/9;
+    background:var(--paper);
+    border-radius:18px;
+    overflow:hidden;
+    position:relative;
+    box-shadow:0 30px 70px rgba(10,4,26,0.55), 0 2px 0 rgba(255,255,255,0.04) inset;
+  }
+  .chrome{
+    height:38px;
+    background:var(--ink-2);
+    display:flex;
+    align-items:center;
+    gap:12px;
+    padding:0 16px;
+    position:relative;
+    z-index:6;
+  }
+  .chrome .dots{display:flex; gap:7px;}
+  .chrome .dot{width:9px; height:9px; border-radius:50%;}
+  .chrome .dot.r{background:#F0776B;}
+  .chrome .dot.y{background:#F4C766;}
+  .chrome .dot.g{background:#6FCF97;}
+  .chrome .label{font-size:11.5px; color:var(--muted-inverse); font-weight:500;}
+  .chrome .rec{
+    margin-left:auto; display:flex; align-items:center; gap:6px;
+    font-family:'IBM Plex Mono', monospace; font-size:10.5px; letter-spacing:0.08em; color:#F0776B;
+  }
+  .chrome .rec-dot{width:7px; height:7px; border-radius:50%; background:#F0776B; animation:pulse 1.4s ease-in-out infinite;}
+  @keyframes pulse{0%,100%{opacity:1;} 50%{opacity:.25;}}
+
+  /* 배경 구석에서만 아주 은은하게 움직이는 앰비언트 레이어 — 텍스트 위로 번지면
+     가독성이 떨어지므로, 네 모서리 바깥쪽으로 최대한 밀어내고 흐림과 투명도를
+     키워서 "화면이 살아있다" 정도의 느낌만 남긴다. */
+  .ambient{
+    position:absolute; inset:0; pointer-events:none; z-index:5;
+    mix-blend-mode:soft-light; opacity:0.32;
+  }
+  .ambient span{
+    position:absolute; border-radius:50%; filter:blur(60px);
+  }
+  .ambient .b1{width:220px; height:220px; left:-16%; top:-20%; background:radial-gradient(circle, var(--accent) 0%, transparent 70%); animation:drift1 17s ease-in-out infinite;}
+  .ambient .b2{width:190px; height:190px; right:-16%; bottom:-22%; background:radial-gradient(circle, var(--uncertain) 0%, transparent 70%); animation:drift2 21s ease-in-out infinite;}
+  .ambient .b3{width:160px; height:160px; right:-10%; top:-22%; background:radial-gradient(circle, var(--confirmed) 0%, transparent 70%); animation:drift3 24s ease-in-out infinite;}
+  @keyframes drift1{0%,100%{transform:translate(0,0) scale(1);} 50%{transform:translate(60px,40px) scale(1.15);}}
+  @keyframes drift2{0%,100%{transform:translate(0,0) scale(1);} 50%{transform:translate(-50px,-30px) scale(1.2);}}
+  @keyframes drift3{0%,100%{transform:translate(0,0) scale(1);} 50%{transform:translate(-30px,50px) scale(0.9);}}
+
+  .scenes{position:relative; height:calc(100% - 38px);}
+  .scene{
+    position:absolute; inset:0; z-index:1;
+    display:none; flex-direction:column; justify-content:center;
+    padding:clamp(16px,3.6vw,50px) clamp(20px,5.6vw,70px);
+    color:var(--ink-text);
+    overflow-y:auto;
+  }
+  /* 같은 배경색끼리 opacity로 크로스페이드하면 두 장면 글자가 겹쳐 보이는(이중노출)
+     문제가 생겨서, 이전 장면은 즉시 내리고 새 장면만 등장 모션을 탄다. */
+  .scene.active{display:flex; animation:sceneIn .5s ease; pointer-events:auto;}
+  @keyframes sceneIn{
+    from{opacity:0; transform:translateY(14px) scale(0.99);}
+    to{opacity:1; transform:translateY(0) scale(1);}
+  }
+
+  .scene-kicker{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:clamp(10.5px,1.15vw,12px);
+    letter-spacing:0.14em; text-transform:uppercase;
+    color:var(--accent-deep); margin-bottom:8px;
+    opacity:0; animation:fadeUp .5s ease forwards;
+  }
+  .scene h2{
+    font-family:'Black Han Sans', sans-serif;
+    font-size:clamp(19px,3.2vw,36px);
+    line-height:1.3; color:var(--ink-text); margin-bottom:12px;
+    opacity:0; transform:translateY(10px); animation:fadeUp .5s ease forwards; animation-delay:.08s;
+  }
+  #s1 h2{opacity:1; transform:none; animation:none;}
+  .scene p.lead{
+    font-size:clamp(12.5px,1.3vw,15px);
+    color:var(--muted); line-height:1.6; max-width:62ch;
+    opacity:0; animation:fadeUp .5s ease forwards; animation-delay:.35s;
+  }
+  @keyframes fadeUp{from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:translateY(0);}}
+
+  .w{display:inline-block; opacity:0; transform:translateY(10px); animation:wordIn .5s ease forwards;}
+  @keyframes wordIn{to{opacity:1; transform:translateY(0);}}
+
+  .cite{
+    font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--muted-inverse);
+    display:inline-flex; align-items:center; gap:4px; margin-top:6px;
+    opacity:0; animation:fadeUp .4s ease forwards; animation-delay:.5s;
+  }
+  .cite::before{content:"📎";}
+  .stage .scene .cite{color:var(--muted);}
+
+  .stamp-pop{opacity:0; transform:scale(1.8); animation:stampIn .45s cubic-bezier(.2,1.6,.4,1) forwards;}
+  @keyframes stampIn{
+    0%{opacity:0; transform:scale(1.8);}
+    60%{opacity:1; transform:scale(.92);}
+    100%{opacity:1; transform:scale(1);}
+  }
+  @keyframes floaty{0%,100%{transform:translateY(0);} 50%{transform:translateY(-6px);}}
+
+  /* ---------- Scene 1 : 개인적 계기 ---------- */
+  #s1 .cover-row{display:flex; align-items:center; justify-content:space-between; gap:26px; width:100%;}
+  #s1 .cover-text{max-width:66%;}
+  .seal{
+    flex-shrink:0; width:clamp(58px,7.5vw,92px); height:clamp(58px,7.5vw,92px);
+    border-radius:50%; border:3px solid var(--accent-deep); outline:2px solid var(--accent-deep); outline-offset:4px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    color:var(--accent-deep); font-family:'Black Han Sans', sans-serif; background:var(--accent-soft);
+    animation:floaty 3.4s ease-in-out infinite;
+  }
+  .seal .seal-mark{font-size:clamp(17px,2.2vw,26px); line-height:1;}
+  .seal .seal-sub{font-family:'IBM Plex Mono',monospace; font-size:7px; letter-spacing:0.08em; margin-top:3px;}
+
+  .pull-quote{
+    position:relative; margin-top:12px; padding-left:20px; max-width:58ch;
+    font-size:clamp(12px,1.3vw,15px); color:var(--accent-deep); font-weight:500; line-height:1.55;
+    opacity:0; animation:fadeUp .5s ease forwards; animation-delay:.7s;
+  }
+  .pull-quote::before{
+    content:"“"; position:absolute; left:-14px; top:-24px; font-size:76px;
+    font-family:Georgia,serif; color:var(--accent-soft); z-index:-1;
+  }
+
+  /* ---------- Scene : 인용구 단독 ---------- */
+  .quote-scene{align-items:center; text-align:center;}
+  .quote-scene .q-text{
+    position:relative; max-width:76%; margin:0 auto;
+    font-family:'Black Han Sans',sans-serif; font-size:clamp(17px,2.5vw,29px);
+    color:var(--accent-deep); line-height:1.42;
+    opacity:0; animation:fadeUp .55s ease forwards; animation-delay:.15s;
+  }
+  .quote-scene .q-text::before{
+    content:"“"; position:absolute; left:50%; top:-50px; transform:translateX(-50%);
+    font-size:104px; font-family:Georgia,serif; color:var(--accent-soft); z-index:-1;
+  }
+
+  /* ---------- Scene : 원칙 단독 ---------- */
+  .principle-scene{align-items:center; text-align:center;}
+  .principle-scene .principle-badge{font-size:clamp(15px,2.2vw,24px); padding:13px 24px; margin-top:2px;}
+
+  /* ---------- Scene 2 : 통계 ---------- */
+  .stat-row{display:flex; align-items:center; gap:10px; margin-top:14px; flex-wrap:wrap;}
+  .stat-tile{
+    background:#fff; border:1px solid var(--paper-line); border-radius:14px; padding:10px 16px; text-align:center;
+    box-shadow:0 8px 20px rgba(107,79,168,0.1);
+    opacity:0; transform:translateY(8px); animation:stepIn .45s ease forwards;
+  }
+  .scene.active .stat-row > .stat-tile:nth-child(1){animation-delay:.05s;}
+  .scene.active .stat-row > .stat-tile:nth-child(3){animation-delay:.25s;}
+  .scene.active .stat-row > .stat-tile:nth-child(5){animation-delay:.45s;}
+  .stat-arrow{
+    color:var(--muted-inverse); font-size:18px;
+    opacity:0; animation:fadeUp .4s ease forwards;
+  }
+  .scene.active .stat-row > .stat-arrow:nth-child(2){animation-delay:.18s;}
+  .scene.active .stat-row > .stat-arrow:nth-child(4){animation-delay:.38s;}
+  .stat-tile .yr{font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--muted); margin-bottom:2px;}
+  .stat-tile .num{font-family:'Black Han Sans',sans-serif; font-size:clamp(20px,2.6vw,30px); color:var(--false);}
+  .big-stat{
+    display:flex; align-items:baseline; gap:10px; margin-top:16px;
+    opacity:0; transform:translateY(8px); animation:stepIn .5s ease forwards; animation-delay:.1s;
+  }
+  .big-stat .num{font-family:'Black Han Sans',sans-serif; font-size:clamp(30px,4.4vw,52px); color:var(--accent-deep);}
+  .big-stat .desc{font-size:13px; color:var(--muted); max-width:36ch; line-height:1.55;}
+
+  /* ---------- Scene 3 : 분야별 검증 ---------- */
+  .domain-list{display:flex; flex-direction:column; gap:8px; margin-top:14px; width:100%;}
+  .domain-row{
+    display:flex; align-items:center; gap:12px; background:#fff; border:1px solid var(--paper-line);
+    border-radius:12px; padding:9px 14px;
+    opacity:0; transform:translateY(8px); animation:stepIn .45s ease forwards;
+  }
+  .scene.active .domain-row:nth-child(1){animation-delay:.1s;}
+  .scene.active .domain-row:nth-child(2){animation-delay:.28s;}
+  .scene.active .domain-row:nth-child(3){animation-delay:.46s;}
+  .scene.active .domain-row:nth-child(4){animation-delay:.64s;}
+  @keyframes stepIn{to{opacity:1; transform:translateY(0);}}
+  .domain-row .d-name{font-family:'Black Han Sans',sans-serif; font-size:13.5px; color:var(--accent-deep); width:60px; flex-shrink:0;}
+  .domain-row .d-desc{font-size:12.5px; color:var(--muted); flex:1;}
+  .pill{font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:600; padding:3px 9px; border-radius:999px; flex-shrink:0;}
+  .pill.planned{background:var(--uncertain-soft); color:var(--uncertain);}
+  .pill.live{background:var(--confirmed-soft); color:var(--confirmed); animation:livepulse 1.8s ease-in-out infinite;}
+  @keyframes livepulse{0%,100%{box-shadow:0 0 0 0 rgba(31,157,102,0.35);} 50%{box-shadow:0 0 0 5px rgba(31,157,102,0);}}
+  .principle-badge{
+    margin-top:14px; display:inline-block; font-family:'Black Han Sans',sans-serif; font-size:13px;
+    color:var(--accent-deep); background:var(--accent-soft); padding:8px 16px; border-radius:10px;
+  }
+
+  /* ---------- Scene 4 : 차별점 ---------- */
+  .compare-cols{display:flex; gap:14px; margin-top:14px; width:100%;}
+  .compare-card{
+    flex:1; background:#fff; border:1px solid var(--paper-line); border-radius:14px; padding:14px;
+    opacity:0; transform:translateY(10px); animation:stepIn .45s ease forwards;
+  }
+  .scene.active .compare-card:nth-child(1){animation-delay:.05s;}
+  .scene.active .compare-card:nth-child(2){animation-delay:.25s;}
+  .compare-card .cc-title{font-family:'Black Han Sans',sans-serif; font-size:14px; margin-bottom:6px;}
+  .compare-card.them .cc-title{color:var(--muted);}
+  .compare-card.us .cc-title{color:var(--accent-deep);}
+  .compare-card ul{margin:0; padding-left:16px; font-size:12px; color:var(--muted); line-height:1.65;}
+  .compare-card.us{border-color:var(--accent); box-shadow:0 10px 24px rgba(124,86,217,0.18);}
+  .learned{
+    margin-top:12px; font-size:12.5px; color:var(--muted); line-height:1.6; max-width:64ch;
+    opacity:0; animation:fadeUp .5s ease forwards; animation-delay:.2s;
+  }
+  .learned b{color:var(--ink-text);}
+
+  /* ---------- Scene 5 : 완료 체크리스트 ---------- */
+  .checklist{display:flex; flex-direction:column; gap:9px; margin-top:14px;}
+  .check-item{display:flex; align-items:flex-start; gap:10px;}
+  .check-mark{
+    flex-shrink:0; width:20px; height:20px; border-radius:50%; background:var(--confirmed);
+    color:#fff; display:flex; align-items:center; justify-content:center; font-size:12.5px; font-weight:700;
+  }
+  .scene.active .check-item:nth-child(1) .check-mark{animation-delay:.05s;}
+  .scene.active .check-item:nth-child(2) .check-mark{animation-delay:.25s;}
+  .scene.active .check-item:nth-child(3) .check-mark{animation-delay:.45s;}
+  .scene.active .check-item:nth-child(4) .check-mark{animation-delay:.65s;}
+  .check-text{font-size:13px; color:var(--ink-text); line-height:1.55; padding-top:1px;}
+  .check-text b{color:var(--accent-deep);}
+
+  /* ---------- Scene 6 : 로드맵 ---------- */
+  .roadmap{display:flex; gap:10px; margin-top:16px; width:100%;}
+  .rm-step{flex:1; background:#fff; border:1px solid var(--paper-line); border-radius:12px; padding:11px 12px;
+    opacity:0; transform:translateY(8px); animation:stepIn .45s ease forwards;}
+  .scene.active .rm-step:nth-child(1){animation-delay:.05s;}
+  .scene.active .rm-step:nth-child(2){animation-delay:.22s;}
+  .scene.active .rm-step:nth-child(3){animation-delay:.39s;}
+  .scene.active .rm-step:nth-child(4){animation-delay:.56s;}
+  .rm-step .rm-status{font-family:'IBM Plex Mono',monospace; font-size:9.5px; font-weight:700; padding:3px 8px; border-radius:999px; display:inline-block; margin-bottom:6px;}
+  .rm-status.done{background:var(--confirmed-soft); color:var(--confirmed); animation:livepulse 1.8s ease-in-out infinite;}
+  .rm-status.progress{background:var(--uncertain-soft); color:var(--uncertain);}
+  .rm-status.planned{background:var(--paper-line); color:var(--muted);}
+  .rm-step .rm-title{font-family:'Black Han Sans',sans-serif; font-size:13px; margin-bottom:4px; color:var(--ink-text);}
+  .rm-step .rm-desc{font-size:11.5px; color:var(--muted); line-height:1.5;}
+
+  /* ---------- Scene 7 : 수익 모델 ---------- */
+  .biz-cols{display:flex; gap:14px; margin-top:14px; width:100%;}
+  .biz-card{
+    flex:1; background:#fff; border:1px solid var(--paper-line); border-radius:14px; padding:15px;
+    opacity:0; transform:translateY(10px); animation:stepIn .5s ease forwards; animation-delay:.1s;
+  }
+  .biz-card.solo{max-width:420px; width:100%; margin:16px auto 0; flex:none;}
+  .biz-card .bc-title{font-family:'Black Han Sans',sans-serif; font-size:14.5px; color:var(--accent-deep); margin-bottom:8px;}
+  .biz-line{display:flex; justify-content:space-between; gap:8px; font-size:12.5px; color:var(--ink-text); padding:6px 0; border-top:1px dashed var(--paper-line);}
+  .biz-line:first-of-type{border-top:none;}
+  .biz-line b{font-family:'IBM Plex Mono',monospace; color:var(--accent-deep); font-weight:600; white-space:nowrap;}
+
+  /* ---------- Scene 8 : 창업자 ---------- */
+  .founder-row{display:flex; flex-wrap:wrap; gap:8px; margin-top:14px;}
+  .founder-chip{
+    background:#fff; border:1px solid var(--paper-line); border-radius:999px; padding:7px 14px;
+    font-size:12.5px; color:var(--ink-text); font-weight:500;
+    opacity:0; transform:translateY(8px); animation:stepIn .4s ease forwards;
+  }
+  .scene.active .founder-chip:nth-child(1){animation-delay:.05s;}
+  .scene.active .founder-chip:nth-child(2){animation-delay:.18s;}
+  .scene.active .founder-chip:nth-child(3){animation-delay:.31s;}
+  .scene.active .founder-chip:nth-child(4){animation-delay:.44s;}
+
+  /* ---------- Scene 17 : 클로징 ---------- */
+  #s17{align-items:center; text-align:center;}
+  #s17 .close-logo{font-family:'Black Han Sans',sans-serif; font-size:clamp(16px,2.2vw,20px); color:var(--accent-deep); margin-bottom:14px; letter-spacing:0.06em;}
+  #s17 .close-line{font-family:'Black Han Sans',sans-serif; font-size:clamp(24px,4vw,40px); color:var(--ink-text); line-height:1.3;}
+  #s17 .close-sub{font-size:clamp(12px,1.4vw,16px); color:var(--muted); margin-top:12px;}
+  #s17 .close-foot{font-family:'IBM Plex Mono',monospace; font-size:9.5px; color:var(--muted-inverse); letter-spacing:0.06em; margin-top:20px;}
+  .replay-btn{
+    margin-top:16px; display:inline-flex; align-items:center; gap:6px;
+    background:var(--accent); color:#fff; border:none; border-radius:999px;
+    padding:9px 20px; font-size:12.5px; font-weight:600; cursor:pointer; font-family:'Noto Sans KR',sans-serif;
+  }
+  .replay-btn:hover{background:var(--accent-deep);}
+
+  /* ---------- 하단 컨트롤 ---------- */
+  .control-bar{width:min(94vw,1160px); display:flex; align-items:center; gap:14px; margin-top:14px;}
+  .ctrl-btn{
+    background:var(--ink-2); border:1px solid var(--ink-3); color:var(--paper-ink);
+    width:32px; height:32px; border-radius:50%; cursor:pointer; font-size:13px;
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  }
+  .ctrl-btn:hover{background:var(--ink-3);}
+  .ctrl-btn:focus-visible, .replay-btn:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+  .timeline{flex:1; display:flex; gap:5px;}
+  .bar-track{flex:1; height:4px; border-radius:999px; background:rgba(156,143,194,0.28); overflow:hidden;}
+  .bar-fill{height:100%; width:100%; background:var(--accent); transform-origin:left; transform:scaleX(0);}
+  .bar-fill.grow{animation-name:growbar; animation-timing-function:linear; animation-fill-mode:forwards;}
+  .bar-fill.done{transform:scaleX(1);}
+  @keyframes growbar{from{transform:scaleX(0);} to{transform:scaleX(1);}}
+  .scene-counter{font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--muted-inverse); flex-shrink:0;}
+
+  @media (max-width:760px){
+    .stage{aspect-ratio:3/4;}
+    .cover-row{flex-direction:column; align-items:flex-start !important; gap:14px;}
+    #s1 .cover-text{max-width:100%;}
+    .compare-cols, .biz-cols, .roadmap{flex-direction:column;}
+    .stat-row{gap:8px;}
+  }
+  @media (max-width:460px){
+    .stage{aspect-ratio:9/14;}
+    .scene{padding:14px 16px;}
+  }
+
+  @media (prefers-reduced-motion:reduce){
+    .scene.active{animation:none;}
+    .scene-kicker, .scene p.lead, .pull-quote{animation:none; opacity:1;}
+    .domain-row, .check-item .check-mark, .rm-step, .founder-chip, .w, .stamp-pop{animation:none; opacity:1; transform:none;}
+    .rec-dot{animation:none;}
+    .bar-fill.grow{animation:none;}
+    .ambient span{animation:none;}
+  }
+</style>
+</head>
+<body>
+<div class="masthead">
+  <div class="brand">🌙 YUME</div>
+  <div class="kicker">Showreel Draft · 2026</div>
+</div>
+
+<div class="stage" id="stage">
+  <div class="chrome">
+    <div class="dots"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span></div>
+    <div class="label">유메 — AI 답변 팩트체크</div>
+    <div class="rec"><span class="rec-dot"></span>REC</div>
+  </div>
+
+  <div class="scenes" id="scenes">
+
+    <section class="scene" id="s1" data-duration="10000">
+      <div class="scene-kicker">유메가 시작된 이유</div>
+      <div class="cover-row">
+        <div class="cover-text">
+          <h2><span class="w" style="animation-delay:.05s">AI가</span> <span class="w" style="animation-delay:.13s">알려준</span> <span class="w" style="animation-delay:.21s">법리를</span> <span class="w" style="animation-delay:.29s">믿었다가,</span><br/><span class="w" style="animation-delay:.4s">저는</span> <span class="w" style="animation-delay:.48s">실제로</span> <span class="w" style="animation-delay:.56s">피해를</span> <span class="w" style="animation-delay:.64s">입었습니다.</span></h2>
+          <p class="lead">법정 분쟁 중 AI에게 물었던 답을 그대로 믿었고, 그 판단이 그대로 피해로 이어졌습니다.</p>
+        </div>
+        <div class="seal">
+          <div class="seal-mark">✓</div>
+          <div class="seal-sub">YUME CHECK</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="scene quote-scene" id="s2" data-duration="6000">
+      <div class="scene-kicker">그날 알게 된 것</div>
+      <div class="q-text">“AI가 틀렸을 때도,<br/>자신 있게 말한다”는 걸<br/>그때 알았습니다.</div>
+    </section>
+
+    <section class="scene" id="s3" data-duration="9000">
+      <div class="scene-kicker">이건 저만의 일이 아니었습니다</div>
+      <h2>미국 법원에 제출된 AI 가짜 판례,<br/>5개월 만에 73건.</h2>
+      <div class="stat-row">
+        <div class="stat-tile"><div class="yr">2023</div><div class="num mono" data-count-to="10">0</div></div>
+        <div class="stat-arrow">→</div>
+        <div class="stat-tile"><div class="yr">2024</div><div class="num mono" data-count-to="37">0</div></div>
+        <div class="stat-arrow">→</div>
+        <div class="stat-tile"><div class="yr">2025 상반기</div><div class="num mono" data-count-to="73">0</div></div>
+      </div>
+      <div class="cite">Allibee 리걸테크 블로그, 2025.07 — Damien Charlotin AI Hallucination Case DB 인용</div>
+    </section>
+
+    <section class="scene" id="s4" data-duration="7000">
+      <div class="scene-kicker">AI를 향한 신뢰, 이미 위태롭습니다</div>
+      <h2>검색 대신 AI에게 먼저 묻고, 그 답 하나만 믿습니다.</h2>
+      <div class="big-stat">
+        <div class="num mono">56.9<span style="font-size:0.5em;">%</span></div>
+        <div class="desc">궁금한 게 생기면 검색 대신 AI에게 바로 묻는 사람들 — 다른 AI에게 다시 물어봐도(44.7%), 신뢰도는 여전히 50%대에 머뭅니다.</div>
+      </div>
+      <div class="cite">오픈서베이 「AI 검색 트렌드 리포트 2026 하반기」, 2026.07</div>
+    </section>
+
+    <section class="scene" id="s5" data-duration="7000">
+      <div class="scene-kicker">유메가 확인하는 방법 · 1</div>
+      <h2>일반 대화와 법률, 지금 바로 대조합니다.</h2>
+      <div class="domain-list">
+        <div class="domain-row"><div class="d-name">일반</div><div class="d-desc">실시간 웹검색 기반 교차검증</div><span class="pill live">운영중</span></div>
+        <div class="domain-row"><div class="d-name">법률</div><div class="d-desc">대법원 판례검색 · 법제처 국가법령정보 공동활용 API</div><span class="pill live">운영중</span></div>
+      </div>
+    </section>
+
+    <section class="scene" id="s6" data-duration="7000">
+      <div class="scene-kicker">유메가 확인하는 방법 · 2</div>
+      <h2>의료·금융은 공식 데이터로 곧 확장됩니다.</h2>
+      <div class="domain-list">
+        <div class="domain-row"><div class="d-name">의료</div><div class="d-desc">식약처 의약품안전나라 · 국가건강정보포털</div><span class="pill planned">확장 예정</span></div>
+        <div class="domain-row"><div class="d-name">금융</div><div class="d-desc">금감원 전자공시(DART) · 한국은행 경제통계(ECOS)</div><span class="pill planned">확장 예정</span></div>
+      </div>
+    </section>
+
+    <section class="scene principle-scene" id="s7" data-duration="5000">
+      <div class="scene-kicker">핵심 안전장치</div>
+      <div class="principle-badge stamp-pop">“판단”이 아니라, “확인”만 합니다</div>
+    </section>
+
+    <section class="scene" id="s8" data-duration="8000">
+      <div class="scene-kicker">왜 유메일까</div>
+      <h2>글로벌 검증 서비스도 못 갖춘 것 —<br/>한국 공식 데이터 연동.</h2>
+      <div class="compare-cols">
+        <div class="compare-card them">
+          <div class="cc-title">Vectara (글로벌)</div>
+          <ul><li>100개+ 언어, 한국어 전용 모델까지 지원</li><li>한국 공적 데이터베이스 연동은 없음</li></ul>
+        </div>
+        <div class="compare-card us">
+          <div class="cc-title">유메</div>
+          <ul><li>법제처·식약처·금감원 등 한국 공적 데이터 직접 연동</li><li>회원가입 없이 카카오톡으로 즉시 사용</li></ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="scene" id="s9" data-duration="7000">
+      <div class="scene-kicker">실패에서 배운 설계</div>
+      <h2>“판단”은 위험합니다.<br/>그래서 “확인”만 합니다.</h2>
+      <div class="learned">한 리걸테크의 AI 형량예측서비스는 규정 개정으로 <b>10개월 만에 종료</b>됐고, 메타도 팩트체크 프로그램을 폐지했습니다. 유메는 법률이든 의료·금융이든, 의견이 아닌 <b>사실관계만</b> 확인하도록 설계해 같은 리스크를 피합니다.</div>
+    </section>
+
+    <section class="scene" id="s10" data-duration="6000">
+      <div class="scene-kicker">이미 실행했습니다 · 1단계 완료</div>
+      <h2>아이디어가 아니라, 실제로 배포된 서비스입니다.</h2>
+      <div class="checklist">
+        <div class="check-item"><span class="check-mark stamp-pop">✓</span><span class="check-text">웹 서비스 <b>실배포</b> 완료 (Railway)</span></div>
+        <div class="check-item"><span class="check-mark stamp-pop">✓</span><span class="check-text"><b>전용 도메인</b> 확보 및 DNS 연결 완료</span></div>
+      </div>
+    </section>
+
+    <section class="scene" id="s11" data-duration="7000">
+      <div class="scene-kicker">이미 실행했습니다 · 계속</div>
+      <h2>카카오톡 한 번이면, 바로 확인 가능합니다.</h2>
+      <div class="checklist">
+        <div class="check-item"><span class="check-mark stamp-pop">✓</span><span class="check-text"><b>카카오톡 채널</b> — 회원가입 없이 친구 추가만으로 검증 요청</span></div>
+        <div class="check-item"><span class="check-mark stamp-pop">✓</span><span class="check-text">검증결과·근거자료·관련상품 <b>3탭 대시보드</b> + 실시간 소요시간 표시</span></div>
+      </div>
+    </section>
+
+    <section class="scene" id="s12" data-duration="8000">
+      <div class="scene-kicker">다음 단계 · 1</div>
+      <h2>1단계는 끝났고, 2단계를 진행 중입니다.</h2>
+      <div class="roadmap">
+        <div class="rm-step"><span class="rm-status done">완료</span><div class="rm-title">1단계</div><div class="rm-desc">MVP 실배포 · 카카오톡 채널</div></div>
+        <div class="rm-step"><span class="rm-status progress">진행중</span><div class="rm-title">2단계 · ~3개월</div><div class="rm-desc">공식 데이터 기준 정확도 고도화(법률 우선 적용), API 키·과금 구조</div></div>
+      </div>
+    </section>
+
+    <section class="scene" id="s13" data-duration="8000">
+      <div class="scene-kicker">다음 단계 · 2</div>
+      <h2>그 다음은 의료·금융, 그리고 브라우저 확장.</h2>
+      <div class="roadmap">
+        <div class="rm-step"><span class="rm-status planned">예정</span><div class="rm-title">3단계 · 3~6개월</div><div class="rm-desc">의료·금융 확장, 로펌 파일럿</div></div>
+        <div class="rm-step"><span class="rm-status planned">예정</span><div class="rm-title">4단계 · 6개월~</div><div class="rm-desc">브라우저 확장프로그램, B2B2B 결제 연동</div></div>
+      </div>
+    </section>
+
+    <section class="scene" id="s14" data-duration="7000">
+      <div class="scene-kicker">수익 모델 · B2C</div>
+      <h2>무료로 저변을 넓히고, 필요한 순간에 유료화.</h2>
+      <div class="biz-card solo">
+        <div class="bc-title">B2C</div>
+        <div class="biz-line"><span>일반 대화 검증</span><b>무료</b></div>
+        <div class="biz-line"><span>법률·의료·금융 딥 검증</span><b>9,900원/월</b></div>
+        <div class="biz-line"><span>전문직 플랜</span><b>29,900원/월</b></div>
+      </div>
+    </section>
+
+    <section class="scene" id="s15" data-duration="7000">
+      <div class="scene-kicker">수익 모델 · B2B2B</div>
+      <h2>AI 서비스 기업에게는, 쓴 만큼만 받습니다.</h2>
+      <div class="biz-card solo">
+        <div class="bc-title">B2B2B</div>
+        <div class="biz-line"><span>AI 서비스 기업 대상 API</span><b>생성 무료</b></div>
+        <div class="biz-line"><span>검증 호출량</span><b>사용량 과금</b></div>
+        <div class="biz-line"><span>검증 이력 데이터</span><b>부가 수익원</b></div>
+      </div>
+    </section>
+
+    <section class="scene" id="s16" data-duration="8000">
+      <div class="scene-kicker">누가 만들었나</div>
+      <h2>허점을 찾는 훈련을 받은 사람이 만들었습니다.</h2>
+      <div class="founder-row">
+        <span class="founder-chip">정보올림피아드 전국 2위</span>
+        <span class="founder-chip">해킹방어과 (장학 입학)</span>
+        <span class="founder-chip">중앙대 전자전기공학부</span>
+        <span class="founder-chip">AI 스타트업 판다웨이브 대표</span>
+      </div>
+      <p class="lead" style="margin-top:14px;">정확한 답과 그럴듯한 답을 구분하는 습관이, 유메가 됐습니다.</p>
+    </section>
+
+    <section class="scene" id="s17" data-duration="7000">
+      <div class="close-logo">🌙 YUME</div>
+      <div class="close-line">AI에게 물어봤다면,<br/>유메에게 확인하세요.</div>
+      <div class="close-sub">AI가 아니라, 유메가 확인했습니다.</div>
+      <div class="close-foot">YUME · AI 답변 팩트체크 · 2026</div>
+      <button class="replay-btn" id="replayBtn">↻ 다시보기</button>
+    </section>
+
+  </div>
+
+  <div class="ambient" aria-hidden="true"><span class="b1"></span><span class="b2"></span><span class="b3"></span></div>
+</div>
+
+<div class="control-bar">
+  <button class="ctrl-btn" id="prevBtn" aria-label="이전 장면">‹</button>
+  <button class="ctrl-btn" id="playBtn" aria-label="재생·일시정지">⏸</button>
+  <button class="ctrl-btn" id="nextBtn" aria-label="다음 장면">›</button>
+  <div class="timeline" id="timeline"></div>
+  <div class="scene-counter mono" id="sceneCounter">01 / 17</div>
+</div>
+
+<script>
+(function(){
+  var scenes = Array.prototype.slice.call(document.querySelectorAll('.scene'));
+  var timelineEl = document.getElementById('timeline');
+  var sceneCounter = document.getElementById('sceneCounter');
+  var playBtn = document.getElementById('playBtn');
+  var prevBtn = document.getElementById('prevBtn');
+  var nextBtn = document.getElementById('nextBtn');
+  var replayBtn = document.getElementById('replayBtn');
+  var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  var bars = scenes.map(function(){
+    var track = document.createElement('div');
+    track.className = 'bar-track';
+    var fill = document.createElement('div');
+    fill.className = 'bar-fill';
+    fill.style.transform = 'scaleX(0)';
+    track.appendChild(fill);
+    timelineEl.appendChild(track);
+    return fill;
+  });
+
+  var idx = -1;
+  var playing = !reduced;
+  var timer = null;
+
+  function pad(n){ return n < 10 ? '0' + n : '' + n; }
+
+  function setBarState(i, state){
+    var fill = bars[i];
+    fill.classList.remove('grow','done');
+    fill.style.animation = 'none';
+    fill.style.transform = state === 'done' ? 'scaleX(1)' : 'scaleX(0)';
+  }
+
+  function startBar(i, duration){
+    var fill = bars[i];
+    fill.classList.remove('done');
+    fill.style.animation = 'none';
+    void fill.offsetWidth;
+    fill.style.transform = '';
+    fill.style.animationDuration = duration + 'ms';
+    fill.classList.add('grow');
+    fill.style.animationPlayState = playing ? 'running' : 'paused';
+  }
+
+  function easeOutQuad(t){ return t * (2 - t); }
+
+  function runCounts(sceneEl){
+    var nums = sceneEl.querySelectorAll('[data-count-to]');
+    for(var i=0;i<nums.length;i++){
+      (function(el){
+        var target = parseInt(el.getAttribute('data-count-to'), 10) || 0;
+        var suffix = el.querySelector('span') ? el.querySelector('span').outerHTML : '';
+        if(reduced){ el.innerHTML = target.toLocaleString('ko-KR') + suffix; return; }
+        var start = null, duration = 1100;
+        function tick(ts){
+          if(!start) start = ts;
+          var p = Math.min(1, (ts - start) / duration);
+          var val = Math.round(easeOutQuad(p) * target);
+          el.innerHTML = val.toLocaleString('ko-KR') + suffix;
+          if(p < 1) requestAnimationFrame(tick);
+        }
+        requestAnimationFrame(tick);
+      })(nums[i]);
+    }
+  }
+
+  function goTo(target){
+    clearTimeout(timer);
+    var next = ((target % scenes.length) + scenes.length) % scenes.length;
+    if(idx >= 0) scenes[idx].classList.remove('active');
+    for(var i=0;i<scenes.length;i++){
+      if(i < next) setBarState(i,'done');
+      else if(i > next) setBarState(i,'todo');
+    }
+    idx = next;
+    scenes[idx].classList.add('active');
+    scenes[idx].scrollTop = 0;
+    sceneCounter.textContent = pad(idx+1) + ' / ' + pad(scenes.length);
+    runCounts(scenes[idx]);
+    if(!reduced){
+      startBar(idx, +scenes[idx].dataset.duration);
+      if(playing) schedule();
+    } else {
+      bars[idx].classList.add('done');
+    }
+  }
+
+  function schedule(){
+    clearTimeout(timer);
+    var duration = +scenes[idx].dataset.duration;
+    timer = setTimeout(function(){ goTo(idx+1); }, duration);
+  }
+
+  function setPlaying(v){
+    playing = v;
+    playBtn.textContent = playing ? '⏸' : '▶';
+    playBtn.setAttribute('aria-label', playing ? '일시정지' : '재생');
+    if(reduced) return;
+    bars[idx].style.animationPlayState = playing ? 'running' : 'paused';
+    if(playing) schedule(); else clearTimeout(timer);
+  }
+
+  prevBtn.addEventListener('click', function(){ goTo(idx-1); if(playing && !reduced) schedule(); });
+  nextBtn.addEventListener('click', function(){ goTo(idx+1); if(playing && !reduced) schedule(); });
+  playBtn.addEventListener('click', function(){ setPlaying(!playing); });
+  replayBtn.addEventListener('click', function(){ setPlaying(true); goTo(0); });
+
+  document.addEventListener('keydown', function(e){
+    if(e.key === 'ArrowRight'){ nextBtn.click(); }
+    else if(e.key === 'ArrowLeft'){ prevBtn.click(); }
+    else if(e.key === ' '){ e.preventDefault(); playBtn.click(); }
+  });
+
+  goTo(0);
+  if(reduced) setPlaying(false);
+})();
+</script>
+</body>
+</html>
