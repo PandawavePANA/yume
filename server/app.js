@@ -21,7 +21,7 @@ import apiV1Router from "./apiV1.js";
 import adminApiRouter from "./adminApi.js";
 import { openExportDownload, purgeOldExportFiles } from "./dataset.js";
 import { renderAdminPage } from "./renderAdminPage.js";
-import { renderResetPasswordPage, renderTermsPage, renderPrivacyPage, renderApiDocsPage } from "./renderPages.js";
+import { renderResetPasswordPage, renderTermsPage, renderPrivacyPage, renderAccountDeletionPage, renderApiDocsPage } from "./renderPages.js";
 import { clientIp, createLimiter, limitMiddleware, sameOriginGuard, securityHeaders } from "./security.js";
 import { mailConfigured } from "./mailer.js";
 
@@ -167,6 +167,7 @@ app.get("/admin", (req, res) => html(res.set("Cache-Control", "no-store"), rende
 app.get("/reset-password", (req, res) => html(res, renderResetPasswordPage()));
 app.get("/terms", (req, res) => html(res, renderTermsPage()));
 app.get("/privacy", (req, res) => html(res, renderPrivacyPage()));
+app.get("/account-deletion", (req, res) => html(res, renderAccountDeletionPage()));
 app.get("/docs/api", (req, res) => html(res, renderApiDocsPage(process.env.PUBLIC_BASE_URL || `${req.protocol}://${req.get("host")}`)));
 
 // 카카오톡 등 외부 채널로 보낸 검증 결과를 링크로 여는 읽기 전용 페이지.

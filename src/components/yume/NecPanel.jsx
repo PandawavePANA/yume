@@ -51,10 +51,11 @@ export default function NecPanel({ nec }) {
             부존재 신뢰도 · {nec.gradeLabel}
           </span>
           <span style={{ display: "block", fontSize: 11.5, color: "#8577A8", lineHeight: 1.5 }}>
-            {nec.identifier?.value || nec.identifier?.canonical} — {nec.identifier?.searchSpace}
+            <span style={{ whiteSpace: "nowrap" }}>{nec.identifier?.value || nec.identifier?.canonical}</span> — {nec.identifier?.searchSpace}
+            {/* 좁은 폰에서 식별자가 쪼개지지 않게, 펼치기 안내는 별도 칸이 아니라 설명 끝에 붙인다 */}
+            <span style={{ color: "#9C8FC2", whiteSpace: "nowrap", marginLeft: 8 }}>{open ? "접기 ▴" : "근거 보기 ▾"}</span>
           </span>
         </span>
-        <span style={{ fontSize: 11.5, color: "#9C8FC2", whiteSpace: "nowrap" }}>{open ? "접기 ▴" : "근거 보기 ▾"}</span>
       </button>
       <AnimatePresence initial={false}>
         {open && (

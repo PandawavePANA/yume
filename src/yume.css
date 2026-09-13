@@ -4,6 +4,19 @@
   --yume-font: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "SF Pro Display", "Apple SD Gothic Neo",
     "Noto Sans KR", "Segoe UI", sans-serif;
   color-scheme: light;
+  /* 노치·홈 인디케이터 여백. 안드로이드 앱에서는 Capacitor가 --safe-area-inset-*를 넣어주고,
+     iOS 앱과 모바일 사파리는 env()로 받는다. 데스크톱 웹에서는 전부 0. */
+  --yume-safe-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  --yume-safe-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+  --yume-safe-left: var(--safe-area-inset-left, env(safe-area-inset-left, 0px));
+  --yume-safe-right: var(--safe-area-inset-right, env(safe-area-inset-right, 0px));
+}
+
+/* 앱 안에서는 길게 눌러 텍스트 선택·확대 같은 웹 티가 나는 동작을 줄인다(입력칸은 그대로). */
+.yume-native body {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  overscroll-behavior-y: none;
 }
 
 html {

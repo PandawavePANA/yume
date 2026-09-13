@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">유메</string>
+    <string name="title_activity_main">유메</string>
+    <string name="package_name">com.reamer.yume</string>
+    <string name="custom_url_scheme">com.reamer.yume</string>
+</resources>

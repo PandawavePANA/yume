@@ -1,0 +1,68 @@
+# 유메 앱 클라우드 빌드 (Codemagic) — 윈도우 PC에서도 iOS·Android 스토어용 빌드를 만든다.
+# 설정 방법은 docs/app-store/출시-가이드.md 참고. 비밀값(키·비밀번호)은 전부 Codemagic 화면에만 넣는다.
+#
+# 앱은 https://www.yume-reamer.com 을 그대로 띄우는 구조라(capacitor.config.json의 server.url),
+# 화면·기능 수정은 웹 배포만으로 앱에도 반영된다. 이 빌드는 아이콘·권한·플러그인 등 네이티브가 바뀔 때만 다시 돌리면 된다.
+
+workflows:
+  android-release:
+    name: 유메 Android (플레이스토어)
+    instance_type: linux_x2
+    max_build_duration: 45
+    environment:
+      android_signing:
+        - yume_upload_key # Codemagic에 올린 업로드 키의 참조 이름
+      node: 22
+      java: 21
+    scripts:
+      - name: 의존성 설치
+        script: npm ci
+      - name: Capacitor 동기화
+        script: npx cap sync android
+      - name: AAB 빌드
+        script: |
+          # 스토어 버전 코드는 올릴 때마다 커져야 한다 — Codemagic 빌드 번호를 쓴다.
+          export YUME_VERSION_CODE=$BUILD_NUMBER
+          cd android
+          chmod +x gradlew
+          ./gradlew bundleRelease
+    artifacts:
+      - android/app/build/outputs/bundle/release/*.aab
+    # 첫 업로드는 플레이 콘솔에서 직접 해야 한다. 그 뒤 자동 업로드를 켜려면 서비스 계정 JSON을
+    # google_play 변수 그룹(GCLOUD_SERVICE_ACCOUNT_CREDENTIALS)에 넣고 아래 주석을 푼다.
+    # publishing:
+    #   google_play:
+    #     credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
+    #     track: internal
+    #     submit_as_draft: true
+
+  ios-release:
+    name: 유메 iOS (앱스토어 · TestFlight)
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    integrations:
+      app_store_connect: YUME_ASC_KEY # Codemagic에 등록한 App Store Connect API 키 이름
+    environment:
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.reamer.yume
+      node: 22
+      xcode: latest
+    scripts:
+      - name: 의존성 설치
+        script: npm ci
+      - name: Capacitor 동기화
+        script: npx cap sync ios
+      - name: 서명 프로필 적용
+        script: xcode-project use-profiles
+      - name: 빌드 번호 올리기
+        script: |
+          sed -i '' "s/CURRENT_PROJECT_VERSION = [0-9]*;/CURRENT_PROJECT_VERSION = $BUILD_NUMBER;/g" ios/App/App.xcodeproj/project.pbxproj
+      - name: IPA 빌드
+        script: xcode-project build-ipa --project "ios/App/App.xcodeproj" --scheme "App"
+    artifacts:
+      - build/ios/ipa/*.ipa
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true

@@ -1,0 +1,36 @@
+{
+  "appId": "com.reamer.yume",
+  "appName": "유메",
+  "webDir": "app-shell",
+  "backgroundColor": "#F6F2FC",
+  "appendUserAgent": "YumeApp/1.0",
+  "server": {
+    "url": "https://www.yume-reamer.com",
+    "errorPath": "offline.html"
+  },
+  "android": {
+    "backgroundColor": "#F6F2FC"
+  },
+  "ios": {
+    "backgroundColor": "#F6F2FC",
+    "contentInset": "never",
+    "scrollEnabled": true
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 2500,
+      "launchAutoHide": true,
+      "launchFadeOutDuration": 250,
+      "backgroundColor": "#F6F2FC",
+      "showSpinner": false,
+      "androidScaleType": "CENTER_CROP"
+    },
+    "StatusBar": {
+      "style": "LIGHT",
+      "backgroundColor": "#F6F2FC"
+    },
+    "SystemBars": {
+      "insetsHandling": "css"
+    }
+  }
+}

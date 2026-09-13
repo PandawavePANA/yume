@@ -117,6 +117,15 @@ test("비회원 사용량과 입력 검증", async () => {
   assert.equal(h.data.db, true);
 });
 
+test("스토어 심사용 공개 페이지(약관·개인정보·계정 삭제 안내)", async () => {
+  for (const p of ["/terms", "/privacy", "/account-deletion"]) {
+    const r = await fetch(`${base}${p}`);
+    assert.equal(r.status, 200, p);
+  }
+  const body = await (await fetch(`${base}/account-deletion`)).text();
+  assert.match(body, /회원 탈퇴/);
+});
+
 test("API 키 발급 → 캐시 경로로 검증 → 소유권·한도", async () => {
   const owner = client();
   await owner("POST", "/api/auth/signup", signupBody("biz@yume.test", { company: "테스트AI" }));

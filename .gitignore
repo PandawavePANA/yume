@@ -9,3 +9,12 @@ data/
 *.db-wal
 *.db-shm
 .env.railway
+
+# 앱 서명 키·비밀번호(절대 커밋 금지)
+android-signing/
+android/keystore.properties
+*.jks
+*.keystore
+*.p12
+*.p8
+*.mobileprovision

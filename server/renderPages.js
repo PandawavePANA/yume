@@ -171,6 +171,33 @@ export function renderTermsPage() {
   );
 }
 
+// 구글 플레이가 요구하는 "앱 밖에서도 볼 수 있는 계정 삭제 안내" 페이지.
+export function renderAccountDeletionPage() {
+  return layout(
+    "계정 삭제 안내",
+    `<h1>유메 계정 삭제 안내</h1>
+<p class="muted">${esc(COMPANY.name)}가 운영하는 유메(YUME) 웹사이트와 앱(Android·iOS)의 계정 삭제 방법입니다.</p>
+
+<h2>앱 또는 웹사이트에서 직접 삭제하기</h2>
+<ol>
+<li>유메 앱을 열거나 <a href="/">www.yume-reamer.com</a>에 접속해 로그인합니다.</li>
+<li>오른쪽 위 내 이름을 누르고 <b>계정 설정</b>을 엽니다.</li>
+<li><b>보안</b> 탭의 <b>회원 탈퇴</b>에서 비밀번호를 입력하고 <b>탈퇴하기</b>를 누릅니다.</li>
+</ol>
+<p>탈퇴하는 즉시 계정과 연결된 정보가 삭제되며 되돌릴 수 없습니다.</p>
+
+<h2>로그인할 수 없는 경우</h2>
+<p>가입한 이메일 주소에서 <a href="mailto:${esc(COMPANY.email)}?subject=${encodeURIComponent("[유메] 계정 삭제 요청")}">${esc(COMPANY.email)}</a>로 "계정 삭제 요청"이라고 보내주세요. 본인 확인 후 10일 이내에 삭제하고 결과를 알려드립니다.</p>
+
+<h2>삭제되는 정보</h2>
+<table>
+<tr><th>즉시 삭제</th><td>이메일, 비밀번호, 이름·회사명, 검증 기록, API 키, 로그인 세션, 데이터 활용 동의</td></tr>
+<tr><th>일정 기간 보관 후 삭제</th><td>API 호출 기록(과금·분쟁 대응, 수집일로부터 1년), 오류 기록(90일), 데이터베이스 백업(백업 보관 주기에 따라 순차 삭제)</td></tr>
+</table>
+<p>탈퇴 전에 데이터 활용에 동의해 이미 가명처리되어 제공된 데이터는 이용자를 알아볼 수 없는 형태이므로 회수 대상에서 제외됩니다. 자세한 내용은 <a href="/privacy">개인정보처리방침</a>을 확인해주세요.</p>`,
+  );
+}
+
 export function renderPrivacyPage() {
   return layout(
     "개인정보처리방침",
@@ -187,6 +214,7 @@ export function renderPrivacyPage() {
 <tr><td>카카오톡 채널</td><td>카카오가 제공하는 채널 사용자 식별값, 메시지 내용</td><td>채널 대화·검증 제공, 이용 한도 관리</td></tr>
 <tr><td>API 이용 기업</td><td>담당자 이메일·회사명, API 호출 기록</td><td>API 제공, 사용량 집계와 과금</td></tr>
 </table>
+<p>유메 모바일 앱(Android·iOS)은 웹사이트와 같은 정보만 처리합니다. 앱은 연락처·위치·사진·카메라·마이크 등 기기 정보에 접근하지 않고, 광고 식별자를 수집하지 않으며, 이용자를 추적하지 않습니다. 앱에서 접속했는지 구분하기 위해 브라우저 정보(User-Agent)에 앱 이름이 포함됩니다.</p>
 
 <h2>2. 보유 및 이용 기간</h2>
 <table>
@@ -229,7 +257,7 @@ export function renderPrivacyPage() {
 <ul>
 <li>개인정보 열람·이동: 계정 설정의 <b>내 데이터 내려받기</b>로 저장된 정보를 받을 수 있습니다.</li>
 <li>정정·삭제: 계정 설정에서 이름을 수정하고, 검증 기록을 개별 삭제할 수 있습니다.</li>
-<li>처리 정지·동의 철회: 계정 설정에서 데이터 활용 동의를 끄거나, 탈퇴할 수 있습니다.</li>
+<li>처리 정지·동의 철회: 계정 설정에서 데이터 활용 동의를 끄거나, 탈퇴할 수 있습니다(<a href="/account-deletion">계정 삭제 안내</a>).</li>
 <li>그 밖의 요청은 ${esc(COMPANY.email)}로 보내주시면 10일 이내에 처리 결과를 알려드립니다.</li>
 </ul>
 

@@ -5,6 +5,7 @@ import AuthModal from "@/components/yume/AuthModal";
 import AccountModal from "@/components/yume/AccountModal";
 import NecPanel from "@/components/yume/NecPanel";
 import { apiJson, safeUrl, CONTACT_EMAIL } from "@/components/yume/api";
+import { IS_NATIVE_APP, onNativeBack, shareLink } from "./native.js";
 
 const EASE_APPLE = [0.22, 1, 0.36, 1];
 
@@ -165,6 +166,11 @@ function YumeChatWidget() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [open]);
 
+  React.useEffect(() => {
+    if (!open) return;
+    return onNativeBack(() => { setOpen(false); return true; });
+  }, [open]);
+
   const send = async () => {
     const text = input.trim();
     if (!text || loading) return;
@@ -191,8 +197,8 @@ function YumeChatWidget() {
   return (
     <div ref={containerRef} style={{
       position: "fixed",
-      right: "calc(16px + env(safe-area-inset-right, 0px))",
-      bottom: "calc(16px + env(safe-area-inset-bottom, 0px))",
+      right: "calc(16px + var(--yume-safe-right))",
+      bottom: "calc(16px + var(--yume-safe-bottom))",
       zIndex: 60, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 12
     }}>
       <AnimatePresence>
@@ -201,36 +207,37 @@ function YumeChatWidget() {
             initial={{ opacity: 0, y: 24, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 24, scale: 0.95 }}
             transition={{ duration: 0.22, ease: EASE_APPLE }}
             style={{
-              width: 320, maxWidth: "calc(100vw - 40px)", height: 440, background: "#fff", borderRadius: 18,
-              boxShadow: "0 24px 60px rgba(75,45,140,0.32)", border: "1px solid #D9BFF0",
+              width: 340, maxWidth: "calc(100vw - 32px)", height: 460, maxHeight: "calc(100vh - 120px - var(--yume-safe-top) - var(--yume-safe-bottom))",
+              background: "rgba(255,255,255,0.94)", backdropFilter: UI.glass, WebkitBackdropFilter: UI.glass, borderRadius: 24,
+              boxShadow: "0 30px 80px rgba(40,24,90,0.24)", border: `1px solid ${UI.hairline}`,
               display: "flex", flexDirection: "column", overflow: "hidden",
             }}>
             <div style={{
-              padding: "14px 16px", display: "flex", alignItems: "center", justifyContent: "space-between",
-              background: "linear-gradient(90deg,#B49AEE,#6B4FA8)",
+              padding: "14px 16px 12px 18px", display: "flex", alignItems: "center", justifyContent: "space-between",
+              borderBottom: `1px solid ${UI.hairline}`,
             }}>
-              <span style={{ color: "#fff", fontSize: 14, fontWeight: 700 }}>유메에게 질문하기</span>
-              <button onClick={() => setOpen(false)} style={{ border: "none", background: "transparent", color: "#fff", fontSize: 18, cursor: "pointer", lineHeight: 1 }}>×</button>
+              <span style={{ color: UI.ink, fontSize: 15, fontWeight: 700, letterSpacing: "-0.02em" }}>유메에게 질문하기</span>
+              <button onClick={() => setOpen(false)} aria-label="닫기" style={{ width: 28, height: 28, borderRadius: 999, border: "none", background: "rgba(118,118,128,0.12)", color: UI.ink2, fontSize: 15, cursor: "pointer", lineHeight: 1 }}>×</button>
             </div>
-            <div ref={listRef} style={{ flex: 1, overflowY: "auto", padding: 14, display: "flex", flexDirection: "column", gap: 8, background: "#FBF7FE" }}>
+            <div ref={listRef} style={{ flex: 1, overflowY: "auto", padding: 14, display: "flex", flexDirection: "column", gap: 8 }}>
               {messages.map((m, i) => (
                 <div key={i} style={{
                   alignSelf: m.role === "user" ? "flex-end" : "flex-start",
-                  maxWidth: "85%", padding: "9px 13px", borderRadius: 14, fontSize: 13, lineHeight: 1.5,
-                  background: m.role === "user" ? "#6B4FA8" : "#EDE0FA",
-                  color: m.role === "user" ? "#fff" : "#2A2440",
+                  maxWidth: "85%", padding: "9px 13px", borderRadius: 18, fontSize: 14, lineHeight: 1.5,
+                  background: m.role === "user" ? UI.accent : "rgba(118,118,128,0.10)",
+                  color: m.role === "user" ? "#fff" : UI.ink,
                 }}>{m.content}</div>
               ))}
-              {loading && <div style={{ alignSelf: "flex-start", fontSize: 12, color: "#9C8FC2", padding: "0 4px" }}>입력 중…</div>}
+              {loading && <div style={{ alignSelf: "flex-start", fontSize: 12.5, color: UI.ink3, padding: "0 4px" }}>입력 중…</div>}
             </div>
-            <div style={{ display: "flex", gap: 6, padding: 10, borderTop: "1px solid #E3CEF5", background: "#fff" }}>
-              <input value={input} onChange={(e) => setInput(e.target.value)}
+            <div style={{ display: "flex", gap: 6, padding: 10, borderTop: `1px solid ${UI.hairline}` }}>
+              <input className="yume-field" value={input} onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") send(); }}
                 placeholder="궁금한 점을 물어보세요"
-                style={{ flex: 1, padding: "9px 12px", borderRadius: 10, border: "1px solid #D9BFF0", fontSize: 13, outline: "none", minWidth: 0 }} />
+                style={{ flex: 1, padding: "10px 14px", borderRadius: 999, border: `1px solid ${UI.hairline}`, background: "rgba(246,242,252,0.8)", fontSize: 16, outline: "none", minWidth: 0 }} />
               <button onClick={send} disabled={loading || !input.trim()} style={{
-                padding: "9px 14px", borderRadius: 10, border: "none", flexShrink: 0,
-                background: input.trim() ? "#6B4FA8" : "#E3D9F2", color: "#fff", fontSize: 13, fontWeight: 600,
+                padding: "0 16px", borderRadius: 999, border: "none", flexShrink: 0,
+                background: input.trim() ? UI.accent : "rgba(118,118,128,0.14)", color: input.trim() ? "#fff" : UI.ink3, fontSize: 14, fontWeight: 600,
                 cursor: input.trim() ? "pointer" : "not-allowed",
               }}>전송</button>
             </div>
@@ -247,8 +254,8 @@ function YumeChatWidget() {
         transition={{ layout: { duration: 0.25, ease: EASE_APPLE }, default: { duration: 0.25, ease: EASE_APPLE } }}
         whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.94 }} onClick={() => setOpen((o) => !o)} style={{
         height: 52, borderRadius: 999, border: "none", cursor: "pointer",
-        background: "linear-gradient(135deg,#B49AEE,#6B4FA8)", color: "#fff",
-        boxShadow: "0 12px 32px rgba(107,79,168,0.45)", display: "flex", alignItems: "center", justifyContent: "center",
+        background: UI.button, color: "#fff",
+        boxShadow: "0 10px 28px rgba(107,79,168,0.36)", display: "flex", alignItems: "center", justifyContent: "center",
         gap: 7, padding: open ? 0 : "0 18px 0 15px", width: open ? 52 : "auto",
       }}>
         {open ? (
@@ -754,6 +761,28 @@ export default function YumeDashboard() {
   };
 
   const reset = () => { setStage("idle"); setResult(null); setRevealed(0); setTab("result"); setInput(""); };
+  const shareResult = async () => {
+    if (!result?.id) return;
+    const outcome = await shareLink({
+      title: "유메 검증 결과",
+      text: result.overall?.label ? `유메 검증 결과: ${result.overall.label}` : "유메 검증 결과",
+      url: `${window.location.origin}/r/${result.id}`,
+    });
+    if (outcome === "copied") setToast("결과 링크를 복사했어요");
+    else if (outcome === "failed") setToast("공유하지 못했어요. 잠시 후 다시 시도해주세요.");
+  };
+
+  // 안드로이드 뒤로가기: 열려 있는 것부터 하나씩 닫고, 결과 화면이면 입력 화면으로 돌아간다.
+  React.useEffect(() => onNativeBack(() => {
+    if (userMenuOpen) { setUserMenuOpen(false); return true; }
+    if (authModal) { setAuthModal(null); return true; }
+    if (accountTab) { setAccountTab(null); return true; }
+    if (showPricing) { setShowPricing(false); return true; }
+    if (showBiz) { setShowBiz(false); return true; }
+    if (sidebarOpen) { setSidebarOpen(false); return true; }
+    if (stage === "done") { reset(); return true; }
+    return false;
+  }), [userMenuOpen, authModal, accountTab, showPricing, showBiz, sidebarOpen, stage]);
   const confirmedCount = result?.claims?.filter(c => c.verdict === "confirmed").length ?? 0;
   const totalCount = result?.claims?.length ?? 0;
   const allSources = (result?.claims || []).flatMap(c => (c.sources || []).map(s => ({ ...s, forClaim: c.text })));
@@ -814,7 +843,7 @@ export default function YumeDashboard() {
         boxShadow: sidebarOpen ? "12px 0 48px rgba(60,35,120,0.16)" : "none",
         display: "flex", flexDirection: "column"
       }}>
-        <div style={{ padding: "20px 18px 14px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ padding: "calc(20px + var(--yume-safe-top)) 18px 14px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div onClick={() => { startNew(); setSidebarOpen(false); }} style={{ cursor: "pointer" }}>
             <YumeLogo height={19} />
           </div>
@@ -859,7 +888,7 @@ export default function YumeDashboard() {
             ))
           )}
         </div>
-        <div style={{ padding: "10px 12px 14px", borderTop: `1px solid ${UI.hairline}` }}>
+        <div style={{ padding: "10px 12px calc(14px + var(--yume-safe-bottom))", borderTop: `1px solid ${UI.hairline}` }}>
           <button onClick={() => setShowBiz(true)} style={{
             width: "100%", padding: "10px 12px", borderRadius: 10, border: "none", background: "transparent",
             color: UI.ink2, fontSize: 13.5, fontWeight: 500, cursor: "pointer",
@@ -875,7 +904,7 @@ export default function YumeDashboard() {
       <div>
       {/* 애플식 반투명 상단 바 — 스크롤하면 유리 질감과 가는 경계선이 나타난다 */}
       <div style={{
-        position: "sticky", top: 0, zIndex: 45,
+        position: "sticky", top: 0, zIndex: 45, paddingTop: "var(--yume-safe-top)",
         background: navScrolled ? "rgba(248,246,253,0.72)" : "rgba(248,246,253,0)",
         backdropFilter: navScrolled ? UI.glass : "none", WebkitBackdropFilter: navScrolled ? UI.glass : "none",
         borderBottom: `1px solid ${navScrolled ? UI.hairline : "transparent"}`,
@@ -1254,10 +1283,18 @@ export default function YumeDashboard() {
               </motion.div>
               </AnimatePresence>
 
-                <motion.button whileHover={{ backgroundColor: "rgba(118,118,128,0.16)" }} whileTap={{ scale: 0.985 }} onClick={reset} style={{
-                  width: "100%", marginTop: 20, height: 50, borderRadius: 14,
-                  border: "none", background: "rgba(118,118,128,0.10)", color: UI.accent, fontSize: 15, fontWeight: 600, cursor: "pointer", letterSpacing: "-0.01em",
-                }}>다른 답변 확인하기</motion.button>
+                <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
+                  {result.id && (
+                    <motion.button whileHover={{ backgroundColor: "rgba(118,118,128,0.16)" }} whileTap={{ scale: 0.985 }} onClick={shareResult} style={{
+                      flex: 1, height: 50, borderRadius: 14,
+                      border: "none", background: "rgba(118,118,128,0.10)", color: UI.accent, fontSize: 15, fontWeight: 600, cursor: "pointer", letterSpacing: "-0.01em",
+                    }}>결과 공유</motion.button>
+                  )}
+                  <motion.button whileHover={{ backgroundColor: "rgba(118,118,128,0.16)" }} whileTap={{ scale: 0.985 }} onClick={reset} style={{
+                    flex: 1, height: 50, borderRadius: 14,
+                    border: "none", background: "rgba(118,118,128,0.10)", color: UI.accent, fontSize: 15, fontWeight: 600, cursor: "pointer", letterSpacing: "-0.01em",
+                  }}>다른 답변 확인하기</motion.button>
+                </div>
               </div>
             </>
           )}
@@ -1408,13 +1445,14 @@ export default function YumeDashboard() {
       {showPricing && (
         <div onClick={() => setShowPricing(false)} style={{
           position: "fixed", inset: 0, background: UI.backdrop, display: "flex",
-          alignItems: "center", justifyContent: "center", zIndex: 50, backdropFilter: "blur(14px) saturate(140%)", WebkitBackdropFilter: "blur(14px) saturate(140%)", padding: 20
+          alignItems: "center", justifyContent: "center", zIndex: 50, backdropFilter: "blur(14px) saturate(140%)", WebkitBackdropFilter: "blur(14px) saturate(140%)",
+          padding: "calc(20px + var(--yume-safe-top)) 20px calc(20px + var(--yume-safe-bottom))"
         }}>
           <div onClick={(e) => e.stopPropagation()} style={{ width: "min(960px, 100%)", maxHeight: "90vh", overflowY: "auto", background: "#fff", borderRadius: 28, padding: "clamp(22px, 4vw, 40px)", boxShadow: "0 40px 100px rgba(24,16,44,0.28)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
               <div>
                 <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: "-0.03em", color: UI.ink }}>요금제</div>
-                <div style={{ fontSize: 14, color: UI.ink2, marginTop: 4 }}>온라인 결제는 준비 중이에요. 유료 플랜은 문의해주시면 바로 열어드려요.</div>
+                <div style={{ fontSize: 14, color: UI.ink2, marginTop: 4 }}>{IS_NATIVE_APP ? "앱에서는 무료 플랜을 이용할 수 있어요. 유료 플랜은 준비 중이에요." : "온라인 결제는 준비 중이에요. 유료 플랜은 문의해주시면 바로 열어드려요."}</div>
               </div>
               <button onClick={() => setShowPricing(false)} aria-label="닫기" style={{ width: 32, height: 32, flexShrink: 0, borderRadius: 999, border: "none", background: "rgba(118,118,128,0.12)", color: UI.ink2, fontSize: 16, cursor: "pointer" }}>×</button>
             </div>
@@ -1443,6 +1481,9 @@ export default function YumeDashboard() {
                         color: UI.accent, fontSize: 14, fontWeight: 600, cursor: "pointer",
                       }}>무료로 가입하기</button>
                     )
+                  ) : IS_NATIVE_APP ? (
+                    // 앱스토어·플레이스토어는 앱 안의 디지털 상품을 자체 결제로만 팔게 한다 — 외부 결제 안내를 두지 않는다.
+                    <div style={{ width: "100%", padding: "12px 0", borderRadius: 12, background: "rgba(118,118,128,0.10)", color: UI.ink3, fontSize: 14, fontWeight: 600, textAlign: "center" }}>준비 중</div>
                   ) : (
                     <a href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(`[유메] ${p.label} 플랜 이용 문의`)}&body=${encodeURIComponent(`가입 이메일: ${user?.email || ""}
 원하는 플랜: ${p.label}
@@ -1462,7 +1503,8 @@ export default function YumeDashboard() {
       {showBiz && (
         <div onClick={() => setShowBiz(false)} style={{
           position: "fixed", inset: 0, background: UI.backdrop, display: "flex",
-          alignItems: "center", justifyContent: "center", zIndex: 50, backdropFilter: "blur(14px) saturate(140%)", WebkitBackdropFilter: "blur(14px) saturate(140%)", padding: 20
+          alignItems: "center", justifyContent: "center", zIndex: 50, backdropFilter: "blur(14px) saturate(140%)", WebkitBackdropFilter: "blur(14px) saturate(140%)",
+          padding: "calc(20px + var(--yume-safe-top)) 20px calc(20px + var(--yume-safe-bottom))"
         }}>
           <div onClick={(e) => e.stopPropagation()} style={{ width: "min(700px, 100%)", maxHeight: "88vh", overflowY: "auto", background: "#fff", borderRadius: 28, padding: "clamp(22px, 4vw, 40px)", boxShadow: "0 40px 100px rgba(24,16,44,0.28)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
@@ -1508,7 +1550,7 @@ export default function YumeDashboard() {
           <motion.div role="status"
             initial={{ opacity: 0, y: 16, x: "-50%" }} animate={{ opacity: 1, y: 0, x: "-50%" }} exit={{ opacity: 0, y: 16, x: "-50%" }}
             style={{
-              position: "fixed", bottom: 28, left: "50%", zIndex: 70, background: "rgba(29,26,36,0.88)", color: "#fff",
+              position: "fixed", bottom: "calc(28px + var(--yume-safe-bottom))", left: "50%", zIndex: 70, background: "rgba(29,26,36,0.88)", color: "#fff",
               backdropFilter: UI.glass, WebkitBackdropFilter: UI.glass,
               fontSize: 14, padding: "12px 20px", borderRadius: 999, boxShadow: "0 16px 40px rgba(24,16,44,0.28)", maxWidth: "90vw",
             }}>{toast}</motion.div>

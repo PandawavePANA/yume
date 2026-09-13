@@ -1,0 +1,3 @@
+# 리눅스·맥 빌드 서버에서 실행되는 스크립트는 항상 LF
+android/gradlew text eol=lf
+*.sh text eol=lf

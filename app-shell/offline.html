@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>유메</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", "Segoe UI", sans-serif;
+    background: radial-gradient(ellipse 90% 60% at 50% -10%, #DDCBF8 0%, #EBE1FB 36%, #F4EFFC 66%, #F8F6FD 100%);
+    color: #1D1A24; display: flex; align-items: center; justify-content: center; text-align: center;
+    padding: calc(24px + env(safe-area-inset-top)) 28px calc(24px + env(safe-area-inset-bottom));
+    word-break: keep-all; -webkit-font-smoothing: antialiased;
+  }
+  img { width: 88px; height: 88px; border-radius: 22px; box-shadow: 0 12px 32px rgba(107,79,168,0.18); }
+  h1 { font-size: 22px; letter-spacing: -0.03em; margin: 26px 0 8px; }
+  p { font-size: 15px; line-height: 1.6; color: #5E5870; margin: 0 0 28px; }
+  button {
+    border: none; border-radius: 14px; padding: 14px 32px; font-size: 16px; font-weight: 600; color: #fff; cursor: pointer;
+    background: linear-gradient(180deg, #8467CF 0%, #6B4FA8 100%); box-shadow: 0 8px 22px rgba(107,79,168,0.26);
+  }
+  button:active { transform: scale(0.97); }
+</style>
+</head>
+<body>
+  <main>
+    <img src="moon.png" alt="" />
+    <h1>인터넷에 연결되어 있지 않아요</h1>
+    <p>유메는 실시간으로 공식 자료를 확인해요.<br />연결을 확인한 뒤 다시 시도해주세요.</p>
+    <button type="button" onclick="location.replace('https://www.yume-reamer.com/')">다시 시도</button>
+  </main>
+</body>
+</html>
