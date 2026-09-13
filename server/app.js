@@ -173,6 +173,7 @@ app.get("/docs/api", (req, res) => html(res, renderApiDocsPage(process.env.PUBLI
 // 카카오톡 등 외부 채널로 보낸 검증 결과를 링크로 여는 읽기 전용 페이지.
 app.get("/r/:id", async (req, res) => {
   const v = await getVerification(String(req.params.id));
+  res.set("X-Robots-Tag", "noindex, nofollow"); // 이용자 원문이 담긴 페이지 — 검색 노출 금지
   if (!v) return res.status(404).send("결과를 찾을 수 없습니다. 링크가 올바른지 확인해주세요.");
   const result = v.result ? { ...v.result, related_products: await resolveProductLinks(v.result.related_products || []) } : null;
   html(res, renderResultPage({ id: v.id, input: v.input, status: v.status, result, createdAt: v.created_at }));

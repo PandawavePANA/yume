@@ -130,6 +130,8 @@ function page({ head = "", cardBody, footer = "" }) {
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>유메 검증 결과</title>
+<!-- 결과 페이지에는 이용자가 붙여넣은 원문이 보이므로, 링크가 공개된 곳에 공유돼도 검색엔진에 올라가지 않게 한다. -->
+<meta name="robots" content="noindex, nofollow" />
 ${head}
 <style>${BASE_STYLE}</style>
 </head>

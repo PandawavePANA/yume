@@ -124,6 +124,9 @@ test("스토어 심사용 공개 페이지(약관·개인정보·계정 삭제 �
   }
   const body = await (await fetch(`${base}/account-deletion`)).text();
   assert.match(body, /회원 탈퇴/);
+  // 공유된 결과 페이지는 이용자 원문을 담고 있어 검색엔진 색인을 막는다
+  const shared = await fetch(`${base}/r/not-a-real-id`);
+  assert.equal(shared.headers.get("x-robots-tag"), "noindex, nofollow");
 });
 
 test("API 키 발급 → 캐시 경로로 검증 → 소유권·한도", async () => {

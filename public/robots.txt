@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /v1/
+Disallow: /admin
+Disallow: /datasets/
+Disallow: /reset-password
+
+Sitemap: https://www.yume-reamer.com/sitemap.xml
