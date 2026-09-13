@@ -1,7 +1,12 @@
 <title>유메 쇼릴</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <style>
   :root{
+    /* 유메 서비스(src/yume.css)와 같은 글꼴 — 애플 기기에서는 시스템 글꼴,
+       그 외에는 그것을 본떠 만든 Pretendard로 떨어진다. */
+    --font:"Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "SF Pro Display", "Apple SD Gothic Neo",
+      "Noto Sans KR", "Segoe UI", sans-serif;
+    --mono:ui-monospace, SFMono-Regular, "SF Mono", Menlo, "Segoe UI Mono", monospace;
     --ink:#181025;
     --ink-2:#241938;
     --ink-3:#2E2148;
@@ -26,16 +31,19 @@
   body{
     background:var(--ink);
     color:var(--paper-ink);
-    font-family:'Noto Sans KR', system-ui, sans-serif;
+    font-family:var(--font);
     min-height:100vh;
     display:flex;
     flex-direction:column;
     align-items:center;
     padding:3vh 14px 24px;
     overflow-x:hidden;
+    -webkit-font-smoothing:antialiased;
+    -moz-osx-font-smoothing:grayscale;
+    word-break:keep-all; /* 한국어가 단어 중간에서 끊기지 않게 */
   }
   h1,h2,h3{text-wrap:balance; margin:0;}
-  .mono{font-family:'IBM Plex Mono', ui-monospace, monospace; font-variant-numeric:tabular-nums;}
+  .mono{font-family:var(--mono); font-variant-numeric:tabular-nums;}
 
   .masthead{
     width:min(94vw,1160px);
@@ -46,7 +54,7 @@
     padding:0 4px;
   }
   .masthead .brand{
-    font-family:'Black Han Sans', sans-serif;
+    font-family:var(--font); font-weight:800;
     font-size:15px;
     letter-spacing:0.04em;
     color:var(--paper-ink);
@@ -86,7 +94,7 @@
   .chrome .label{font-size:11.5px; color:var(--muted-inverse); font-weight:500;}
   .chrome .rec{
     margin-left:auto; display:flex; align-items:center; gap:6px;
-    font-family:'IBM Plex Mono', monospace; font-size:10.5px; letter-spacing:0.08em; color:#F0776B;
+    font-family:var(--mono); font-size:10.5px; letter-spacing:0.08em; color:#F0776B;
   }
   .chrome .rec-dot{width:7px; height:7px; border-radius:50%; background:#F0776B; animation:pulse 1.4s ease-in-out infinite;}
   @keyframes pulse{0%,100%{opacity:1;} 50%{opacity:.25;}}
@@ -125,15 +133,16 @@
   }
 
   .scene-kicker{
-    font-family:'IBM Plex Mono', monospace;
+    font-family:var(--font); font-weight:600;
     font-size:clamp(10.5px,1.15vw,12px);
     letter-spacing:0.14em; text-transform:uppercase;
     color:var(--accent-deep); margin-bottom:8px;
     opacity:0; animation:fadeUp .5s ease forwards;
   }
   .scene h2{
-    font-family:'Black Han Sans', sans-serif;
+    font-family:var(--font); font-weight:800;
     font-size:clamp(19px,3.2vw,36px);
+    letter-spacing:-0.025em;
     line-height:1.3; color:var(--ink-text); margin-bottom:12px;
     opacity:0; transform:translateY(10px); animation:fadeUp .5s ease forwards; animation-delay:.08s;
   }
@@ -149,7 +158,7 @@
   @keyframes wordIn{to{opacity:1; transform:translateY(0);}}
 
   .cite{
-    font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--muted-inverse);
+    font-family:var(--font); font-weight:600; font-size:10.5px; color:var(--muted-inverse);
     display:inline-flex; align-items:center; gap:4px; margin-top:6px;
     opacity:0; animation:fadeUp .4s ease forwards; animation-delay:.5s;
   }
@@ -171,11 +180,11 @@
     flex-shrink:0; width:clamp(58px,7.5vw,92px); height:clamp(58px,7.5vw,92px);
     border-radius:50%; border:3px solid var(--accent-deep); outline:2px solid var(--accent-deep); outline-offset:4px;
     display:flex; flex-direction:column; align-items:center; justify-content:center;
-    color:var(--accent-deep); font-family:'Black Han Sans', sans-serif; background:var(--accent-soft);
+    color:var(--accent-deep); font-family:var(--font); font-weight:800; background:var(--accent-soft);
     animation:floaty 3.4s ease-in-out infinite;
   }
   .seal .seal-mark{font-size:clamp(17px,2.2vw,26px); line-height:1;}
-  .seal .seal-sub{font-family:'IBM Plex Mono',monospace; font-size:7px; letter-spacing:0.08em; margin-top:3px;}
+  .seal .seal-sub{font-family:var(--mono); font-size:7px; letter-spacing:0.08em; margin-top:3px;}
 
   .pull-quote{
     position:relative; margin-top:12px; padding-left:20px; max-width:58ch;
@@ -191,7 +200,7 @@
   .quote-scene{align-items:center; text-align:center;}
   .quote-scene .q-text{
     position:relative; max-width:76%; margin:0 auto;
-    font-family:'Black Han Sans',sans-serif; font-size:clamp(17px,2.5vw,29px);
+    font-family:var(--font); font-weight:800; font-size:clamp(17px,2.5vw,29px); letter-spacing:-0.025em;
     color:var(--accent-deep); line-height:1.42;
     opacity:0; animation:fadeUp .55s ease forwards; animation-delay:.15s;
   }
@@ -220,13 +229,13 @@
   }
   .scene.active .stat-row > .stat-arrow:nth-child(2){animation-delay:.18s;}
   .scene.active .stat-row > .stat-arrow:nth-child(4){animation-delay:.38s;}
-  .stat-tile .yr{font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--muted); margin-bottom:2px;}
-  .stat-tile .num{font-family:'Black Han Sans',sans-serif; font-size:clamp(20px,2.6vw,30px); color:var(--false);}
+  .stat-tile .yr{font-family:var(--font); font-weight:600; font-size:10.5px; color:var(--muted); margin-bottom:2px;}
+  .stat-tile .num{font-family:var(--font); font-weight:800; font-size:clamp(20px,2.6vw,30px); color:var(--false);}
   .big-stat{
     display:flex; align-items:baseline; gap:10px; margin-top:16px;
     opacity:0; transform:translateY(8px); animation:stepIn .5s ease forwards; animation-delay:.1s;
   }
-  .big-stat .num{font-family:'Black Han Sans',sans-serif; font-size:clamp(30px,4.4vw,52px); color:var(--accent-deep);}
+  .big-stat .num{font-family:var(--font); font-weight:800; font-size:clamp(30px,4.4vw,52px); color:var(--accent-deep);}
   .big-stat .desc{font-size:13px; color:var(--muted); max-width:36ch; line-height:1.55;}
 
   /* ---------- Scene 3 : 분야별 검증 ---------- */
@@ -241,14 +250,14 @@
   .scene.active .domain-row:nth-child(3){animation-delay:.46s;}
   .scene.active .domain-row:nth-child(4){animation-delay:.64s;}
   @keyframes stepIn{to{opacity:1; transform:translateY(0);}}
-  .domain-row .d-name{font-family:'Black Han Sans',sans-serif; font-size:13.5px; color:var(--accent-deep); width:60px; flex-shrink:0;}
+  .domain-row .d-name{font-family:var(--font); font-weight:800; font-size:13.5px; color:var(--accent-deep); width:60px; flex-shrink:0;}
   .domain-row .d-desc{font-size:12.5px; color:var(--muted); flex:1;}
-  .pill{font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:600; padding:3px 9px; border-radius:999px; flex-shrink:0;}
+  .pill{font-family:var(--font); font-weight:600; font-size:10px; padding:3px 9px; border-radius:999px; flex-shrink:0;}
   .pill.planned{background:var(--uncertain-soft); color:var(--uncertain);}
   .pill.live{background:var(--confirmed-soft); color:var(--confirmed); animation:livepulse 1.8s ease-in-out infinite;}
   @keyframes livepulse{0%,100%{box-shadow:0 0 0 0 rgba(31,157,102,0.35);} 50%{box-shadow:0 0 0 5px rgba(31,157,102,0);}}
   .principle-badge{
-    margin-top:14px; display:inline-block; font-family:'Black Han Sans',sans-serif; font-size:13px;
+    margin-top:14px; display:inline-block; font-family:var(--font); font-weight:800; font-size:13px;
     color:var(--accent-deep); background:var(--accent-soft); padding:8px 16px; border-radius:10px;
   }
 
@@ -260,7 +269,7 @@
   }
   .scene.active .compare-card:nth-child(1){animation-delay:.05s;}
   .scene.active .compare-card:nth-child(2){animation-delay:.25s;}
-  .compare-card .cc-title{font-family:'Black Han Sans',sans-serif; font-size:14px; margin-bottom:6px;}
+  .compare-card .cc-title{font-family:var(--font); font-weight:800; font-size:14px; margin-bottom:6px;}
   .compare-card.them .cc-title{color:var(--muted);}
   .compare-card.us .cc-title{color:var(--accent-deep);}
   .compare-card ul{margin:0; padding-left:16px; font-size:12px; color:var(--muted); line-height:1.65;}
@@ -293,11 +302,11 @@
   .scene.active .rm-step:nth-child(2){animation-delay:.22s;}
   .scene.active .rm-step:nth-child(3){animation-delay:.39s;}
   .scene.active .rm-step:nth-child(4){animation-delay:.56s;}
-  .rm-step .rm-status{font-family:'IBM Plex Mono',monospace; font-size:9.5px; font-weight:700; padding:3px 8px; border-radius:999px; display:inline-block; margin-bottom:6px;}
+  .rm-step .rm-status{font-family:var(--font); font-size:9.5px; font-weight:700; padding:3px 8px; border-radius:999px; display:inline-block; margin-bottom:6px;}
   .rm-status.done{background:var(--confirmed-soft); color:var(--confirmed); animation:livepulse 1.8s ease-in-out infinite;}
   .rm-status.progress{background:var(--uncertain-soft); color:var(--uncertain);}
   .rm-status.planned{background:var(--paper-line); color:var(--muted);}
-  .rm-step .rm-title{font-family:'Black Han Sans',sans-serif; font-size:13px; margin-bottom:4px; color:var(--ink-text);}
+  .rm-step .rm-title{font-family:var(--font); font-weight:800; font-size:13px; margin-bottom:4px; color:var(--ink-text);}
   .rm-step .rm-desc{font-size:11.5px; color:var(--muted); line-height:1.5;}
 
   /* ---------- Scene 7 : 수익 모델 ---------- */
@@ -307,10 +316,10 @@
     opacity:0; transform:translateY(10px); animation:stepIn .5s ease forwards; animation-delay:.1s;
   }
   .biz-card.solo{max-width:420px; width:100%; margin:16px auto 0; flex:none;}
-  .biz-card .bc-title{font-family:'Black Han Sans',sans-serif; font-size:14.5px; color:var(--accent-deep); margin-bottom:8px;}
+  .biz-card .bc-title{font-family:var(--font); font-weight:800; font-size:14.5px; color:var(--accent-deep); margin-bottom:8px;}
   .biz-line{display:flex; justify-content:space-between; gap:8px; font-size:12.5px; color:var(--ink-text); padding:6px 0; border-top:1px dashed var(--paper-line);}
   .biz-line:first-of-type{border-top:none;}
-  .biz-line b{font-family:'IBM Plex Mono',monospace; color:var(--accent-deep); font-weight:600; white-space:nowrap;}
+  .biz-line b{font-family:var(--font); font-weight:700; color:var(--accent-deep); font-variant-numeric:tabular-nums; white-space:nowrap;}
 
   /* ---------- Scene 8 : 창업자 ---------- */
   .founder-row{display:flex; flex-wrap:wrap; gap:8px; margin-top:14px;}
@@ -326,14 +335,14 @@
 
   /* ---------- Scene 17 : 클로징 ---------- */
   #s17{align-items:center; text-align:center;}
-  #s17 .close-logo{font-family:'Black Han Sans',sans-serif; font-size:clamp(16px,2.2vw,20px); color:var(--accent-deep); margin-bottom:14px; letter-spacing:0.06em;}
-  #s17 .close-line{font-family:'Black Han Sans',sans-serif; font-size:clamp(24px,4vw,40px); color:var(--ink-text); line-height:1.3;}
+  #s17 .close-logo{font-family:var(--font); font-weight:800; font-size:clamp(16px,2.2vw,20px); color:var(--accent-deep); margin-bottom:14px; letter-spacing:0.06em;}
+  #s17 .close-line{font-family:var(--font); font-weight:800; font-size:clamp(24px,4vw,40px); letter-spacing:-0.03em; color:var(--ink-text); line-height:1.3;}
   #s17 .close-sub{font-size:clamp(12px,1.4vw,16px); color:var(--muted); margin-top:12px;}
-  #s17 .close-foot{font-family:'IBM Plex Mono',monospace; font-size:9.5px; color:var(--muted-inverse); letter-spacing:0.06em; margin-top:20px;}
+  #s17 .close-foot{font-family:var(--font); font-weight:600; font-size:9.5px; color:var(--muted-inverse); letter-spacing:0.06em; margin-top:20px;}
   .replay-btn{
     margin-top:16px; display:inline-flex; align-items:center; gap:6px;
     background:var(--accent); color:#fff; border:none; border-radius:999px;
-    padding:9px 20px; font-size:12.5px; font-weight:600; cursor:pointer; font-family:'Noto Sans KR',sans-serif;
+    padding:9px 20px; font-size:12.5px; font-weight:600; cursor:pointer; font-family:var(--font);
   }
   .replay-btn:hover{background:var(--accent-deep);}
 
@@ -352,7 +361,7 @@
   .bar-fill.grow{animation-name:growbar; animation-timing-function:linear; animation-fill-mode:forwards;}
   .bar-fill.done{transform:scaleX(1);}
   @keyframes growbar{from{transform:scaleX(0);} to{transform:scaleX(1);}}
-  .scene-counter{font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--muted-inverse); flex-shrink:0;}
+  .scene-counter{font-family:var(--mono); font-size:11px; color:var(--muted-inverse); flex-shrink:0;}
 
   @media (max-width:760px){
     .stage{aspect-ratio:3/4;}
