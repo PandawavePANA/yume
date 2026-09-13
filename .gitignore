@@ -10,6 +10,11 @@ data/
 *.db-shm
 .env.railway
 
+# 출원 전 특허 명세서 — 이 저장소는 공개라 커밋하면 그 자체가 공지(공개 실시)가 되어
+# 신규성이 깨질 수 있다. 출원을 마친 뒤에 올릴 것.
+특허명세서_*.docx
+시점인식기반AI사실검증_*.docx
+
 # 앱 서명 키·비밀번호(절대 커밋 금지)
 android-signing/
 android/keystore.properties
