@@ -95,7 +95,7 @@ const NAV = [
 const SPECS = [
   { k: "설립", v: "2026" },
   { k: "대표", v: "정원영" },
-  { k: "제품", v: "유메 · 아이픽 · AMM" },
+  { k: "제품", v: "유메 · 아이픽 · 밸러스트" },
   { k: "분야", v: "AI 소프트웨어" },
 ];
 
@@ -112,19 +112,23 @@ const PRODUCTS = [
   },
   {
     no: "02",
-    status: "개발 중",
+    status: "개발 완료",
+    live: true,
     name: "아이픽",
     en: "AIpick",
-    desc: "대화형 상품 추천. 무엇을 찾는지 말하면 아이픽이 예산·용도·취향을 좁혀가는 질문을 던지고, 마지막엔 살 만한 상품 세 개만 남겨 보여줍니다.",
-    go: "출시 예정",
+    desc: "대구에 머무는 하루를 맞춤 제작으로 바꿉니다. 한 번 실측하면 원단과 안경테를 고르고, 기다리는 동안 식사하고, 그날 저녁 완성된 안경과 반지를 들고 돌아갑니다.",
+    href: "https://www.aipick-reamer.com/",
+    go: "aipick-reamer.com",
   },
   {
     no: "03",
-    status: "개발 중",
-    name: "AMM 프로토콜",
-    en: "Auto Make Money Protocol",
+    status: "개발 완료",
+    live: true,
+    name: "밸러스트",
+    en: "Ballast",
     desc: "자동 매매 프로토콜. 사람이 화면 앞에 붙어 있지 않아도 정해둔 규칙대로 시장을 읽고 진입과 청산을 실행합니다.",
-    go: "출시 예정",
+    href: "https://www.ballast-reamer.com/",
+    go: "ballast-reamer.com",
   },
 ];
 
@@ -261,8 +265,8 @@ const TIMELINE = [
   },
   {
     year: "진행 중",
-    title: "아이픽 · AMM 프로토콜 개발",
-    desc: "대화형 AI 상품 추천 아이픽과 자동 매매 프로토콜 AMM을 함께 준비하고 있습니다. 유메까지 세 개 제품 체제로 운영합니다.",
+    title: "아이픽 · 밸러스트 출시",
+    desc: "대구 원데이 맞춤 제작 아이픽과 자동 매매 프로토콜 밸러스트의 개발을 마쳤습니다. 유메까지 세 개 제품 체제로 운영합니다.",
     now: true,
   },
 ];
@@ -376,7 +380,7 @@ const ReamerSite = () => {
                 <Chars text="하나의 기준." />
               </h2>
               <p className="lede" data-reveal style={{ "--d": "0.14s" }}>
-                리머는 유메 · 아이픽 · AMM 프로토콜 세 개 제품 체제로
+                리머는 유메 · 아이픽 · 밸러스트 세 개 제품 체제로
                 운영합니다. 각각 다른 시장을 보지만, 기준은 하나입니다 —
                 흐릿한 판단을 정확한 판단으로 바꾼다.
               </p>
@@ -611,7 +615,7 @@ const ReamerSite = () => {
               </li>
               <li>
                 <a className="footer__link" href="#products">
-                  AMM 프로토콜
+                  밸러스트
                 </a>
               </li>
               <li>
