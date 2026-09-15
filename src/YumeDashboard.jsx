@@ -4,6 +4,7 @@ import CatMouseGame from "@/components/yume/CatMouseGame";
 import AuthModal from "@/components/yume/AuthModal";
 import AccountModal from "@/components/yume/AccountModal";
 import NecPanel from "@/components/yume/NecPanel";
+import { BountyPrompt } from "@/components/yume/BountyModal";
 import { apiJson, safeUrl, CONTACT_EMAIL } from "@/components/yume/api";
 import { IS_NATIVE_APP, onNativeBack, shareLink } from "./native.js";
 
@@ -643,7 +644,8 @@ export default function YumeDashboard() {
         record = JSON.parse(raw);
       }
       setInput(record.input);
-      setResult(record.result);
+      // 기록에서 열 때도 검증 id를 함께 심어둔다(제보 버튼이 이 id로 서버에 확인을 요청한다).
+      setResult(record.result ? { ...record.result, id: record.id || id } : record.result);
       setRevealed((record.result?.claims || []).length);
       setStage("done");
       setTab("result");
@@ -1215,6 +1217,9 @@ export default function YumeDashboard() {
                             <div style={{ fontSize: 15.5, fontWeight: 600, color: UI.ink, lineHeight: 1.6, marginBottom: 6, letterSpacing: "-0.015em" }}>{c.text}</div>
                             <div style={{ fontSize: 14, color: UI.ink2, lineHeight: 1.7 }}>{c.explanation}</div>
                             <NecPanel nec={c.nec} />
+                            {c.nec?.grade === "nonexistent" && result.id && (
+                              <BountyPrompt claim={c} claimIdx={i} verificationId={result.id} user={user} onNeedLogin={() => setAuthModal("login")} />
+                            )}
                           </div>
                         </motion.div>
                       ))}

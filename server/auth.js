@@ -18,6 +18,7 @@ import { sendMail } from "./mailer.js";
 import { audit } from "./audit.js";
 import { effectivePlan, PLANS, peekUsage } from "./usageStore.js";
 import { logError } from "./errorLog.js";
+import { attachReferral } from "./referral.js";
 
 const scrypt = promisify(crypto.scrypt);
 const SESSION_COOKIE = "yume_sid";
@@ -174,6 +175,8 @@ router.post("/auth/signup", limitMiddleware(signupLimiter, (req) => `signup:${cl
   const userId = user.id;
   await audit(`user:${userId}`, "signup", `user:${userId}`, { dataConsent: !!dataConsent }, clientIp(req));
   await createSession(res, req, userId);
+  // 추천 코드로 들어온 가입이면 연결만 해둔다(크레딧은 이 사람이 첫 검증을 마칠 때).
+  if (req.body?.referralCode) await attachReferral({ inviteeId: userId, code: req.body.referralCode, ip: clientIp(req) });
   res.status(201).json({ user: publicUser(user) });
 });
 

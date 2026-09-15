@@ -10,6 +10,9 @@ import { getVerification } from "./verificationStore.js";
 import { PLANS, grantTokens, walletBalance, effectivePlan } from "./usageStore.js";
 import { datasetStats, previewDataset, createExport, listExports, revokeExport } from "./dataset.js";
 import { clientIp } from "./security.js";
+import { BOUNTY_CREDITS, CREDIT_KRW, creditStats, handleRedemption, listRedemptions } from "./credits.js";
+import { bountyStats, listBounties, reviewBounty } from "./bounty.js";
+import { listReferralsForReview, resolveReferralReview } from "./referral.js";
 
 // 운영자 전용 API. 관리자 권한(role=admin, ADMIN_EMAILS로 지정) 세션이 있거나, 스크립트용으로
 // X-Admin-Key 헤더에 ADMIN_SECRET을 보내야 한다. 개인정보를 열람·반출하는 동작은 전부
@@ -294,6 +297,42 @@ router.post("/dataset/exports/:id/revoke", async (req, res) => {
   res.json({ ok: true });
 });
 
+// ── 크레딧: 제보 검토·교환 처리·추천 확인 ──
+router.get("/credits", async (req, res) => {
+  res.json({
+    stats: { ...(await creditStats()), bounty: await bountyStats() },
+    bounties: await listBounties(req.query.status || null),
+    redemptions: await listRedemptions(req.query.redemptionStatus || null),
+    referrals: await listReferralsForReview(),
+    defaults: { bountyCredits: BOUNTY_CREDITS, creditKrw: CREDIT_KRW },
+  });
+});
+
+router.post("/bounties/:id/review", async (req, res) => {
+  const id = Number(req.params.id);
+  const { decision, credits, note } = req.body || {};
+  const r = await reviewBounty(id, { decision, credits, note, reviewerId: req.user?.id ?? null });
+  if (r.error) return res.status(400).json({ error: r.error });
+  await audit(req.adminActor, `bounty_${r.status}`, `bounty:${id}`, { credits: r.credits }, clientIp(req));
+  res.json(r);
+});
+
+router.post("/redemptions/:id/handle", async (req, res) => {
+  const id = Number(req.params.id);
+  const r = await handleRedemption(id, req.body?.decision, req.body?.note);
+  if (r.error) return res.status(400).json({ error: r.error });
+  await audit(req.adminActor, `redemption_${r.status}`, `redemption:${id}`, null, clientIp(req));
+  res.json(r);
+});
+
+router.post("/referrals/:id/resolve", async (req, res) => {
+  const id = Number(req.params.id);
+  const r = await resolveReferralReview(id, !!req.body?.approve, req.user?.id ?? null);
+  if (r.error) return res.status(400).json({ error: r.error });
+  await audit(req.adminActor, `referral_${r.status}`, `referral:${id}`, null, clientIp(req));
+  res.json(r);
+});
+
 // ── 대화·오류·감사 ──
 router.get("/chats", async (req, res) => res.json({ conversations: await listConversations({ limit: 100, channel: req.query.channel || null }) }));
 
@@ -306,7 +345,7 @@ router.get("/errors", async (req, res) => res.json({ errors: await listErrors(20
 router.get("/audit", async (req, res) => res.json({ logs: await listAudit(300) }));
 
 // ── DB ──
-const TABLES = ["users", "sessions", "verifications", "claims", "api_keys", "api_usage", "usage_daily", "wallets", "chat_messages", "error_logs", "audit_logs", "data_exports", "settings"];
+const TABLES = ["users", "sessions", "verifications", "claims", "api_keys", "api_usage", "usage_daily", "wallets", "chat_messages", "error_logs", "audit_logs", "data_exports", "settings", "credit_ledger", "bounty_claims", "redemptions", "referrals"];
 
 router.get("/db", async (req, res) => {
   const tables = [];

@@ -349,6 +349,85 @@ const MIGRATIONS = [
     END IF;
   END $$;
   `,
+  // 크레딧 — 제보 보상·추천 보상으로 쌓이고 상품 교환으로 빠져나간다.
+  // 잔액은 따로 들고 있지 않고 원장(credit_ledger)의 합으로만 구한다. 지급·차감 경위가
+  // 전부 남아야 정산·분쟁 대응이 되기 때문이고, 합계가 음수로 내려가지 않게 하는 건
+  // 차감하는 쪽(credits.spend)에서 트랜잭션으로 막는다.
+  `
+  CREATE TABLE credit_ledger (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    delta INTEGER NOT NULL,
+    reason TEXT NOT NULL,
+    ref TEXT,
+    memo TEXT,
+    created_at BIGINT NOT NULL
+  );
+  CREATE INDEX idx_credit_user ON credit_ledger(user_id, id);
+
+  CREATE TABLE bounty_claims (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    verification_id TEXT REFERENCES verifications(id) ON DELETE SET NULL,
+    claim_idx INTEGER,
+    platform TEXT NOT NULL,
+    share_url TEXT NOT NULL,
+    dedup_key TEXT NOT NULL,
+    identifier_type TEXT,
+    identifier_value TEXT,
+    claim_text TEXT NOT NULL,
+    nec_score DOUBLE PRECISION,
+    nec_grade TEXT,
+    link_check TEXT,
+    link_check_note TEXT,
+    status TEXT NOT NULL DEFAULT 'pending',
+    credits INTEGER NOT NULL DEFAULT 0,
+    reviewer_note TEXT,
+    reviewed_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    reviewed_at BIGINT,
+    created_at BIGINT NOT NULL
+  );
+  -- 같은 플랫폼에서 같은 가짜 인용은 한 번만 보상한다(반려된 건은 다시 제보할 수 있게 열어둔다).
+  CREATE UNIQUE INDEX idx_bounty_dedup ON bounty_claims(dedup_key) WHERE status IN ('pending', 'approved');
+  CREATE INDEX idx_bounty_status ON bounty_claims(status, created_at);
+  CREATE INDEX idx_bounty_user ON bounty_claims(user_id, created_at);
+
+  CREATE TABLE redemptions (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    item_key TEXT NOT NULL,
+    item_label TEXT NOT NULL,
+    credits INTEGER NOT NULL,
+    contact TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'requested',
+    admin_note TEXT,
+    created_at BIGINT NOT NULL,
+    handled_at BIGINT
+  );
+  CREATE INDEX idx_redemption_status ON redemptions(status, created_at);
+  CREATE INDEX idx_redemption_user ON redemptions(user_id, created_at);
+
+  ALTER TABLE users ADD COLUMN referral_code TEXT;
+  ALTER TABLE users ADD COLUMN referred_by BIGINT REFERENCES users(id) ON DELETE SET NULL;
+  CREATE UNIQUE INDEX idx_users_refcode ON users(referral_code);
+
+  CREATE TABLE referrals (
+    id BIGSERIAL PRIMARY KEY,
+    referrer_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    invitee_id BIGINT NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+    status TEXT NOT NULL DEFAULT 'pending',
+    signup_ip TEXT,
+    same_ip INTEGER NOT NULL DEFAULT 0,
+    credited_at BIGINT,
+    created_at BIGINT NOT NULL
+  );
+  CREATE INDEX idx_referrals_referrer ON referrals(referrer_id, status);
+
+  ALTER TABLE credit_ledger ENABLE ROW LEVEL SECURITY;
+  ALTER TABLE bounty_claims ENABLE ROW LEVEL SECURITY;
+  ALTER TABLE redemptions ENABLE ROW LEVEL SECURITY;
+  ALTER TABLE referrals ENABLE ROW LEVEL SECURITY;
+  `,
 ];
 
 async function migrate() {

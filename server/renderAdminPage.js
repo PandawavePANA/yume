@@ -86,7 +86,7 @@ export function renderAdminPage() {
 <script>
 var TABS = [
   ["overview", "개요"], ["users", "회원"], ["verifications", "검증 기록"], ["api", "API · 과금"],
-  ["dataset", "데이터셋 판매"], ["chats", "대화"], ["errors", "오류"], ["audit", "감사 로그"], ["db", "DB"]
+  ["dataset", "데이터셋 판매"], ["credits", "크레딧"], ["chats", "대화"], ["errors", "오류"], ["audit", "감사 로그"], ["db", "DB"]
 ];
 var state = { tab: "overview", me: null };
 var PLAN_LABEL = { free: "무료", standard: "스탠다드", expert: "전문가", business: "비즈니스" };
@@ -148,7 +148,7 @@ function go(tab) {
   state.tab = tab; location.hash = tab;
   Array.prototype.forEach.call($("nav").children, function (b) { b.classList.toggle("on", b.getAttribute("data-tab") === tab); });
   $("main").innerHTML = '<div class="empty">불러오는 중…</div>';
-  var fn = { overview: renderOverview, users: renderUsers, verifications: renderVerifications, api: renderApi, dataset: renderDataset, chats: renderChats, errors: renderErrors, audit: renderAudit, db: renderDb }[tab];
+  var fn = { overview: renderOverview, users: renderUsers, verifications: renderVerifications, api: renderApi, dataset: renderDataset, credits: renderCredits, chats: renderChats, errors: renderErrors, audit: renderAudit, db: renderDb }[tab];
   fn().catch(function (e) { $("main").innerHTML = '<div class="panel"><div class="err">' + esc(e.message) + "</div></div>"; });
 }
 
@@ -377,6 +377,74 @@ async function renderDataset() {
     } catch (e) { $("eout").innerHTML = '<div class="err">' + esc(e.message) + "</div>"; }
   };
   document.querySelectorAll("[data-rv]").forEach(function (b) { b.onclick = async function () { if (!confirm("이 반출 링크를 회수할까요?")) return; await api("/api/admin/dataset/exports/" + b.getAttribute("data-rv") + "/revoke", { method: "POST" }); go("dataset"); }; });
+}
+
+// ── 크레딧 ──
+var LINK_LABEL = { found: "링크에서 확인됨", not_found: "링크에서 못 찾음", unreachable: "링크 열지 못함", checking: "확인 중" };
+
+async function renderCredits() {
+  var d = await api("/api/admin/credits");
+  var s = d.stats;
+  var pend = d.bounties.filter(function (b) { return b.status === "pending"; });
+  var reqs = d.redemptions.filter(function (r) { return r.status === "requested"; });
+
+  $("main").innerHTML = '<h1>크레딧</h1><div class="sub">제보 보상 · 상품 교환 · 친구 추천. 승인하면 그 자리에서 크레딧이 지급됩니다.</div>' +
+    '<div class="grid">' +
+      kpi("검토 대기 제보", n(s.bounty.pending)) +
+      kpi("승인된 제보", n(s.bounty.approved)) +
+      kpi("미사용 크레딧", n(s.outstanding), "약 " + n(s.outstandingKrw) + "원 상당") +
+      kpi("교환 처리 대기", n(s.pendingRedemptions)) +
+    "</div>" +
+
+    '<div class="panel"><h2>제보 검토' + (pend.length ? " (" + pend.length + ")" : "") + "</h2>" +
+    '<div class="muted" style="margin-bottom:10px;">공유 링크를 직접 열어 그 AI가 실제로 한 말인지 확인한 뒤 승인하세요. 링크 자동 확인은 참고용입니다(공유 페이지 상당수가 자바스크립트로 본문을 그려서 못 찾을 수 있어요).</div>' +
+    '<div class="tablewrap"><table><thead><tr><th>제보자</th><th>플랫폼</th><th>인용</th><th>링크</th><th>자동 확인</th><th>상태</th><th></th></tr></thead><tbody>' +
+    (d.bounties.length ? d.bounties.map(function (b) {
+      return "<tr><td>" + esc(b.email) + "</td><td>" + esc(b.platform) + "</td><td><b>" + esc(b.identifier_value) + "</b><div class=\\"muted\\">" + esc(String(b.claim_text || "").slice(0, 60)) + "</div></td>" +
+        '<td><a href="' + safeUrl(b.share_url) + '" target="_blank" rel="noreferrer noopener">열기</a></td>' +
+        "<td>" + badge(b.link_check === "found" ? "ok" : "warn", LINK_LABEL[b.link_check] || "-") + "</td>" +
+        "<td>" + badge(b.status, b.status === "approved" ? "승인 +" + n(b.credits) : b.status === "pending" ? "검토 중" : b.status === "rejected" ? "반려" : "중복") + "</td>" +
+        "<td>" + (b.status === "pending" ? '<button class="btn" data-ok="' + b.id + '">승인</button> <button class="btn" data-no="' + b.id + '">반려</button>' : esc(b.reviewer_note || "")) + "</td></tr>";
+    }).join("") : '<tr><td colspan="7" class="empty">제보가 없어요.</td></tr>') + "</tbody></table></div></div>" +
+
+    '<div class="panel"><h2>상품 교환' + (reqs.length ? " (" + reqs.length + ")" : "") + "</h2>" +
+    '<div class="muted" style="margin-bottom:10px;">신청받은 상품은 운영자가 직접 구매해 보냅니다. 취소하면 크레딧이 자동으로 환급돼요.</div>' +
+    '<div class="tablewrap"><table><thead><tr><th>신청자</th><th>상품</th><th>크레딧</th><th>받을 곳</th><th>신청일</th><th>상태</th><th></th></tr></thead><tbody>' +
+    (d.redemptions.length ? d.redemptions.map(function (r) {
+      return "<tr><td>" + esc(r.email) + "</td><td>" + esc(r.item_label) + "</td><td>" + n(r.credits) + "</td><td>" + esc(r.contact) + "</td><td>" + t(r.created_at) + "</td>" +
+        "<td>" + badge(r.status === "fulfilled" ? "ok" : r.status === "cancelled" ? "warn" : "pending", r.status === "fulfilled" ? "발송 완료" : r.status === "cancelled" ? "취소(환급)" : "대기") + "</td>" +
+        "<td>" + (r.status === "requested" ? '<button class="btn" data-rf="' + r.id + '">발송 완료</button> <button class="btn" data-rc="' + r.id + '">취소</button>' : esc(r.admin_note || "")) + "</td></tr>";
+    }).join("") : '<tr><td colspan="7" class="empty">교환 신청이 없어요.</td></tr>') + "</tbody></table></div></div>" +
+
+    '<div class="panel"><h2>추천 확인</h2>' +
+    '<div class="muted" style="margin-bottom:10px;">추천인과 같은 IP에서 가입한 건은 자동 지급하지 않고 여기로 넘어옵니다(다계정 확인용).</div>' +
+    '<div class="tablewrap"><table><thead><tr><th>추천인</th><th>가입자</th><th>같은 IP</th><th>상태</th><th></th></tr></thead><tbody>' +
+    (d.referrals.length ? d.referrals.map(function (r) {
+      return "<tr><td>" + esc(r.referrer_email) + "</td><td>" + esc(r.invitee_email) + "</td><td>" + (r.same_ip ? badge("warn", "예") : "아니오") + "</td><td>" + esc(r.status) + "</td>" +
+        '<td><button class="btn" data-refok="' + r.id + '">지급</button> <button class="btn" data-refno="' + r.id + '">반려</button></td></tr>';
+    }).join("") : '<tr><td colspan="5" class="empty">확인할 추천이 없어요.</td></tr>') + "</tbody></table></div></div>";
+
+  function act(attr, run) {
+    document.querySelectorAll("[data-" + attr + "]").forEach(function (b) {
+      b.onclick = async function () {
+        try { await run(b.getAttribute("data-" + attr)); go("credits"); } catch (e) { alert(e.message); }
+      };
+    });
+  }
+  act("ok", function (id) {
+    var note = prompt("승인 사유(선택) — 예: 공유 링크에서 해당 인용 확인");
+    if (note === null) return Promise.resolve();
+    return api("/api/admin/bounties/" + id + "/review", { method: "POST", body: { decision: "approve", note: note } });
+  });
+  act("no", function (id) {
+    var note = prompt("반려 사유 — 제보자에게 표시됩니다", "공유 링크에서 해당 내용을 확인하지 못했어요.");
+    if (note === null) return Promise.resolve();
+    return api("/api/admin/bounties/" + id + "/review", { method: "POST", body: { decision: "reject", note: note } });
+  });
+  act("rf", function (id) { return confirm("보냈다고 표시할까요?") ? api("/api/admin/redemptions/" + id + "/handle", { method: "POST", body: { decision: "fulfill" } }) : Promise.resolve(); });
+  act("rc", function (id) { return confirm("취소하고 크레딧을 돌려줄까요?") ? api("/api/admin/redemptions/" + id + "/handle", { method: "POST", body: { decision: "cancel" } }) : Promise.resolve(); });
+  act("refok", function (id) { return api("/api/admin/referrals/" + id + "/resolve", { method: "POST", body: { approve: true } }); });
+  act("refno", function (id) { return api("/api/admin/referrals/" + id + "/resolve", { method: "POST", body: { approve: false } }); });
 }
 
 // ── 대화 ──

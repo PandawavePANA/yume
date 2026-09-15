@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { apiJson } from "./api";
+import CreditsTab from "./CreditsTab";
 
 const TABS = [
   ["profile", "프로필"],
+  ["credits", "크레딧"],
   ["api", "API 키"],
   ["data", "데이터"],
   ["security", "보안"],
@@ -270,6 +272,7 @@ export default function AccountModal({ user, usage, initialTab = "profile", onCl
           ))}
         </div>
         {tab === "profile" && <ProfileTab user={user} usage={usage} onUserChange={onUserChange} />}
+        {tab === "credits" && <CreditsTab />}
         {tab === "api" && <ApiTab />}
         {tab === "data" && <DataTab user={user} onUserChange={onUserChange} />}
         {tab === "security" && <SecurityTab onLoggedOut={onLoggedOut} />}

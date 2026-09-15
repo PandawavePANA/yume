@@ -17,6 +17,8 @@ import { runVerification, MAX_INPUT_CHARS } from "./verifyPipeline.js";
 import { getVerification, newVerificationId, trimUserHistory } from "./verificationStore.js";
 import authRouter, { attachUser, purgeExpiredAuth } from "./auth.js";
 import accountRouter from "./accountApi.js";
+import creditsRouter from "./creditsApi.js";
+import { creditReferralOnActivity } from "./referral.js";
 import apiV1Router from "./apiV1.js";
 import adminApiRouter from "./adminApi.js";
 import { openExportDownload, purgeOldExportFiles } from "./dataset.js";
@@ -41,6 +43,7 @@ app.use("/v1", apiV1Router);
 app.use("/api", attachUser, sameOriginGuard);
 app.use("/api", authRouter);
 app.use("/api", accountRouter);
+app.use("/api", creditsRouter);
 
 const verifyLimiter = createLimiter({ windowMs: 60_000, max: 6 });
 const chatLimiter = createLimiter({ windowMs: 60_000, max: 20 });
@@ -82,7 +85,11 @@ app.post("/api/verify", limitMiddleware(verifyLimiter, (req) => `verify:${client
       dataConsent: !!user?.data_consent,
       onProgress: (message) => send("progress", { message }),
     });
-    if (user) await trimUserHistory(user.id, PLANS[usage.plan].historyLimit);
+    if (user) {
+      await trimUserHistory(user.id, PLANS[usage.plan].historyLimit);
+      // 추천으로 가입한 사람이 첫 검증을 마치면 추천한 사람에게 크레딧이 지급된다.
+      await creditReferralOnActivity(user.id);
+    }
     send("result", { ...result, id, elapsedMs: Date.now() - startedAt, fromCache, usage: await peekUsage({ user, ip }) });
   } catch (e) {
     await refundOne({ user, ip, usedFree: usage.usedFree }).catch(() => {});

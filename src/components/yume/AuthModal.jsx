@@ -43,7 +43,9 @@ export default function AuthModal({ mode: initialMode = "login", onClose, onAuth
         setNotice(r.message);
       } else if (mode === "signup") {
         if (!terms || !privacy) throw new Error("필수 항목에 동의해주세요.");
-        const r = await apiJson("/api/auth/signup", { method: "POST", body: { email, password, name, agreeTerms: terms, agreePrivacy: privacy, dataConsent } });
+        // 추천 링크(?ref=코드)로 들어왔다면 같이 보낸다 — 친구가 첫 검증을 마치면 추천한 사람에게 크레딧이 간다.
+        const referralCode = new URLSearchParams(window.location.search).get("ref") || undefined;
+        const r = await apiJson("/api/auth/signup", { method: "POST", body: { email, password, name, agreeTerms: terms, agreePrivacy: privacy, dataConsent, referralCode } });
         onAuthed(r.user);
       } else {
         const r = await apiJson("/api/auth/login", { method: "POST", body: { email, password } });
