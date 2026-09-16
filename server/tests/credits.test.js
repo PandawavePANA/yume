@@ -190,10 +190,11 @@ test("크레딧 구매는 신청만 받고, 입금 확인 뒤에야 지급된다
   const { c, id: userId } = await signedUpUser("buy@yume.test");
   const before = (await c("GET", "/api/credits")).data.balance;
 
-  const noContact = await c("POST", "/api/credit-packs", { packKey: "pack_100", contact: "" });
+  const pack = credits.CREDIT_PACKS[0];
+  const noContact = await c("POST", "/api/credit-packs", { packKey: pack.key, contact: "" });
   assert.equal(noContact.status, 400);
 
-  const ok = await c("POST", "/api/credit-packs", { packKey: "pack_100", contact: "010-1234-5678" });
+  const ok = await c("POST", "/api/credit-packs", { packKey: pack.key, contact: "010-1234-5678" });
   assert.equal(ok.status, 201, JSON.stringify(ok.data));
 
   // 신청만으로는 절대 늘지 않는다 — 결제 없이 크레딧을 주면 안 된다
@@ -203,7 +204,7 @@ test("크레딧 구매는 신청만 받고, 입금 확인 뒤에야 지급된다
   await admin("POST", "/api/auth/login", { email: "admin@yume.test", password: "passw0rd!" });
   const done = await admin("POST", `/api/admin/redemptions/${ok.data.request.id}/handle`, { decision: "fulfill" });
   assert.equal(done.status, 200, JSON.stringify(done.data));
-  assert.equal((await c("GET", "/api/credits")).data.balance, before + 100, "입금이 확인되면 그때 들어간다");
+  assert.equal((await c("GET", "/api/credits")).data.balance, before + pack.credits, "입금이 확인되면 그때 들어간다");
 });
 
 test("요금제 월 지급은 같은 달에 두 번 들어오지 않는다", async () => {
@@ -227,6 +228,49 @@ test("크레딧이 모자라면 차감되지 않고, 동시에 써도 음수가 
   assert.equal(results.filter(Boolean).length, 1, "한 번만 차감돼야 한다");
   assert.equal(await credits.balance(userId), 0);
   assert.equal(await credits.spendOne(userId, null), false, "잔액이 없으면 false");
+});
+
+// 길이 비례 차감 — 원가가 입력 길이에 따라 몇 배씩 달라지므로, 한 건을 무조건
+// 1크레딧으로 받으면 긴 문서를 넣는 쪽이 짧게 쓰는 쪽의 보조를 받는다.
+test("긴 입력은 길이만큼 크레딧을 더 쓰고, 실패하면 쓴 만큼 돌아온다", async () => {
+  const usage = await import("../usageStore.js");
+  const { id: userId } = await signedUpUser("long@yume.test");
+  const user = { id: userId, plan: "free" };
+
+  assert.equal(credits.creditsFor(0), 1, "빈 입력도 최소 1크레딧");
+  assert.equal(credits.creditsFor(credits.CHARS_PER_CREDIT), 1, "경계값은 1크레딧");
+  assert.equal(credits.creditsFor(credits.CHARS_PER_CREDIT + 1), 2, "한 자만 넘어도 다음 칸");
+
+  await credits.ensureMonthlyGrant(user);
+  const before = await credits.balance(userId);
+
+  const chars = credits.CHARS_PER_CREDIT * 3;
+  const r = await usage.checkAndConsume({ user, ip: "10.9.9.9", chars });
+  assert.equal(r.allowed, true, JSON.stringify(r));
+  assert.equal(r.creditsSpent, 3, "2,000자 세 칸이면 3크레딧");
+  assert.equal(await credits.balance(userId), before - 3);
+
+  // 서버 오류로 실패하면 차감한 만큼 그대로 돌려줘야 한다 — 1개만 돌리면 2개를 잃는다.
+  await usage.refundOne({ user, ip: "10.9.9.9", usedFree: r.usedFree, creditsSpent: r.creditsSpent });
+  assert.equal(await credits.balance(userId), before, "쓴 만큼 전부 환급");
+});
+
+// 잔액이 남아 있는데 이번 입력에는 모자란 경우가 생긴다. 이때 부분 차감을 하면
+// 돈만 받고 검증을 못 해 주는 상태가 된다.
+test("잔액이 이번 입력에 모자라면 한 개도 차감하지 않는다", async () => {
+  const usage = await import("../usageStore.js");
+  const { id: userId } = await signedUpUser("short@yume.test");
+  const user = { id: userId, plan: "free" };
+
+  await credits.ensureMonthlyGrant(user);
+  const bal = await credits.balance(userId);
+  assert.equal(await credits.spend(userId, bal - 2, "verify"), true, "2개만 남긴다");
+
+  const r = await usage.checkAndConsume({ user, ip: "10.9.9.8", chars: credits.CHARS_PER_CREDIT * 3 });
+  assert.equal(r.allowed, false);
+  assert.equal(r.reason, "no_credits");
+  assert.equal(r.needed, 3, "얼마가 필요한지 알려준다");
+  assert.equal(await credits.balance(userId), 2, "모자라면 그대로 둔다");
 });
 
 test("추천: 가입만으로는 지급되지 않고, 친구가 검증을 마쳐야 지급된다", async () => {
@@ -415,8 +459,8 @@ test("분기 마감 — 4~10위는 크레딧이 들어가고, 1~3위는 보낼 �
 
   const after = await Promise.all(ids.map((id) => credits.balance(id)));
   assert.equal(after[0], before[0], "골드바 수상자에게 크레딧이 들어가면 안 된다");
-  assert.equal(after[3] - before[3], 1000, "4위 크레딧 지급");
-  assert.equal(after[5] - before[5], 300, "6위 크레딧 지급");
+  assert.equal(after[3] - before[3], contribution.rewardForRank(4).credits, "4위 크레딧 지급");
+  assert.equal(after[5] - before[5], contribution.rewardForRank(6).credits, "6위 크레딧 지급");
 
   // 두 번 마감해도 상은 한 번만
   const again = await contribution.settleQuarter(period);

@@ -14,11 +14,15 @@ import { now } from "./db.js";
 //
 // dailyLimit은 그 위에 얹는 공정 이용 한도다. 월 크레딧이 남아 있어도 하루에
 // 몰아 쓰는 건 막는다. 로그인하지 않은 사람은 크레딧이 없으니 이 한도만으로 움직인다.
+// 하루 한도는 월 크레딧과 별개의 안전장치다. 월 지급분이 남아 있어도 하루에 몰아
+// 쓰지 못하게 막는다. 예전에는 월 3,000 크레딧에 하루 200회처럼 한도가 서로 맞지
+// 않아서, 한도가 걸리기 전에 원가가 먼저 터지는 구조였다. 이제 월 지급량의 절반쯤을
+// 하루 상한으로 둔다 — 정상 사용은 걸리지 않고, 폭주만 걸린다.
 export const PLANS = {
-  free: { label: "무료", dailyLimit: 5, historyLimit: 50 },
-  standard: { label: "스탠다드", dailyLimit: 200, historyLimit: null },
-  expert: { label: "전문가", dailyLimit: 500, historyLimit: null },
-  business: { label: "비즈니스", dailyLimit: 2000, historyLimit: null },
+  free: { label: "무료", dailyLimit: 3, historyLimit: 50 },
+  standard: { label: "스탠다드", dailyLimit: 15, historyLimit: null },
+  expert: { label: "전문가", dailyLimit: 40, historyLimit: null },
+  business: { label: "비즈니스", dailyLimit: 120, historyLimit: null },
 };
 export const FREE_DAILY_LIMIT = PLANS.free.dailyLimit;
 export const TOKEN_PRICE_KRW = 100;
@@ -33,6 +37,21 @@ export const TOKEN_PRICE_KRW = 100;
 // 그래서 키를 만들면 누구나 같은 체험 한도로 시작하고, 그 위는 운영자가 계약에 따라
 // 올린다(관리자 대시보드). 개인 크레딧이 줄어도 API 한도는 그대로이고, 반대도 같다.
 export const API_TRIAL_QUOTA = 100;
+
+// API 요율표. 개인 요금제와 단가가 다른 이유는 고객이 다르기 때문이다 — 개인은 자기
+// 답변을 확인하고, 기업은 자기 고객에게 나갈 답변을 거른다. 건당 원가는 같지만
+// 한 건이 막아 주는 손해의 크기가 다르다.
+//
+// 아래 단가는 전부 실측 원가(검증 1건 약 210원)를 기준으로 잡았다. 종량제가 가장
+// 비싸고 약정 물량이 클수록 싸지되, 가장 싼 구간도 원가율이 45%를 넘지 않게 두었다.
+export const API_RATES = {
+  trial: { label: "체험", calls: API_TRIAL_QUOTA, krw: 0 },
+  metered: { label: "종량제", unitKrw: 700 },
+  tiers: [
+    { key: "starter", label: "스타터", monthlyKrw: 290000, calls: 500 },
+    { key: "growth", label: "그로스", monthlyKrw: 900000, calls: 1800 },
+  ],
+};
 
 export function effectivePlan(user) {
   if (!user) return "free";

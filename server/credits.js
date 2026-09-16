@@ -21,18 +21,40 @@ import { PLANS, effectivePlan } from "./plans.js";
 export const CREDIT_KRW = 100;
 
 // 요금제별 월 지급량. 여기가 유일한 기준이고 화면은 이 값을 받아 표시만 한다.
+// 검증 1건의 실측 원가는 0.05~0.23달러, 중앙값 약 0.15달러다(apiCost.js가 건마다
+// 기록한다). 환율 1,400원이면 건당 약 210원이다. 월 지급량은 이 원가에서 거꾸로
+// 잡았다 — 요금제를 전부 소진해도 원가율이 55%를 넘지 않는 선이다.
+//
+// 예전 값(무료 100, 스탠다드 3,000, 전문가 10,000)은 이 계산을 하지 않고 정한
+// 숫자였다. 스탠다드를 다 쓰면 9,000원을 받고 63만원을 쓰는 구조여서, 많이 팔릴수록
+// 손실이 커졌다. 쓰는 만큼 원가가 나가는 서비스에서 지급량은 가격만큼 중요한 값이다.
+export const CREDIT_COST_KRW = 210;
+
 export const PLAN_CREDITS = {
-  free: 100,
-  standard: 3000,
-  expert: 10000,
-  business: 60000,
+  free: 10,
+  standard: 25,
+  expert: 75,
+  business: 260,
 };
 
+// 입력이 길수록 주장이 많고 검색도 많아져 원가가 그만큼 올라간다. 길이와 무관하게
+// 1건을 1크레딧으로 받으면 긴 문서를 붙여넣는 쪽이 짧게 쓰는 쪽에게 보조를 받는다.
+// 그래서 2,000자를 한 칸으로 끊어 차감한다 — 요청을 받은 시점에 이미 아는 값이라
+// 사용자에게 미리 알려줄 수 있고, 최대 입력 10,000자이므로 한 번에 5크레딧이 상한이다.
+export const CHARS_PER_CREDIT = 2000;
+
+export function creditsFor(chars) {
+  const n = Number(chars) || 0;
+  return Math.max(1, Math.ceil(n / CHARS_PER_CREDIT));
+}
+
 // 추가 구매 팩. 결제 연동 전이라 화면에서는 신청만 받고, 입금이 확인되면 운영자가 지급한다.
+// 추가 구매는 구독보다 건당 단가가 높다. 예산을 미리 정한 구독 쪽이 우리도 예측이
+// 되고 사용자도 싸기 때문에, 구독으로 가는 게 서로 이득이 되도록 두었다.
 export const CREDIT_PACKS = [
-  { key: "pack_100", label: "100 크레딧", credits: 100, krw: 10000 },
-  { key: "pack_500", label: "500 크레딧", credits: 500, krw: 45000 },
-  { key: "pack_2000", label: "2,000 크레딧", credits: 2000, krw: 160000 },
+  { key: "pack_20", label: "20 크레딧", credits: 20, krw: 12000 },
+  { key: "pack_60", label: "60 크레딧", credits: 60, krw: 33000 },
+  { key: "pack_200", label: "200 크레딧", credits: 200, krw: 100000 },
 ];
 
 export const packItem = (key) => CREDIT_PACKS.find((i) => i.key === key) || null;
@@ -113,6 +135,13 @@ export async function spend(userId, amount, reason, { ref = null, memo = null } 
 // 검증 1건 차감. 없으면 false — 호출부가 "크레딧이 부족하다"고 안내한다.
 export function spendOne(userId, ref) {
   return spend(userId, 1, "verify", { ref });
+}
+
+// 입력 길이만큼 차감한다. 반환값은 실제로 빠진 크레딧 수이며, 잔액이 모자라면 0이다
+// (부분 차감은 하지 않는다 — 절반만 받고 검증을 못 해 주면 그게 더 나쁘다).
+export async function spendForVerification(userId, chars, ref) {
+  const cost = creditsFor(chars);
+  return (await spend(userId, cost, "verify", { ref })) ? cost : 0;
 }
 
 // ── 추가 구매 신청 ──

@@ -88,7 +88,7 @@ export async function kakaoSkillHandler(req, res) {
       res.json(textReply(prefix + '검증하고 싶은 내용을 함께 붙여넣어 주세요. 예: "[뉴스 내용] 검증해줘"'));
       return remember([{ role: "user", content: utterance }]);
     }
-    const usage = await checkAndConsume({ kakaoId });
+    const usage = await checkAndConsume({ kakaoId, chars: verifyText.length });
     if (!usage.allowed) {
       res.json(textReply(prefix + `오늘 무료 확인 ${FREE_DAILY_LIMIT}회를 다 쓰셨어요. 내일 다시 이용해주세요. 더 많이 확인하려면 유메 웹사이트에서 가입해 요금제를 이용할 수 있어요.`));
       return remember([{ role: "user", content: utterance }]);
@@ -97,7 +97,7 @@ export async function kakaoSkillHandler(req, res) {
 
     const id = newVerificationId();
     const { done } = await startVerification({ id, text: verifyText, source: "kakao", clientKey, dataConsent: false });
-    done.catch(() => refundOne({ kakaoId, usedFree: usage.usedFree }).catch(() => {}));
+    done.catch(() => refundOne({ kakaoId, usedFree: usage.usedFree, creditsSpent: usage.creditsSpent }).catch(() => {}));
     const resultUrl = `${baseUrl(req)}/r/${id}`;
     // 같은 내용을 이미 검증했다면 캐시로 곧바로 끝나므로 아주 잠깐만 기다려 본다.
     await Promise.race([done.catch(() => null), new Promise((r) => setTimeout(r, 300))]);

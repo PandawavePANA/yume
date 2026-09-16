@@ -59,7 +59,13 @@ const chatDailyLimiter = createLimiter({ windowMs: 24 * 3600 * 1000, max: 150 })
 function limitMessage(usage, user) {
   if (usage.reason === "ip_ceiling") return "같은 네트워크에서 오늘 쓸 수 있는 무료 확인 횟수를 모두 사용했어요. 내일 다시 이용해주세요.";
   // 크레딧 소진은 하루 한도와 다른 문제다 — 내일이 되어도 풀리지 않으니 그렇게 안내한다.
-  if (usage.reason === "no_credits") return "이번 달 크레딧을 모두 사용했어요. 계정 설정 → 크레딧에서 추가로 구매하거나, 다음 달 지급을 기다려주세요.";
+  if (usage.reason === "no_credits") {
+    // 길이만큼 차감하므로, 잔액은 있는데 이번 입력에는 모자란 경우가 생긴다.
+    // 그때 "모두 사용했다"고만 하면 화면의 잔액과 말이 어긋난다.
+    return usage.credits > 0
+      ? `이번 입력은 ${usage.needed}크레딧이 필요한데 ${usage.credits}크레딧이 남아 있어요. 더 짧게 나눠 넣거나 크레딧을 추가로 구매해주세요.`
+      : "이번 달 크레딧을 모두 사용했어요. 계정 설정 → 크레딧에서 추가로 구매하거나, 다음 달 지급을 기다려주세요.";
+  }
   if (usage.plan !== "free") return `오늘 공정 이용 한도(${usage.dailyLimit}회)에 도달했어요. 내일 다시 이용해주세요.`;
   if (!user) return `오늘 무료 확인 ${usage.dailyLimit}회를 다 쓰셨어요. 로그인하면 기록이 저장되고, 요금제로 더 많이 확인할 수 있어요.`;
   return `오늘 무료 확인 ${usage.dailyLimit}회를 다 쓰셨어요. 내일 다시 이용하거나 요금제를 확인해주세요.`;
@@ -72,7 +78,7 @@ app.post("/api/verify", limitMiddleware(verifyLimiter, (req) => `verify:${client
 
   const user = req.user;
   const ip = clientIp(req);
-  const usage = await checkAndConsume({ user, ip });
+  const usage = await checkAndConsume({ user, ip, chars: text.length });
   if (!usage.allowed) return res.status(402).json({ error: limitMessage(usage, user), limitReached: true, loggedIn: !!user });
 
   res.writeHead(200, {
@@ -104,7 +110,7 @@ app.post("/api/verify", limitMiddleware(verifyLimiter, (req) => `verify:${client
     }
     send("result", { ...result, id, elapsedMs: Date.now() - startedAt, fromCache, usage: await peekUsage({ user, ip }) });
   } catch (e) {
-    await refundOne({ user, ip, usedFree: usage.usedFree }).catch(() => {});
+    await refundOne({ user, ip, usedFree: usage.usedFree, creditsSpent: usage.creditsSpent }).catch(() => {});
     // 상류(Anthropic) 장애는 사용자 잘못이 아니다. 원문 오류를 그대로 보여주면
     // 자기 입력이나 계정 문제로 오해하고 같은 요청을 반복하게 되므로, 원인별 안내로
     // 바꿔 보내고 진짜 원인은 서버 로그에만 남긴다.

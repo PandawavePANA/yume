@@ -75,11 +75,14 @@ export function periodEndsAt(at = Date.now()) {
 
 // 분기 보상. 1~3위는 물건이라 운영자가 직접 보내고, 4~10위는 크레딧이라 마감할 때
 // 지급된다. 서버가 물건을 사거나 돈을 보내는 일은 없다.
+// 크레딧 보상은 월 지급량에 맞춘다. 예전 값(4~5위 1,000 / 6~10위 300)은 지급량이
+// 스탠다드 3,000이던 시절에 정한 것이라, 지금 기준으로는 전문가 요금제 1년치를
+// 분기마다 열 명에게 뿌리는 셈이 된다. 상은 눈에 띄어야 하지만 원가를 넘으면 안 된다.
 export const QUARTER_REWARDS = [
   { from: 1, to: 1, kind: "goldbar", label: "미니 골드바 3.75g (한 돈)", credits: 0 },
   { from: 2, to: 3, kind: "goldbar", label: "미니 골드바 1g", credits: 0 },
-  { from: 4, to: 5, kind: "credits", label: "1,000 크레딧", credits: 1000 },
-  { from: 6, to: 10, kind: "credits", label: "300 크레딧", credits: 300 },
+  { from: 4, to: 5, kind: "credits", label: "100 크레딧", credits: 100 },
+  { from: 6, to: 10, kind: "credits", label: "40 크레딧", credits: 40 },
 ];
 
 export const rewardForRank = (rank) => QUARTER_REWARDS.find((r) => rank >= r.from && rank <= r.to) || null;

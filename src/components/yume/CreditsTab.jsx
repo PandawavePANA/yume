@@ -80,7 +80,7 @@ export default function CreditsTab() {
           <span style={{ fontSize: 14, fontWeight: 600, marginLeft: 4 }}>크레딧</span>
         </div>
         <div style={{ fontSize: 11.5, color: "#8577A8", marginTop: 2 }}>
-          검증 1회에 1크레딧 · 매달 {data.planCredits.toLocaleString()}크레딧이 들어옵니다
+          2,000자당 1크레딧 · 매달 {data.planCredits.toLocaleString()}크레딧이 들어옵니다
         </div>
       </div>
 

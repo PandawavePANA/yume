@@ -23,6 +23,7 @@ const store = await import("../verificationStore.js");
 const { buildNecReport, NEC_WEIGHTS } = await import("../nec/nec.js");
 const { checkCaseNumber } = await import("../nec/identifiers.js");
 const { coverageFor } = await import("../nec/searchSpace.js");
+const { FREE_DAILY_LIMIT } = await import("../plans.js");
 
 let server;
 let base;
@@ -121,7 +122,7 @@ test("다른 출처에서 온 쿠키 요청은 거절(CSRF)", async () => {
 test("비회원 사용량과 입력 검증", async () => {
   const c = client();
   const u = await c("GET", "/api/usage");
-  assert.equal(u.data.remainingFree, 5);
+  assert.equal(u.data.remainingFree, FREE_DAILY_LIMIT);
   assert.equal((await c("POST", "/api/verify", { text: "  " })).status, 400);
   assert.equal((await c("POST", "/api/verify", { text: "가".repeat(10_001) })).status, 413);
   const h = await c("GET", "/api/health");
