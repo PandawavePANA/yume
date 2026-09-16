@@ -31,7 +31,9 @@ async function resolveClaim(claim, onProgress, lookups) {
       continue;
     }
     onProgress(`${lookup.label} ${ident.canonical} 실재 여부 확인 중…`);
-    const r = await lookup.fn(ident.canonical);
+    // 레지스트리가 일시적으로 실패했다고 식별자 확인을 포기하지 않는다. 한 번 더 부른다.
+    let r = await lookup.fn(ident.canonical);
+    if (!r.ok) r = await lookup.fn(ident.canonical);
     if (!r.ok) {
       results.push({ type: raw.type, value: ident.canonical, status: "lookup_failed" });
       continue;
