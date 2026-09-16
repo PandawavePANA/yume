@@ -37,6 +37,21 @@ const app = patchAsync(express());
 // Railway 등 프록시 뒤에서 req.ip가 실제 접속자 IP를 가리키게 한다(무료 한도·요청 제한이 IP 기준).
 app.set("trust proxy", 1);
 app.disable("x-powered-by");
+
+// www 없는 주소로 들어오면 www로 넘긴다.
+//
+// 지금 apex(yume-reamer.com)는 호스팅 업체 파킹 페이지를 가리키고 있어 여기까지 오지도
+// 않지만, DNS를 이 서버로 돌리는 순간 두 주소가 동시에 살아난다. 그러면 같은 사이트가
+// 출처가 다른 두 곳이 되어 세션 쿠키가 갈리고, 공유 링크와 검색 색인도 둘로 쪼개진다.
+// 미리 한 곳으로 모아 둔다.
+const CANONICAL_HOST = process.env.CANONICAL_HOST || "www.yume-reamer.com";
+const APEX_HOST = CANONICAL_HOST.replace(/^www\./, "");
+app.use((req, res, next) => {
+  // trust proxy가 켜져 있어 req.hostname은 프록시가 붙인 X-Forwarded-Host를 따른다.
+  const host = String(req.hostname || "").toLowerCase();
+  if (host !== APEX_HOST) return next();
+  return res.redirect(301, `https://${CANONICAL_HOST}${req.originalUrl}`);
+});
 app.use(securityHeaders);
 app.use(express.json({ limit: "256kb" }));
 

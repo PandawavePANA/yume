@@ -133,9 +133,14 @@ const loginFailLimiter = createLimiter({ windowMs: 15 * 60 * 1000, max: 6 });
 const signupLimiter = createLimiter({ windowMs: 60 * 60 * 1000, max: 10 });
 const resetLimiter = createLimiter({ windowMs: 60 * 60 * 1000, max: 5 });
 
+// 비밀번호 재설정 메일에 들어가는 주소다. 요청이 들어온 호스트를 그대로 쓰면 배포
+// 플랫폼의 내부 도메인이나 www 없는 주소가 메일에 박힌다 — 메일은 고쳐 보낼 수 없다.
+// PUBLIC_BASE_URL을 반드시 설정하되, 빠뜨린 배포에서도 운영 도메인이 나가게 해 둔다.
 function baseUrl(req) {
   if (process.env.PUBLIC_BASE_URL) return process.env.PUBLIC_BASE_URL.replace(/\/$/, "");
-  return `${req.protocol}://${req.get("host")}`;
+  const host = String(req.get("host") || "");
+  if (/^localhost|^127\.|^\[::1\]|^0\.0\.0\.0/.test(host)) return `${req.protocol}://${host}`;
+  return "https://www.yume-reamer.com";
 }
 
 const router = patchAsync(express.Router());
