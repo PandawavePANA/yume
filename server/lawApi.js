@@ -29,7 +29,16 @@ function toPublicUrl(relativeOrAbs) {
   }
 }
 
+// 법제처 API는 간헐적으로 타임아웃·연결 끊김을 낸다(테스트에서 재현됨). 한 번 삐끗했다고
+// 웹 폴백으로 내려가면 그 주장은 조문 원문 대조라는 가장 강한 근거를 잃는다. 한 번 더 부른다.
 async function callLawApi(path, params) {
+  const first = await callLawApiOnce(path, params);
+  if (first.ok || first.reason === "no_oc") return first;
+  await new Promise((r) => setTimeout(r, 400));
+  return callLawApiOnce(path, params);
+}
+
+async function callLawApiOnce(path, params) {
   const OC = process.env.LAW_OC;
   if (!OC) return { ok: false, reason: "no_oc" };
   try {
@@ -133,6 +142,164 @@ export async function searchAdminRule(name) {
     found: !!hit,
     item: hit ? { name: hit["행정규칙명"], url: toPublicUrl(hit["행정규칙상세링크"]) } : null,
     candidates: items.slice(0, 5).map((x) => ({ lawNameOfficial: x["행정규칙명"], detailUrl: toPublicUrl(x["행정규칙상세링크"]) })),
+  };
+}
+
+// ── 행정규칙 발령번호 조회 ────────────────────────────────────────────────
+// 고시·훈령·예규는 "공정거래위원회 고시 제2022-4호"처럼 발령번호로 인용되는 일이 많다.
+// 그런데 법제처 검색 API는 발령번호를 색인하지 않는다 — target=admrul에서 nb는 무시돼
+// query와 같은 전문 검색으로 동작하고, knd(종류)·발령일자 필터도 받지 않는다(라이브 확인).
+// 그래서 소관부처 코드로 그 부처의 행정규칙 목록을 받아 발령번호를 직접 대조한다.
+// org 코드는 부처 본청뿐 아니라 소속기관·공동발령 규칙까지 묶으므로 소관부처명도 함께 본다.
+// 아래 코드는 전부 target=admrul 상세조회의 "소관부처코드"를 그대로 옮긴 것이다(추정 없음).
+const ADMIN_RULE_ORGS = [
+  [["공정거래위원회", "공정위"], "1130000"],
+  [["금융위원회", "금융위", "금융정보분석원", "FIU"], "1160100"],
+  [["국세청"], "1210000"],
+  [["관세청"], "1220000"],
+  [["법무부"], "1270000"],
+  [["경찰청"], "1320000"],
+  [["보건복지부", "복지부"], "1352000"],
+  [["문화체육관광부", "문체부"], "1371000"],
+  [["성평등가족부", "여성가족부", "여가부"], "1384000"],
+  [["산업통상부", "산업통상자원부", "산업부", "국가기술표준원"], "1451000"],
+  [["식품의약품안전처", "식약처"], "1471000"],
+  [["기후에너지환경부", "환경부"], "1482000"],
+  [["고용노동부", "노동부", "고용부"], "1492000"],
+  [["국토교통부", "국토부"], "1613000"],
+  [["과학기술정보통신부", "과기정통부", "방송통신위원회", "우정사업본부"], "1721000"],
+  [["행정안전부", "행안부", "국가기록원"], "1741000"],
+  [["중소벤처기업부", "중기부"], "1421000"],
+  [["교육부"], "1342000"],
+  [["해양수산부", "해수부"], "1192000"],
+  [["농림축산식품부", "농식품부"], "1543000"],
+  [["개인정보보호위원회", "개인정보위"], "1790365"],
+  [["방송미디어통신위원회", "방통위"], "1571000"],
+  [["국가데이터처", "통계청"], "1241000"],
+  [["산림청"], "1400000"],
+  [["소방청"], "1661000"],
+  [["질병관리청", "질병청"], "1790387"],
+  [["지식재산처", "특허청"], "1431000"],
+];
+
+const ADMIN_RULE_PAGE = 100;
+const ADMIN_RULE_MAX_PAGES = 6; // 최대 600건까지만 훑는다. 넘으면 '확인 불가'로 돌려보낸다.
+
+// 인용 문자열에는 기관명이 여러 개 섞여 들어오기도 한다
+// (예: "통신판매업 신고 면제 기준에 대한 고시(공정거래위원회고시 제2022-4호)").
+// 발령번호 바로 앞에 붙은 기관이 실제 발령기관이므로, 가장 오른쪽에서 걸리는 별칭을 고른다.
+export function resolveAdminRuleOrg(name) {
+  const norm = normalizeLawName(name);
+  if (!norm) return null;
+  let best = null;
+  for (const [aliases, code] of ADMIN_RULE_ORGS) {
+    for (const a of aliases) {
+      const at = norm.lastIndexOf(normalizeLawName(a));
+      if (at === -1) continue;
+      // 같은 위치라면 더 긴(구체적인) 별칭을 쓴다 — "국세청" vs "청" 같은 포함 관계 대비.
+      if (!best || at > best.at || (at === best.at && a.length > best.alias.length)) {
+        best = { code, label: aliases[0], alias: a, at };
+      }
+    }
+  }
+  return best ? { code: best.code, label: best.label, alias: best.alias } : null;
+}
+
+// 발령번호는 응답에 따라 문자열이거나 객체(텍스트 노드)로 온다.
+function issueNoOf(item) {
+  const v = item?.["발령번호"];
+  if (v == null) return "";
+  if (typeof v === "object") return String(v["#text"] ?? v._ ?? Object.values(v)[0] ?? "").trim();
+  return String(v).trim();
+}
+
+export function normalizeIssueNo(raw) {
+  return String(raw || "").replace(/[제호\s]/g, "").replace(/[–—−]/g, "-").trim();
+}
+
+// 해당 부처의 행정규칙을 전부 훑어 발령번호가 정확히 같은 것을 찾는다.
+//   resolved:false → 판단 근거가 없다는 뜻(부처 미상 / 목록이 상한을 넘음). 부존재로 쓰면 안 된다.
+//   resolved:true, found:false → 그 부처 목록을 끝까지 확인했는데 없다는 뜻. 부존재 근거가 된다.
+export async function findAdminRuleByNumber(orgName, kind, issueNo) {
+  const org = resolveAdminRuleOrg(orgName);
+  if (!org) return { ok: true, resolved: false, reason: "unknown_org" };
+  const want = normalizeIssueNo(issueNo);
+  if (!want) return { ok: true, resolved: false, reason: "no_issue_no" };
+
+  const first = await callLawApi("lawSearch.do", { target: "admrul", org: org.code, display: String(ADMIN_RULE_PAGE), page: "1" });
+  if (!first.ok) return first;
+  const total = Number(first.data?.AdmRulSearch?.totalCnt) || 0;
+  const pages = Math.ceil(total / ADMIN_RULE_PAGE);
+  const rest = await Promise.all(
+    Array.from({ length: Math.max(0, Math.min(pages, ADMIN_RULE_MAX_PAGES) - 1) }, (_, i) =>
+      callLawApi("lawSearch.do", { target: "admrul", org: org.code, display: String(ADMIN_RULE_PAGE), page: String(i + 2) }),
+    ),
+  );
+  const items = [first, ...rest]
+    .filter((r) => r.ok)
+    .flatMap((r) => toArray(r.data?.AdmRulSearch?.admrul));
+
+  const orgNorm = normalizeLawName(orgName);
+  const hit = items.find((x) => {
+    if (normalizeIssueNo(issueNoOf(x)) !== want) return false;
+    if (kind && String(x["행정규칙종류"] || "").trim() !== kind) return false;
+    // org 코드가 소속기관까지 묶으므로, 인용된 기관명과 실제 소관부처가 겹치는지 확인한다.
+    const owner = normalizeLawName(x["소관부처명"]);
+    return owner.includes(orgNorm) || orgNorm.includes(owner) || owner.includes(normalizeLawName(org.label));
+  });
+
+  if (hit) {
+    return {
+      ok: true,
+      resolved: true,
+      found: true,
+      item: {
+        seq: hit["행정규칙일련번호"],
+        name: hit["행정규칙명"],
+        kind: hit["행정규칙종류"],
+        issueNo: issueNoOf(hit),
+        issuedOn: hit["발령일자"],
+        effectiveDate: hit["시행일자"],
+        owner: hit["소관부처명"],
+        current: hit["현행연혁구분"] === "현행",
+        url: toPublicUrl(hit["행정규칙상세링크"]),
+      },
+    };
+  }
+  if (pages > ADMIN_RULE_MAX_PAGES) return { ok: true, resolved: false, reason: "list_truncated", total };
+  return { ok: true, resolved: true, found: false, total };
+}
+
+// 행정규칙 본문은 법령과 달리 "조문내용"이 조문별 문자열 배열로 온다(조문단위 구조 없음).
+export async function getAdminRuleArticle(seq, articleNo, branchNo = null) {
+  const r = await callLawApi("lawService.do", { target: "admrul", ID: seq });
+  if (!r.ok) return r;
+  const svc = r.data?.AdmRulService;
+  const lines = toArray(svc?.["조문내용"]).map((x) => String(x || "").trim()).filter(Boolean);
+  if (!lines.length) return { ok: true, found: false, maxArticleNo: 0 };
+
+  const parsed = lines
+    .map((text) => {
+      const m = text.match(/^제(\d+)조(?:의(\d+))?/);
+      return m ? { no: Number(m[1]), branch: m[2] ? Number(m[2]) : 0, text } : null;
+    })
+    .filter(Boolean);
+  const maxArticleNo = parsed.reduce((m, a) => Math.max(m, a.no), 0);
+  const want = Number(normalizeArticleNo(articleNo));
+  const sameNo = parsed.filter((a) => a.no === want);
+  const match = branchNo ? sameNo.find((a) => a.branch === branchNo) : sameNo.find((a) => !a.branch) || sameNo[0];
+  if (!match || /<삭제>/.test(match.text)) {
+    return { ok: true, found: false, maxArticleNo, deleted: !!match, branches: sameNo.map((a) => a.branch).filter(Boolean) };
+  }
+  const info = svc?.["행정규칙기본정보"] || {};
+  return {
+    ok: true,
+    found: true,
+    text: match.text,
+    title: (match.text.match(/^제\d+조(?:의\d+)?\(([^)]*)\)/) || [])[1] || "",
+    effectiveDate: info["시행일자"] || "",
+    current: info["현행여부"] === "Y",
+    maxArticleNo,
   };
 }
 

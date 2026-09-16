@@ -19,6 +19,8 @@ import {
   getConstitutionalDetail,
   searchAdminRule,
   searchOrdinance,
+  findAdminRuleByNumber,
+  getAdminRuleArticle,
 } from "./lawApi.js";
 import { groundLegalClaim as defaultGround, verifyLegalClaimViaWeb as defaultWebVerify } from "./claude.js";
 import {
@@ -60,10 +62,35 @@ async function resolveOne(claim, ctx) {
 }
 
 // ───────────────────────── 법령 ─────────────────────────
-function statuteKind(name) {
+// 행정규칙은 "공정거래위원회 고시 제2022-4호"처럼 제목이 아니라 발령번호로 인용되는 일이
+// 많다. 이 형태는 '고시'로 끝나지 않으므로 접미사만 보면 일반 법령으로 잘못 분류되고,
+// 법령 검색공간(법률·대통령령·총리령·부령)에서 못 찾았다는 이유로 실재하는 고시가
+// '부존재'로 판정된다. 그래서 종류어가 이름 안 어디에 있든 잡아낸다.
+const ADMIN_RULE_KIND = /(고시|훈령|예규)/;
+
+const ISSUE_NO = /제?\s*(\d{4})\s*[-–—−]\s*(\d+)\s*호/;
+
+// 발령번호를 기준점으로 잡고 그 앞쪽에서 종류어와 발령기관을 찾는다.
+// 추출 단계가 인용을 정식 제목으로 풀어 쓰는 경우가 있어
+// ("통신판매업 신고 면제 기준에 대한 고시(공정거래위원회고시 제2022-4호)"),
+// 맨 앞을 기관으로 단정하면 안 된다 — 번호에 가장 가까운 종류어를 기준으로 삼는다.
+export function parseAdminRuleCitation(name) {
+  const raw = String(name || "").trim();
+  const no = raw.match(ISSUE_NO);
+  if (!no) return null;
+  const before = raw.slice(0, no.index);
+  const kinds = [...before.matchAll(new RegExp(ADMIN_RULE_KIND, "g"))];
+  if (kinds.length === 0) return null;
+  const kind = kinds[kinds.length - 1];
+  // 기관 후보는 번호 앞 전체를 넘긴다 — resolveAdminRuleOrg가 가장 오른쪽 기관을 골라낸다.
+  return { org: before, kind: kind[1], issueNo: `${no[1]}-${no[2]}` };
+}
+
+export function statuteKind(name) {
   const norm = normalizeLawName(name);
   if (/조례$/.test(norm) || (/규칙$/.test(norm) && /^[가-힣]+(특별시|광역시|특별자치시|특별자치도|도|시|군|구)\s/.test(name))) return "ordinance";
   if (/(고시|훈령|예규|지침|요령)$/.test(norm)) return "admin_rule";
+  if (parseAdminRuleCitation(name)) return "admin_rule_numbered";
   return "statute";
 }
 
@@ -80,6 +107,7 @@ async function resolveStatute(claim, ref, ctx) {
 
   const kind = statuteKind(lawName);
   if (kind === "ordinance") return resolveNonNationalRule(claim, ident, lawName, "ordinance", searchOrdinance, "law.go.kr:ordin", ctx);
+  if (kind === "admin_rule_numbered") return resolveAdminRuleByNumber(claim, ident, lawName, ctx);
 
   ctx.onProgress(`법제처에서 "${lawName}" 조회 중…`);
   const search = await searchStatute(lawName);
@@ -131,21 +159,39 @@ async function resolveFoundStatute(claim, ident, search, aliasNote, ctx) {
     const note = search.versionStatus === "upcoming_only"
       ? "검색된 버전이 아직 시행되지 않은 개정 예정 조문뿐이라"
       : "현재 시행 중인 버전을 확인할 수 없고 과거(연혁) 조문만 검색되어";
-    return official(
-      claim,
-      "uncertain",
-      `${aliasNote}"${search.lawNameOfficial}"의 개정 이력을 법제처 API에서 명확히 확인할 수 없습니다(${note}). 최신 조문과의 일치 여부는 미확인입니다.`,
-      [{ title: search.lawNameOfficial, url: search.detailUrl }],
-    );
+    // 버전이 애매해도 조문 본문 자체는 받아올 수 있다. 받아서 대조하고, 시점만 단서로 붙인다.
+    // 예전에는 여기서 곧바로 uncertain으로 끝내 "모른다"가 그대로 사용자에게 나갔다.
+    const src = [{ title: search.lawNameOfficial, url: search.detailUrl }];
+    if (ident.article) {
+      const art = await getStatuteArticle(search.mst, ident.article.no, ident.article.branch);
+      if (art.ok && art.found) {
+        const grounded = await ctx.ground(claim.text, art.text, {
+          label: `법제처 국가법령정보 - ${search.lawNameOfficial}`,
+          effectiveDate: formatDate(art.effectiveDate || search.effectiveDate),
+        });
+        return official(
+          claim,
+          grounded.verdict || "uncertain",
+          `${aliasNote}${grounded.explanation || art.text} (${note} 시행 시점은 별도로 확인하세요.)`,
+          src,
+          art.effectiveDate || search.effectiveDate,
+        );
+      }
+    }
+    const web = await webFallback(claim, ctx);
+    return { ...web, explanation: `${aliasNote}${web.explanation} (${note} 공식 조문 대조는 하지 못했습니다.)`, sources: [...src, ...(web.sources || [])] };
   }
   if (!ident.article) {
-    return official(
-      claim,
-      "uncertain",
-      `${aliasNote}"${search.lawNameOfficial}" 법령은 실재하지만, 구체적인 조문 번호가 없어 조문 내용까지는 확인하지 못했습니다.`,
-      [{ title: search.lawNameOfficial, url: search.detailUrl }],
-      search.effectiveDate,
-    );
+    // 법령이 실재하는 것은 공식 확인됐다. 조문 번호가 없다고 여기서 멈추지 말고,
+    // 주장 내용 자체는 웹으로 확인해서 판정까지 간다.
+    const src = [{ title: search.lawNameOfficial, url: search.detailUrl }];
+    const web = await webFallback(claim, ctx);
+    return {
+      ...web,
+      explanation: `${aliasNote}"${search.lawNameOfficial}" 법령은 법제처에서 실재가 확인됐습니다. 조문 번호가 특정되지 않아 내용은 웹 자료로 확인했습니다 — ${web.explanation}`,
+      sources: [...src, ...(web.sources || [])],
+      ...dateField(search.effectiveDate),
+    };
   }
   const articleLabel = `제${ident.article.no}조${ident.article.branch ? `의${ident.article.branch}` : ""}`;
   const article = await getStatuteArticle(search.mst, ident.article.no, ident.article.branch);
@@ -185,6 +231,56 @@ async function resolveFoundStatute(claim, ident, search, aliasNote, ctx) {
     `${aliasNote}${grounded.explanation || article.text}`,
     [{ title: `${search.lawNameOfficial}${article.title ? " - " + article.title : ""}`, url: search.detailUrl }],
     effectiveDate,
+  );
+}
+
+// 발령번호로 인용된 행정규칙(고시·훈령·예규). 법제처가 발령번호를 색인하지 않으므로
+// 소관부처 목록을 훑어 번호를 직접 대조하고, 찾으면 조문 본문까지 받아 실제로 대조한다.
+// 못 찾았을 때 '부존재'로 판정하는 것은 그 부처 목록을 끝까지 확인한 경우로 한정한다 —
+// 부처를 특정하지 못했거나 목록이 상한을 넘으면 근거가 없는 것이므로 웹으로 넘긴다.
+async function resolveAdminRuleByNumber(claim, ident, lawName, ctx) {
+  const cite = parseAdminRuleCitation(lawName);
+  ctx.onProgress(`법제처 행정규칙에서 "${lawName}" 조회 중…`);
+  const r = await findAdminRuleByNumber(cite.org, cite.kind, cite.issueNo);
+  if (!r.ok || !r.resolved) return webFallback(claim, ctx, lawName);
+
+  if (!r.found) {
+    const coverage = coverageFor("admin_rule", [{ id: "law.go.kr:admrul", ok: true }]);
+    const nec = buildNecReport({ identifier: ident, spaceKey: "admin_rule", coverage, similar: [], weights: WEIGHTS });
+    return necOutcome(claim, nec, ctx, { spaceKey: "admin_rule", searched: [{ id: "law.go.kr:admrul", ok: true }], similar: [], identifier: ident });
+  }
+
+  const rule = r.item;
+  const label = `${rule.owner} ${rule.kind} 제${rule.issueNo}호 「${rule.name}」`;
+  const source = { title: `${rule.name} (${rule.kind} 제${rule.issueNo}호)`, url: rule.url };
+  const article = ident.article;
+  if (!article) {
+    const web = await webFallback(claim, ctx);
+    return { ...web, sources: [source, ...(web.sources || [])] };
+  }
+
+  const articleLabel = `제${article.no}조${article.branch ? `의${article.branch}` : ""}`;
+  const art = await getAdminRuleArticle(rule.seq, article.no, article.branch);
+  if (!art.ok) return webFallback(claim, ctx, lawName);
+  if (!art.found) {
+    const note = art.deleted
+      ? `${articleLabel}는 삭제된 조문입니다.`
+      : `${articleLabel}가 없습니다(마지막 조문은 제${art.maxArticleNo}조입니다).`;
+    return official(claim, "false", `${label}는 실재하지만, 여기에는 ${note}`, [source], rule.effectiveDate);
+  }
+
+  ctx.onProgress(`${rule.name} ${articleLabel} 공식 조문과 대조 중…`);
+  const grounded = await ctx.ground(claim.text, art.text, {
+    label: `법제처 국가법령정보 - ${rule.name}`,
+    effectiveDate: formatDate(art.effectiveDate || rule.effectiveDate),
+  });
+  const stale = rule.current ? "" : ` (이 ${rule.kind}는 현행이 아닙니다.)`;
+  return official(
+    claim,
+    grounded.verdict || "uncertain",
+    `${grounded.explanation || art.text}${stale}`,
+    [{ ...source, title: `${rule.name}${art.title ? " - " + art.title : ""}` }],
+    art.effectiveDate || rule.effectiveDate,
   );
 }
 
@@ -334,7 +430,21 @@ async function webFallback(claim, ctx, identifier = null) {
       ...(identifier ? { identifier_found: !!result.identifier_found } : {}),
     };
   } catch (e) {
-    return unavailable(claim, `공식 데이터와 웹 검색 모두 확인하지 못했습니다: ${e.message}`);
+    // 일시적 오류(타임아웃·레이트리밋)로 한 번 실패했다고 판단을 포기하지 않는다.
+    try {
+      const retry = await ctx.webVerify(claim.text, ctx.onProgress, { identifier });
+      return {
+        ...claim,
+        verdict: retry.verdict,
+        verified_via: "web",
+        explanation: retry.explanation,
+        sources: retry.sources || [],
+        ...(identifier ? { identifier_found: !!retry.identifier_found } : {}),
+      };
+    } catch {
+      // 여기까지 오면 마지막 관문(resolveUncertainClaims)이 한 번 더 시도한다.
+      return unavailable(claim, `공식 데이터 조회와 웹 검색이 모두 실패했습니다(${e.message}). 잠시 후 다시 시도하면 확인될 수 있습니다.`);
+    }
   }
 }
 
