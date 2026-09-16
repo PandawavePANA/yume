@@ -179,7 +179,7 @@ const EXTRACT_SYSTEM_PROMPT = `당신은 '유메'라는 AI 답변 팩트체크 �
 규칙:
 - 의견이나 추천처럼 사실 여부를 판단할 수 없는 문장은 제외하고, 검증 가능한 사실 주장만 추출합니다.
 - 주장이 3~7개 정도 되도록 적당히 굵직한 단위로 나눕니다.
-- 검색은 전체 답변을 통틀어 최대 4회까지만 쓸 수 있습니다(서버가 강제합니다). 근거가 약한 주장부터 배분하고, 한 번의 검색어에 여러 주장을 묶을 수 있으면 묶으세요.
+- 검색은 전체 답변을 통틀어 최대 6회까지 쓸 수 있습니다(서버가 강제합니다). 근거가 약한 주장부터 배분하고, 한 번의 검색어에 여러 주장을 묶을 수 있으면 묶으세요. 다만 확인이 덜 된 채로 끝내지는 마세요 — 한도가 남았는데 아끼면 안 됩니다.
 - 도메인을 "법률", "의료", "금융", "역사", "과학", "일반" 중 하나로 분류하세요.
 - 원문이 이미 스스로 정정한 내용을 포함하고 있다면 정정된 최종 주장을 기준으로 판단하세요.
 - domain이 "법률"인 주장은 이 단계에서 verdict를 판단하지 말고 반드시 "pending_legal_check"로 두세요. 법률 주장은 이후 단계에서 법제처 국가법령정보 공동활용 API로 별도 확인합니다. 대신 legal_ref를 최대한 구체적으로 채우세요:
@@ -224,7 +224,7 @@ export async function extractAndVerify(text, onProgress = () => {}, { ledger = n
     label: "extract",
     ledger,
     messages: [{ role: "user", content: `다음 AI 답변을 검증해줘:\n\n${text}` }],
-    tools: [webSearch(4)],
+    tools: [webSearch(6)],
     max_tokens: 8000,
     onProgress,
   });
@@ -268,8 +268,10 @@ export async function groundLegalClaim(claimText, officialText, meta = {}) {
   const dateLine = meta.effectiveDate ? `\n(이 조문의 현재 버전 시행일자: ${meta.effectiveDate})` : "";
   const raw = await callClaude({
     system: GROUNDING_SYSTEM_PROMPT,
-    // 공식 조문이 이미 주어진 대조 작업이라 판단의 여지가 좁다 — Haiku로 충분하다.
-    model: FAST_MODEL,
+    // 여기는 Haiku로 내리지 않는다. "주어진 조문과 주장을 비교하는 기계적인 일"처럼
+    // 보이지만 실제로는 유메의 판정이 정해지는 자리다 — 개정 전 문구와 현행 조문의
+    // 차이, 요건 하나가 빠진 인용, 조문에 없는 기간·금액이 덧붙은 경우를 가려내야 한다.
+    // 값이 싸다고 여기를 바꾸면 아낀 돈보다 놓친 오류가 비싸다.
     label: "ground",
     ledger: meta.ledger || null,
     messages: [
@@ -305,7 +307,7 @@ export async function verifyLegalClaimViaWeb(claimText, onProgress = () => {}, {
     label: "legal_web",
     ledger,
     messages: [{ role: "user", content: `다음 법률 관련 주장을 검색해서 검증해줘:\n\n${claimText}${idLine}` }],
-    tools: [webSearch(3)],
+    tools: [webSearch(4)],
     max_tokens: 2000,
     onProgress,
   });
@@ -328,7 +330,7 @@ const RESEARCH_SYSTEM_PROMPT = `당신은 유메의 심층 리서치 담당입�
 
 가장 중요한 원칙 두 가지입니다. 둘 다 지켜야 합니다.
 
-1. **끝까지 찾으세요.** 배경지식으로 추측하지 말고, web_search 도구로 각도를 바꿔가며 실제로 검색하세요(최대 3회, 서버가 강제합니다). 처음 검색이 빈손이면 검색어를 바꿔서 다시 시도하세요 — 용어를 바꾸고, 상위 개념으로 넓히고, 영어로도 찾아보세요.
+1. **끝까지 찾으세요.** 배경지식으로 추측하지 말고, web_search 도구로 각도를 바꿔가며 실제로 검색하세요(최대 3회, 서버가 강제합니다). 한도를 아끼지 마세요 — 여기서 못 찾으면 그대로 '확인되지 않음'이 됩니다. 처음 검색이 빈손이면 검색어를 바꿔서 다시 시도하세요 — 용어를 바꾸고, 상위 개념으로 넓히고, 영어로도 찾아보세요.
 
 2. **찾지 못했으면 찾지 못했다고, 정확히 어디까지 찾았는지와 함께 말하세요.** 그럴듯하다는 이유로 confirmed를 주면 안 됩니다. 그건 당신의 추측이지 검증이 아닙니다.
    다만 "못 찾았다"는 것 자체가 유메에게는 중요한 결과입니다. 유메는 당신이 어디를 얼마나 뒤졌는지를 받아서 **부존재 신뢰도**를 계산합니다 — 사실이라면 반드시 기록으로 남았을 내용인데 그 기록이 어디에도 없다면, 그 주장은 지어낸 것으로 판정됩니다. 그러니 verdict만 주지 말고 아래 세 필드를 정확히 채우세요.
