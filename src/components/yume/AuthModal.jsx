@@ -22,6 +22,7 @@ export default function AuthModal({ mode: initialMode = "login", onClose, onAuth
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
+  const [nickname, setNickname] = useState("");
   const [terms, setTerms] = useState(false);
   const [privacy, setPrivacy] = useState(false);
   const [dataConsent, setDataConsent] = useState(false);
@@ -45,7 +46,7 @@ export default function AuthModal({ mode: initialMode = "login", onClose, onAuth
         if (!terms || !privacy) throw new Error("필수 항목에 동의해주세요.");
         // 추천 링크(?ref=코드)로 들어왔다면 같이 보낸다 — 친구가 첫 검증을 마치면 추천한 사람에게 크레딧이 간다.
         const referralCode = new URLSearchParams(window.location.search).get("ref") || undefined;
-        const r = await apiJson("/api/auth/signup", { method: "POST", body: { email, password, name, agreeTerms: terms, agreePrivacy: privacy, dataConsent, referralCode } });
+        const r = await apiJson("/api/auth/signup", { method: "POST", body: { email, password, name, nickname, agreeTerms: terms, agreePrivacy: privacy, dataConsent, referralCode } });
         onAuthed(r.user);
       } else {
         const r = await apiJson("/api/auth/login", { method: "POST", body: { email, password } });
@@ -92,6 +93,19 @@ export default function AuthModal({ mode: initialMode = "login", onClose, onAuth
 
         {mode === "signup" && (
           <>
+            <label style={label} htmlFor="auth-nickname">닉네임</label>
+            <input
+              id="auth-nickname"
+              required
+              value={nickname}
+              onChange={(e) => setNickname(e.target.value)}
+              maxLength={16}
+              placeholder="2~16자, 한글·영문·숫자"
+              style={input}
+            />
+            <div style={{ fontSize: 11.5, color: "#B6A9D6", margin: "-6px 0 12px", lineHeight: 1.5 }}>
+              기여도 랭킹에 표시되는 이름이에요. 다른 분과 겹칠 수 없어요.
+            </div>
             <label style={label} htmlFor="auth-name">이름 <span style={{ color: "#B6A9D6" }}>(선택)</span></label>
             <input id="auth-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={40} style={input} />
             <div style={{ border: "1px solid #EDE3FA", borderRadius: 12, padding: "12px 12px 5px", marginBottom: 14 }}>

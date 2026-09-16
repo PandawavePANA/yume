@@ -1,21 +1,25 @@
 import { useEffect, useState } from "react";
 import { apiJson } from "./api";
 
-// 계정 설정 → 크레딧 탭. 잔액·내역, 상품 교환, 친구 추천을 한 화면에서 본다.
+// 계정 설정 → 크레딧 탭.
+//
+// 크레딧은 검증을 돌리는 데 쓰는 재화다. 요금제마다 매달 정해진 양이 들어오고,
+// 다 쓰면 최고 등급이라도 추가로 사야 한다. 기여도 점수와는 완전히 다른 값이라
+// 이 화면에 섞어 보여주지 않는다 — 랭킹은 따로 있다.
 const REASON = {
-  bounty: "제보 보상",
+  plan_grant: "요금제 월 지급",
+  purchase: "크레딧 구매",
   referral: "친구 추천",
-  redeem: "상품 교환",
-  redeem_cancel: "교환 취소 환급",
+  verify: "검증 사용",
   admin: "운영자 지급",
 };
 const BOUNTY_STATUS = {
   pending: { label: "검토 중", color: "#B4690E", bg: "#FBEEDA" },
-  approved: { label: "지급 완료", color: "#1F9D66", bg: "#E4F5EC" },
+  approved: { label: "점수 지급 완료", color: "#1F9D66", bg: "#E4F5EC" },
   rejected: { label: "반려", color: "#C6402F", bg: "#FBE8E5" },
   duplicate: { label: "이미 등록된 인용", color: "#6E6389", bg: "#F1EDF8" },
 };
-const REDEEM_STATUS = { requested: "신청 접수", fulfilled: "발송 완료", cancelled: "취소(환급됨)" };
+const PURCHASE_STATUS = { requested: "입금 확인 중", fulfilled: "지급 완료", cancelled: "취소됨" };
 
 const fmt = (ts) => (ts ? new Date(ts).toLocaleDateString("ko-KR", { month: "short", day: "numeric" }) : "-");
 const card = { border: "1px solid #EDE3FA", borderRadius: 12, padding: 14, marginBottom: 10 };
@@ -41,13 +45,13 @@ export default function CreditsTab() {
     load();
   }, []);
 
-  const redeem = async (item) => {
-    if (!contact.trim()) return setMsg({ type: "err", text: "받으실 연락처를 먼저 입력해주세요." });
-    if (!window.confirm(`${item.label}으로 ${item.credits.toLocaleString()} 크레딧을 사용할까요?`)) return;
+  const buy = async (pack) => {
+    if (!contact.trim()) return setMsg({ type: "err", text: "연락받으실 번호나 이메일을 먼저 입력해주세요." });
+    if (!window.confirm(`${pack.label}을(를) ${pack.krw.toLocaleString()}원에 신청할까요?`)) return;
     setBusy(true);
     try {
-      await apiJson("/api/redemptions", { method: "POST", body: { itemKey: item.key, contact } });
-      setMsg({ type: "ok", text: "신청했어요. 확인 후 입력하신 연락처로 보내드릴게요." });
+      await apiJson("/api/credit-packs", { method: "POST", body: { packKey: pack.key, contact } });
+      setMsg({ type: "ok", text: "신청했어요. 결제 안내를 보내드리고, 입금이 확인되면 크레딧을 넣어드릴게요." });
       setContact("");
       await load();
     } catch (e) {
@@ -70,65 +74,44 @@ export default function CreditsTab() {
       )}
 
       <div style={{ background: "linear-gradient(135deg,#F3EBFF,#EDE4FC)", borderRadius: 14, padding: "16px 18px", marginBottom: 16 }}>
-        <div style={{ fontSize: 12, color: "#6E6389", fontWeight: 600 }}>보유 크레딧</div>
+        <div style={{ fontSize: 12, color: "#6E6389", fontWeight: 600 }}>남은 크레딧</div>
         <div style={{ fontSize: 30, fontWeight: 800, color: "#4E3391", letterSpacing: "-0.02em" }}>
           {data.balance.toLocaleString()}
           <span style={{ fontSize: 14, fontWeight: 600, marginLeft: 4 }}>크레딧</span>
         </div>
-        <div style={{ fontSize: 11.5, color: "#8577A8", marginTop: 2 }}>약 {(data.balance * data.creditKrw).toLocaleString()}원 상당</div>
+        <div style={{ fontSize: 11.5, color: "#8577A8", marginTop: 2 }}>
+          검증 1회에 1크레딧 · 매달 {data.planCredits.toLocaleString()}크레딧이 들어옵니다
+        </div>
       </div>
 
-      <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>크레딧 모으기</div>
       <div style={{ ...card, background: "#FBF8FF" }}>
         <div style={{ fontSize: 12.5, color: "#5B5470", lineHeight: 1.7 }}>
-          검증 결과에서 <b>존재하지 않는 판례·법령·논문</b>이 발견되면, 그 답변을 만든 AI의 대화 공유 링크와 함께 제보할 수 있어요.
-          확인되면 건당 <b>{data.bountyCredits} 크레딧</b>을 드립니다. 이미 등록된 인용은 보상 대상이 아니에요.
+          요금제에 따라 매달 크레딧이 들어오고, 검증할 때마다 1개씩 씁니다.
+          다 쓰면 <b>요금제를 올려도 자동으로 늘어나지 않고</b> 크레딧을 추가로 구매하셔야 해요.
         </div>
       </div>
 
-      {data.bounties.length > 0 && (
-        <div style={{ marginBottom: 16 }}>
-          {data.bounties.slice(0, 5).map((b) => {
-            const s = BOUNTY_STATUS[b.status] || BOUNTY_STATUS.pending;
-            return (
-              <div key={b.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid #F4EEFC" }}>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 12.5, fontWeight: 600, color: "#241F33", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{b.identifier_value}</div>
-                  <div style={{ fontSize: 11, color: "#A99BC9" }}>{fmt(b.created_at)}{b.reviewer_note ? ` · ${b.reviewer_note}` : ""}</div>
-                </div>
-                <span style={{ flexShrink: 0, fontSize: 10.5, fontWeight: 700, color: s.color, background: s.bg, padding: "3px 9px", borderRadius: 999 }}>
-                  {s.label}{b.credits ? ` +${b.credits}` : ""}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      <div style={{ fontSize: 13, fontWeight: 700, margin: "18px 0 8px" }}>상품으로 교환</div>
+      <div style={{ fontSize: 13, fontWeight: 700, margin: "18px 0 8px" }}>크레딧 추가 구매</div>
       <input
         value={contact}
         onChange={(e) => setContact(e.target.value)}
-        placeholder="받으실 연락처 (휴대폰 번호 또는 이메일)"
+        placeholder="연락받으실 휴대폰 번호 또는 이메일"
         style={{ width: "100%", padding: "9px 12px", borderRadius: 10, border: "1px solid #D4BEF0", marginBottom: 10, fontSize: 13, boxSizing: "border-box", fontFamily: "inherit" }}
       />
-      {data.catalog.map((item) => {
-        const enough = data.balance >= item.credits;
-        return (
-          <div key={item.key} style={{ ...card, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 600 }}>{item.label}</div>
-              <div style={{ fontSize: 11.5, color: "#A99BC9" }}>{item.credits.toLocaleString()} 크레딧</div>
-            </div>
-            <button onClick={() => redeem(item)} disabled={!enough || busy} style={{ ...ghostBtn, opacity: enough && !busy ? 1 : 0.45, cursor: enough && !busy ? "pointer" : "default", flexShrink: 0 }}>
-              {enough ? "교환 신청" : "크레딧 부족"}
-            </button>
+      {data.packs.map((pack) => (
+        <div key={pack.key} style={{ ...card, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 600 }}>{pack.label}</div>
+            <div style={{ fontSize: 11.5, color: "#A99BC9" }}>{pack.krw.toLocaleString()}원</div>
           </div>
-        );
-      })}
+          <button onClick={() => buy(pack)} disabled={busy} style={{ ...ghostBtn, opacity: busy ? 0.45 : 1, flexShrink: 0 }}>
+            구매 신청
+          </button>
+        </div>
+      ))}
       <div style={{ fontSize: 11, color: "#A99BC9", lineHeight: 1.6, marginBottom: 18 }}>
-        신청하면 운영자가 확인한 뒤 입력하신 연락처로 보내드려요. 금·상품권은 시세에 따라 교환에 필요한 크레딧이 달라질 수 있습니다.
-        현금으로는 바꿔드리지 않습니다.
+        온라인 결제는 준비 중이라 지금은 신청만 받고 있어요. 입금이 확인되면 운영자가 크레딧을 넣어드립니다.
+        크레딧은 현금으로 바꿔드리지 않습니다.
       </div>
 
       <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>친구 추천</div>
@@ -162,13 +145,36 @@ export default function CreditsTab() {
         )}
       </div>
 
-      {data.redemptions.length > 0 && (
+      {data.bounties.length > 0 && (
         <>
-          <div style={{ fontSize: 13, fontWeight: 700, margin: "18px 0 8px" }}>교환 신청 내역</div>
-          {data.redemptions.map((r) => (
+          <div style={{ fontSize: 13, fontWeight: 700, margin: "18px 0 8px" }}>내 제보</div>
+          <div style={{ fontSize: 11.5, color: "#A99BC9", lineHeight: 1.6, marginBottom: 8 }}>
+            제보가 확인되면 크레딧이 아니라 <b>기여도 {data.reportPoints.toLocaleString()}점</b>이 쌓입니다. 점수와 순위는 랭킹에서 볼 수 있어요.
+          </div>
+          {data.bounties.slice(0, 5).map((b) => {
+            const s = BOUNTY_STATUS[b.status] || BOUNTY_STATUS.pending;
+            return (
+              <div key={b.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid #F4EEFC" }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 12.5, fontWeight: 600, color: "#241F33", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{b.identifier_value}</div>
+                  <div style={{ fontSize: 11, color: "#A99BC9" }}>{fmt(b.created_at)}{b.reviewer_note ? ` · ${b.reviewer_note}` : ""}</div>
+                </div>
+                <span style={{ flexShrink: 0, fontSize: 10.5, fontWeight: 700, color: s.color, background: s.bg, padding: "3px 9px", borderRadius: 999 }}>
+                  {s.label}{b.credits ? ` +${b.credits.toLocaleString()}` : ""}
+                </span>
+              </div>
+            );
+          })}
+        </>
+      )}
+
+      {data.purchases.length > 0 && (
+        <>
+          <div style={{ fontSize: 13, fontWeight: 700, margin: "18px 0 8px" }}>구매 신청 내역</div>
+          {data.purchases.map((r) => (
             <div key={r.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, padding: "7px 0", borderBottom: "1px solid #F4EEFC" }}>
               <span>{r.item_label}</span>
-              <span style={{ color: "#A99BC9" }}>{REDEEM_STATUS[r.status] || r.status} · {fmt(r.created_at)}</span>
+              <span style={{ color: "#A99BC9" }}>{PURCHASE_STATUS[r.status] || r.status} · {fmt(r.created_at)}</span>
             </div>
           ))}
         </>

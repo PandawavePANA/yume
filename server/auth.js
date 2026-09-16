@@ -19,6 +19,7 @@ import { audit } from "./audit.js";
 import { effectivePlan, PLANS, peekUsage } from "./usageStore.js";
 import { logError } from "./errorLog.js";
 import { attachReferral } from "./referral.js";
+import { nicknameProblem, nicknameTaken } from "./contribution.js";
 
 const scrypt = promisify(crypto.scrypt);
 const SESSION_COOKIE = "yume_sid";
@@ -67,6 +68,7 @@ export function publicUser(u) {
     id: u.id,
     email: u.email,
     name: u.name,
+    nickname: u.display_name || null,
     company: u.company,
     role: u.role,
     plan,
@@ -146,9 +148,14 @@ router.post("/auth/signup", limitMiddleware(signupLimiter, (req) => `signup:${cl
   const email = String(req.body?.email || "").trim().toLowerCase();
   const password = req.body?.password;
   const name = String(req.body?.name || "").trim().slice(0, 40);
+  const nickname = String(req.body?.nickname || "").trim();
   const { agreeTerms, agreePrivacy, dataConsent } = req.body || {};
 
   if (!isEmail(email)) return res.status(400).json({ error: "올바른 이메일 주소를 입력해주세요." });
+  // 닉네임은 랭킹에 그대로 나가는 이름이라 가입할 때 정하고, 겹칠 수 없다.
+  const nickErr = nicknameProblem(nickname);
+  if (nickErr) return res.status(400).json({ error: nickErr });
+  if (await nicknameTaken(nickname)) return res.status(409).json({ error: "이미 쓰이고 있는 닉네임이에요. 다른 이름으로 지어주세요." });
   const pwErr = passwordProblem(password);
   if (pwErr) return res.status(400).json({ error: pwErr });
   if (!agreeTerms || !agreePrivacy) return res.status(400).json({ error: "필수 약관(이용약관·개인정보 수집·이용)에 동의해주세요." });
@@ -162,14 +169,21 @@ router.post("/auth/signup", limitMiddleware(signupLimiter, (req) => `signup:${cl
   let user;
   try {
     const r = await run(
-      `INSERT INTO users (email, password_hash, name, role, data_consent, data_consent_at, terms_agreed_at, privacy_agreed_at, created_at, last_login_at)
-       VALUES (:email, :ph, :name, :role, :dc, :dcAt, :t, :t, :t, :t) RETURNING *`,
-      { email, ph: passwordHash, name, role, dc: dataConsent ? 1 : 0, dcAt: dataConsent ? t : null, t },
+      `INSERT INTO users (email, password_hash, name, display_name, role, data_consent, data_consent_at, terms_agreed_at, privacy_agreed_at, created_at, last_login_at)
+       VALUES (:email, :ph, :name, :nickname, :role, :dc, :dcAt, :t, :t, :t, :t) RETURNING *`,
+      { email, ph: passwordHash, name, nickname, role, dc: dataConsent ? 1 : 0, dcAt: dataConsent ? t : null, t },
     );
     user = r.rows[0];
   } catch (e) {
     // 같은 이메일로 동시에 가입 요청이 들어온 경우(유니크 제약 위반)
-    if (e.code === "23505") return res.status(409).json({ error: "이미 가입된 이메일이에요. 로그인해주세요." });
+    // 같은 이메일 또는 같은 닉네임으로 동시에 가입 요청이 들어온 경우(유니크 제약 위반).
+    // 어느 쪽이 겹쳤는지 알려줘야 사용자가 무엇을 고쳐야 할지 안다.
+    if (e.code === "23505") {
+      const dupNickname = String(e.constraint || e.detail || "").includes("display_name");
+      return res.status(409).json({
+        error: dupNickname ? "이미 쓰이고 있는 닉네임이에요. 다른 이름으로 지어주세요." : "이미 가입된 이메일이에요. 로그인해주세요.",
+      });
+    }
     throw e;
   }
   const userId = user.id;

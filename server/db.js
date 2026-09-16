@@ -428,6 +428,83 @@ const MIGRATIONS = [
   ALTER TABLE redemptions ENABLE ROW LEVEL SECURITY;
   ALTER TABLE referrals ENABLE ROW LEVEL SECURITY;
   `,
+
+  // 기여도 — 크레딧과 완전히 다른 물건이라 원장을 따로 둔다. 크레딧은 검증 횟수로
+  // 바꿔 쓰는 재화라 잔액이 오르내리지만, 기여도는 "이 사람이 유메에 얼마나 보탰나"를
+  // 누적으로만 재는 점수라 차감되지 않고 랭킹의 근거가 된다. 한 원장에 섞으면
+  // 검증 횟수를 쓸 때마다 순위가 내려가는 이상한 일이 생긴다.
+  //
+  // ref로 중복 지급을 막는다 — 같은 검증이 두 번 점수를 주면 안 된다. 부분 인덱스라
+  // ref가 없는(수동 조정 같은) 기록은 여러 건 남을 수 있다.
+  //
+  // display_name은 랭킹 보드에 내보낼 이름이다. 이메일은 절대 보드에 올리지 않는다.
+  `
+  CREATE TABLE contribution_ledger (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    points INTEGER NOT NULL,
+    reason TEXT NOT NULL,
+    ref TEXT,
+    memo TEXT,
+    created_at BIGINT NOT NULL
+  );
+  CREATE INDEX idx_contrib_user ON contribution_ledger(user_id, id);
+  CREATE UNIQUE INDEX idx_contrib_dedup ON contribution_ledger(user_id, reason, ref) WHERE ref IS NOT NULL;
+
+  ALTER TABLE users ADD COLUMN display_name TEXT;
+
+  ALTER TABLE contribution_ledger ENABLE ROW LEVEL SECURITY;
+  `,
+
+  // 크레딧 원장에도 중복 방지 인덱스를 건다.
+  //
+  // 요금제 월 지급은 "이번 달 것이 이미 들어왔는지"를 ref(plan:요금제:YYYY-MM)로 판별해
+  // ON CONFLICT DO NOTHING으로 막는데, 대상 인덱스가 없으면 충돌이 일어나지 않아
+  // 화면을 열 때마다 지급이 반복된다. 구매 지급도 같은 이유로 ref를 쓴다.
+  //
+  // 인덱스를 만들기 전에 이미 중복으로 들어간 행을 정리한다 — 가장 먼저 들어온 한 건만 남긴다.
+  `
+  DELETE FROM credit_ledger a
+   USING credit_ledger b
+   WHERE a.ref IS NOT NULL
+     AND a.user_id = b.user_id AND a.reason = b.reason AND a.ref = b.ref
+     AND a.id > b.id;
+
+  CREATE UNIQUE INDEX idx_credit_dedup ON credit_ledger(user_id, reason, ref) WHERE ref IS NOT NULL;
+  `,
+
+  // 닉네임과 분기.
+  //
+  // 닉네임은 랭킹에 나가는 유일한 이름이라 겹치면 안 된다. 대소문자만 다른 이름도
+  // 같은 사람으로 오해되므로 소문자로 접어서 유니크를 건다. 이미 가입한 사람에게는
+  // 계정 id로 만든 핸들을 먼저 채워 넣어야 인덱스를 걸 수 있다.
+  //
+  // period는 "2026-Q3" 형태다. 랭킹은 분기마다 초기화되는데, 기록을 지우는 게 아니라
+  // 이번 분기 것만 세는 방식이다 — 지난 분기 수상 내역과 적립 경위가 남아야
+  // 나중에 이의가 들어와도 확인할 수 있다.
+  `
+  UPDATE users SET display_name = '검증가' || (1000 + (id * 7919) % 9000) WHERE display_name IS NULL OR display_name = '';
+  CREATE UNIQUE INDEX idx_users_display_name ON users(LOWER(display_name));
+
+  ALTER TABLE contribution_ledger ADD COLUMN period TEXT;
+  UPDATE contribution_ledger SET period = '2026-Q3' WHERE period IS NULL;
+  CREATE INDEX idx_contrib_period ON contribution_ledger(period, user_id);
+
+  CREATE TABLE quarter_awards (
+    id BIGSERIAL PRIMARY KEY,
+    period TEXT NOT NULL,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    rank INTEGER NOT NULL,
+    points INTEGER NOT NULL,
+    reward_kind TEXT NOT NULL,
+    reward_label TEXT NOT NULL,
+    credits INTEGER NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'pending',
+    created_at BIGINT NOT NULL
+  );
+  CREATE UNIQUE INDEX idx_quarter_award ON quarter_awards(period, user_id);
+  ALTER TABLE quarter_awards ENABLE ROW LEVEL SECURITY;
+  `,
 ];
 
 async function migrate() {

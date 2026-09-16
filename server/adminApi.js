@@ -10,7 +10,8 @@ import { getVerification } from "./verificationStore.js";
 import { PLANS, grantTokens, walletBalance, effectivePlan } from "./usageStore.js";
 import { datasetStats, previewDataset, createExport, listExports, revokeExport } from "./dataset.js";
 import { clientIp } from "./security.js";
-import { BOUNTY_CREDITS, CREDIT_KRW, creditStats, handleRedemption, listRedemptions } from "./credits.js";
+import { CREDIT_KRW, PLAN_CREDITS, creditStats, handleCreditRequest, listCreditRequests } from "./credits.js";
+import { POINTS, QUARTER_REWARDS, contributionStats, leaderboard, listQuarterAwards, periodOf, settleQuarter } from "./contribution.js";
 import { bountyStats, listBounties, reviewBounty } from "./bounty.js";
 import { listReferralsForReview, resolveReferralReview } from "./referral.js";
 
@@ -297,14 +298,23 @@ router.post("/dataset/exports/:id/revoke", async (req, res) => {
   res.json({ ok: true });
 });
 
-// ── 크레딧: 제보 검토·교환 처리·추천 확인 ──
+// ── 크레딧·기여도: 제보 검토·크레딧 구매 처리·추천 확인·랭킹 ──
+// 크레딧(쓰면 없어지는 재화)과 기여도(누적 점수)는 서로 다른 값이라 통계도 따로 낸다.
 router.get("/credits", async (req, res) => {
   res.json({
     stats: { ...(await creditStats()), bounty: await bountyStats() },
     bounties: await listBounties(req.query.status || null),
-    redemptions: await listRedemptions(req.query.redemptionStatus || null),
+    redemptions: await listCreditRequests(req.query.redemptionStatus || null),
     referrals: await listReferralsForReview(),
-    defaults: { bountyCredits: BOUNTY_CREDITS, creditKrw: CREDIT_KRW },
+    contribution: {
+      ...(await contributionStats()),
+      scoring: POINTS,
+      period: periodOf(),
+      rewards: QUARTER_REWARDS,
+      top: await leaderboard(20),
+      awards: await listQuarterAwards(req.query.period || periodOf()),
+    },
+    defaults: { reportPoints: POINTS.report, creditKrw: CREDIT_KRW, planCredits: PLAN_CREDITS },
   });
 });
 
@@ -313,15 +323,25 @@ router.post("/bounties/:id/review", async (req, res) => {
   const { decision, credits, note } = req.body || {};
   const r = await reviewBounty(id, { decision, credits, note, reviewerId: req.user?.id ?? null });
   if (r.error) return res.status(400).json({ error: r.error });
-  await audit(req.adminActor, `bounty_${r.status}`, `bounty:${id}`, { credits: r.credits }, clientIp(req));
+  await audit(req.adminActor, `bounty_${r.status}`, `bounty:${id}`, { points: r.points }, clientIp(req));
   res.json(r);
 });
 
 router.post("/redemptions/:id/handle", async (req, res) => {
   const id = Number(req.params.id);
-  const r = await handleRedemption(id, req.body?.decision, req.body?.note);
+  const r = await handleCreditRequest(id, req.body?.decision, req.body?.note);
   if (r.error) return res.status(400).json({ error: r.error });
   await audit(req.adminActor, `redemption_${r.status}`, `redemption:${id}`, null, clientIp(req));
+  res.json(r);
+});
+
+// 분기 마감 — 운영자가 직접 누른다. 4~10위 크레딧은 여기서 지급되고,
+// 1~3위 골드바는 보낼 목록만 남는다. 서버가 물건을 사는 일은 없다.
+router.post("/quarters/:period/settle", async (req, res) => {
+  const period = String(req.params.period || "");
+  if (!/^\d{4}-Q[1-4]$/.test(period)) return res.status(400).json({ error: "분기 형식이 올바르지 않아요(예: 2026-Q3)." });
+  const r = await settleQuarter(period);
+  await audit(req.adminActor, "quarter_settled", `quarter:${period}`, { settled: r.settled.length }, clientIp(req));
   res.json(r);
 });
 
@@ -345,7 +365,7 @@ router.get("/errors", async (req, res) => res.json({ errors: await listErrors(20
 router.get("/audit", async (req, res) => res.json({ logs: await listAudit(300) }));
 
 // ── DB ──
-const TABLES = ["users", "sessions", "verifications", "claims", "api_keys", "api_usage", "usage_daily", "wallets", "chat_messages", "error_logs", "audit_logs", "data_exports", "settings", "credit_ledger", "bounty_claims", "redemptions", "referrals"];
+const TABLES = ["users", "sessions", "verifications", "claims", "api_keys", "api_usage", "usage_daily", "wallets", "chat_messages", "error_logs", "audit_logs", "data_exports", "settings", "credit_ledger", "contribution_ledger", "quarter_awards", "bounty_claims", "redemptions", "referrals"];
 
 router.get("/db", async (req, res) => {
   const tables = [];

@@ -1,5 +1,5 @@
 import { all, now, one, run } from "./db.js";
-import { BOUNTY_CREDITS, grant } from "./credits.js";
+import { POINTS, award } from "./contribution.js";
 import { checkShareUrl, platformLabel, verifyShareLink } from "./shareLink.js";
 import { logError } from "./errorLog.js";
 
@@ -111,7 +111,12 @@ export function listBounties(status = null, limit = 200) {
   );
 }
 
-// 운영자 검토. 승인하면 그 자리에서 크레딧이 지급된다.
+// 운영자 검토. 승인하면 그 자리에서 기여도 점수가 지급된다.
+//
+// 크레딧이 아니라 기여도인 이유 — 제보는 검증을 더 돌리라고 주는 보상이 아니라
+// 유메에 실제로 남는 데이터를 넘겨준 데 대한 것이다. 랭킹에 반영돼야 의미가 있다.
+// 그리고 "제출"이 아니라 "승인"에 준다. 제출만으로 1000점이면 아무 링크나 넣는 게
+// 최적 전략이 된다.
 export async function reviewBounty(id, { decision, credits, note, reviewerId }) {
   const row = await one("SELECT * FROM bounty_claims WHERE id = :id", { id });
   if (!row) return { error: "제보를 찾을 수 없어요." };
@@ -120,19 +125,19 @@ export async function reviewBounty(id, { decision, credits, note, reviewerId }) 
   const status = { approve: "approved", reject: "rejected", duplicate: "duplicate" }[decision];
   if (!status) return { error: "처리 방식이 올바르지 않아요." };
 
-  const amount = status === "approved" ? Math.max(0, Math.min(1000, Number(credits) || BOUNTY_CREDITS)) : 0;
+  const amount = status === "approved" ? Math.max(0, Math.min(5000, Number(credits) || POINTS.report)) : 0;
   await run(
     `UPDATE bounty_claims SET status = :status, credits = :credits, reviewer_note = :note, reviewed_by = :by, reviewed_at = :t
       WHERE id = :id`,
     { id, status, credits: amount, note: note ? String(note).slice(0, 500) : null, by: reviewerId, t: now() },
   );
   if (amount > 0) {
-    await grant(row.user_id, amount, "bounty", {
+    await award(row.user_id, "report", amount, {
       ref: `bounty:${id}`,
       memo: `${platformLabel(row.platform)} — ${row.identifier_value}`,
     });
   }
-  return { ok: true, status, credits: amount };
+  return { ok: true, status, points: amount };
 }
 
 export async function bountyStats() {

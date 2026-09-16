@@ -8,6 +8,7 @@ import { BountyPrompt } from "@/components/yume/BountyModal";
 import { apiJson, safeUrl, CONTACT_EMAIL } from "@/components/yume/api";
 import { IS_NATIVE_APP, onNativeBack, shareLink } from "./native.js";
 import AuditModal from "./components/yume/AuditModal.jsx";
+import RankingModal from "@/components/yume/RankingModal";
 
 // 기업용 사이트 주소. 별도 도메인에 따로 배포되므로 코드에 박지 않고 빌드 환경변수로 받는다.
 const BUSINESS_URL = (import.meta.env?.VITE_BUSINESS_URL || "https://business.yume-reamer.com").replace(/\/+$/, "");
@@ -543,6 +544,7 @@ export default function YumeDashboard() {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [showBiz, setShowBiz] = useState(false);
   const [showAudit, setShowAudit] = useState(false);
+  const [showRanking, setShowRanking] = useState(false);
   const [showPricing, setShowPricing] = useState(false);
   const [toast, setToast] = useState("");
   // 로그인 세션과 오늘 남은 확인 횟수는 서버가 기준이다(요금제도 서버가 결정).
@@ -787,12 +789,13 @@ export default function YumeDashboard() {
     if (authModal) { setAuthModal(null); return true; }
     if (accountTab) { setAccountTab(null); return true; }
     if (showPricing) { setShowPricing(false); return true; }
+    if (showRanking) { setShowRanking(false); return true; }
     if (showAudit) { setShowAudit(false); return true; }
     if (showBiz) { setShowBiz(false); return true; }
     if (sidebarOpen) { setSidebarOpen(false); return true; }
     if (stage === "done") { reset(); return true; }
     return false;
-  }), [userMenuOpen, authModal, accountTab, showPricing, showBiz, showAudit, sidebarOpen, stage]);
+  }), [userMenuOpen, authModal, accountTab, showPricing, showBiz, showAudit, showRanking, sidebarOpen, stage]);
   const confirmedCount = result?.claims?.filter(c => c.verdict === "confirmed").length ?? 0;
   const totalCount = result?.claims?.length ?? 0;
   const allSources = (result?.claims || []).flatMap(c => (c.sources || []).map(s => ({ ...s, forClaim: c.text })));
@@ -942,6 +945,12 @@ export default function YumeDashboard() {
         <div className="yume-nav-right" style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end", alignItems: "center" }}>
           {/* 기업용 사이트는 별도 도메인이라 내부 이동이 아니라 바깥 링크다.
               앱에서는 숨긴다 — 도입 상담을 하려고 앱을 깔지는 않는다. */}
+          <motion.button {...navEnter(0.06)}
+            whileHover={{ backgroundColor: "#fff" }} whileTap={{ scale: 0.96 }}
+            onClick={() => setShowRanking(true)} className="yume-nav-pill" style={{
+            ...pillBtn, border: `1px solid ${UI.hairline}`,
+            background: "rgba(255,255,255,0.55)", color: UI.ink2, fontWeight: 600,
+          }}>랭킹</motion.button>
           {!IS_NATIVE_APP && (
             <motion.a {...navEnter(0.08)}
               whileHover={{ backgroundColor: "#fff" }} whileTap={{ scale: 0.96 }}
@@ -1084,9 +1093,9 @@ export default function YumeDashboard() {
                     <span style={{ background: "rgba(139,111,216,0.12)", color: UI.accent, borderRadius: 999, padding: "4px 11px", fontWeight: 600 }}>
                       오늘 {usage.remainingFree}/{usage.dailyLimit}회 남음
                     </span>
-                    {usage.tokens > 0 && (
+                    {usage.credits > 0 && (
                       <span style={{ background: "rgba(139,111,216,0.12)", color: UI.accent, borderRadius: 999, padding: "4px 11px", fontWeight: 600 }}>
-                        토큰 {usage.tokens}개
+                        크레딧 {usage.credits.toLocaleString()}개
                       </span>
                     )}
                   </div>
@@ -1594,6 +1603,14 @@ export default function YumeDashboard() {
       )}
 
       {showAudit && <AuditModal onClose={() => setShowAudit(false)} />}
+
+      {showRanking && (
+        <RankingModal
+          loggedIn={!!user}
+          onClose={() => setShowRanking(false)}
+          onNeedLogin={() => { setShowRanking(false); setAuthModal("login"); }}
+        />
+      )}
 
       <AnimatePresence>
         {toast && (

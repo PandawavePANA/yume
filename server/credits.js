@@ -1,32 +1,70 @@
 import { all, now, one, run, tx } from "./db.js";
+import { PLANS, effectivePlan } from "./plans.js";
 
-// 크레딧 — 제보(바운티)·추천 보상으로 쌓이고, 상품 교환으로 빠져나가는 포인트.
+// 크레딧 — 검증을 돌리는 데 쓰는 재화. 클로드와 같은 구조다.
+//   · 요금제마다 매달 정해진 양이 들어온다.
+//   · 다 쓰면 최고 등급 구독이라도 추가로 사야 한다. 구독은 무제한이 아니다.
+//   · 검증 1건에 1크레딧.
 //
-// 절대 잊지 말 것: 크레딧은 실제 금전 가치가 있는 채무다. 그래서
-//  · 지급·차감은 전부 원장(credit_ledger)에 남기고, 잔액은 원장 합으로만 계산한다.
-//  · 교환은 서버가 물건을 사거나 돈을 보내지 않는다. "신청"만 받아 두고 운영자가
-//    직접 확인해서 보내준다(관리자 대시보드 → 크레딧 탭). 자동 결제·송금은 넣지 말 것.
-//  · 현금 환급은 넣지 않았다. 크레딧을 현금으로 바꿔주면 전자금융거래법상
-//    선불전자지급수단에 해당해 금융위 등록 대상이 될 수 있다. 상품 교환만 연다.
+// 기여도(contribution.js)와 헷갈리지 말 것. 이쪽은 쓰면 없어지는 재화이고, 기여도는
+// 없어지지 않는 누적 점수다. 원장도 테이블도 따로다 — 한데 섞으면 검증을 돌릴 때마다
+// 랭킹이 내려가는 이상한 일이 생긴다.
+//
+// 절대 잊지 말 것:
+//  · 지급·차감은 전부 원장(credit_ledger)에 남기고, 잔액은 원장 합으로만 구한다.
+//  · 결제 없이 크레딧을 늘려주지 않는다. 추가 구매는 "신청"만 받고 입금 확인 후
+//    운영자가 직접 지급한다(관리자 대시보드). 자동 결제·송금은 넣지 말 것.
+//  · 현금 환급은 없다. 크레딧을 현금으로 바꿔주면 전자금융거래법상 선불전자지급수단에
+//    해당해 금융위 등록 대상이 될 수 있다.
 
-// 1 크레딧 = 100원 상당(검증 토큰 1개와 같은 기준).
+// 1 크레딧 = 100원 상당.
 export const CREDIT_KRW = 100;
 
-// 보상 금액 — 운영하면서 조정할 값이라 여기 모아둔다.
-export const BOUNTY_CREDITS = 20; // 제보 1건 승인 시(2,000원 상당)
-export const REFERRAL_CREDITS = 10; // 친구가 가입하고 첫 검증을 마쳤을 때(1,000원 상당)
-export const REFERRAL_MONTHLY_CAP = 20; // 한 사람이 추천으로 한 달에 받을 수 있는 최대 건수
+// 요금제별 월 지급량. 여기가 유일한 기준이고 화면은 이 값을 받아 표시만 한다.
+export const PLAN_CREDITS = {
+  free: 100,
+  standard: 3000,
+  expert: 10000,
+  business: 60000,
+};
 
-// 교환 상품 — 쿠팡에서 살 수 있는 물건 기준. 금·상품권은 시세가 움직이므로 여기 값은
-// 출발점이고, 실제 교환은 신청 시점에 운영자가 가격을 확인하고 보낸다(화면에도 그렇게 적었다).
-export const CATALOG = [
-  { key: "cafe_5000", label: "카페 기프티콘 (5,000원권)", credits: 60, krw: 5000 },
-  { key: "cvs_10000", label: "편의점 모바일 상품권 (10,000원권)", credits: 115, krw: 10000 },
-  { key: "goldbar_1g", label: "미니 골드바 1g", credits: 1500, krw: 150000 },
-  { key: "goldbar_3_75g", label: "미니 골드바 3.75g (한 돈)", credits: 5500, krw: 550000 },
+// 추가 구매 팩. 결제 연동 전이라 화면에서는 신청만 받고, 입금이 확인되면 운영자가 지급한다.
+export const CREDIT_PACKS = [
+  { key: "pack_100", label: "100 크레딧", credits: 100, krw: 10000 },
+  { key: "pack_500", label: "500 크레딧", credits: 500, krw: 45000 },
+  { key: "pack_2000", label: "2,000 크레딧", credits: 2000, krw: 160000 },
 ];
 
-export const catalogItem = (key) => CATALOG.find((i) => i.key === key) || null;
+export const packItem = (key) => CREDIT_PACKS.find((i) => i.key === key) || null;
+
+// 추천 보상은 크레딧으로 준다 — 친구를 데려오면 더 써볼 수 있게 하는 게 자연스럽다.
+// 제보 보상은 크레딧이 아니라 기여도 점수다(contribution.js).
+export const REFERRAL_CREDITS = 10;
+export const REFERRAL_MONTHLY_CAP = 20;
+
+// 이번 달 구독분이 들어왔는지 확인하고, 없으면 넣는다.
+// ref를 "plan:{요금제}:{YYYY-MM}"으로 잡아 원장 유니크 제약이 중복 지급을 막는다.
+// 달이 바뀌면 자동으로 새 ref가 되므로 별도의 정산 작업(cron)이 필요 없다 —
+// 사용자가 검증을 시작할 때 이 함수가 먼저 불리면서 그 자리에서 채워진다.
+function periodKey(at = new Date()) {
+  // 지급 기준은 한국 시간이다. 월말 자정 근처에서 UTC로 계산하면 하루 어긋난다.
+  const kst = new Date(at.getTime() + 9 * 60 * 60 * 1000);
+  return `${kst.getUTCFullYear()}-${String(kst.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+export async function ensureMonthlyGrant(user) {
+  if (!user?.id) return 0;
+  const plan = effectivePlan(user);
+  const amount = PLAN_CREDITS[plan] ?? PLAN_CREDITS.free;
+  const ref = `plan:${plan}:${periodKey()}`;
+  const r = await run(
+    `INSERT INTO credit_ledger (user_id, delta, reason, ref, memo, created_at)
+     VALUES (:userId, :delta, 'plan_grant', :ref, :memo, :t)
+     ON CONFLICT DO NOTHING RETURNING id`,
+    { userId: user.id, delta: amount, ref, memo: `${PLANS[plan]?.label || plan} 요금제 월 지급`, t: now() },
+  );
+  return r.rows.length ? amount : 0;
+}
 
 export async function balance(userId) {
   return (await one("SELECT COALESCE(SUM(delta), 0) AS n FROM credit_ledger WHERE user_id = :userId", { userId }))?.n || 0;
@@ -72,45 +110,36 @@ export async function spend(userId, amount, reason, { ref = null, memo = null } 
   });
 }
 
-// ── 상품 교환 ──
-// 신청 접수와 크레딧 차감은 한 트랜잭션으로 묶는다 — 차감만 되고 신청이 없거나,
-// 신청만 남고 차감이 안 되는 상태가 생기면 정산이 어긋난다.
-export async function requestRedemption(user, itemKey, contact) {
-  const item = catalogItem(itemKey);
-  if (!item) return { error: "선택한 상품을 찾을 수 없어요." };
-  const to = String(contact || "").trim();
-  if (to.length < 5) return { error: "받으실 연락처(휴대폰 번호 또는 이메일)를 입력해주세요." };
-  if (to.length > 200) return { error: "연락처가 너무 길어요." };
-
-  return tx(async (q) => {
-    await q.one("SELECT id FROM users WHERE id = :userId FOR UPDATE", { userId: user.id });
-    const cur = (await q.one("SELECT COALESCE(SUM(delta), 0) AS n FROM credit_ledger WHERE user_id = :userId", { userId: user.id }))?.n || 0;
-    if (cur < item.credits) return { error: "크레딧이 부족해요." };
-    const r = await q.run(
-      `INSERT INTO redemptions (user_id, item_key, item_label, credits, contact, created_at)
-       VALUES (:userId, :key, :label, :credits, :contact, :t) RETURNING *`,
-      { userId: user.id, key: item.key, label: item.label, credits: item.credits, contact: to, t: now() },
-    );
-    const redemption = r.rows[0];
-    await q.run("INSERT INTO credit_ledger (user_id, delta, reason, ref, memo, created_at) VALUES (:userId, :delta, 'redeem', :ref, :memo, :t)", {
-      userId: user.id,
-      delta: -item.credits,
-      ref: `redemption:${redemption.id}`,
-      memo: item.label,
-      t: now(),
-    });
-    return { redemption };
-  });
+// 검증 1건 차감. 없으면 false — 호출부가 "크레딧이 부족하다"고 안내한다.
+export function spendOne(userId, ref) {
+  return spend(userId, 1, "verify", { ref });
 }
 
-export function listUserRedemptions(userId, limit = 20) {
+// ── 추가 구매 신청 ──
+// 결제 연동 전이라 여기서 크레딧을 주지 않는다. 신청만 남기고 입금이 확인되면
+// 운영자가 관리자 대시보드에서 지급한다. 이 함수가 크레딧을 늘리는 일은 없어야 한다.
+export async function requestCreditPack(user, packKey, contact) {
+  const item = packItem(packKey);
+  if (!item) return { error: "선택한 크레딧 팩을 찾을 수 없어요." };
+  const to = String(contact || "").trim();
+  if (to.length < 5) return { error: "연락받으실 휴대폰 번호나 이메일을 입력해주세요." };
+  if (to.length > 200) return { error: "연락처가 너무 길어요." };
+  const r = await run(
+    `INSERT INTO redemptions (user_id, item_key, item_label, credits, contact, created_at)
+     VALUES (:userId, :key, :label, :credits, :contact, :t) RETURNING *`,
+    { userId: user.id, key: item.key, label: `${item.label} 구매 (${item.krw.toLocaleString()}원)`, credits: item.credits, contact: to, t: now() },
+  );
+  return { request: r.rows[0] };
+}
+
+export function listUserCreditRequests(userId, limit = 20) {
   return all("SELECT id, item_label, credits, status, created_at, handled_at FROM redemptions WHERE user_id = :userId ORDER BY id DESC LIMIT :limit", {
     userId,
     limit,
   });
 }
 
-export function listRedemptions(status = null, limit = 200) {
+export function listCreditRequests(status = null, limit = 200) {
   return all(
     `SELECT r.*, u.email, u.name FROM redemptions r JOIN users u ON u.id = r.user_id
       ${status ? "WHERE r.status = :status" : ""} ORDER BY r.id DESC LIMIT :limit`,
@@ -118,10 +147,10 @@ export function listRedemptions(status = null, limit = 200) {
   );
 }
 
-// 운영자가 물건을 실제로 보낸 뒤 처리 완료로 바꾼다. 취소하면 크레딧을 돌려준다.
-export async function handleRedemption(id, decision, adminNote) {
+// 입금을 확인한 뒤 운영자가 지급한다. 여기서야 크레딧이 들어간다.
+export async function handleCreditRequest(id, decision, adminNote) {
   const row = await one("SELECT * FROM redemptions WHERE id = :id", { id });
-  if (!row) return { error: "교환 신청을 찾을 수 없어요." };
+  if (!row) return { error: "구매 신청을 찾을 수 없어요." };
   if (row.status !== "requested") return { error: "이미 처리된 신청이에요." };
   const status = decision === "fulfill" ? "fulfilled" : "cancelled";
   await run("UPDATE redemptions SET status = :status, admin_note = :note, handled_at = :t WHERE id = :id", {
@@ -130,8 +159,8 @@ export async function handleRedemption(id, decision, adminNote) {
     note: adminNote ? String(adminNote).slice(0, 500) : null,
     t: now(),
   });
-  if (status === "cancelled") {
-    await grant(row.user_id, row.credits, "redeem_cancel", { ref: `redemption:${id}`, memo: `교환 취소 — ${row.item_label}` });
+  if (status === "fulfilled") {
+    await grant(row.user_id, row.credits, "purchase", { ref: `purchase:${id}`, memo: row.item_label });
   }
   return { ok: true, status };
 }

@@ -20,12 +20,13 @@ import accountRouter from "./accountApi.js";
 import creditsRouter from "./creditsApi.js";
 import { auditRouter, getAuditReport, renderAuditReport } from "./auditApi.js";
 import { creditReferralOnActivity } from "./referral.js";
+import { awardForVerification } from "./contribution.js";
 import apiV1Router from "./apiV1.js";
 import adminApiRouter from "./adminApi.js";
 import { openExportDownload, purgeOldExportFiles } from "./dataset.js";
 import { renderAdminPage } from "./renderAdminPage.js";
 import { renderResetPasswordPage, renderTermsPage, renderPrivacyPage, renderAccountDeletionPage, renderApiDocsPage } from "./renderPages.js";
-import { clientIp, createLimiter, limitMiddleware, sameOriginGuard, securityHeaders } from "./security.js";
+import { clientIp, createLimiter, limitMiddleware, sameOriginGuard, securityHeaders, IS_PROD } from "./security.js";
 import { mailConfigured } from "./mailer.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -56,6 +57,8 @@ const chatDailyLimiter = createLimiter({ windowMs: 24 * 3600 * 1000, max: 150 })
 
 function limitMessage(usage, user) {
   if (usage.reason === "ip_ceiling") return "같은 네트워크에서 오늘 쓸 수 있는 무료 확인 횟수를 모두 사용했어요. 내일 다시 이용해주세요.";
+  // 크레딧 소진은 하루 한도와 다른 문제다 — 내일이 되어도 풀리지 않으니 그렇게 안내한다.
+  if (usage.reason === "no_credits") return "이번 달 크레딧을 모두 사용했어요. 계정 설정 → 크레딧에서 추가로 구매하거나, 다음 달 지급을 기다려주세요.";
   if (usage.plan !== "free") return `오늘 공정 이용 한도(${usage.dailyLimit}회)에 도달했어요. 내일 다시 이용해주세요.`;
   if (!user) return `오늘 무료 확인 ${usage.dailyLimit}회를 다 쓰셨어요. 로그인하면 기록이 저장되고, 요금제로 더 많이 확인할 수 있어요.`;
   return `오늘 무료 확인 ${usage.dailyLimit}회를 다 쓰셨어요. 내일 다시 이용하거나 요금제를 확인해주세요.`;
@@ -94,6 +97,9 @@ app.post("/api/verify", limitMiddleware(verifyLimiter, (req) => `verify:${client
       await trimUserHistory(user.id, PLANS[usage.plan].historyLimit);
       // 추천으로 가입한 사람이 첫 검증을 마치면 추천한 사람에게 크레딧이 지급된다.
       await creditReferralOnActivity(user.id);
+      // 기여도 — 검증 10점, 사실과 다른 주장이 실제로 잡혔으면 발견 50점을 더한다.
+      // 점수가 안 쌓여도 검증 결과는 그대로 나가야 하므로 실패를 삼킨다.
+      await awardForVerification(user.id, id, result?.claims).catch(() => {});
     }
     send("result", { ...result, id, elapsedMs: Date.now() - startedAt, fromCache, usage: await peekUsage({ user, ip }) });
   } catch (e) {
@@ -223,6 +229,7 @@ app.use((err, req, res, _next) => {
   if (err.type === "entity.parse.failed") return res.status(400).json({ error: "JSON 형식이 올바르지 않아요." });
   if (err.type === "entity.too.large") return res.status(413).json({ error: "요청 본문이 너무 커요." });
   logError(`express:${req.method} ${req.path}`, err);
+  if (!IS_PROD) console.error(`[express:${req.method} ${req.path}]`, err);
   res.status(500).json({ error: "서버 오류가 발생했어요." });
 });
 

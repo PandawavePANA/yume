@@ -63,7 +63,18 @@ function client() {
   };
 }
 
-const signupBody = (email, extra = {}) => ({ email, password: "passw0rd!", name: "테스터", agreeTerms: true, agreePrivacy: true, ...extra });
+let nickSeq = 0;
+const signupBody = (email, extra = {}) => ({
+  email,
+  password: "passw0rd!",
+  name: "테스터",
+  // 닉네임은 유니크 제약이 걸려 있다. 호출마다 새로 만들어, 이메일 중복 테스트가
+  // 닉네임 충돌 때문에 통과해버리는 일이 없게 한다.
+  nickname: `tester${++nickSeq}`,
+  agreeTerms: true,
+  agreePrivacy: true,
+  ...extra,
+});
 
 async function seedVerification({ id, userId = null, apiKeyId = null, source = "web", input, dataConsent = false, claims }) {
   await store.createVerification({ id, source, userId, apiKeyId, clientKey: userId ? `user:${userId}` : "ip:1.1.1.1", input, dataConsent });
