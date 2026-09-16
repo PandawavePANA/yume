@@ -16,12 +16,13 @@ const PRICING = {
 const WEB_SEARCH_USD = 10 / 1000;
 const DEFAULT_PRICE = PRICING["claude-sonnet-5"];
 
-// cacheWrite는 캐시에 올릴 때 한 번 내는 값이다(1시간 TTL은 기본 입력의 2배).
+// cacheWrite는 캐시에 올릴 때 내는 값이다. 5분 TTL은 입력의 1.25배, 1시간은 2배.
 // 읽을 때 1/10이라 금방 회수되지만, 계량에서 빼면 "아낀 것만 보이고 낸 것은 안 보이는"
-// 장부가 된다.
+// 장부가 된다 — 실제로 이 값을 안 보다가 TTL을 잘못 올린 적이 있다.
+const CACHE_WRITE_MULTIPLIER = 1.25;
 export function costOf({ model, input = 0, output = 0, cachedInput = 0, cacheWrite = 0, searches = 0 }) {
   const p = PRICING[model] || DEFAULT_PRICE;
-  return input * p.in + cachedInput * p.cachedIn + cacheWrite * p.in * 2 + output * p.out + searches * WEB_SEARCH_USD;
+  return input * p.in + cachedInput * p.cachedIn + cacheWrite * p.in * CACHE_WRITE_MULTIPLIER + output * p.out + searches * WEB_SEARCH_USD;
 }
 
 // 검증 한 건 동안의 호출을 모은다. 요청마다 새로 만들고, 끝나면 요약을 남긴다.
@@ -71,6 +72,6 @@ export function logApiCost(id, source, cost) {
   console.log(
     `[cost] ${source}:${id} $${cost.usd} · 검색 ${cost.searches}회 · 호출 ${cost.calls}회` +
       `${cost.reusedClaims ? ` · 캐시 재사용 ${cost.reusedClaims}건` : ""} · ` +
-      `토큰 in ${cost.input}(캐시 ${cost.cachedInput})/out ${cost.output} · ${Math.round(cost.elapsedMs / 100) / 10}s — ${parts}`,
+      `토큰 in ${cost.input}/캐시읽기 ${cost.cachedInput}/캐시쓰기 ${cost.cacheWrite}/out ${cost.output} · ${Math.round(cost.elapsedMs / 100) / 10}s — ${parts}`,
   );
 }
