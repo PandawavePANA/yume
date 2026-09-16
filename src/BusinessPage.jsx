@@ -8,6 +8,7 @@ import { useState } from "react";
 import AuditModal from "./components/yume/AuditModal.jsx";
 import { CONTACT_EMAIL } from "./components/yume/api.js";
 import { YUME_URL } from "./businessConfig.js";
+import { BUSINESS, telHref, COPYRIGHT, businessLine } from "./businessInfo.js";
 
 const UI = {
   ink: "#1D1A24",
@@ -220,10 +221,30 @@ Authorization: Bearer <API_KEY>
           </div>
         </section>
 
-        <footer style={{ marginTop: 44, paddingTop: 20, borderTop: `1px solid ${UI.hairline}`, fontSize: 13, color: UI.ink3, display: "flex", gap: 14, flexWrap: "wrap" }}>
-          <a href={`mailto:${CONTACT_EMAIL}`} style={{ color: UI.ink3, textDecoration: "none" }}>{CONTACT_EMAIL}</a>
-          <a href={`${YUME_URL}/terms`} style={{ color: UI.ink3, textDecoration: "none" }}>이용약관</a>
-          <a href={`${YUME_URL}/privacy`} style={{ color: UI.ink3, textDecoration: "none" }}>개인정보처리방침</a>
+        <footer style={{ marginTop: 44, paddingTop: 20, borderTop: `1px solid ${UI.hairline}`, fontSize: 13, color: UI.ink3, display: "flex", flexDirection: "column", gap: 14 }}>
+          <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+            <a href={`mailto:${CONTACT_EMAIL}`} style={{ color: UI.ink3, textDecoration: "none" }}>{CONTACT_EMAIL}</a>
+            <a href={`${YUME_URL}/terms`} style={{ color: UI.ink3, textDecoration: "none" }}>이용약관</a>
+            <a href={`${YUME_URL}/privacy`} style={{ color: UI.ink3, textDecoration: "none" }}>개인정보처리방침</a>
+          </div>
+          {/* 기업용도 같은 사업자가 운영하므로 신원정보를 같이 싣는다. */}
+          <address style={{ fontStyle: "normal", fontSize: 12, lineHeight: 1.85, color: UI.ink3 }}>
+            <div>
+              {businessLine([
+                `상호 ${BUSINESS.name}(${BUSINESS.nameEn})`,
+                `대표 ${BUSINESS.ceo}`,
+                `사업자등록번호 ${BUSINESS.regNo}`,
+                BUSINESS.mailOrderNo && `통신판매업 신고 ${BUSINESS.mailOrderNo}`,
+              ])}
+            </div>
+            <div>주소 {BUSINESS.address}</div>
+            {BUSINESS.tel && (
+              <div>
+                대표전화 <a href={telHref} style={{ color: UI.ink3, textDecoration: "none" }}>{BUSINESS.tel}</a>
+              </div>
+            )}
+            <div style={{ marginTop: 6 }}>{COPYRIGHT}</div>
+          </address>
         </footer>
       </div>
 

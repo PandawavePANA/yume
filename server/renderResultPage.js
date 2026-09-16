@@ -12,6 +12,10 @@
 // 자바스크립트 폴링 대신 아주 단순하게 <meta refresh>로 몇 초마다 스스로
 // 새로고침하면서, 서버에 저장된 상태가 "done"으로 바뀌길 기다린다.
 
+// 사업자 정보는 약관 페이지와 같은 곳에서 가져온다 — 공유 링크로 처음 들어온 사람도
+// 누가 운영하는 서비스인지 볼 수 있어야 한다.
+import { businessLine } from "./renderPages.js";
+
 const VERDICT = {
   confirmed: { label: "확인됨", bg: "#E7F6EE", color: "#1F9D66", glyph: "✓" },
   false: { label: "사실과 다름", bg: "#FBE9E7", color: "#C6402F", glyph: "✕" },
@@ -165,7 +169,7 @@ export function renderResultPage({ id, input, status, result, createdAt }) {
           <div style="font-size:14px;color:#9C8FC2;text-align:center;max-width:420px;padding:0 16px;">AI 답변에서 사실 주장을 추출하고 실시간으로 검색하는 중…</div>
           <div style="font-size:12px;color:#B6A9D6;">내용이 길면 최대 30초 정도 걸릴 수 있어요 · 이 페이지는 4초마다 자동으로 새로고침됩니다</div>
         </div>`,
-      footer: `<div class="footer">id: ${esc(id)}</div>`,
+      footer: `<div class="footer">${businessLine()}<br/>id: ${esc(id)}</div>`,
     });
   }
 
@@ -256,6 +260,6 @@ export function renderResultPage({ id, input, status, result, createdAt }) {
       <div class="section-label">근거 자료 ${sources.length ? `(${sources.length})` : ""}</div>
       ${sourcesHtml}
       ${productsHtml}`,
-    footer: `<div class="footer">id: ${esc(id)}</div>`,
+    footer: `<div class="footer">${businessLine()}<br/>id: ${esc(id)}</div>`,
   });
 }

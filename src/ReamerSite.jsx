@@ -3,6 +3,7 @@ import "./reamer.css";
 import "@/components/reamer/site.css";
 import SiteBackdrop from "@/components/reamer/SiteBackdrop";
 import Logo from "@/components/reamer/Logo";
+import { BUSINESS, telHref, COPYRIGHT, businessLine } from "@/businessInfo";
 
 // Characters are split into spans so the global cursor-tile trail can flip
 // them dark as a tile passes underneath.
@@ -634,8 +635,29 @@ const ReamerSite = () => {
                 </a>
               </li>
             </ul>
-            <p className="footer__copy">© 2026 REAMER</p>
           </div>
+          {/* 사업자 정보 — 세 사이트가 같은 값을 보여줘야 해서 businessInfo.js에서 가져온다. */}
+          <address className="wrap footer__biz">
+            <span>
+              {businessLine([
+                `상호 ${BUSINESS.name}(${BUSINESS.nameEn})`,
+                `대표 ${BUSINESS.ceo}`,
+                `사업자등록번호 ${BUSINESS.regNo}`,
+                BUSINESS.mailOrderNo && `통신판매업 신고 ${BUSINESS.mailOrderNo}`,
+              ])}
+            </span>
+            <span>주소 {BUSINESS.address}</span>
+            <span>
+              {BUSINESS.tel && (
+                <>
+                  대표전화 <a className="footer__link" href={telHref}>{BUSINESS.tel}</a>
+                  {" · "}
+                </>
+              )}
+              이메일 <a className="footer__link" href={`mailto:${BUSINESS.email}`}>{BUSINESS.email}</a>
+            </span>
+            <p className="footer__copy">{COPYRIGHT}</p>
+          </address>
         </footer>
       </div>
     </>

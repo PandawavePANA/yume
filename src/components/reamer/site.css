@@ -740,3 +740,17 @@ a.folio__item:hover .folio__go { color: var(--ink); }
   letter-spacing: 0.12em;
   color: var(--ink-faint);
 }
+/* 사업자 정보. 심사에서 항목별로 찾기 때문에 한 줄로 뭉치지 않고 줄을 나눈다. */
+.footer__biz {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 28px;
+  padding-top: 22px;
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+  font-style: normal;
+  line-height: 1.8;
+  color: var(--ink-faint);
+}
+.footer__biz .footer__copy { margin-top: 8px; }

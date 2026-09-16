@@ -1,3 +1,5 @@
+import { BUSINESS } from "../../businessInfo.js";
+
 // 기업용 사이트는 별도 도메인에 배포되므로 유메 서버를 절대 주소로 불러야 한다.
 // 유메 본체에서는 비워 두면 기존처럼 같은 출처로 나간다.
 let API_BASE = "";
@@ -33,4 +35,5 @@ export function safeUrl(u) {
   }
 }
 
-export const CONTACT_EMAIL = "reamer@d-reamer.com";
+// 사업자 정보와 같은 값이라 businessInfo.js 한 곳에서 가져온다.
+export const CONTACT_EMAIL = BUSINESS.email;

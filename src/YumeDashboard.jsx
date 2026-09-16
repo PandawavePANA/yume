@@ -6,6 +6,7 @@ import AccountModal from "@/components/yume/AccountModal";
 import NecPanel from "@/components/yume/NecPanel";
 import { BountyPrompt } from "@/components/yume/BountyModal";
 import { apiJson, safeUrl, CONTACT_EMAIL } from "@/components/yume/api";
+import { BUSINESS, telHref, COPYRIGHT, businessLine } from "@/businessInfo";
 import { IS_NATIVE_APP, onNativeBack, shareLink } from "./native.js";
 import AuditModal from "./components/yume/AuditModal.jsx";
 import RankingModal from "@/components/yume/RankingModal";
@@ -1455,8 +1456,30 @@ export default function YumeDashboard() {
               <a href="/docs/api" target="_blank" rel="noopener noreferrer" className="yume-footer-link" style={{ color: UI.ink2, fontSize: 13, textDecoration: "none" }}>API 문서</a>
             </div>
           </div>
-          <div style={{ borderTop: `1px solid ${UI.hairline}`, paddingTop: 18, fontSize: 12, color: UI.ink3, display: "flex", flexWrap: "wrap", gap: "8px 18px", justifyContent: "space-between" }}>
-            <span>Copyright © 2026 리머(REAMER) · 대표 정원영 · <a href={`mailto:${CONTACT_EMAIL}`} className="yume-footer-link" style={{ color: UI.ink3, textDecoration: "none" }}>{CONTACT_EMAIL}</a></span>
+          {/* 사업자 정보 — 전자상거래법 제10조와 결제대행 심사가 요구하는 항목이다.
+              한 줄로 뭉치면 심사에서 못 찾는 일이 생겨 항목을 줄로 나눠 적는다. */}
+          <div style={{ borderTop: `1px solid ${UI.hairline}`, paddingTop: 18, fontSize: 12, color: UI.ink3, display: "flex", flexWrap: "wrap", gap: "14px 24px", justifyContent: "space-between", alignItems: "flex-start" }}>
+            <address style={{ fontStyle: "normal", lineHeight: 1.85, maxWidth: 640 }}>
+              <div>
+                {businessLine([
+                  `상호 ${BUSINESS.name}(${BUSINESS.nameEn})`,
+                  `대표 ${BUSINESS.ceo}`,
+                  `사업자등록번호 ${BUSINESS.regNo}`,
+                  BUSINESS.mailOrderNo && `통신판매업 신고 ${BUSINESS.mailOrderNo}`,
+                ])}
+              </div>
+              <div>주소 {BUSINESS.address}</div>
+              <div>
+                {BUSINESS.tel && (
+                  <>
+                    대표전화 <a href={telHref} className="yume-footer-link" style={{ color: UI.ink3, textDecoration: "none" }}>{BUSINESS.tel}</a>
+                    {" · "}
+                  </>
+                )}
+                이메일 <a href={`mailto:${BUSINESS.email}`} className="yume-footer-link" style={{ color: UI.ink3, textDecoration: "none" }}>{BUSINESS.email}</a>
+              </div>
+              <div style={{ marginTop: 6 }}>{COPYRIGHT}</div>
+            </address>
             <span style={{ display: "flex", gap: 0 }}>
               <a href="/terms" target="_blank" rel="noopener noreferrer" className="yume-footer-link" style={{ color: UI.ink2, textDecoration: "none", paddingRight: 12, borderRight: `1px solid ${UI.hairline}` }}>이용약관</a>
               <a href="/privacy" target="_blank" rel="noopener noreferrer" className="yume-footer-link" style={{ color: UI.ink, textDecoration: "none", fontWeight: 600, paddingLeft: 12 }}>개인정보처리방침</a>

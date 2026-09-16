@@ -1,11 +1,18 @@
 // 서버 렌더링 정적 페이지: 이용약관·개인정보처리방침·비밀번호 재설정·API 문서.
-// 사업자 정보는 환경변수로 채운다(비워두면 해당 줄을 표시하지 않음).
+//
+// 사업자 정보는 전자상거래법 제10조와 결제대행 심사가 요구하는 항목이다. 배포 환경변수로
+// 덮어쓸 수 있지만, 기본값을 비워 두면 환경변수를 안 넣은 배포에서 조용히 사라진다 —
+// 실제로 심사에서 "사이트에 명시되어 있지 않음"으로 걸린 게 이 때문이라 등록증 값을
+// 기본값으로 박아 둔다. 프런트엔드 쪽 같은 값은 src/businessInfo.js에 있다.
 const COMPANY = {
   name: process.env.COMPANY_NAME || "리머(REAMER)",
   ceo: process.env.COMPANY_CEO || "정원영",
   email: process.env.COMPANY_EMAIL || "reamer@d-reamer.com",
-  regNo: process.env.BUSINESS_REG_NO || "",
-  address: process.env.BUSINESS_ADDRESS || "",
+  regNo: process.env.BUSINESS_REG_NO || "627-03-03900",
+  address: process.env.BUSINESS_ADDRESS || "대구광역시 달성군 유가읍 테크노대로5길 80, 212동 1402호 (호반베르디움 2차)",
+  // 유선번호. 심사에서 따로 확인하는 항목이라 비어 있으면 안 된다.
+  tel: process.env.BUSINESS_TEL || "",
+  // 간이과세자는 통신판매업 신고 면제 대상일 수 있어, 없으면 표시하지 않는다.
   mailOrderNo: process.env.MAIL_ORDER_NO || "",
 };
 const EFFECTIVE_DATE = "2026년 9월 12일";
@@ -49,7 +56,8 @@ export function businessLine() {
     `대표 ${esc(COMPANY.ceo)}`,
     COMPANY.regNo && `사업자등록번호 ${esc(COMPANY.regNo)}`,
     COMPANY.mailOrderNo && `통신판매업 신고 ${esc(COMPANY.mailOrderNo)}`,
-    COMPANY.address && esc(COMPANY.address),
+    COMPANY.address && `주소 ${esc(COMPANY.address)}`,
+    COMPANY.tel && `대표전화 ${esc(COMPANY.tel)}`,
     `문의 ${esc(COMPANY.email)}`,
   ]
     .filter(Boolean)
