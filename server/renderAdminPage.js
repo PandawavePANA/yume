@@ -136,7 +136,7 @@ $("gPw").addEventListener("keydown", function (e) { if (e.key === "Enter") $("gB
 
 function start() {
   $("app").hidden = false;
-  $("who").innerHTML = esc(state.me.email) + '<br/><a href="#" id="logout">로그아웃</a> · <a href="/">서비스로</a>';
+  $("who").innerHTML = esc(state.me.email) + '<br/><a href="#" id="logout">로그아웃</a> · <a href="/app">서비스로</a>';
   $("logout").onclick = async function (e) { e.preventDefault(); await api("/api/auth/logout", { method: "POST" }); location.reload(); };
   $("nav").innerHTML = TABS.map(function (x) { return '<button data-tab="' + x[0] + '">' + x[1] + "</button>"; }).join("");
   $("nav").onclick = function (e) { var b = e.target.closest("button"); if (b) go(b.getAttribute("data-tab")); };

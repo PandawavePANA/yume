@@ -81,7 +81,7 @@ export function renderResetPasswordPage() {
       var r = await fetch("/api/auth/reset", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: token, password: pw }) });
       var d = await r.json();
       if (!r.ok) throw new Error(d.error || "변경하지 못했어요.");
-      msg.className = "msg ok"; msg.innerHTML = '비밀번호를 바꿨어요. <a href="/">유메에서 로그인하기</a>';
+      msg.className = "msg ok"; msg.innerHTML = '비밀번호를 바꿨어요. <a href="/app">유메에서 로그인하기</a>';
     } catch (e) { msg.className = "msg err"; msg.textContent = e.message; this.disabled = false; }
   };
 </script>`,
@@ -180,7 +180,7 @@ export function renderAccountDeletionPage() {
 
 <h2>앱 또는 웹사이트에서 직접 삭제하기</h2>
 <ol>
-<li>유메 앱을 열거나 <a href="/">www.yume-reamer.com</a>에 접속해 로그인합니다.</li>
+<li>유메 앱을 열거나 <a href="/app">www.yume-reamer.com</a>에 접속해 로그인합니다.</li>
 <li>오른쪽 위 내 이름을 누르고 <b>계정 설정</b>을 엽니다.</li>
 <li><b>보안</b> 탭의 <b>회원 탈퇴</b>에서 비밀번호를 입력하고 <b>탈퇴하기</b>를 누릅니다.</li>
 </ol>
