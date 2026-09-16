@@ -140,6 +140,71 @@ export function caseSpaceKey(level) {
 
 // 커버리지 C (수학식 1, C = |SS_covered| / |SS|). 여러 DB를 탐색했으면 서로 독립적으로
 // 수록한다고 보고 합집합 비율 1 − Π(1 − cᵢ)로 추정한다. 탐색에 실패한 DB는 넣지 않는다.
+// ── 일반 사실 주장의 검색공간 ────────────────────────────────────────────
+// 식별자(법령·판례·DOI)는 레지스트리가 검색공간이지만, "2024년 대구 중구 안경 공방 평균
+// 객단가는 18만 7천원" 같은 주장에는 레지스트리가 없다. 대신 기준이 하나 있다 —
+// 이 주장이 사실이라면 어디엔가 기록되어 있어야 한다. 그 '어디'가 검색공간이다.
+//
+// 그래서 공간을 주장의 기록 가능성(recordedness)으로 나눈다. 공공 통계처럼 사실이라면
+// 반드시 공표되는 것은 수록률이 높고, 비공개 내부 정보는 낮다. 수록률이 높은 공간을
+// 다 뒤져도 없다면 그건 "유메가 못 찾은 것"이 아니라 "그런 사실이 없는 것"에 가깝다.
+// AI가 그걸 확언했다면 지어낸 것이다 — 부존재 검증이 잡아내야 할 바로 그 경우다.
+const ASSERTION_SPACES = {
+  public_record: {
+    label: "정부·공공기관 공식 기록(통계·공시·관보·등기)",
+    sources: {
+      web: { label: "공공 통계·공시 포털 및 웹 검색", completeness: 0.9 },
+      "official:registry": { label: "공식 레지스트리 직접 조회", completeness: 0.5 },
+    },
+    uncovered: [
+      { area: "공표 주기가 지나지 않아 아직 공개되지 않은 최신 집계", howToCheck: "해당 기관에 정보공개청구(open.go.kr)" },
+      { area: "비공개로 분류된 행정 자료", howToCheck: "소관 기관에 직접 문의" },
+    ],
+  },
+  published: {
+    label: "공개 출판물(논문·도서·보고서)",
+    sources: { web: { label: "학술 검색 및 웹 검색", completeness: 0.85 } },
+    uncovered: [
+      { area: "유료 데이터베이스에만 수록된 문헌", howToCheck: "RISS·KISS·DBpia 등에서 기관 계정으로 검색" },
+      { area: "출판되지 않은 학위논문·내부 보고서", howToCheck: "발행 기관 자료실에 직접 문의" },
+    ],
+  },
+  reported: {
+    label: "언론 보도·기관 공식 발표",
+    sources: { web: { label: "뉴스 및 웹 검색", completeness: 0.85 } },
+    uncovered: [
+      { area: "아카이브가 남지 않은 오래된 보도", howToCheck: "한국언론진흥재단 빅카인즈(bigkinds.or.kr)에서 원문 검색" },
+      { area: "지역 소식지 등 온라인에 없는 매체", howToCheck: "해당 지역 도서관 정기간행물실" },
+    ],
+  },
+  niche: {
+    label: "업계·전문 영역 자료",
+    sources: { web: { label: "웹 검색", completeness: 0.5 } },
+    uncovered: [
+      { area: "업계 내부에서만 공유되는 자료", howToCheck: "관련 협회·학회에 문의" },
+      { area: "회원 전용 커뮤니티·유료 리포트", howToCheck: "해당 서비스에 직접 가입해 확인" },
+    ],
+  },
+  private: {
+    label: "비공개 정보(개별 기업·기관 내부 자료)",
+    sources: { web: { label: "웹 검색", completeness: 0.15 } },
+    uncovered: [
+      { area: "공시 의무가 없는 기업의 내부 수치", howToCheck: "해당 기업에 직접 문의하거나 공시 자료 확인" },
+      { area: "당사자만 아는 계약·거래 내용", howToCheck: "당사자에게 확인" },
+    ],
+  },
+  unrecordable: {
+    label: "기록으로 남지 않는 영역(개인 경험·미래 예측·주관적 평가)",
+    sources: { web: { label: "웹 검색", completeness: 0.05 } },
+    uncovered: [
+      { area: "애초에 공개 기록이 존재하지 않는 성격의 내용", howToCheck: "검증 대상이 아닙니다 — 사실 주장으로 다루지 마세요" },
+    ],
+  },
+};
+
+export const RECORDEDNESS = Object.keys(ASSERTION_SPACES);
+Object.assign(SEARCH_SPACES, ASSERTION_SPACES);
+
 export function coverageFor(spaceKey, searchedIds) {
   const space = SEARCH_SPACES[spaceKey];
   const searched = searchedIds.map((s) => {

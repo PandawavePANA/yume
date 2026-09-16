@@ -8,6 +8,10 @@ import { SEARCH_SPACES } from "./searchSpace.js";
 export const NEC_WEIGHTS = {
   legal: { w1: 0.65, w2: 0.2, w3: 0.15 },
   scholarly: { w1: 0.6, w2: 0.25, w3: 0.15 },
+  // 일반 사실 주장: 식별자와 달리 형식오류를 따질 게 거의 없으니 w2를 낮추고,
+  // "탐색을 얼마나 넓게 했나"(C)와 "비슷한 진짜가 있나"(P)에 무게를 싣는다.
+  // 비슷한 실재 사실이 있으면 지어낸 게 아니라 잘못 기억한 것일 수 있어 단정을 미룬다.
+  assertion: { w1: 0.7, w2: 0.1, w3: 0.2 },
 };
 export const T1_SKIP_SEARCH = 0.7; // 형식오류 지수가 이 값을 넘으면 외부 탐색을 생략(청구항 2)
 export const T2_GRADE = 0.7; // 부존재 확실 등급의 기준값
