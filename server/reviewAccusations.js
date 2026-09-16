@@ -20,7 +20,8 @@ const MAX_REVIEWS = 3; // 한 검증에서 지목이 쏟아져도 비용이 선�
 export async function reviewAccusations(claims, { review = defaultReview, onProgress = () => {}, ledger = null } = {}) {
   const targets = claims
     .map((c, i) => ({ c, i }))
-    .filter(({ c }) => c.verdict === "false" && REVIEWABLE_VIA.has(c.verified_via))
+    // 캐시에서 온 지목은 처음 판정될 때 이미 이 검토를 거쳤다. 두 번 볼 필요가 없다.
+    .filter(({ c }) => c.verdict === "false" && REVIEWABLE_VIA.has(c.verified_via) && !c.from_claim_cache)
     .slice(0, MAX_REVIEWS);
   if (targets.length === 0) return claims;
 

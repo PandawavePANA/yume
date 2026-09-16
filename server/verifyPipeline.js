@@ -3,6 +3,7 @@ import { resolveLegalClaims } from "./legalPipeline.js";
 import { resolveIdentifierClaims } from "./identifierPipeline.js";
 import { resolveUncertainClaims } from "./resolveUncertain.js";
 import { reviewAccusations } from "./reviewAccusations.js";
+import { applyCache, storeAll } from "./claimCache.js";
 import { sanitizeClaim } from "./claimGuard.js";
 import { buildOverallVerdict } from "./overallVerdict.js";
 import { resolveProductLinks } from "./coupang.js";
@@ -42,7 +43,12 @@ async function processVerification({ id, text, source, onProgress = () => {} }) 
         : `${extracted.claims.length}개 주장을 찾았습니다. 결과를 정리하는 중…`,
     );
 
-    let claims = await resolveLegalClaims(extracted.claims, { onProgress, ledger });
+    // 전에 판단한 적 있는 주장은 그 판정을 그대로 쓴다. 답변은 달라도 주장은 겹친다.
+    let claims = await applyCache(extracted.claims);
+    const reused = claims.filter((c) => c.from_claim_cache).length;
+    if (reused > 0) onProgress(`전에 확인한 주장 ${reused}개는 그 결과를 그대로 씁니다…`);
+
+    claims = await resolveLegalClaims(claims, { onProgress, ledger });
     claims = await resolveIdentifierClaims(claims, { onProgress });
     // 심층 재확인 '전에' 한 번 거른다. 출처 없이 confirmed로 온 주장을 여기서 내려놓아야
     // 아래 재확인 대상에 포함된다 — 거르는 순서가 반대면 근거를 찾아볼 기회 없이 강등만 된다.
@@ -54,6 +60,12 @@ async function processVerification({ id, text, source, onProgress = () => {} }) 
     // 마지막으로 "사실과 다름" 지목만 다시 본다. 맞는 정보를 거짓이라 부르는 게
     // 유메가 낼 수 있는 가장 해로운 오류라, 여기에만 따로 비용을 쓴다.
     claims = await reviewAccusations(claims, { onProgress, ledger });
+    // 이번에 새로 판단한 것만 캐시에 넣는다(확인되지 않음은 저장하지 않는다).
+    await storeAll(claims);
+    // 내부 표시는 여기서 뗀다. 중간에 떼면 지목 재확인과 저장이 캐시된 주장을 구분하지
+    // 못해 이미 끝난 일을 다시 한다.
+    const reusedCount = claims.filter((c) => c.from_claim_cache).length;
+    claims = claims.map(({ from_claim_cache: _c, ...rest }) => rest);
 
     const overall = buildOverallVerdict(claims);
     const relatedProducts = await resolveProductLinks(extracted.related_products);
@@ -71,7 +83,7 @@ async function processVerification({ id, text, source, onProgress = () => {} }) 
     await completeVerification(id, result, { elapsedMs: Date.now() - startedAt });
     // 원가는 사용자에게 내보내지 않는다 — 운영 지표라 로그로만 남긴다.
     const cost = summarize(ledger);
-    if (cost) logApiCost(id, source, cost);
+    if (cost) logApiCost(id, source, { ...cost, reusedClaims: reusedCount });
     return { result, fromCache: false };
   } catch (e) {
     await failVerification(id, e.message).catch(() => {});

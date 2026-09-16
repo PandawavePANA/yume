@@ -69,7 +69,8 @@ export function logApiCost(id, source, cost) {
     .map(([k, v]) => `${k} ${v.calls}회${v.searches ? `/검색${v.searches}` : ""} $${v.usd}`)
     .join(" · ");
   console.log(
-    `[cost] ${source}:${id} $${cost.usd} · 검색 ${cost.searches}회 · 호출 ${cost.calls}회 · ` +
+    `[cost] ${source}:${id} $${cost.usd} · 검색 ${cost.searches}회 · 호출 ${cost.calls}회` +
+      `${cost.reusedClaims ? ` · 캐시 재사용 ${cost.reusedClaims}건` : ""} · ` +
       `토큰 in ${cost.input}(캐시 ${cost.cachedInput})/out ${cost.output} · ${Math.round(cost.elapsedMs / 100) / 10}s — ${parts}`,
   );
 }

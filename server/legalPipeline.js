@@ -47,7 +47,8 @@ const CASE_IN_TEXT = /(\d{2,4})\s?([가-힣]{1,3})\s?(\d{2,7})/;
 
 export async function resolveLegalClaims(claims, { ground = defaultGround, webVerify = defaultWebVerify, onProgress = () => {}, ledger = null } = {}) {
   return Promise.all(
-    claims.map((claim) => (claim.domain === "법률" ? resolveOne(claim, { ground, webVerify, onProgress, ledger }) : claim)),
+    // from_claim_cache가 붙은 주장은 이미 판정이 끝난 것이다. 법제처를 다시 부르지 않는다.
+    claims.map((claim) => (claim.domain === "법률" && !claim.from_claim_cache ? resolveOne(claim, { ground, webVerify, onProgress, ledger }) : claim)),
   );
 }
 

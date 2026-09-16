@@ -505,6 +505,34 @@ const MIGRATIONS = [
   CREATE UNIQUE INDEX idx_quarter_award ON quarter_awards(period, user_id);
   ALTER TABLE quarter_awards ENABLE ROW LEVEL SECURITY;
   `,
+
+  // 주장 단위 캐시.
+  //
+  // 지금까지는 입력 전문이 글자 하나까지 같을 때만 재사용했다. 그런데 "민법 제750조는
+  // 불법행위 책임을 규정한다" 같은 주장은 서로 다른 AI 답변에 계속 나온다 — 답변은
+  // 다른데 검증할 내용은 같다. 주장 단위로 들고 있으면 자주 나오는 주장은 한 번만 판단하면 된다.
+  //
+  // 같은 판정이 나올 때만 재사용하는 것이므로 정확도는 그대로다. 다만 두 가지를 지킨다.
+  //   · 확인되지 않음은 캐시하지 않는다. 다음번엔 찾을 수도 있는데 못 찾은 결과를
+  //     붙들고 있으면 영영 확인되지 않는다.
+  //   · 법률 주장은 하루 단위로만 재사용한다. 법령 개정은 시행일 0시에 적용되므로,
+  //     날짜가 바뀌면 캐시가 통째로 무효가 된다 — 개정 전 조문으로 "맞다"고 하는 건
+  //     유메가 잡으려는 실패(시점 붕괴) 그 자체다.
+  `
+  CREATE TABLE claim_cache (
+    hash TEXT PRIMARY KEY,
+    verdict TEXT NOT NULL,
+    verified_via TEXT,
+    explanation TEXT,
+    sources_json TEXT,
+    nec_json TEXT,
+    effective_date TEXT,
+    hits INTEGER NOT NULL DEFAULT 0,
+    created_at BIGINT NOT NULL
+  );
+  CREATE INDEX idx_claim_cache_created ON claim_cache(created_at);
+  ALTER TABLE claim_cache ENABLE ROW LEVEL SECURITY;
+  `,
 ];
 
 async function migrate() {
