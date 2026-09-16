@@ -70,6 +70,10 @@ function buildFillerMessages(text) {
   return fillers.length > 0 ? fillers : ["내용을 분석하는 중…"];
 }
 
+// 서버가 받는 한도와 같은 값(server/verifyPipeline.js). 붙여넣기 버튼이 이보다 긴 글을
+// 그대로 넣으면 눌러 보고 나서야 413을 받는다 — 넣는 자리에서 잘라 준다.
+const MAX_INPUT_CHARS = 10_000;
+
 const PLACEHOLDER = `여기에 ChatGPT, 클로드, 제미나이 등 AI의 답변을 그대로 붙여넣으세요.
 법률, 의료, 금융, 역사, 과학 등 어떤 주제든 상관없습니다.
 
@@ -525,6 +529,8 @@ export default function YumeDashboard() {
   const [elapsedSec, setElapsedSec] = useState(0);
   const timerRef = React.useRef(null);
   const startTimeRef = React.useRef(null);
+  const inputRef = React.useRef(null);
+  const [pasteHint, setPasteHint] = useState("");
 
   // 검증 카드는 스크롤해도 기울지 않는다(결과를 읽는 동안 흔들리면 안 됨). 대신 히어로만
   // 애플 제품 페이지처럼 스크롤에 맞춰 살짝 작아지며 옅어지고, 올리면 그대로 돌아온다.
@@ -684,6 +690,28 @@ export default function YumeDashboard() {
   };
 
   const startNew = () => { reset(); setActiveId(null); };
+
+  // 붙여넣기 버튼. 이 서비스는 "다른 데서 복사해 온 AI 답변"으로만 시작하므로,
+  // 손이 키보드로 갈 필요 없이 한 번에 넣을 수 있어야 한다(모바일에서 특히 그렇다).
+  //
+  // readText()는 브라우저마다 막혀 있다 — 파이어폭스는 웹페이지에 아예 안 열어주고,
+  // 사파리는 물어보고, http로 열면 secure context가 아니라 없다. 그래서 실패를 정상
+  // 경로로 보고, 그때는 입력칸에 포커스만 주고 직접 붙여넣도록 안내한다.
+  const pasteFromClipboard = async () => {
+    try {
+      const text = await navigator.clipboard?.readText?.();
+      if (!text?.trim()) {
+        setPasteHint("복사해 두신 내용이 없어요.");
+        return;
+      }
+      setInput(text.slice(0, MAX_INPUT_CHARS));
+      setPasteHint("");
+      inputRef.current?.focus();
+    } catch {
+      inputRef.current?.focus();
+      setPasteHint("브라우저가 붙여넣기를 막고 있어요. 입력칸에서 Ctrl+V(Mac은 ⌘V)를 눌러주세요.");
+    }
+  };
 
   const runCheck = async () => {
     if (!input.trim()) return;
@@ -1095,7 +1123,7 @@ export default function YumeDashboard() {
                   </div>
                 )}
               </div>
-              <textarea className="yume-field" value={input} onChange={(e) => setInput(e.target.value)} placeholder={PLACEHOLDER} rows={7}
+              <textarea ref={inputRef} className="yume-field" value={input} onChange={(e) => { setInput(e.target.value); if (pasteHint) setPasteHint(""); }} placeholder={PLACEHOLDER} rows={7}
                 style={{ width: "100%", fontSize: 16, lineHeight: 1.7, color: UI.ink, padding: "18px 20px", background: "rgba(246,242,252,0.8)",
                   borderRadius: 18, border: `1px solid ${UI.hairline}`, marginBottom: 16, resize: "vertical", fontFamily: "inherit", boxSizing: "border-box", letterSpacing: "-0.01em" }} />
               {stage === "error" && limitReached ? (
@@ -1115,15 +1143,29 @@ export default function YumeDashboard() {
               ) : stage === "error" && (
                 <div style={{ fontSize: 14, color: "#B3372A", background: "#FDF1EF", border: "1px solid #F5D3CD", borderRadius: 14, padding: "12px 16px", marginBottom: 16 }}>{errMsg}</div>
               )}
-              <motion.button whileHover={input.trim() ? { y: -1, boxShadow: "0 14px 32px rgba(107,79,168,0.36)" } : {}} whileTap={input.trim() ? { scale: 0.985 } : {}}
-                transition={{ duration: 0.25, ease: EASE_APPLE }}
-                onClick={runCheck} disabled={!input.trim()} style={{
-                width: "100%", height: 54, borderRadius: 16, border: "none",
-                background: input.trim() ? UI.button : "rgba(118,118,128,0.14)",
-                boxShadow: input.trim() ? "0 8px 22px rgba(107,79,168,0.26)" : "none",
-                color: input.trim() ? "#fff" : UI.ink3, fontSize: 16.5, fontWeight: 600, letterSpacing: "-0.01em",
-                cursor: input.trim() ? "pointer" : "not-allowed", transition: "background 0.3s ease, color 0.3s ease",
-              }}>유메로 확인하기</motion.button>
+              <div style={{ display: "flex", gap: 10, alignItems: "stretch" }}>
+                <motion.button whileHover={input.trim() ? { y: -1, boxShadow: "0 14px 32px rgba(107,79,168,0.36)" } : {}} whileTap={input.trim() ? { scale: 0.985 } : {}}
+                  transition={{ duration: 0.25, ease: EASE_APPLE }}
+                  onClick={runCheck} disabled={!input.trim()} style={{
+                  flex: 1, minWidth: 0, height: 54, borderRadius: 16, border: "none",
+                  background: input.trim() ? UI.button : "rgba(118,118,128,0.14)",
+                  boxShadow: input.trim() ? "0 8px 22px rgba(107,79,168,0.26)" : "none",
+                  color: input.trim() ? "#fff" : UI.ink3, fontSize: 16.5, fontWeight: 600, letterSpacing: "-0.01em",
+                  cursor: input.trim() ? "pointer" : "not-allowed", transition: "background 0.3s ease, color 0.3s ease",
+                }}>유메로 확인하기</motion.button>
+                {/* 붙여넣기는 확인하기와 나란히 두되 주 버튼을 넘지 않게 테두리만 준다. */}
+                <motion.button whileHover={{ y: -1 }} whileTap={{ scale: 0.985 }}
+                  transition={{ duration: 0.25, ease: EASE_APPLE }}
+                  onClick={pasteFromClipboard} type="button" aria-label="복사한 내용 붙여넣기" style={{
+                  flex: "none", height: 54, padding: "0 20px", borderRadius: 16,
+                  border: `1px solid ${UI.hairline}`, background: "#fff", color: UI.accent,
+                  fontSize: 15, fontWeight: 600, letterSpacing: "-0.01em", cursor: "pointer", whiteSpace: "nowrap",
+                  transition: "border-color 0.2s ease, background-color 0.2s ease",
+                }}>붙여넣기</motion.button>
+              </div>
+              {pasteHint && (
+                <div style={{ fontSize: 13, color: UI.ink3, marginTop: 10, lineHeight: 1.6 }}>{pasteHint}</div>
+              )}
               {authChecked && !user && (
                 <div style={{ textAlign: "center", fontSize: 13, color: UI.ink3, marginTop: 14 }}>
                   <span onClick={() => setAuthModal("signup")} className="yume-link" style={{ fontWeight: 600, cursor: "pointer" }}>무료로 가입</span>하면 검증 기록이 계정에 저장돼요.
