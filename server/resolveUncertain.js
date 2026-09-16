@@ -46,11 +46,7 @@ export async function resolveUncertainClaims(claims, { research = defaultResearc
   const targets = claims.map((c, i) => ({ c, i })).filter(({ c }) => needsResearch(c));
   if (targets.length === 0) return claims;
 
-  onProgress(
-    targets.length === claims.length
-      ? `아직 결론이 안 난 주장 ${targets.length}개를 더 깊이 확인하는 중…`
-      : `${targets.length}개 주장은 결론이 안 나서 한 번 더 확인하는 중…`,
-  );
+  onProgress(`결론이 안 난 주장 ${targets.length}개를 더 확인하는 중…`);
 
   const resolved = await inBatches(targets, MAX_CONCURRENT, async ({ c, i }) => {
     try {

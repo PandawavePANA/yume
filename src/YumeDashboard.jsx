@@ -1134,12 +1134,21 @@ export default function YumeDashboard() {
               <div style={{ fontSize: 17, fontWeight: 600, color: UI.ink, letterSpacing: "-0.02em" }}>
                 확인하는 중 <span style={{ fontVariantNumeric: "tabular-nums", color: UI.accentSoft }}>{elapsedSec}초</span>
               </div>
-              <AnimatePresence mode="wait">
-                <motion.div key={progressMsg} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} transition={{ duration: 0.3, ease: EASE_APPLE }}
-                  style={{ fontSize: 14.5, color: UI.ink2, textAlign: "center", maxWidth: 440, padding: "0 20px", lineHeight: 1.6 }}>
-                  {progressMsg || "사실 주장을 추출하고 실시간으로 검색 중…"}
-                </motion.div>
-              </AnimatePresence>
+              {/* 진행 문구는 길이가 계속 바뀐다. 줄바꿈되면 아래 고양이 게임이 그때마다
+                  밀려 내려가 놀이가 끊기므로, 한 줄로 고정하고 넘치면 말줄임한다.
+                  AnimatePresence가 교체 순간 잠깐 비는 것까지 감안해 높이도 박아 둔다. */}
+              <div style={{ height: 23, width: "100%", maxWidth: 520, padding: "0 20px", boxSizing: "border-box", position: "relative" }}>
+                <AnimatePresence mode="wait">
+                  <motion.div key={progressMsg} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} transition={{ duration: 0.3, ease: EASE_APPLE }}
+                    title={progressMsg || undefined}
+                    style={{
+                      position: "absolute", inset: 0, fontSize: 14.5, color: UI.ink2, textAlign: "center", lineHeight: "23px",
+                      whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                    }}>
+                    {progressMsg || "사실 주장을 추출하고 실시간으로 검색 중…"}
+                  </motion.div>
+                </AnimatePresence>
+              </div>
               <div style={{ fontSize: 12.5, color: UI.ink3 }}>내용이 길면 최대 30초 정도 걸릴 수 있어요</div>
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.35, ease: EASE_APPLE }}
                 style={{ width: "100%", display: "flex", justifyContent: "center", marginTop: 10 }}>

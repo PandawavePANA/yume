@@ -35,6 +35,14 @@ import { lawNameSimilarity, caseSimilarity, caseVariants } from "./nec/similarit
 import { buildNecReport, NEC_WEIGHTS, T1_SKIP_SEARCH } from "./nec/nec.js";
 
 const WEIGHTS = NEC_WEIGHTS.legal;
+
+// 진행 문구는 화면에서 한 줄로 고정돼 넘치면 말줄임된다. 법령·행정규칙 이름이
+// 길면 뒤에 붙는 "제N조 조문과 대조 중" 쪽이 잘려 무슨 일을 하는지 안 보이므로,
+// 이름을 먼저 줄여 핵심이 남게 한다.
+const short = (name, n = 14) => {
+  const t = String(name || "").trim();
+  return t.length > n ? t.slice(0, n) + "…" : t;
+};
 const CASE_IN_TEXT = /(\d{2,4})\s?([가-힣]{1,3})\s?(\d{2,7})/;
 
 export async function resolveLegalClaims(claims, { ground = defaultGround, webVerify = defaultWebVerify, onProgress = () => {} } = {}) {
@@ -128,7 +136,7 @@ async function resolveStatute(claim, ref, ctx) {
   // 매우 비슷한 실재 법령이 있으면(이름을 살짝 틀린 경우) 그 법령 조문과 대조해 본다.
   const best = similar[0];
   if (best && best.similarity >= 0.75 && ident.article) {
-    ctx.onProgress(`"${lawName}" 대신 가장 가까운 "${best.value}" 조문과 대조 중…`);
+    ctx.onProgress(`가장 가까운 "${best.value}" 조문과 대조 중…`);
     const art = await getStatuteArticle(best._law.mst, ident.article.no, ident.article.branch);
     if (art.ok && art.found) {
       const coverage = coverageFor(ident.looksAbbreviated ? "statute_abbrev" : "statute", [{ id: "law.go.kr:law", ok: true }]);
@@ -219,7 +227,7 @@ async function resolveFoundStatute(claim, ident, search, aliasNote, ctx) {
     }
     return necOutcome(claim, nec, ctx, { sources });
   }
-  ctx.onProgress(`"${search.lawNameOfficial}" ${articleLabel} 공식 조문과 대조 중…`);
+  ctx.onProgress(`"${short(search.lawNameOfficial)}" ${articleLabel} 조문과 대조 중…`);
   const effectiveDate = article.effectiveDate || search.effectiveDate;
   const grounded = await ctx.ground(claim.text, article.text, {
     label: `법제처 국가법령정보 - ${search.lawNameOfficial}`,
@@ -240,7 +248,7 @@ async function resolveFoundStatute(claim, ident, search, aliasNote, ctx) {
 // 부처를 특정하지 못했거나 목록이 상한을 넘으면 근거가 없는 것이므로 웹으로 넘긴다.
 async function resolveAdminRuleByNumber(claim, ident, lawName, ctx) {
   const cite = parseAdminRuleCitation(lawName);
-  ctx.onProgress(`법제처 행정규칙에서 "${lawName}" 조회 중…`);
+  ctx.onProgress(`행정규칙에서 "${short(lawName)}" 조회 중…`);
   const r = await findAdminRuleByNumber(cite.org, cite.kind, cite.issueNo);
   if (!r.ok || !r.resolved) return webFallback(claim, ctx, lawName);
 
@@ -269,7 +277,7 @@ async function resolveAdminRuleByNumber(claim, ident, lawName, ctx) {
     return official(claim, "false", `${label}는 실재하지만, 여기에는 ${note}`, [source], rule.effectiveDate);
   }
 
-  ctx.onProgress(`${rule.name} ${articleLabel} 공식 조문과 대조 중…`);
+  ctx.onProgress(`"${short(rule.name)}" ${articleLabel} 조문과 대조 중…`);
   const grounded = await ctx.ground(claim.text, art.text, {
     label: `법제처 국가법령정보 - ${rule.name}`,
     effectiveDate: formatDate(art.effectiveDate || rule.effectiveDate),
@@ -331,7 +339,7 @@ async function resolveCase(claim, ref, ctx) {
   }
 
   // 공식 DB에 없음 → 인용 기록과 근접 사건번호를 탐색해 커버리지·근접도를 구한다.
-  ctx.onProgress(`${caseNo}가 공식 DB에 없어, 다른 판결문 인용 기록과 비슷한 사건번호를 확인 중…`);
+  ctx.onProgress(`${caseNo} 인용 기록과 유사 사건번호 확인 중…`);
   const searched = [{ id: isConstitutional ? "law.go.kr:detc" : "law.go.kr:prec", ok: true }];
   const similar = [];
   if (!isConstitutional) {
@@ -418,7 +426,7 @@ async function necOutcome(claim, nec, ctx, widen = null) {
 }
 
 async function webFallback(claim, ctx, identifier = null) {
-  ctx.onProgress(`공식 데이터로 특정할 수 없어, 웹에서 "${claim.text.slice(0, 24)}${claim.text.length > 24 ? "…" : ""}" 관련 최신 자료 확인 중…`);
+  ctx.onProgress(`웹에서 "${claim.text.slice(0, 12)}${claim.text.length > 12 ? "…" : ""}" 관련 자료 확인 중…`);
   try {
     const result = await ctx.webVerify(claim.text, ctx.onProgress, { identifier });
     return {

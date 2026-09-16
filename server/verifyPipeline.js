@@ -24,7 +24,7 @@ async function processVerification({ id, text, source, onProgress = () => {} }) 
   try {
     const cached = await findCached(text);
     if (cached) {
-      onProgress("이전에 검증한 것과 똑같은 내용이라 저장된 결과를 바로 보여드려요…");
+      onProgress("전에 확인한 내용이라 저장된 결과를 바로 보여드려요…");
       await completeVerification(id, cached, { fromCache: true, elapsedMs: Date.now() - startedAt });
       return { result: cached, fromCache: true };
     }
