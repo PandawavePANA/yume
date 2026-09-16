@@ -143,7 +143,7 @@ ${head}
       ${cardHeader()}
       <div class="card-body">${cardBody}</div>
     </div>
-    <a class="cta" href="/app">유메로 직접 확인해보기 →</a>
+    <a class="cta" href="/">유메로 직접 확인해보기 →</a>
     ${footer}
   </div>
 </body>
