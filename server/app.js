@@ -18,6 +18,7 @@ import { getVerification, newVerificationId, trimUserHistory } from "./verificat
 import authRouter, { attachUser, purgeExpiredAuth } from "./auth.js";
 import accountRouter from "./accountApi.js";
 import creditsRouter from "./creditsApi.js";
+import { auditRouter, getAuditReport, renderAuditReport } from "./auditApi.js";
 import { creditReferralOnActivity } from "./referral.js";
 import apiV1Router from "./apiV1.js";
 import adminApiRouter from "./adminApi.js";
@@ -44,6 +45,7 @@ app.use("/api", attachUser, sameOriginGuard);
 app.use("/api", authRouter);
 app.use("/api", accountRouter);
 app.use("/api", creditsRouter);
+app.use("/api", auditRouter);
 
 const verifyLimiter = createLimiter({ windowMs: 60_000, max: 6 });
 const chatLimiter = createLimiter({ windowMs: 60_000, max: 20 });
@@ -180,6 +182,14 @@ app.get("/docs/api", (req, res) => html(res, renderApiDocsPage(process.env.PUBLI
 app.get("/showreel", (req, res, next) => res.sendFile(path.join(distDir, "showreel.html"), (err) => (err ? next() : undefined)));
 
 // 카카오톡 등 외부 채널로 보낸 검증 결과를 링크로 여는 읽기 전용 페이지.
+// 감사 리포트 공유 링크 — 받은 쪽이 사내에 그대로 돌릴 수 있도록.
+app.get("/audit/r/:id", (req, res, next) => {
+  const report = getAuditReport(req.params.id);
+  if (!report) return next();
+  const base = process.env.PUBLIC_BASE_URL || `${req.protocol}://${req.get("host")}`;
+  html(res.set("X-Robots-Tag", "noindex, nofollow").set("Cache-Control", "no-store"), renderAuditReport(report, { baseUrl: base }));
+});
+
 app.get("/r/:id", async (req, res) => {
   const v = await getVerification(String(req.params.id));
   res.set("X-Robots-Tag", "noindex, nofollow"); // 이용자 원문이 담긴 페이지 — 검색 노출 금지
