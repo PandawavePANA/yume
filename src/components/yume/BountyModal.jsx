@@ -19,7 +19,7 @@ export function BountyPrompt({ claim, claimIdx, verificationId, user, onNeedLogi
   if (submitted) {
     return (
       <div style={{ marginTop: 10, fontSize: 12.5, color: "#1F7A52", background: "#EAF7F0", borderRadius: 10, padding: "9px 12px" }}>
-        제보를 접수했어요. 확인 후 크레딧을 드립니다.
+        제보를 접수했어요. 운영자 확인이 끝나면 기여도 점수를 드립니다.
       </div>
     );
   }
@@ -27,7 +27,7 @@ export function BountyPrompt({ claim, claimIdx, verificationId, user, onNeedLogi
     <>
       <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", background: "rgba(139,111,216,0.08)", borderRadius: 12, padding: "10px 12px" }}>
         <div style={{ fontSize: 12.5, color: "#5B5470", lineHeight: 1.6, flex: 1, minWidth: 180 }}>
-          아직 알려지지 않은 인용이라면 제보하고 크레딧을 받을 수 있어요.
+          아직 알려지지 않은 인용이라면 제보하고 기여도 점수를 받을 수 있어요.
         </div>
         <button
           onClick={() => (user ? setOpen(true) : onNeedLogin?.())}
@@ -36,7 +36,7 @@ export function BountyPrompt({ claim, claimIdx, verificationId, user, onNeedLogi
             background: "linear-gradient(90deg,#B49AEE,#6B4FA8)", color: "#fff", fontSize: 12.5, fontWeight: 600, cursor: "pointer",
           }}
         >
-          조사하고 크레딧 받기
+          조사하고 기여도 받기
         </button>
       </div>
       {open && (
@@ -52,7 +52,9 @@ export function BountyPrompt({ claim, claimIdx, verificationId, user, onNeedLogi
   );
 }
 
-export default function BountyModal({ verificationId, claimIdx, claim, bountyCredits = 20, onClose, onDone }) {
+// 승인 시 지급되는 건 크레딧이 아니라 기여도 점수다(server/bounty.js의 POINTS.report).
+// 화면이 크레딧이라고 안내하면 사용자는 받을 것을 잘못 알고 제보하게 된다.
+export default function BountyModal({ verificationId, claimIdx, claim, reportPoints = 1000, onClose, onDone }) {
   const [platforms, setPlatforms] = useState([]);
   const [platform, setPlatform] = useState("chatgpt");
   const [shareUrl, setShareUrl] = useState("");
@@ -101,7 +103,7 @@ export default function BountyModal({ verificationId, claimIdx, claim, bountyCre
           <>
             <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>제보 접수했어요</div>
             <div style={{ fontSize: 13, color: "#5B5470", lineHeight: 1.7, marginBottom: 18 }}>
-              공유 링크를 확인한 뒤 크레딧을 드립니다. 결과는 계정 설정 → 크레딧에서 볼 수 있어요.
+              공유 링크를 확인한 뒤 기여도 점수를 드립니다. 결과는 랭킹 → 내 적립 내역에서 볼 수 있어요.
             </div>
             <button onClick={onClose} style={{ padding: "10px 18px", borderRadius: 10, border: "none", background: "linear-gradient(90deg,#B49AEE,#6B4FA8)", color: "#fff", fontSize: 13.5, fontWeight: 600, cursor: "pointer" }}>
               확인
@@ -109,8 +111,8 @@ export default function BountyModal({ verificationId, claimIdx, claim, bountyCre
           </>
         ) : (
           <>
-            <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>제보하고 크레딧 받기</div>
-            <div style={{ fontSize: 12.5, color: "#A99BC9", marginBottom: 16 }}>확인되면 {bountyCredits} 크레딧을 드려요</div>
+            <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>제보하고 기여도 받기</div>
+            <div style={{ fontSize: 12.5, color: "#A99BC9", marginBottom: 16 }}>확인되면 기여도 {reportPoints.toLocaleString()}점을 드려요 · 분기 랭킹에 반영됩니다</div>
 
             <div style={{ background: "#FBF8FF", border: "1px solid #EDE3FA", borderRadius: 12, padding: "12px 14px", marginBottom: 16 }}>
               <div style={{ fontSize: 11.5, color: "#8577A8", fontWeight: 600, marginBottom: 4 }}>제보할 인용</div>
