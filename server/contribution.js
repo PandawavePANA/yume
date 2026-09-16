@@ -5,8 +5,15 @@
 // AI가 지어낸 걸 찾아내서 넘겨주면 좋아진다. 그래서 점수 차이를 크게 뒀다.
 //
 //   검증 10점   — 돌려본 것 자체는 작게 친다
+//   초대 30점   — 데려온 친구가 실제로 검증을 한 번 마친 것
 //   발견 50점   — 사실과 다른 주장이 실제로 잡힌 검증
 //   제보 1000점 — 그걸 공유 링크와 함께 넘겨줘서 운영자 검토를 통과한 것
+//
+// 초대를 검증(10)보다 높고 발견(50)보다 낮게 둔 이유가 있다. 찾아낼 수 있는 사람을
+// 한 명 늘리는 일은 검증 한 번보다 크지만, 직접 찾아낸 것보다 크면 안 된다 — 그러면
+// 랭킹이 "많이 찾아낸 사람"이 아니라 "많이 데려온 사람"의 보드가 되고, 그 순간 이
+// 점수판이 재겠다고 한 것을 재지 못한다. 크레딧과 같은 조건(친구의 첫 검증 완료,
+// 월 상한, 같은 IP는 검토 보류)을 그대로 쓰므로 파밍 경로도 따로 생기지 않는다.
 //
 // 제보만 두 자릿수 배수인 이유는, 그것만이 우리에게 남는 데이터이기 때문이다. 검증과
 // 발견은 사용자가 자기 일을 하다 생기는 부산물이지만 제보는 따로 품이 든다.
@@ -19,12 +26,14 @@ import { grant as grantCredits } from "./credits.js";
 
 export const POINTS = {
   verify: 10,
+  referral: 30,
   finding: 50,
   report: 1000,
 };
 
 export const REASON_LABEL = {
   verify: "검증",
+  referral: "친구 초대",
   finding: "사실과 다른 주장 발견",
   report: "제보 승인",
   adjust: "운영자 조정",
@@ -133,6 +142,18 @@ export async function awardForVerification(userId, verificationId, claims = []) 
     });
   }
   return { verify, finding, foundCount: found.length };
+}
+
+// 추천이 성립했을 때 부른다. 크레딧 지급과 같은 자리에서 불리고 조건도 같다 —
+// 여기서 따로 판단하지 않는 이유는, 두 보상이 서로 다른 조건으로 갈라지면 한쪽은
+// 받고 한쪽은 못 받는 상태가 생겨 설명할 수 없게 되기 때문이다.
+// ref를 추천 건 번호로 잡아, 검토 승인 경로로 두 번 불려도 한 번만 들어간다.
+export async function awardForReferral(referrerId, referralId) {
+  if (!referrerId || !referralId) return false;
+  return award(referrerId, "referral", POINTS.referral, {
+    ref: `referral:${referralId}`,
+    memo: "초대한 친구가 첫 검증을 마침",
+  });
 }
 
 // ── 랭킹 ──────────────────────────────────────────────────────────────

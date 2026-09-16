@@ -287,9 +287,20 @@ test("추천: 가입만으로는 지급되지 않고, 친구가 검증을 마쳐
   await creditReferralOnActivity(inviteeId);
   assert.equal(await credits.balance(referrerId), credits.REFERRAL_CREDITS);
 
-  // 두 번 불려도 한 번만 지급된다
+  // 크레딧만이 아니라 기여도 점수도 같이 들어간다 — 찾아낼 수 있는 사람을 한 명 늘린 일이다
+  assert.equal(await contribution.total(referrerId), contribution.POINTS.referral, "초대 점수가 쌓인다");
+
+  // 두 번 불려도 한 번만 지급된다. 크레딧과 점수 둘 다 그래야 한다 —
+  // 한쪽만 막아 두면 재호출로 점수만 불릴 수 있다.
   await creditReferralOnActivity(inviteeId);
   assert.equal(await credits.balance(referrerId), credits.REFERRAL_CREDITS);
+  assert.equal(await contribution.total(referrerId), contribution.POINTS.referral, "점수도 두 번 들어가지 않는다");
+});
+
+// 랭킹이 재겠다고 한 것은 "찾아낸 것"이다. 초대가 발견보다 크면 그 약속이 깨진다.
+test("초대 점수는 검증보다 크고 발견보다 작다", () => {
+  assert.ok(contribution.POINTS.referral > contribution.POINTS.verify);
+  assert.ok(contribution.POINTS.referral < contribution.POINTS.finding);
 });
 
 test("자기 자신을 추천할 수 없다", async () => {

@@ -1,9 +1,13 @@
 import crypto from "node:crypto";
 import { all, kstMonthStart, now, one, run } from "./db.js";
 import { REFERRAL_CREDITS, REFERRAL_MONTHLY_CAP, grant } from "./credits.js";
+import { awardForReferral, POINTS as CONTRIBUTION_POINTS } from "./contribution.js";
 import { logError } from "./errorLog.js";
 
-// 친구 추천 — 내 링크로 가입한 친구가 실제로 검증을 한 번 마치면 추천한 사람에게 크레딧.
+// 친구 추천 — 내 링크로 가입한 친구가 실제로 검증을 한 번 마치면 추천한 사람에게
+// 크레딧과 기여도 점수를 함께 준다. 두 가지를 같이 주는 이유는 둘이 서로 다른 것을
+// 사기 때문이다. 크레딧은 더 써 볼 수 있게 하고, 기여도는 분기 랭킹에 반영된다.
+// 찾아낼 수 있는 사람을 한 명 늘린 것도 제품을 나아지게 한 일이므로 점수판에 들어간다.
 //
 // 가입만으로 주지 않는 이유: 크레딧에 실제 금전 가치가 있어서, 가입 즉시 지급하면
 // 이메일만 여러 개 만들어 자기 자신을 추천하는 게 제일 남는 장사가 된다. "가입 + 첫 검증"은
@@ -81,6 +85,9 @@ export async function creditReferralOnActivity(userId) {
     const upd = await run("UPDATE referrals SET status = 'credited', credited_at = :t WHERE id = :id AND status = 'pending'", { id: ref.id, t });
     if (!upd.changes) return; // 동시에 들어온 다른 요청이 이미 처리함
     await grant(ref.referrer_id, REFERRAL_CREDITS, "referral", { ref: `referral:${ref.id}`, memo: "친구 추천" });
+    // 점수가 안 들어가도 크레딧은 이미 지급됐다. 여기서 던지면 위의 status 갱신까지
+    // 되돌릴 방법이 없으므로, 실패는 기록만 남기고 삼킨다.
+    await awardForReferral(ref.referrer_id, ref.id).catch((e) => logError("referral:contribution", e));
   } catch (e) {
     logError("referral:credit", e);
   }
@@ -96,6 +103,7 @@ export async function referralSummary(userId) {
   return {
     code,
     creditsPerReferral: REFERRAL_CREDITS,
+    pointsPerReferral: CONTRIBUTION_POINTS.referral,
     monthlyCap: REFERRAL_MONTHLY_CAP,
     invited: rows.length,
     credited: rows.filter((r) => r.status === "credited").length,
@@ -128,5 +136,6 @@ export async function resolveReferralReview(id, approve, reviewerId) {
   }
   await run("UPDATE referrals SET status = 'credited', credited_at = :t WHERE id = :id", { id, t: now() });
   await grant(ref.referrer_id, REFERRAL_CREDITS, "referral", { ref: `referral:${id}`, memo: `친구 추천(검토 승인 · 관리자 ${reviewerId})` });
+  await awardForReferral(ref.referrer_id, id).catch((e) => logError("referral:contribution", e));
   return { ok: true, status: "credited" };
 }

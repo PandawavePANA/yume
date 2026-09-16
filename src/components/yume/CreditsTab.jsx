@@ -117,7 +117,7 @@ export default function CreditsTab() {
       <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>친구 추천</div>
       <div style={card}>
         <div style={{ fontSize: 12.5, color: "#5B5470", lineHeight: 1.7, marginBottom: 10 }}>
-          내 링크로 가입한 친구가 첫 검증을 마치면 <b>{referral?.creditsPerReferral ?? 0} 크레딧</b>을 드려요.
+          내 링크로 가입한 친구가 첫 검증을 마치면 <b>{referral?.creditsPerReferral ?? 0} 크레딧</b>과 <b>기여도 {referral?.pointsPerReferral ?? 0}점</b>을 드려요.
         </div>
         <div style={{ display: "flex", gap: 6 }}>
           <input

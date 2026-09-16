@@ -19,7 +19,7 @@ const UI = {
   backdrop: "rgba(24, 16, 44, 0.32)",
 };
 
-const REASON = { verify: "검증", finding: "사실과 다른 주장 발견", report: "제보 승인", adjust: "운영자 조정" };
+const REASON = { verify: "검증", referral: "친구 초대", finding: "사실과 다른 주장 발견", report: "제보 승인", adjust: "운영자 조정" };
 const daysLeft = (endsAt) => {
   const ms = Number(endsAt) - Date.now();
   if (!Number.isFinite(ms) || ms <= 0) return "곧 마감";
@@ -80,8 +80,8 @@ export default function RankingModal({ onClose, onNeedLogin, loggedIn }) {
           <div style={{ marginTop: 20, fontSize: 13.5, color: UI.ink3 }}>불러오는 중…</div>
         ) : (
           <>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginTop: 20 }}>
-              {[["검증", data.scoring.verify], ["발견", data.scoring.finding], ["제보", data.scoring.report]].map(([label, pts]) => (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginTop: 20 }}>
+              {[["검증", data.scoring.verify], ["초대", data.scoring.referral], ["발견", data.scoring.finding], ["제보", data.scoring.report]].map(([label, pts]) => (
                 <div key={label} style={{ padding: "12px 10px", borderRadius: 14, background: "#FBF8FF", border: `1px solid ${UI.hairline}`, textAlign: "center" }}>
                   <div style={{ fontSize: 12, color: UI.ink3 }}>{label}</div>
                   <div style={{ fontSize: 17, fontWeight: 700, color: UI.accent, fontVariantNumeric: "tabular-nums" }}>{pts.toLocaleString()}점</div>
