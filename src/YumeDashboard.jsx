@@ -9,6 +9,9 @@ import { apiJson, safeUrl, CONTACT_EMAIL } from "@/components/yume/api";
 import { IS_NATIVE_APP, onNativeBack, shareLink } from "./native.js";
 import AuditModal from "./components/yume/AuditModal.jsx";
 
+// 기업용 사이트 주소. 별도 도메인에 따로 배포되므로 코드에 박지 않고 빌드 환경변수로 받는다.
+const BUSINESS_URL = (import.meta.env?.VITE_BUSINESS_URL || "https://business.yume-reamer.com").replace(/\/+$/, "");
+
 const EASE_APPLE = [0.22, 1, 0.36, 1];
 
 // 디자인 토큰 — 유메의 파스텔 퍼플은 그대로, 애플 제품 페이지처럼 여백·타이포·유리 질감으로
@@ -937,6 +940,16 @@ export default function YumeDashboard() {
           )}
         </div>
         <div className="yume-nav-right" style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end", alignItems: "center" }}>
+          {/* 기업용 사이트는 별도 도메인이라 내부 이동이 아니라 바깥 링크다.
+              앱에서는 숨긴다 — 도입 상담을 하려고 앱을 깔지는 않는다. */}
+          {!IS_NATIVE_APP && (
+            <motion.a {...navEnter(0.08)}
+              whileHover={{ backgroundColor: "#fff" }} whileTap={{ scale: 0.96 }}
+              href={BUSINESS_URL} className="yume-nav-pill" style={{
+              ...pillBtn, border: `1px solid ${UI.hairline}`, textDecoration: "none",
+              background: "rgba(255,255,255,0.55)", color: UI.ink2, fontWeight: 600,
+            }}>기업용</motion.a>
+          )}
           <motion.button {...navEnter(0.12)}
             whileHover={{ backgroundColor: "#fff" }} whileTap={{ scale: 0.96 }}
             onClick={() => setShowPricing(true)} className="yume-nav-pill" style={{

@@ -13,6 +13,7 @@
     "build": "vite build",
     "start": "node server/index.js",
     "build:reamer": "vite build --config vite.reamer.config.mjs && node scripts/rename-reamer-index.mjs",
+    "build:business": "vite build --config vite.business.config.mjs && node scripts/rename-business-index.mjs",
     "start:reamer": "serve dist-reamer -s -l ${PORT:-3000}",
     "test:legal": "node server/legalPipeline.test.js",
     "test": "node --test \"server/tests/*.test.js\"",

@@ -41,11 +41,14 @@ app.use(express.json({ limit: "256kb" }));
 // 외부 개발자용 공개 API — 자체 CORS·키 인증을 쓰므로 쿠키 세션 미들웨어보다 먼저 붙인다.
 app.use("/v1", apiV1Router);
 
+// 무료 할루시네이션 점검 — 기업용 사이트(별도 도메인)에서 부르므로 자체 CORS를 쓴다.
+// 쿠키 세션 미들웨어보다 먼저 붙여야 동일 출처 가드에 걸리지 않는다(/v1과 같은 이유).
+app.use("/api", auditRouter);
+
 app.use("/api", attachUser, sameOriginGuard);
 app.use("/api", authRouter);
 app.use("/api", accountRouter);
 app.use("/api", creditsRouter);
-app.use("/api", auditRouter);
 
 const verifyLimiter = createLimiter({ windowMs: 60_000, max: 6 });
 const chatLimiter = createLimiter({ windowMs: 60_000, max: 20 });

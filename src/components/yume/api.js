@@ -1,7 +1,15 @@
+// 기업용 사이트는 별도 도메인에 배포되므로 유메 서버를 절대 주소로 불러야 한다.
+// 유메 본체에서는 비워 두면 기존처럼 같은 출처로 나간다.
+let API_BASE = "";
+
+export function setApiBase(base) {
+  API_BASE = String(base || "").replace(/\/+$/, "");
+}
+
 export async function apiJson(path, { method = "GET", body } = {}) {
-  const res = await fetch(path, {
+  const res = await fetch(API_BASE + path, {
     method,
-    credentials: "same-origin",
+    credentials: API_BASE ? "omit" : "same-origin",
     headers: body ? { "Content-Type": "application/json" } : undefined,
     body: body ? JSON.stringify(body) : undefined,
   });

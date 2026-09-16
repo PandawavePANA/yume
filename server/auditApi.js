@@ -11,6 +11,30 @@ import { renderAuditReport } from "./renderAuditReport.js";
 
 export const auditRouter = Router();
 
+// 기업용 사이트는 별도 도메인에 따로 배포되므로, 감사 API는 교차 출처로 불린다.
+// 이 엔드포인트들은 쿠키도 세션도 쓰지 않고 IP 레이트리밋만으로 보호되니 열어도 되지만,
+// 아무 출처나 받지는 않는다 — AUDIT_ALLOWED_ORIGINS에 적힌 곳만 허용한다.
+// 환경변수를 비워두면 아무 것도 추가되지 않아 같은 출처에서만 동작한다(기존과 동일).
+const ALLOWED_ORIGINS = new Set(
+  (process.env.AUDIT_ALLOWED_ORIGINS || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean),
+);
+
+auditRouter.use((req, res, next) => {
+  const origin = req.get("origin");
+  if (origin && ALLOWED_ORIGINS.has(origin)) {
+    res.set("Access-Control-Allow-Origin", origin);
+    res.set("Vary", "Origin");
+    res.set("Access-Control-Allow-Headers", "Content-Type");
+    res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+    res.set("Access-Control-Max-Age", "600");
+  }
+  if (req.method === "OPTIONS") return res.sendStatus(origin && ALLOWED_ORIGINS.has(origin) ? 204 : 403);
+  next();
+});
+
 // 감사 세션은 짧게만 살아 있으면 된다. 문항을 받아 자기 AI에 넣고 붙여넣는 시간이면 충분하다.
 const SESSION_TTL_MS = 2 * 60 * 60 * 1000;
 const MAX_SESSIONS = 500;
