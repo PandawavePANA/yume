@@ -83,9 +83,9 @@ const VBORDER = { confirmed: "#E6EFE9", false: "#F5D8D3", uncertain: "#EFC9C0" }
 const VBG = { confirmed: "#F9FBF9", false: "#FDF4F3", uncertain: "#FFF8F6" };
 
 const PLANS = {
-  free: { label: "무료", price: "0원", period: "", tagline: "일상적인 사실관계 확인", features: ["하루 5회 확인", "법률 주장 법제처 공식 대조", "인용된 판례·법령·논문의 부존재 신뢰도", "로그인 시 검증 기록 최근 50건 저장"] },
-  standard: { label: "스탠다드", price: "9,000원", period: "/월", tagline: "매일 AI 답변을 확인하는 분께", features: ["무료 플랜 기능 전체 포함", "하루 200회 확인 (공정 이용 한도)", "검증 기록 무제한 저장", "API 월 1,000회"] },
-  expert: { label: "전문가", price: "29,000원", period: "/월", tagline: "업무에서 조문·판례를 자주 확인하는 분께", features: ["스탠다드 전체 포함", "하루 500회 확인 (공정 이용 한도)", "API 월 5,000회", "우선 지원"] },
+  free: { label: "무료", price: "0원", period: "", tagline: "일상적인 사실관계 확인", features: ["매달 100 크레딧 (검증 1회에 1크레딧)", "법률 주장 법제처 공식 대조", "인용된 판례·법령·논문의 부존재 신뢰도", "로그인 시 검증 기록 최근 50건 저장"] },
+  standard: { label: "스탠다드", price: "9,000원", period: "/월", tagline: "매일 AI 답변을 확인하는 분께", features: ["매달 3,000 크레딧", "무료 플랜 기능 전체 포함", "검증 기록 무제한 저장", "크레딧 소진 시 추가 구매 가능"] },
+  expert: { label: "전문가", price: "29,000원", period: "/월", tagline: "업무에서 조문·판례를 자주 확인하는 분께", features: ["매달 10,000 크레딧", "스탠다드 전체 포함", "우선 지원", "크레딧 소진 시 추가 구매 가능"] },
 };
 
 // AI 할루시네이션이 발생하는 구조적 원인 5가지와, 유메가 도메인에 상관없이
@@ -1011,18 +1011,11 @@ export default function YumeDashboard() {
               </AnimatePresence>
             </div>
           ) : (
-            <>
-              <motion.button {...navEnter(0.16)}
-                whileHover={{ opacity: 0.7 }} whileTap={{ scale: 0.96 }}
-                onClick={() => setAuthModal("login")} className="yume-nav-pill" style={{
-                ...pillBtn, border: "none", background: "transparent", color: UI.ink,
-              }}>로그인</motion.button>
-              <motion.button {...navEnter(0.2)}
-                whileHover={{ opacity: 0.86 }} whileTap={{ scale: 0.96 }}
-                onClick={() => setAuthModal("signup")} className="yume-nav-pill" style={{
-                ...pillBtn, border: "none", background: UI.ink, color: "#fff",
-              }}>시작하기</motion.button>
-            </>
+            <motion.button {...navEnter(0.2)}
+              whileHover={{ y: -1, boxShadow: "0 10px 24px rgba(107,79,168,0.28)" }} whileTap={{ scale: 0.96 }}
+              onClick={() => setAuthModal("login")} className="yume-nav-pill" style={{
+              ...pillBtn, border: "none", background: UI.button, color: "#fff", fontWeight: 600,
+            }}>로그인</motion.button>
           )}
         </div>
       </nav>

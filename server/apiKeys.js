@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import { all, kstMonthStart, now, one, run } from "./db.js";
 import { sha256 } from "./security.js";
-import { PLANS, effectivePlan } from "./usageStore.js";
+import { API_TRIAL_QUOTA } from "./plans.js";
 
 // 외부 서비스용 검증 API(/v1) 키. 원문 키는 발급 순간 한 번만 보여주고 DB에는 SHA-256
 // 해시만 저장한다 — DB가 유출돼도 키를 되살릴 수 없다.
@@ -12,7 +12,9 @@ export async function createApiKey(user, label) {
   const active = (await one("SELECT COUNT(*) AS n FROM api_keys WHERE user_id = :uid AND status = 'active'", { uid: user.id })).n;
   if (active >= MAX_ACTIVE_KEYS_PER_USER) return { error: `활성 키는 계정당 ${MAX_ACTIVE_KEYS_PER_USER}개까지 만들 수 있어요.` };
   const key = KEY_PREFIX + crypto.randomBytes(24).toString("hex");
-  const quota = PLANS[effectivePlan(user)].apiMonthlyQuota;
+  // 개인 요금제와 무관하게 같은 체험 한도로 시작한다. 계약이 되면 운영자가 올린다.
+  // 개인 크레딧과 API 한도는 서로를 깎지 않는다 — 다른 지갑이다.
+  const quota = API_TRIAL_QUOTA;
   const r = await run(
     `INSERT INTO api_keys (user_id, label, prefix, key_hash, monthly_quota, created_at)
      VALUES (:uid, :label, :prefix, :hash, :quota, :t) RETURNING id`,

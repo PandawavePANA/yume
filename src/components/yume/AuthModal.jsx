@@ -149,8 +149,26 @@ export default function AuthModal({ mode: initialMode = "login", onClose, onAuth
         <div style={{ textAlign: "center", marginTop: 14, fontSize: 13, color: "#9C8FC2", lineHeight: 1.9 }}>
           {mode === "login" && (
             <>
-              <span onClick={() => { setMode("forgot"); setError(""); }} style={{ cursor: "pointer", textDecoration: "underline" }}>비밀번호를 잊으셨나요?</span><br />
-              계정이 없으신가요? <span onClick={() => { setMode("signup"); setError(""); }} style={{ color: "#0A0A0A", cursor: "pointer", fontWeight: 600, textDecoration: "underline" }}>가입하기</span>
+              <span onClick={() => { setMode("forgot"); setError(""); }} style={{ cursor: "pointer", textDecoration: "underline" }}>비밀번호를 잊으셨나요?</span>
+
+              {/* 상단 바에서 "시작하기"를 없애고 로그인 하나로 합쳤다. 그래서 처음 오신 분이
+                  갈 곳이 이 화면 안에 분명히 있어야 한다 — 밑줄 링크가 아니라 버튼으로 둔다. */}
+              <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "18px 0 14px" }}>
+                <div style={{ flex: 1, height: 1, background: "#EDE3FA" }} />
+                <span style={{ fontSize: 12, color: "#B6A9D6" }}>처음이신가요?</span>
+                <div style={{ flex: 1, height: 1, background: "#EDE3FA" }} />
+              </div>
+              <button
+                type="button"
+                onClick={() => { setMode("signup"); setError(""); }}
+                style={{
+                  width: "100%", padding: "12px 0", borderRadius: 12, cursor: "pointer",
+                  border: "1px solid #D4BEF0", background: "#fff", color: "#6B4FA8", fontSize: 14.5, fontWeight: 600,
+                  fontFamily: "inherit",
+                }}
+              >
+                회원가입
+              </button>
             </>
           )}
           {mode !== "login" && (

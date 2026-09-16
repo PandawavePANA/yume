@@ -1,5 +1,6 @@
 // Anthropic Messages API 호출 (서버 전용 — API 키는 절대 클라이언트로 내려가지 않음).
 import { RECORDEDNESS } from "./nec/searchSpace.js";
+import { classifyUpstream, noteUpstreamFailure, noteUpstreamSuccess } from "./upstream.js";
 
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 const MODEL = process.env.CLAUDE_MODEL || "claude-sonnet-5";
@@ -25,9 +26,14 @@ async function callClaude({ system, messages, tools, max_tokens = 4000 }) {
     signal: AbortSignal.timeout(CLAUDE_TIMEOUT_MS),
   });
   const data = await res.json();
-  if (data.type === "error") throw new Error(data.error?.message || "Claude API 오류");
+  // 상류 장애는 원인별로 구분해서 올려보낸다 — 잔액 소진과 과부하와 잘못된 키는
+  // 사용자에게 할 말도, 운영자가 할 일도 다르다.
+  if (data.type === "error" || !res.ok) {
+    throw noteUpstreamFailure(classifyUpstream(new Error(data.error?.message || `Claude API 오류 (${res.status})`), res.status));
+  }
   const text = (data.content || []).filter((b) => b.type === "text").map((b) => b.text).join("\n");
   if (!text.trim()) throw new Error("응답이 비어 있습니다. 입력을 조금 줄여서 다시 시도해주세요.");
+  noteUpstreamSuccess();
   return text;
 }
 
@@ -46,7 +52,7 @@ async function callClaudeStreaming({ system, messages, tools, max_tokens = 4000,
   });
   if (!res.ok || !res.body) {
     const errData = await res.json().catch(() => ({}));
-    throw new Error(errData.error?.message || `Claude API 오류 (${res.status})`);
+    throw noteUpstreamFailure(classifyUpstream(new Error(errData.error?.message || `Claude API 오류 (${res.status})`), res.status));
   }
 
   const reader = res.body.getReader();
@@ -101,6 +107,7 @@ async function callClaudeStreaming({ system, messages, tools, max_tokens = 4000,
   }
 
   if (!fullText.trim()) throw new Error("응답이 비어 있습니다. 입력을 조금 줄여서 다시 시도해주세요.");
+  noteUpstreamSuccess();
   return fullText;
 }
 

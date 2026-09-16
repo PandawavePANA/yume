@@ -28,6 +28,7 @@ import { renderAdminPage } from "./renderAdminPage.js";
 import { renderResetPasswordPage, renderTermsPage, renderPrivacyPage, renderAccountDeletionPage, renderApiDocsPage } from "./renderPages.js";
 import { clientIp, createLimiter, limitMiddleware, sameOriginGuard, securityHeaders, IS_PROD } from "./security.js";
 import { mailConfigured } from "./mailer.js";
+import { UpstreamError, OPERATOR_NOTE, userMessageFor, upstreamStatus } from "./upstream.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const distDir = path.join(__dirname, "..", "dist");
@@ -104,7 +105,15 @@ app.post("/api/verify", limitMiddleware(verifyLimiter, (req) => `verify:${client
     send("result", { ...result, id, elapsedMs: Date.now() - startedAt, fromCache, usage: await peekUsage({ user, ip }) });
   } catch (e) {
     await refundOne({ user, ip, usedFree: usage.usedFree }).catch(() => {});
-    send("error", { error: e.message || "서버 오류가 발생했습니다." });
+    // 상류(Anthropic) 장애는 사용자 잘못이 아니다. 원문 오류를 그대로 보여주면
+    // 자기 입력이나 계정 문제로 오해하고 같은 요청을 반복하게 되므로, 원인별 안내로
+    // 바꿔 보내고 진짜 원인은 서버 로그에만 남긴다.
+    if (e instanceof UpstreamError) {
+      logError(`upstream:${e.code}`, new Error(`${OPERATOR_NOTE[e.code] || ""} :: ${e.message}`));
+      send("error", { error: userMessageFor(e.code), upstream: true });
+    } else {
+      send("error", { error: e.message || "서버 오류가 발생했습니다." });
+    }
   } finally {
     res.end();
   }
@@ -148,6 +157,9 @@ app.get("/api/health", async (req, res) => {
     ok: dbOk,
     db: dbOk,
     claudeConfigured: !!process.env.ANTHROPIC_API_KEY,
+    // 키가 설정돼 있어도 결제 잔액이 떨어지면 검증만 죽는다. 서버는 멀쩡히 떠 있어서
+    // 제일 늦게 발견되는 상태라, 상태 점검에 원인과 대처를 함께 드러낸다.
+    upstream: upstreamStatus(),
     lawApiConfigured: !!process.env.LAW_OC,
     mailConfigured: mailConfigured(),
     persistentDb: PERSISTENT_STORAGE,
