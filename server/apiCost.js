@@ -16,9 +16,12 @@ const PRICING = {
 const WEB_SEARCH_USD = 10 / 1000;
 const DEFAULT_PRICE = PRICING["claude-sonnet-5"];
 
-export function costOf({ model, input = 0, output = 0, cachedInput = 0, searches = 0 }) {
+// cacheWrite는 캐시에 올릴 때 한 번 내는 값이다(1시간 TTL은 기본 입력의 2배).
+// 읽을 때 1/10이라 금방 회수되지만, 계량에서 빼면 "아낀 것만 보이고 낸 것은 안 보이는"
+// 장부가 된다.
+export function costOf({ model, input = 0, output = 0, cachedInput = 0, cacheWrite = 0, searches = 0 }) {
   const p = PRICING[model] || DEFAULT_PRICE;
-  return input * p.in + cachedInput * p.cachedIn + output * p.out + searches * WEB_SEARCH_USD;
+  return input * p.in + cachedInput * p.cachedIn + cacheWrite * p.in * 2 + output * p.out + searches * WEB_SEARCH_USD;
 }
 
 // 검증 한 건 동안의 호출을 모은다. 요청마다 새로 만들고, 끝나면 요약을 남긴다.
@@ -30,9 +33,10 @@ export function record(ledger, { label, model, usage }) {
   if (!ledger) return;
   const input = Number(usage?.input_tokens) || 0;
   const cachedInput = Number(usage?.cache_read_input_tokens) || 0;
+  const cacheWrite = Number(usage?.cache_creation_input_tokens) || 0;
   const output = Number(usage?.output_tokens) || 0;
   const searches = Number(usage?.server_tool_use?.web_search_requests) || 0;
-  ledger.calls.push({ label, model, input, cachedInput, output, searches, usd: costOf({ model, input, output, cachedInput, searches }) });
+  ledger.calls.push({ label, model, input, cachedInput, cacheWrite, output, searches, usd: costOf({ model, input, output, cachedInput, cacheWrite, searches }) });
 }
 
 export function summarize(ledger) {
@@ -42,6 +46,7 @@ export function summarize(ledger) {
     calls: ledger.calls.length,
     input: sum("input"),
     cachedInput: sum("cachedInput"),
+    cacheWrite: sum("cacheWrite"),
     output: sum("output"),
     searches: sum("searches"),
     usd: Math.round(sum("usd") * 10000) / 10000,

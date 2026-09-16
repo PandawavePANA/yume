@@ -7,6 +7,7 @@
 //   - target=law   + query=법령명 : 부분 일치 검색(‘주택임대차법’ → 주택임대차보호법)
 import { XMLParser } from "fast-xml-parser";
 import { normalizeLawName } from "./nec/identifiers.js";
+import { cacheKey, getCached, setCached } from "./lawCache.js";
 
 const BASE = "http://www.law.go.kr/DRF";
 const xmlParser = new XMLParser({ ignoreAttributes: false });
@@ -31,11 +32,32 @@ function toPublicUrl(relativeOrAbs) {
 
 // 법제처 API는 간헐적으로 타임아웃·연결 끊김을 낸다(테스트에서 재현됨). 한 번 삐끗했다고
 // 웹 폴백으로 내려가면 그 주장은 조문 원문 대조라는 가장 강한 근거를 잃는다. 한 번 더 부른다.
+//
+// 그 앞에 캐시를 둔다. 같은 조문이 검증마다 반복해서 조회되는데 본문은 그 사이 바뀌지
+// 않는다. 실패한 응답은 캐시하지 않는다 — 장애를 하루 종일 되풀이하게 된다.
 async function callLawApi(path, params) {
+  const key = cacheKey(path, params);
+  const hit = getCached(key);
+  if (hit) return hit;
+
   const first = await callLawApiOnce(path, params);
-  if (first.ok || first.reason === "no_oc") return first;
+  if (first.ok) return setCached(key, first, { found: hasContent(first) });
+  if (first.reason === "no_oc") return first;
+
   await new Promise((r) => setTimeout(r, 400));
-  return callLawApiOnce(path, params);
+  const second = await callLawApiOnce(path, params);
+  return second.ok ? setCached(key, second, { found: hasContent(second) }) : second;
+}
+
+// "찾았는가"를 응답 모양만 보고 가늠한다. 검색 응답은 totalCnt가 0이면 못 찾은 것이고,
+// 본문 조회는 내용이 비어 있으면 못 찾은 것이다. 못 찾은 응답은 짧게만 들고 있는다 —
+// 부존재 판정의 근거가 되기 때문에 오래된 것을 쓰면 없는 죄를 씌우게 된다.
+function hasContent(r) {
+  const d = r?.data;
+  if (!d) return false;
+  const search = d.LawSearch || d.AdmRulSearch || d.OrdinSearch || d.PrecSearch || d.DetcSearch;
+  if (search) return Number(search.totalCnt) > 0;
+  return true;
 }
 
 async function callLawApiOnce(path, params) {

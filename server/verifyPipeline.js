@@ -2,6 +2,7 @@ import { extractAndVerify } from "./claude.js";
 import { resolveLegalClaims } from "./legalPipeline.js";
 import { resolveIdentifierClaims } from "./identifierPipeline.js";
 import { resolveUncertainClaims } from "./resolveUncertain.js";
+import { reviewAccusations } from "./reviewAccusations.js";
 import { sanitizeClaim } from "./claimGuard.js";
 import { buildOverallVerdict } from "./overallVerdict.js";
 import { resolveProductLinks } from "./coupang.js";
@@ -50,6 +51,9 @@ async function processVerification({ id, text, source, onProgress = () => {} }) 
     claims = await resolveUncertainClaims(claims, { onProgress, ledger });
     // 재확인이 만들어낸 판정도 같은 잣대로 다시 거른다(이미 강등된 건 건드리지 않는다).
     claims = claims.map(sanitizeClaim);
+    // 마지막으로 "사실과 다름" 지목만 다시 본다. 맞는 정보를 거짓이라 부르는 게
+    // 유메가 낼 수 있는 가장 해로운 오류라, 여기에만 따로 비용을 쓴다.
+    claims = await reviewAccusations(claims, { onProgress, ledger });
 
     const overall = buildOverallVerdict(claims);
     const relatedProducts = await resolveProductLinks(extracted.related_products);

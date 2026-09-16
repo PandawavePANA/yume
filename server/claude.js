@@ -31,7 +31,10 @@ function apiKey() {
 // 프롬프트가 길수록 이득이 크고, 유메의 추출·리서치 프롬프트는 길다.
 function cachedSystem(system) {
   if (!system) return undefined;
-  return [{ type: "text", text: system, cache_control: { type: "ephemeral" } }];
+  // TTL 1시간. 기본값은 5분인데, 유메는 검증이 뜸한 시간대가 있어 5분으로는 매번
+  // 캐시가 식은 뒤에 도착한다 — 캐시 미스가 곧 비용이다. 1시간짜리는 쓸 때 값이
+  // 조금 더 비싸지만(2배) 읽을 때 1/10이라, 한 시간에 두 번만 불려도 이득이다.
+  return [{ type: "text", text: system, cache_control: { type: "ephemeral", ttl: "1h" } }];
 }
 
 async function callClaude({ system, messages, tools, max_tokens = 4000, model = MODEL, label = "call", ledger = null }) {
@@ -399,6 +402,55 @@ export async function researchClaim(claimText, { domain = "일반", priorExplana
     recordedness: RECORDEDNESS.includes(parsed.recordedness) ? parsed.recordedness : "niche",
     searchedThoroughly: parsed.searched_thoroughly === true,
     nearMiss: near && near.value ? { value: String(near.value), similarity: Math.max(0, Math.min(1, Number(near.similarity) || 0)) } : null,
+  };
+}
+
+// ── 지목 재확인 ─────────────────────────────────────────────────────────
+// 유메가 낼 수 있는 가장 해로운 오류는 잘못된 "사실과 다름"이다. 못 찾은 걸 못 찾았다고
+// 하는 건 정직한 결과지만, 맞는 정보를 거짓이라고 하면 사용자는 멀쩡한 사실을 버린다.
+//
+// 그래서 지목(false)에만 한 번 더 본다. 그것도 웹·리서치로 나온 것만 — 법제처 조문
+// 대조(official)와 부존재 신뢰도(nec)는 근거가 형식적으로 확정돼 있어 다시 볼 게 없다.
+// 검색이 딸려오지 않으므로 값이 싸고, 지목은 원래 소수라 검증당 0~1회에 그친다.
+const ACCUSATION_REVIEW_PROMPT = `당신은 팩트체크 판정의 마지막 검토자입니다. 어떤 주장이 "사실과 다름"으로 지목됐습니다. 그 지목이 근거에 의해 실제로 뒷받침되는지만 보세요.
+
+웹검색을 쓰지 마세요. 아래 제시된 근거만 가지고 판단합니다.
+
+지목을 유지해야 하는 경우(uphold):
+- 근거가 주장과 정면으로 어긋난다. 숫자·연도·주체·인과관계가 실제로 다르다.
+- 주장이 부분적으로만 맞고, 틀린 부분이 핵심이다.
+
+지목을 거둬야 하는 경우(withdraw):
+- 근거가 주장과 다른 것을 말하고 있다(주제가 비슷할 뿐 같은 사안이 아니다).
+- 근거가 주장을 반박하지 않고, 단지 뒷받침하지 못할 뿐이다. 이건 "틀렸다"가 아니라 "확인되지 않았다"이다.
+- 표현 차이일 뿐 내용은 같다. 반올림, 요약, 같은 뜻의 다른 표기는 틀린 게 아니다.
+- 주장이 조건부로 맞는데, 근거는 다른 조건을 말하고 있다.
+
+중요 — 근거가 주장을 뒷받침하지 못하는 것과, 근거가 주장을 반박하는 것은 다릅니다. 앞은 withdraw, 뒤만 uphold입니다.
+
+반드시 아래 JSON 형식으로만 응답하세요.
+{"decision": "uphold|withdraw", "reason": "판단 근거 (100자 이내)"}`;
+
+export async function reviewAccusation({ claimText, explanation, sources = [], ledger = null }) {
+  const evidence = sources.length
+    ? sources.map((x, i) => `${i + 1}. ${x.title || "(제목 없음)"} — ${x.url || ""}`).join(String.fromCharCode(10))
+    : "(제시된 출처 없음)";
+  const raw = await callClaude({
+    system: ACCUSATION_REVIEW_PROMPT,
+    label: "review",
+    ledger,
+    messages: [
+      {
+        role: "user",
+        content: [`주장: ${claimText}`, `지목 사유: ${explanation}`, "제시된 근거:", evidence].join(String.fromCharCode(10, 10)),
+      },
+    ],
+    max_tokens: 400,
+  });
+  const parsed = extractJson(raw);
+  return {
+    upheld: parsed.decision !== "withdraw",
+    reason: String(parsed.reason || "").trim(),
   };
 }
 
