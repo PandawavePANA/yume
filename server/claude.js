@@ -1,9 +1,21 @@
 // Anthropic Messages API 호출 (서버 전용 — API 키는 절대 클라이언트로 내려가지 않음).
 import { RECORDEDNESS } from "./nec/searchSpace.js";
 import { classifyUpstream, noteUpstreamFailure, noteUpstreamSuccess } from "./upstream.js";
+import { record } from "./apiCost.js";
 
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
+// 작업마다 필요한 머리가 다르다. 전부 Sonnet으로 돌리면 "주어진 조문과 주장을 비교하라"
+// 같은 기계적인 일에도 같은 값을 낸다. 판단이 필요한 곳만 Sonnet을 쓰고 나머지는 Haiku로
+// 내린다 — Haiku는 입력 1/3, 출력 1/3 값이다.
+//
+//   REASONING — 주장 추출, 심층 리서치. 무엇을 검색할지 스스로 정해야 한다.
+//   FAST      — 조문 대조, JSON 추출, 채점, 채팅. 근거가 이미 주어져 있어 옮겨 담는 일에 가깝다.
+// 웹 검색은 유메에서 가장 비싼 단일 항목이다. 건당 과금인 데다 결과가 대화에 누적돼
+// 이후 턴의 입력 토큰까지 함께 늘린다. 프롬프트로 부탁하지 말고 상한을 직접 건다.
+const webSearch = (maxUses) => ({ type: "web_search_20250305", name: "web_search", max_uses: maxUses });
+
 const MODEL = process.env.CLAUDE_MODEL || "claude-sonnet-5";
+const FAST_MODEL = process.env.CLAUDE_FAST_MODEL || "claude-haiku-4-5-20251001";
 // 웹검색을 여러 번 하는 추출 단계도 보통 1분 안에 끝난다. 응답이 영영 오지 않는 연결을
 // 붙들고 있지 않도록 상한을 둔다.
 const CLAUDE_TIMEOUT_MS = 150_000;
@@ -14,7 +26,15 @@ function apiKey() {
   return key;
 }
 
-async function callClaude({ system, messages, tools, max_tokens = 4000 }) {
+// system을 문자열이 아니라 블록으로 보내면 cache_control을 붙일 수 있다. 시스템 프롬프트는
+// 호출마다 똑같은데 매번 새 입력 토큰으로 계산되므로, 캐시에 올리면 읽을 때 1/10 값이 된다.
+// 프롬프트가 길수록 이득이 크고, 유메의 추출·리서치 프롬프트는 길다.
+function cachedSystem(system) {
+  if (!system) return undefined;
+  return [{ type: "text", text: system, cache_control: { type: "ephemeral" } }];
+}
+
+async function callClaude({ system, messages, tools, max_tokens = 4000, model = MODEL, label = "call", ledger = null }) {
   const res = await fetch(ANTHROPIC_API_URL, {
     method: "POST",
     headers: {
@@ -22,7 +42,7 @@ async function callClaude({ system, messages, tools, max_tokens = 4000 }) {
       "x-api-key": apiKey(),
       "anthropic-version": "2023-06-01",
     },
-    body: JSON.stringify({ model: MODEL, max_tokens, system, messages, ...(tools ? { tools } : {}) }),
+    body: JSON.stringify({ model, max_tokens, system: cachedSystem(system), messages, ...(tools ? { tools } : {}) }),
     signal: AbortSignal.timeout(CLAUDE_TIMEOUT_MS),
   });
   const data = await res.json();
@@ -34,12 +54,13 @@ async function callClaude({ system, messages, tools, max_tokens = 4000 }) {
   const text = (data.content || []).filter((b) => b.type === "text").map((b) => b.text).join("\n");
   if (!text.trim()) throw new Error("응답이 비어 있습니다. 입력을 조금 줄여서 다시 시도해주세요.");
   noteUpstreamSuccess();
+  record(ledger, { label, model, usage: data.usage });
   return text;
 }
 
 // 스트리밍 버전 — web_search 도구를 실제로 호출하는 순간(검색어가 확정되는 시점)을
 // onProgress로 실시간 중계하기 위해 사용한다 (로딩 중 "지금 뭘 하고 있는지" 노출용).
-async function callClaudeStreaming({ system, messages, tools, max_tokens = 4000, onProgress = () => {} }) {
+async function callClaudeStreaming({ system, messages, tools, max_tokens = 4000, model = MODEL, label = "call", ledger = null, onProgress = () => {} }) {
   const res = await fetch(ANTHROPIC_API_URL, {
     method: "POST",
     headers: {
@@ -47,7 +68,7 @@ async function callClaudeStreaming({ system, messages, tools, max_tokens = 4000,
       "x-api-key": apiKey(),
       "anthropic-version": "2023-06-01",
     },
-    body: JSON.stringify({ model: MODEL, max_tokens, system, messages, stream: true, ...(tools ? { tools } : {}) }),
+    body: JSON.stringify({ model, max_tokens, system: cachedSystem(system), messages, stream: true, ...(tools ? { tools } : {}) }),
     signal: AbortSignal.timeout(CLAUDE_TIMEOUT_MS),
   });
   if (!res.ok || !res.body) {
@@ -62,6 +83,8 @@ async function callClaudeStreaming({ system, messages, tools, max_tokens = 4000,
   const blockKinds = {}; // index -> "text" | "tool_use"
   const blockNames = {}; // index -> tool name (예: "web_search")
   const partialJson = {}; // index -> 누적된 input_json_delta 문자열
+  // 스트리밍은 사용량이 둘로 나뉘어 온다 — 입력은 message_start, 출력·검색 횟수는 message_delta.
+  let usage = {};
 
   while (true) {
     const { done, value } = await reader.read();
@@ -75,7 +98,11 @@ async function callClaudeStreaming({ system, messages, tools, max_tokens = 4000,
       let evt;
       try { evt = JSON.parse(dataLine.slice("data: ".length)); } catch { continue; }
 
-      if (evt.type === "content_block_start") {
+      if (evt.type === "message_start") {
+        usage = { ...usage, ...(evt.message?.usage || {}) };
+      } else if (evt.type === "message_delta") {
+        usage = { ...usage, ...(evt.usage || {}) };
+      } else if (evt.type === "content_block_start") {
         const kind = evt.content_block?.type;
         blockKinds[evt.index] = kind;
         if (kind === "tool_use" || kind === "server_tool_use") {
@@ -108,6 +135,7 @@ async function callClaudeStreaming({ system, messages, tools, max_tokens = 4000,
 
   if (!fullText.trim()) throw new Error("응답이 비어 있습니다. 입력을 조금 줄여서 다시 시도해주세요.");
   noteUpstreamSuccess();
+  record(ledger, { label, model, usage });
   return fullText;
 }
 
@@ -121,9 +149,10 @@ function extractJson(text) {
 
 // 웹검색 없이 JSON 한 덩어리만 받아오는 단순 호출. 감사(audit) 채점처럼 "주어진 근거로
 // 판단만 하라"는 작업에 쓴다 — 검색을 붙이면 채점자가 배경지식으로 추측하게 된다.
-export async function callClaudeJson({ system, user, maxTokens = 800 }) {
+export async function callClaudeJson({ system, user, maxTokens = 800, ledger = null, label = "json" }) {
   const messages = [{ role: "user", content: user }];
-  const raw = await callClaude({ system, messages, max_tokens: maxTokens });
+  // 근거가 이미 주어진 판단이라 Haiku로 충분하다(감사 채점·인용 추출).
+  const raw = await callClaude({ system, messages, max_tokens: maxTokens, model: FAST_MODEL, label, ledger });
   try {
     return extractJson(raw);
   } catch {
@@ -131,6 +160,9 @@ export async function callClaudeJson({ system, user, maxTokens = 800 }) {
     // '채점 불가'로 남는데, 그건 대상 AI의 문제가 아니라 우리 쪽 문제다.
     const retry = await callClaude({
       system,
+      model: FAST_MODEL,
+      label: `${label}:retry`,
+      ledger,
       messages: [
         ...messages,
         { role: "assistant", content: raw.slice(0, 400) },
@@ -147,7 +179,7 @@ const EXTRACT_SYSTEM_PROMPT = `당신은 '유메'라는 AI 답변 팩트체크 �
 규칙:
 - 의견이나 추천처럼 사실 여부를 판단할 수 없는 문장은 제외하고, 검증 가능한 사실 주장만 추출합니다.
 - 주장이 3~7개 정도 되도록 적당히 굵직한 단위로 나눕니다.
-- 검색은 전체 답변을 통틀어 최대 8회까지 사용할 수 있습니다. 주장 수가 많으면 근거가 약한 주장부터 검색에 배분하세요.
+- 검색은 전체 답변을 통틀어 최대 4회까지만 쓸 수 있습니다(서버가 강제합니다). 근거가 약한 주장부터 배분하고, 한 번의 검색어에 여러 주장을 묶을 수 있으면 묶으세요.
 - 도메인을 "법률", "의료", "금융", "역사", "과학", "일반" 중 하나로 분류하세요.
 - 원문이 이미 스스로 정정한 내용을 포함하고 있다면 정정된 최종 주장을 기준으로 판단하세요.
 - domain이 "법률"인 주장은 이 단계에서 verdict를 판단하지 말고 반드시 "pending_legal_check"로 두세요. 법률 주장은 이후 단계에서 법제처 국가법령정보 공동활용 API로 별도 확인합니다. 대신 legal_ref를 최대한 구체적으로 채우세요:
@@ -186,11 +218,13 @@ const EXTRACT_SYSTEM_PROMPT = `당신은 '유메'라는 AI 답변 팩트체크 �
 }
 legal_ref 필드는 domain이 "법률"인 항목에만 포함하고, 그 외 항목에는 넣지 마세요.`;
 
-export async function extractAndVerify(text, onProgress = () => {}) {
+export async function extractAndVerify(text, onProgress = () => {}, { ledger = null } = {}) {
   const raw = await callClaudeStreaming({
     system: EXTRACT_SYSTEM_PROMPT,
+    label: "extract",
+    ledger,
     messages: [{ role: "user", content: `다음 AI 답변을 검증해줘:\n\n${text}` }],
-    tools: [{ type: "web_search_20250305", name: "web_search" }],
+    tools: [webSearch(4)],
     max_tokens: 8000,
     onProgress,
   });
@@ -201,6 +235,8 @@ export async function extractAndVerify(text, onProgress = () => {}) {
     // 그때는 "검증할 게 없었다"고 알려주는 편이 검증 실패 화면보다 정확하다.
     const retry = await callClaudeStreaming({
       system: EXTRACT_SYSTEM_PROMPT,
+      label: "extract:retry",
+      ledger,
       messages: [
         { role: "user", content: `다음 AI 답변을 검증해줘:
 
@@ -208,7 +244,7 @@ ${text}` },
         { role: "assistant", content: raw.slice(0, 500) },
         { role: "user", content: "검증 가능한 사실 주장이 하나도 안 잡혔습니다. 숫자·연도·인물·기관·인과관계처럼 참/거짓을 가릴 수 있는 문장을 더 잘게 나눠 다시 추출해주세요. 정말로 사실 주장이 없으면 claims를 빈 배열로 두고 summary에 그 이유를 쓰세요." },
       ],
-      tools: [{ type: "web_search_20250305", name: "web_search" }],
+      tools: [webSearch(3)],
       max_tokens: 8000,
       onProgress,
     });
@@ -232,6 +268,10 @@ export async function groundLegalClaim(claimText, officialText, meta = {}) {
   const dateLine = meta.effectiveDate ? `\n(이 조문의 현재 버전 시행일자: ${meta.effectiveDate})` : "";
   const raw = await callClaude({
     system: GROUNDING_SYSTEM_PROMPT,
+    // 공식 조문이 이미 주어진 대조 작업이라 판단의 여지가 좁다 — Haiku로 충분하다.
+    model: FAST_MODEL,
+    label: "ground",
+    ledger: meta.ledger || null,
     messages: [
       {
         role: "user",
@@ -245,7 +285,7 @@ export async function groundLegalClaim(claimText, officialText, meta = {}) {
 
 const WEB_FALLBACK_SYSTEM_PROMPT = `당신은 유메의 법률 리서치 보조입니다. 이 법률 관련 주장은 법제처 국가법령정보 공동활용 API로 조문·판례 번호를 특정해서 공식 조회를 할 수 없었습니다(조문/사건번호가 불명확하거나, 법령·판례 자체를 특정하지 못함).
 
-그렇다고 "모른다"고 답하지 마세요. web_search 도구로 실제로 검색해서(뉴스, 법률사무소·변호사 해설 블로그, 판례 정리 사이트, 정부 발표 자료 등) 이 주장이 맞는지 최선을 다해 판단하세요. 검색 없이 배경지식만으로 답하지 말고, 반드시 최소 1회 이상 검색하세요.
+그렇다고 "모른다"고 답하지 마세요. web_search 도구로 실제로 검색해서(뉴스, 법률사무소·변호사 해설 블로그, 판례 정리 사이트, 정부 발표 자료 등) 이 주장이 맞는지 최선을 다해 판단하세요. 검색 없이 배경지식만으로 답하지 말고, 반드시 최소 1회 이상 검색하세요(최대 3회).
 
 판단 원칙:
 - 검색 결과가 명확히 뒷받침하거나 반박하면 confirmed/false로 판정하고, 실제로 찾은 출처를 제시하세요.
@@ -258,12 +298,14 @@ const WEB_FALLBACK_SYSTEM_PROMPT = `당신은 유메의 법률 리서치 보조�
 반드시 아래 JSON 형식으로만 응답하세요. 다른 설명, 마크다운 코드블록을 추가하지 마세요.
 {"verdict": "confirmed|false|uncertain", "explanation": "구체적 근거 (100자 이내)", "sources": [{ "title": "출처 제목", "url": "https://..." }], "identifier_found": true|false}`;
 
-export async function verifyLegalClaimViaWeb(claimText, onProgress = () => {}, { identifier = null } = {}) {
+export async function verifyLegalClaimViaWeb(claimText, onProgress = () => {}, { identifier = null, ledger = null } = {}) {
   const idLine = identifier ? `\n\n인용된 식별자: ${identifier} (법제처 공식 데이터베이스에서는 찾지 못함)` : "";
   const raw = await callClaudeStreaming({
     system: WEB_FALLBACK_SYSTEM_PROMPT,
+    label: "legal_web",
+    ledger,
     messages: [{ role: "user", content: `다음 법률 관련 주장을 검색해서 검증해줘:\n\n${claimText}${idLine}` }],
-    tools: [{ type: "web_search_20250305", name: "web_search" }],
+    tools: [webSearch(3)],
     max_tokens: 2000,
     onProgress,
   });
@@ -286,7 +328,7 @@ const RESEARCH_SYSTEM_PROMPT = `당신은 유메의 심층 리서치 담당입�
 
 가장 중요한 원칙 두 가지입니다. 둘 다 지켜야 합니다.
 
-1. **끝까지 찾으세요.** 배경지식으로 추측하지 말고, web_search 도구로 여러 번(최소 2회, 필요하면 4회까지) 각도를 바꿔가며 실제로 검색하세요. 처음 검색이 빈손이면 검색어를 바꿔서 다시 시도하세요 — 용어를 바꾸고, 상위 개념으로 넓히고, 영어로도 찾아보세요.
+1. **끝까지 찾으세요.** 배경지식으로 추측하지 말고, web_search 도구로 각도를 바꿔가며 실제로 검색하세요(최대 3회, 서버가 강제합니다). 처음 검색이 빈손이면 검색어를 바꿔서 다시 시도하세요 — 용어를 바꾸고, 상위 개념으로 넓히고, 영어로도 찾아보세요.
 
 2. **찾지 못했으면 찾지 못했다고, 정확히 어디까지 찾았는지와 함께 말하세요.** 그럴듯하다는 이유로 confirmed를 주면 안 됩니다. 그건 당신의 추측이지 검증이 아닙니다.
    다만 "못 찾았다"는 것 자체가 유메에게는 중요한 결과입니다. 유메는 당신이 어디를 얼마나 뒤졌는지를 받아서 **부존재 신뢰도**를 계산합니다 — 사실이라면 반드시 기록으로 남았을 내용인데 그 기록이 어디에도 없다면, 그 주장은 지어낸 것으로 판정됩니다. 그러니 verdict만 주지 말고 아래 세 필드를 정확히 채우세요.
@@ -332,15 +374,17 @@ confirmed나 false로 판정할 때는 sources에 실제로 근거가 된 URL을
 반드시 아래 JSON 형식으로만 응답하세요. 다른 설명, 마크다운 코드블록을 추가하지 마세요.
 {"verdict": "confirmed|false|uncertain", "explanation": "구체적 근거 (200자 이내)", "sources": [{ "title": "출처 제목", "url": "https://..." }], "recordedness": "public_record|published|reported|niche|private|unrecordable", "searched_thoroughly": true|false, "near_miss": { "value": "찾은 비슷한 실재 사실", "similarity": 0.0~1.0 } }`;
 
-export async function researchClaim(claimText, { domain = "일반", priorExplanation = "", priorSources = [], onProgress = () => {} } = {}) {
+export async function researchClaim(claimText, { domain = "일반", priorExplanation = "", priorSources = [], onProgress = () => {}, ledger = null } = {}) {
   const prior = priorExplanation ? `\n\n앞선 검증에서 여기까지는 확인했습니다(이걸 반복하지 말고 더 파고드세요): ${priorExplanation}` : "";
   const seen = priorSources.length
     ? `\n이미 본 출처: ${priorSources.map((x) => x.url).filter(Boolean).slice(0, 3).join(", ")}`
     : "";
   const raw = await callClaudeStreaming({
     system: RESEARCH_SYSTEM_PROMPT,
+    label: "research",
+    ledger,
     messages: [{ role: "user", content: `도메인: ${domain}\n주장: ${claimText}${prior}${seen}` }],
-    tools: [{ type: "web_search_20250305", name: "web_search" }],
+    tools: [webSearch(3)],
     max_tokens: 3000,
     onProgress,
   });
@@ -375,6 +419,9 @@ export async function chatReply(messages, { channel = "web" } = {}) {
   if (safeMessages.length === 0) throw new Error("메시지가 없습니다.");
   const text = await callClaude({
     system: channel === "kakao" ? CHAT_SYSTEM_PROMPT + KAKAO_CHAT_HINT : CHAT_SYSTEM_PROMPT,
+    // 잡담·안내라 Haiku로 충분하다. 검증과 달리 판정이 걸려 있지 않다.
+    model: FAST_MODEL,
+    label: "chat",
     messages: safeMessages,
     max_tokens: channel === "kakao" ? 400 : 2000,
   });

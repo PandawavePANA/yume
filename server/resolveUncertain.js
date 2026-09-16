@@ -42,7 +42,7 @@ async function inBatches(items, size, fn) {
   return out;
 }
 
-export async function resolveUncertainClaims(claims, { research = defaultResearch, onProgress = () => {} } = {}) {
+export async function resolveUncertainClaims(claims, { research = defaultResearch, onProgress = () => {}, ledger = null } = {}) {
   const targets = claims.map((c, i) => ({ c, i })).filter(({ c }) => needsResearch(c));
   if (targets.length === 0) return claims;
 
@@ -55,6 +55,7 @@ export async function resolveUncertainClaims(claims, { research = defaultResearc
         priorExplanation: c.explanation || "",
         priorSources: c.sources || [],
         onProgress,
+        ledger,
       });
       const sources = [...(r.sources || []), ...(c.sources || [])];
       const hasEvidence = sources.some((x) => x && x.url);

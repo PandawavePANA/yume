@@ -6,6 +6,7 @@ import { sanitizeClaim } from "./claimGuard.js";
 import { buildOverallVerdict } from "./overallVerdict.js";
 import { resolveProductLinks } from "./coupang.js";
 import { logError } from "./errorLog.js";
+import { logApiCost, newLedger, summarize } from "./apiCost.js";
 import {
   ENGINE_VERSION,
   completeVerification,
@@ -30,7 +31,9 @@ async function processVerification({ id, text, source, onProgress = () => {} }) 
     }
 
     onProgress("AI 답변에서 사실 주장을 추출하는 중…");
-    const extracted = await extractAndVerify(text, onProgress);
+    // 이 검증 한 건이 Claude를 몇 번 부르고 검색을 몇 번 돌렸는지 모은다.
+    const ledger = newLedger();
+    const extracted = await extractAndVerify(text, onProgress, { ledger });
     const legalCount = extracted.claims.filter((c) => c.domain === "법률").length;
     onProgress(
       legalCount > 0
@@ -38,13 +41,13 @@ async function processVerification({ id, text, source, onProgress = () => {} }) 
         : `${extracted.claims.length}개 주장을 찾았습니다. 결과를 정리하는 중…`,
     );
 
-    let claims = await resolveLegalClaims(extracted.claims, { onProgress });
+    let claims = await resolveLegalClaims(extracted.claims, { onProgress, ledger });
     claims = await resolveIdentifierClaims(claims, { onProgress });
     // 심층 재확인 '전에' 한 번 거른다. 출처 없이 confirmed로 온 주장을 여기서 내려놓아야
     // 아래 재확인 대상에 포함된다 — 거르는 순서가 반대면 근거를 찾아볼 기회 없이 강등만 된다.
     claims = claims.map(sanitizeClaim);
     // 결론이 안 난 주장을 도메인별로 한 번 더 판다. 근거를 찾으면 판정이 살아 돌아온다.
-    claims = await resolveUncertainClaims(claims, { onProgress });
+    claims = await resolveUncertainClaims(claims, { onProgress, ledger });
     // 재확인이 만들어낸 판정도 같은 잣대로 다시 거른다(이미 강등된 건 건드리지 않는다).
     claims = claims.map(sanitizeClaim);
 
@@ -62,6 +65,9 @@ async function processVerification({ id, text, source, onProgress = () => {} }) 
       engine: ENGINE_VERSION,
     };
     await completeVerification(id, result, { elapsedMs: Date.now() - startedAt });
+    // 원가는 사용자에게 내보내지 않는다 — 운영 지표라 로그로만 남긴다.
+    const cost = summarize(ledger);
+    if (cost) logApiCost(id, source, cost);
     return { result, fromCache: false };
   } catch (e) {
     await failVerification(id, e.message).catch(() => {});

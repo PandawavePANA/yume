@@ -45,9 +45,9 @@ const short = (name, n = 14) => {
 };
 const CASE_IN_TEXT = /(\d{2,4})\s?([가-힣]{1,3})\s?(\d{2,7})/;
 
-export async function resolveLegalClaims(claims, { ground = defaultGround, webVerify = defaultWebVerify, onProgress = () => {} } = {}) {
+export async function resolveLegalClaims(claims, { ground = defaultGround, webVerify = defaultWebVerify, onProgress = () => {}, ledger = null } = {}) {
   return Promise.all(
-    claims.map((claim) => (claim.domain === "법률" ? resolveOne(claim, { ground, webVerify, onProgress }) : claim)),
+    claims.map((claim) => (claim.domain === "법률" ? resolveOne(claim, { ground, webVerify, onProgress, ledger }) : claim)),
   );
 }
 
@@ -141,7 +141,7 @@ async function resolveStatute(claim, ref, ctx) {
     if (art.ok && art.found) {
       const coverage = coverageFor(ident.looksAbbreviated ? "statute_abbrev" : "statute", [{ id: "law.go.kr:law", ok: true }]);
       const nec = buildNecReport({ identifier: ident, spaceKey: ident.looksAbbreviated ? "statute_abbrev" : "statute", coverage, similar: stripInternal(similar), weights: WEIGHTS });
-      const grounded = await ctx.ground(claim.text, art.text, { label: `법제처 국가법령정보 - ${best.value}`, effectiveDate: formatDate(art.effectiveDate) });
+      const grounded = await ctx.ground(claim.text, art.text, { ledger: ctx.ledger, label: `법제처 국가법령정보 - ${best.value}`, effectiveDate: formatDate(art.effectiveDate) });
       return {
         ...claim,
         verdict: grounded.verdict || "uncertain",
@@ -229,7 +229,7 @@ async function resolveFoundStatute(claim, ident, search, aliasNote, ctx) {
   }
   ctx.onProgress(`"${short(search.lawNameOfficial)}" ${articleLabel} 조문과 대조 중…`);
   const effectiveDate = article.effectiveDate || search.effectiveDate;
-  const grounded = await ctx.ground(claim.text, article.text, {
+  const grounded = await ctx.ground(claim.text, article.text, { ledger: ctx.ledger,
     label: `법제처 국가법령정보 - ${search.lawNameOfficial}`,
     effectiveDate: formatDate(effectiveDate),
   });
@@ -428,7 +428,7 @@ async function necOutcome(claim, nec, ctx, widen = null) {
 async function webFallback(claim, ctx, identifier = null) {
   ctx.onProgress(`웹에서 "${claim.text.slice(0, 12)}${claim.text.length > 12 ? "…" : ""}" 관련 자료 확인 중…`);
   try {
-    const result = await ctx.webVerify(claim.text, ctx.onProgress, { identifier });
+    const result = await ctx.webVerify(claim.text, ctx.onProgress, { identifier, ledger: ctx.ledger });
     return {
       ...claim,
       verdict: result.verdict,
@@ -440,7 +440,7 @@ async function webFallback(claim, ctx, identifier = null) {
   } catch (e) {
     // 일시적 오류(타임아웃·레이트리밋)로 한 번 실패했다고 판단을 포기하지 않는다.
     try {
-      const retry = await ctx.webVerify(claim.text, ctx.onProgress, { identifier });
+      const retry = await ctx.webVerify(claim.text, ctx.onProgress, { identifier, ledger: ctx.ledger });
       return {
         ...claim,
         verdict: retry.verdict,
