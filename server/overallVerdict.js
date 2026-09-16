@@ -6,7 +6,11 @@
 export function buildOverallVerdict(claims) {
   const total = claims.length;
   if (total === 0) {
-    return { label: "판단 보류", detail: "검증할 수 있는 사실 주장을 찾지 못했습니다.", tone: "uncertain" };
+    return {
+      label: "검증할 내용 없음",
+      detail: "참·거짓을 가릴 수 있는 사실 주장이 없는 글입니다. 의견·감상·창작이거나 인사말처럼 검증 대상이 아닌 내용일 수 있어요.",
+      tone: "uncertain",
+    };
   }
   const falseClaims = claims.filter((c) => c.verdict === "false");
   const uncertainClaims = claims.filter((c) => c.verdict === "uncertain");
@@ -16,17 +20,26 @@ export function buildOverallVerdict(claims) {
     return { label: "전체 확인됨", detail: `${total}개 주장 모두 사실과 일치합니다.`, tone: "confirmed" };
   }
   if (falseClaims.length === 0) {
+    // '확인되지 않음'은 중립이 아니다. 유메가 근거를 확보하지 못했다는 뜻이고,
+    // 사용자 입장에서는 그대로 믿으면 안 되는 부분이다. 총평에서도 그렇게 말한다.
+    const allUnverified = confirmedCount === 0;
+    const list = uncertainClaims.map((c) => `"${c.text}"`).join(", ");
     return {
-      label: "대체로 정확",
-      detail: `${total}개 중 ${confirmedCount}개는 확인됐고, ${uncertainClaims.length}개는 근거가 부족해 판단을 보류했습니다.`,
-      tone: "uncertain",
+      label: allUnverified ? "확인되지 않음" : "일부 확인되지 않음",
+      detail: allUnverified
+        ? `${total}개 주장 모두 뒷받침할 근거를 찾지 못했습니다. 사실이라고도, 틀렸다고도 볼 수 없으니 그대로 인용하지 마세요 — ${list}`
+        : `${total}개 중 ${confirmedCount}개는 확인됐지만, ${uncertainClaims.length}개는 근거를 찾지 못했습니다. 이 부분은 그대로 믿으면 안 됩니다 — ${list}`,
+      tone: "unverified",
     };
   }
   const wrongList = falseClaims.map((c) => `"${c.text}"`).join(", ");
   const majorityWrong = falseClaims.length >= Math.ceil(total / 2);
+  const unverifiedNote = uncertainClaims.length
+    ? ` 그리고 ${uncertainClaims.length}개는 근거를 찾지 못해 확인되지 않았습니다.`
+    : "";
   return {
     label: majorityWrong ? "대부분 부정확" : "부분적으로 부정확",
-    detail: `${total}개 중 ${falseClaims.length}개가 사실과 다릅니다 — ${wrongList}`,
+    detail: `${total}개 중 ${falseClaims.length}개가 사실과 다릅니다 — ${wrongList}.${unverifiedNote}`,
     tone: "false",
   };
 }

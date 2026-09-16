@@ -15,14 +15,16 @@
 const VERDICT = {
   confirmed: { label: "확인됨", bg: "#E7F6EE", color: "#1F9D66", glyph: "✓" },
   false: { label: "사실과 다름", bg: "#FBE9E7", color: "#C6402F", glyph: "✕" },
-  uncertain: { label: "판단 보류", bg: "#FDF0DC", color: "#B4690E", glyph: "!" },
+  uncertain: { label: "확인되지 않음", bg: "#FCEAE6", color: "#B23B2B", glyph: "?" },
 };
-const VBORDER = { confirmed: "#E6EFE9", false: "#F5D8D3", uncertain: "#F3E3C4" };
-const VBG = { confirmed: "#F9FBF9", false: "#FDF4F3", uncertain: "#FFFBF3" };
+const VBORDER = { confirmed: "#E6EFE9", false: "#F5D8D3", uncertain: "#EFC9C0" };
+const VBG = { confirmed: "#F9FBF9", false: "#FDF4F3", uncertain: "#FFF8F6" };
 const OVERALL_TONE = {
   confirmed: { bg: "#EAF7F0", border: "#B7E4CC", fg: "#fff", chipBg: "#1F9D66" },
   uncertain: { bg: "#FFF6E0", border: "#F0D98C", fg: "#7A5B00", chipBg: "#FCE7A6" },
   false: { bg: "#FBEDEA", border: "#F0BCB0", fg: "#fff", chipBg: "#C6402F" },
+  // 확인되지 않음 — 중립이 아니라 경고다. 붉은 계열로 두되 '사실과 다름'과는 구분한다.
+  unverified: { bg: "#FDEFEC", border: "#EFC2B6", fg: "#fff", chipBg: "#B23B2B" },
 };
 
 function esc(s = "") {
@@ -185,6 +187,8 @@ export function renderResultPage({ id, input, status, result, createdAt }) {
         ? `<span style="font-size:11px;font-weight:700;color:#6B4FA8;background:#EDE4FB;border-radius:999px;padding:2px 9px;">법제처 공식 확인${c.effective_date ? ` · ${esc(c.effective_date)} 시행 기준` : ""}</span>`
         : c.verified_via === "nec"
         ? `<span style="font-size:11px;font-weight:700;color:#8E3B2F;background:#FBE9E7;border-radius:999px;padding:2px 9px;">부존재 신뢰도 판정</span>`
+        : c.verified_via === "research"
+        ? `<span style="font-size:11px;font-weight:700;color:#1F6FA8;background:#E4F0F8;border-radius:999px;padding:2px 9px;">심층 재확인</span>`
         : c.verified_via === "unavailable"
         ? `<span style="font-size:11px;font-weight:700;color:#9C8FC2;background:#F1ECFA;border-radius:999px;padding:2px 9px;">공식 API 미연동</span>`
         : "";
@@ -193,7 +197,7 @@ export function renderResultPage({ id, input, status, result, createdAt }) {
           <span style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:999px;background:${v.bg};color:${v.color};font-size:13.5px;font-weight:700;flex-shrink:0;margin-top:1px;">${v.glyph}</span>
           <div>
             <div style="font-size:12px;font-weight:700;letter-spacing:0.01em;color:#8577A8;margin-bottom:6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-              <span>${esc(c.domain || "")} · ${v.label}</span>
+              <span>${esc(c.domain || "")} · <span style="color:${v.color};">${v.label}</span></span>
               ${officialBadge}
             </div>
             <div style="font-size:15px;font-weight:600;color:#241F33;line-height:1.6;margin-bottom:5px;">${esc(c.text)}</div>
@@ -241,7 +245,7 @@ export function renderResultPage({ id, input, status, result, createdAt }) {
       ${inputBox(input)}
       <div style="padding:16px;border-radius:14px;background:${tone.bg};border:1px solid ${tone.border};margin-bottom:14px;">
         <div style="display:flex;align-items:center;flex-wrap:wrap;gap:9px;margin-bottom:8px;">
-          <span style="font-size:14px;font-weight:700;color:${tone.fg};background:${tone.chipBg};border-radius:999px;padding:4px 12px;">${esc(result.overall?.label || "판단 보류")}</span>
+          <span style="font-size:14px;font-weight:700;color:${tone.fg};background:${tone.chipBg};border-radius:999px;padding:4px 12px;">${esc(result.overall?.label || "확인되지 않음")}</span>
           <span style="font-size:13px;color:#6E6389;font-weight:500;">도메인: ${esc(result.overall_domain || "일반")}</span>
         </div>
         <div style="font-size:14.5px;color:#2A2440;line-height:1.7;">${esc(result.overall?.detail || result.summary || "")}</div>

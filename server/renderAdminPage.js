@@ -90,8 +90,8 @@ var TABS = [
 ];
 var state = { tab: "overview", me: null };
 var PLAN_LABEL = { free: "무료", standard: "스탠다드", expert: "전문가", business: "비즈니스" };
-var VERDICT_LABEL = { confirmed: "확인됨", "false": "사실과 다름", uncertain: "판단 보류" };
-var VIA_LABEL = { official: "공식 대조", nec: "부존재 신뢰도", web: "웹 교차확인", unavailable: "조회 실패" };
+var VERDICT_LABEL = { confirmed: "확인됨", "false": "사실과 다름", uncertain: "확인되지 않음" };
+var VIA_LABEL = { official: "공식 대조", nec: "부존재 신뢰도", web: "웹 교차확인", research: "심층 재확인", unavailable: "조회 실패" };
 
 function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
 function safeUrl(u) { try { var x = new URL(String(u || "")); return x.protocol === "http:" || x.protocol === "https:" ? x.toString() : "#"; } catch (e) { return "#"; } }
@@ -304,7 +304,8 @@ async function openVerification(id) {
   var v = await api("/api/admin/verifications/" + id), r = v.result;
   var claims = r && r.claims ? r.claims.map(function (c) {
     var src = (c.sources || []).map(function (s) { return '<div><a href="' + esc(safeUrl(s.url)) + '" target="_blank" rel="noopener">' + esc(s.title || s.url) + "</a></div>"; }).join("");
-    return '<div class="claim">' + badge(c.verdict, VERDICT_LABEL[c.verdict] || c.verdict) + " " + badge("x", VIA_LABEL[c.verified_via] || c.verified_via || "웹") + " <b>" + esc(c.text) + '</b><div class="muted" style="margin-top:4px;">' + esc(c.domain) + " · " + esc(c.explanation || "") + "</div>" + src + necHtml(c.nec) + "</div>";
+    return '<div class="claim">' + badge(c.verdict, VERDICT_LABEL[c.verdict] || c.verdict) + " " + badge("x", VIA_LABEL[c.verified_via] || c.verified_via || "웹") +
+      (c.unbacked_verdict ? " " + badge("w", "근거없음 → 강등(" + (VERDICT_LABEL[c.unbacked_verdict] || c.unbacked_verdict) + ")") : "") + " <b>" + esc(c.text) + '</b><div class="muted" style="margin-top:4px;">' + esc(c.domain) + " · " + esc(c.explanation || "") + "</div>" + src + necHtml(c.nec) + "</div>";
   }).join("") : '<div class="empty">' + esc(v.error || "결과가 아직 없어요.") + "</div>";
   modal('<h1 style="font-size:17px;">검증 ' + esc(v.id) + '</h1><div class="sub">' + esc(v.source) + " · " + t(v.created_at) + (v.elapsed_ms ? " · " + (v.elapsed_ms / 1000).toFixed(1) + "초" : "") + (v.data_consent ? " · 데이터 활용 동의" : "") + ' · <a href="/r/' + esc(v.id) + '" target="_blank">결과 페이지</a></div>' +
     '<div class="input-block">' + esc(v.input) + "</div>" +
@@ -347,11 +348,11 @@ async function renderDataset() {
   var domains = Array.from(new Set(s.byDomainVerdict.map(function (r) { return r.domain; }).filter(Boolean)));
   $("main").innerHTML = '<h1>데이터셋 판매</h1><div class="sub">동의한 회원·계약된 API 고객의 검증만, 가명처리해 주장 단위로 반출합니다. 입력 원문·이메일·IP는 절대 포함되지 않습니다.</div>' +
     '<div class="grid">' + kpi("반출 가능 주장", n(s.eligibleClaims), "전체 주장 " + n(s.totalClaims) + " 중") + kpi("동의 회원", n(s.consentingUsers)) + kpi("데이터 제공 API 키", n(s.sharingKeys)) + kpi("부존재 신뢰도 포함", n(s.necClaims), "지어낸 판례·문헌 탐지 레코드") + "</div>" +
-    '<div class="panel tablewrap"><h2>분야 × 판정</h2><table><thead><tr><th>분야</th><th>확인됨</th><th>사실과 다름</th><th>판단 보류</th></tr></thead><tbody>' +
+    '<div class="panel tablewrap"><h2>분야 × 판정</h2><table><thead><tr><th>분야</th><th>확인됨</th><th>사실과 다름</th><th>확인되지 않음</th></tr></thead><tbody>' +
     (domains.length ? domains.map(function (d) { function c(v) { var r = s.byDomainVerdict.find(function (x) { return x.domain === d && x.verdict === v; }); return n(r ? r.n : 0); } return "<tr><td>" + esc(d) + "</td><td>" + c("confirmed") + "</td><td>" + c("false") + "</td><td>" + c("uncertain") + "</td></tr>"; }).join("") : '<tr><td colspan="4" class="empty">아직 반출 가능한 데이터가 없어요.</td></tr>') + "</tbody></table></div>" +
     '<div class="panel"><h2>새 반출 만들기</h2><div class="desc">조건을 고르고 미리보기로 가명처리 결과를 확인한 뒤 반출하세요. 반출 링크는 만들 때 한 번만 표시됩니다.</div>' +
       '<div class="row"><span class="muted">분야</span>' + (domains.length ? domains.map(function (d) { return '<label><input type="checkbox" class="fd" value="' + esc(d) + '"/> ' + esc(d) + "</label>"; }).join(" ") : '<span class="muted">(전체)</span>') + "</div>" +
-      '<div class="row"><span class="muted">판정</span><label><input type="checkbox" class="fv" value="confirmed"/> 확인됨</label><label><input type="checkbox" class="fv" value="false"/> 사실과 다름</label><label><input type="checkbox" class="fv" value="uncertain"/> 판단 보류</label></div>' +
+      '<div class="row"><span class="muted">판정</span><label><input type="checkbox" class="fv" value="confirmed"/> 확인됨</label><label><input type="checkbox" class="fv" value="false"/> 사실과 다름</label><label><input type="checkbox" class="fv" value="uncertain"/> 확인되지 않음</label></div>' +
       '<div class="row"><span class="muted">기간</span><input id="ff" type="date"/> ~ <input id="ft" type="date"/><label><input type="checkbox" id="fo"/> 공식 대조·부존재 판정만</label><label><input type="checkbox" id="fdd" checked/> 중복 주장 제거</label><button class="btn" id="fprev">미리보기</button></div>' +
       '<div id="prev"></div>' +
       '<div class="row"><input id="eb" placeholder="구매처(회사명)" style="flex:1;min-width:180px"/><input id="ep" placeholder="제공 목적(계약서 기재 목적)" style="flex:2;min-width:220px"/></div>' +

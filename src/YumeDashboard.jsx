@@ -7,6 +7,7 @@ import NecPanel from "@/components/yume/NecPanel";
 import { BountyPrompt } from "@/components/yume/BountyModal";
 import { apiJson, safeUrl, CONTACT_EMAIL } from "@/components/yume/api";
 import { IS_NATIVE_APP, onNativeBack, shareLink } from "./native.js";
+import AuditModal from "./components/yume/AuditModal.jsx";
 
 const EASE_APPLE = [0.22, 1, 0.36, 1];
 
@@ -72,10 +73,10 @@ const PLACEHOLDER = `여기에 ChatGPT, 클로드, 제미나이 등 AI의 답변
 const VERDICT = {
   confirmed: { label: "확인됨", bg: "#E7F6EE", color: "#1F9D66", glyph: "✓" },
   false: { label: "사실과 다름", bg: "#FBE9E7", color: "#C6402F", glyph: "✕" },
-  uncertain: { label: "판단 보류", bg: "#FDF0DC", color: "#B4690E", glyph: "!" },
+  uncertain: { label: "확인되지 않음", bg: "#FCEAE6", color: "#B23B2B", glyph: "?" },
 };
-const VBORDER = { confirmed: "#E6EFE9", false: "#F5D8D3", uncertain: "#F3E3C4" };
-const VBG = { confirmed: "#F9FBF9", false: "#FDF4F3", uncertain: "#FFFBF3" };
+const VBORDER = { confirmed: "#E6EFE9", false: "#F5D8D3", uncertain: "#EFC9C0" };
+const VBG = { confirmed: "#F9FBF9", false: "#FDF4F3", uncertain: "#FFF8F6" };
 
 const PLANS = {
   free: { label: "무료", price: "0원", period: "", tagline: "일상적인 사실관계 확인", features: ["하루 5회 확인", "법률 주장 법제처 공식 대조", "인용된 판례·법령·논문의 부존재 신뢰도", "로그인 시 검증 기록 최근 50건 저장"] },
@@ -89,7 +90,7 @@ const HALLUCINATION_CAUSES = [
   { title: "저빈도 값 붕괴", problem: "조문 번호·수치처럼 드문 값은 AI가 비슷한 값과 섞습니다.", fix: "원문을 항목 단위까지 펼쳐 문자열로 직접 대조" },
   { title: "시점 붕괴", problem: "개정 전·후 버전이 둘 다 학습돼 어느 게 최신인지 AI는 모릅니다.", fix: "지금 유효한 버전만 기준으로 판정" },
   { title: "자기회귀적 오류 전파", problem: "한 번 부정확한 표현이 나오면 뒤이어 계속 틀립니다.", fix: "답변 전체가 아니라 주장 단위로 쪼개 독립 검증" },
-  { title: "확신 편향", problem: "근거가 약해도 AI의 말투는 항상 자신 있게 나옵니다.", fix: "확인됨·사실과다름·판단보류, 3단계로 정직하게 판정" },
+  { title: "확신 편향", problem: "근거가 약해도, 아예 없는 사실이어도 AI의 말투는 항상 자신 있게 나옵니다.", fix: "확인됨·사실과 다름·확인되지 않음, 3단계로 정직하게 판정" },
   { title: "유사 개체 혼동", problem: "이름이나 맥락이 비슷한 두 개념이 서로 섞입니다.", fix: "유사도가 아니라 원문 일치 여부로 최종 판정" },
 ];
 
@@ -98,6 +99,8 @@ const OVERALL_TONE = {
   confirmed: { bg: "#EAF7F0", border: "#B7E4CC", fg: "#fff", chipBg: "#1F9D66" },
   uncertain: { bg: "#FFF6E0", border: "#F0D98C", fg: "#7A5B00", chipBg: "#FCE7A6" },
   false: { bg: "#FBEDEA", border: "#F0BCB0", fg: "#fff", chipBg: "#C6402F" },
+  // 확인되지 않음 — 중립이 아니라 경고다. 붉은 계열로 두되 '사실과 다름'과는 구분한다.
+  unverified: { bg: "#FDEFEC", border: "#EFC2B6", fg: "#fff", chipBg: "#B23B2B" },
 };
 
 function StatusIcon({ verdict }) {
@@ -472,7 +475,7 @@ function StepCard({ step, i, progress }) {
 const STEPS = [
   { n: "01", title: "붙여넣기", desc: "ChatGPT·클로드·제미나이 등 어떤 AI의 답변이든 그대로 붙여넣으세요." },
   { n: "02", title: "대조하기", desc: "법률은 법제처 공식 데이터베이스로, 그 외는 실시간 웹검색으로 하나하나 대조합니다." },
-  { n: "03", title: "확인하기", desc: "확인됨 · 사실과 다름 · 판단 보류로 명확하게, 근거와 출처까지 함께 보여드립니다." },
+  { n: "03", title: "확인하기", desc: "확인됨 · 사실과 다름 · 확인되지 않음으로 명확하게, 근거와 출처까지 함께 보여드립니다." },
 ];
 
 // 헤더(HOW IT WORKS + 제목)와 카드 3개를, 이 섹션이 뷰포트를 지나가는 스크롤
@@ -536,6 +539,7 @@ export default function YumeDashboard() {
   const [accountTab, setAccountTab] = useState(null); // null | "profile" | "api" | "data" | "security"
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [showBiz, setShowBiz] = useState(false);
+  const [showAudit, setShowAudit] = useState(false);
   const [showPricing, setShowPricing] = useState(false);
   const [toast, setToast] = useState("");
   // 로그인 세션과 오늘 남은 확인 횟수는 서버가 기준이다(요금제도 서버가 결정).
@@ -780,11 +784,12 @@ export default function YumeDashboard() {
     if (authModal) { setAuthModal(null); return true; }
     if (accountTab) { setAccountTab(null); return true; }
     if (showPricing) { setShowPricing(false); return true; }
+    if (showAudit) { setShowAudit(false); return true; }
     if (showBiz) { setShowBiz(false); return true; }
     if (sidebarOpen) { setSidebarOpen(false); return true; }
     if (stage === "done") { reset(); return true; }
     return false;
-  }), [userMenuOpen, authModal, accountTab, showPricing, showBiz, sidebarOpen, stage]);
+  }), [userMenuOpen, authModal, accountTab, showPricing, showBiz, showAudit, sidebarOpen, stage]);
   const confirmedCount = result?.claims?.filter(c => c.verdict === "confirmed").length ?? 0;
   const totalCount = result?.claims?.length ?? 0;
   const allSources = (result?.claims || []).flatMap(c => (c.sources || []).map(s => ({ ...s, forClaim: c.text })));
@@ -1198,7 +1203,7 @@ export default function YumeDashboard() {
                           <StatusIcon verdict={c.verdict} />
                           <div style={{ minWidth: 0 }}>
                             <div style={{ fontSize: 12.5, fontWeight: 600, color: UI.ink3, marginBottom: 6, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                              <span>{c.domain} · {VERDICT[c.verdict]?.label || "판단 보류"}</span>
+                              <span>{c.domain} · <span style={{ color: (VERDICT[c.verdict] || VERDICT.uncertain).color }}>{VERDICT[c.verdict]?.label || "확인되지 않음"}</span></span>
                               {c.verified_via === "official" && (
                                 <span style={{ fontSize: 11, fontWeight: 600, color: UI.accent, background: "rgba(139,111,216,0.12)", borderRadius: 999, padding: "2px 9px" }}>
                                   법제처 공식 확인{c.effective_date ? ` · ${c.effective_date} 시행 기준` : ""}
@@ -1206,6 +1211,9 @@ export default function YumeDashboard() {
                               )}
                               {c.verified_via === "nec" && (
                                 <span style={{ fontSize: 11, fontWeight: 600, color: "#A23A2B", background: "rgba(214,70,50,0.10)", borderRadius: 999, padding: "2px 9px" }}>부존재 신뢰도 판정</span>
+                              )}
+                              {c.verified_via === "research" && (
+                                <span style={{ fontSize: 11, fontWeight: 600, color: "#1F6FA8", background: "rgba(40,120,180,0.10)", borderRadius: 999, padding: "2px 9px" }}>심층 재확인</span>
                               )}
                               {c.verified_via === "unavailable" && (
                                 <span style={{ fontSize: 11, fontWeight: 600, color: UI.ink3, background: "rgba(118,118,128,0.10)", borderRadius: 999, padding: "2px 9px" }}>공식 자료 조회 실패</span>
@@ -1518,6 +1526,19 @@ export default function YumeDashboard() {
             </div>
             <div style={{ fontSize: 14, color: UI.ink2, marginBottom: 28 }}>유메의 검증 엔진을 API·데이터·엔터프라이즈 솔루션으로 제공합니다</div>
 
+            <button onClick={() => setShowAudit(true)} style={{
+              width: "100%", textAlign: "left", cursor: "pointer", marginBottom: 26,
+              padding: "20px 22px", borderRadius: 18, border: "none", background: "#1F1B2E", color: "#fff",
+            }}>
+              <div style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: "0.1em", color: "#A88BEA", textTransform: "uppercase" }}>무료 · 가입 불필요</div>
+              <div style={{ fontSize: 19, fontWeight: 700, letterSpacing: "-0.02em", marginTop: 7 }}>우리 회사 AI, 거짓말을 할까?</div>
+              <div style={{ fontSize: 13.5, color: "#CFC9DE", lineHeight: 1.6, marginTop: 7 }}>
+                유메가 정답을 미리 아는 질문 8개를 만들어 드립니다. 귀사 AI에 넣어보고 답변을 붙여넣으면
+                지어낸 답이 얼마나 나오는지 채점해 드립니다.
+              </div>
+              <div style={{ fontSize: 13.5, fontWeight: 600, color: "#A88BEA", marginTop: 12 }}>무료로 점검하기 →</div>
+            </button>
+
             <div style={{ fontSize: 13, fontWeight: 600, color: UI.ink3, marginBottom: 10 }}>개발자 · 데이터 · 파트너십</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 26 }}>
               <div style={{
@@ -1549,6 +1570,8 @@ export default function YumeDashboard() {
           </div>
         </div>
       )}
+
+      {showAudit && <AuditModal onClose={() => setShowAudit(false)} />}
 
       <AnimatePresence>
         {toast && (

@@ -1,6 +1,8 @@
 import { extractAndVerify } from "./claude.js";
 import { resolveLegalClaims } from "./legalPipeline.js";
 import { resolveIdentifierClaims } from "./identifierPipeline.js";
+import { resolveUncertainClaims } from "./resolveUncertain.js";
+import { sanitizeClaim } from "./claimGuard.js";
 import { buildOverallVerdict } from "./overallVerdict.js";
 import { resolveProductLinks } from "./coupang.js";
 import { logError } from "./errorLog.js";
@@ -13,14 +15,6 @@ import {
 } from "./verificationStore.js";
 
 export const MAX_INPUT_CHARS = 10_000;
-const VERDICTS = new Set(["confirmed", "false", "uncertain"]);
-
-function sanitizeClaim(c) {
-  const { identifier_found: _f, ...claim } = c;
-  if (!VERDICTS.has(claim.verdict)) claim.verdict = "uncertain";
-  if (claim.domain !== "법률") delete claim.legal_ref;
-  return claim;
-}
 
 // 이미 만들어진 검증 행을 끝까지 처리한다.
 //   추출·웹검증(Claude) → 법률 주장 공식 대조 + 부존재 신뢰도(NEC) → 학술 식별자 실재 확인
@@ -46,13 +40,19 @@ async function processVerification({ id, text, source, onProgress = () => {} }) 
 
     let claims = await resolveLegalClaims(extracted.claims, { onProgress });
     claims = await resolveIdentifierClaims(claims, { onProgress });
+    // 심층 재확인 '전에' 한 번 거른다. 출처 없이 confirmed로 온 주장을 여기서 내려놓아야
+    // 아래 재확인 대상에 포함된다 — 거르는 순서가 반대면 근거를 찾아볼 기회 없이 강등만 된다.
+    claims = claims.map(sanitizeClaim);
+    // 결론이 안 난 주장을 도메인별로 한 번 더 판다. 근거를 찾으면 판정이 살아 돌아온다.
+    claims = await resolveUncertainClaims(claims, { onProgress });
+    // 재확인이 만들어낸 판정도 같은 잣대로 다시 거른다(이미 강등된 건 건드리지 않는다).
     claims = claims.map(sanitizeClaim);
 
     const overall = buildOverallVerdict(claims);
     const relatedProducts = await resolveProductLinks(extracted.related_products);
     // 추출 단계의 한 줄 요약은 공식 대조·부존재 판정 전에 쓰인 것이라, 뒤 단계에서 판정이
     // 바뀌었을 수 있는 경우엔 버리고 결정론적 총평만 보여준다.
-    const verdictsChanged = claims.some((c) => c.verified_via === "official" || c.verified_via === "nec");
+    const verdictsChanged = claims.some((c) => ["official", "nec", "research"].includes(c.verified_via));
     const result = {
       overall_domain: extracted.overall_domain || claims[0]?.domain || "일반",
       summary: verdictsChanged ? null : extracted.summary || null,
