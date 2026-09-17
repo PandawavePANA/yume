@@ -132,9 +132,20 @@ test("비회원 사용량과 입력 검증", async () => {
 // apex로 들어온 요청은 www로 넘긴다. 두 주소가 동시에 살아 있으면 세션 쿠키가
 // 갈리고 공유 링크도 둘로 쪼개진다.
 // PG 심사는 사업자 정보 다섯 항목과 환불 조건을 본다. 페이지에서 사라지면 재심사다.
+// 심사가 보는 다섯 항목은 상호명·사업자번호·대표자명·사업장주소지·전화번호다.
+// 환경변수를 빠뜨린 배포에서 조용히 사라지는 일이 실제로 있었다.
+test("공개 페이지마다 사업자 정보 다섯 항목이 살아 있다", async () => {
+  for (const path of ["/terms", "/privacy", "/refund"]) {
+    const t = await (await fetch(`${base}${path}`)).text();
+    for (const need of ["리머", "627-03-03900", "정원영", "대구광역시", "053-557-3415"]) {
+      assert.ok(t.includes(need), `${path}에 "${need}"가 없다`);
+    }
+  }
+});
+
 test("환불정책에 필수 항목이 다 들어 있다", async () => {
   const t = await (await fetch(`${base}/refund`)).text();
-  for (const need of ["리머", "627-03-03900", "정원영", "대구광역시", "청약철회", "7일"]) {
+  for (const need of ["리머", "627-03-03900", "정원영", "대구광역시", "053-557-3415", "청약철회", "7일"]) {
     assert.ok(t.includes(need), `환불정책에 "${need}"가 없다`);
   }
 });

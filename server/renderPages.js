@@ -10,8 +10,8 @@ const COMPANY = {
   email: process.env.COMPANY_EMAIL || "reamer@d-reamer.com",
   regNo: process.env.BUSINESS_REG_NO || "627-03-03900",
   address: process.env.BUSINESS_ADDRESS || "대구광역시 달성군 유가읍 테크노대로5길 80, 212동 1402호 (호반베르디움 2차)",
-  // 유선번호. 심사에서 따로 확인하는 항목이라 비어 있으면 안 된다.
-  tel: process.env.BUSINESS_TEL || "",
+  // 유선번호. 심사가 "유선번호만 가능"으로 못박은 항목이라 휴대폰 번호는 쓸 수 없다.
+  tel: process.env.BUSINESS_TEL || "053-557-3415",
   // 간이과세자는 통신판매업 신고 면제 대상일 수 있어, 없으면 표시하지 않는다.
   mailOrderNo: process.env.MAIL_ORDER_NO || "",
 };
