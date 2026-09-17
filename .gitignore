@@ -24,3 +24,9 @@ android/keystore.properties
 *.p12
 *.p8
 *.mobileprovision
+
+# 영상·녹화 파일. 발표용으로 폴더에 두고 쓰는 것이라 저장소에 올릴 이유가 없다.
+# (유메.mp4가 32MB로 한 번 올라간 적이 있다 — public 저장소라 더 그렇다.)
+*.mp4
+*.mov
+*.webm
