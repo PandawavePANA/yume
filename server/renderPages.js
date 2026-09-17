@@ -17,6 +17,9 @@ const COMPANY = {
 };
 const EFFECTIVE_DATE = "2026년 9월 12일";
 
+import { PLANS } from "./plans.js";
+import { CREDIT_PACKS, PLAN_CREDITS, CHARS_PER_CREDIT } from "./credits.js";
+
 const esc = (s = "") => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
 function layout(title, body, { narrow = false, script = "" } = {}) {
@@ -46,7 +49,7 @@ function layout(title, body, { narrow = false, script = "" } = {}) {
 <body><div class="wrap">
   <div class="top"><a href="/">← 유메로 돌아가기</a></div>
   <div class="card">${body}</div>
-  <div class="foot">${businessLine()}<br/><a href="/terms">이용약관</a> · <a href="/privacy"><b>개인정보처리방침</b></a> · <a href="/refund">환불정책</a> · <a href="/docs/api">API 문서</a></div>
+  <div class="foot">${businessLine()}<br/><a href="/terms">이용약관</a> · <a href="/privacy"><b>개인정보처리방침</b></a> · <a href="/refund">환불정책</a> · <a href="/products">상품 안내</a> · <a href="/docs/api">API 문서</a></div>
 </div>${script}</body></html>`;
 }
 
@@ -214,6 +217,80 @@ export function renderAccountDeletionPage() {
 // 내용은 전자상거래법 제17조를 그대로 따른다. 디지털 콘텐츠는 사용을 시작하면
 // 청약철회가 제한되지만(제2항 제5호), 그 제한은 "쓴 부분"에만 걸린다. 크레딧은 한 개씩
 // 떨어져 나가므로 남은 개수를 정확히 셀 수 있다 — 쓴 건 빼고 남은 건 돌려주면 된다.
+// 공개 상품 안내 — 카드사 심사가 "실제 판매 가능한 상품"과 가격을 로그인 없이 확인한다.
+//
+// 크레딧 구매는 로그인한 계정의 설정 화면 안에 있어서, 심사자가 계정 없이는 상품을
+// 볼 수 없었다. 같은 값을 공개 페이지로 한 번 더 낸다 — 가격은 실제 판매 설정
+// (plans.js, credits.js)에서 그대로 읽으므로 화면과 심사 자료가 어긋날 수 없다.
+//
+// 무료 플랜은 여기 싣지 않는다. 심사는 0원 상품을 반려하고, 무료 플랜은 판매 상품이
+// 아니라 가입하면 주어지는 기본 한도다.
+const won = (n) => `${Number(n).toLocaleString()}원`;
+
+export function renderProductsPage() {
+  const plans = ["standard", "expert"]
+    .map((k) => ({ key: k, ...PLANS[k], credits: PLAN_CREDITS[k] }))
+    .filter((p) => p.monthlyKrw);
+
+  const planRows = plans
+    .map(
+      (p) => `<tr>
+        <td><b>${esc(p.label)} 구독</b><br/><span class="muted">매달 ${p.credits.toLocaleString()}크레딧 지급 · 하루 ${p.dailyLimit}회 공정 이용 한도</span></td>
+        <td>${won(p.monthlyKrw)} / 월</td>
+        <td>결제 확인 즉시</td>
+      </tr>`,
+    )
+    .join("");
+
+  const packRows = CREDIT_PACKS.map(
+    (p) => `<tr>
+      <td><b>${esc(p.label)}</b><br/><span class="muted">추가 구매 · 유효기간 없음</span></td>
+      <td>${won(p.krw)}</td>
+      <td>결제 확인 즉시</td>
+    </tr>`,
+  ).join("");
+
+  return layout(
+    "상품 안내",
+    `<h1>상품 안내</h1>
+     <p class="muted">${esc(COMPANY.name)} · 모든 상품은 디지털 콘텐츠이며 배송되는 실물이 없습니다.</p>
+
+     <h2>크레딧이란</h2>
+     <p>크레딧은 유메가 AI 답변 속 사실 주장을 검증하는 데 쓰는 이용권입니다.
+     검증 1회에 1크레딧이 차감되며, 입력이 길면 <b>${CHARS_PER_CREDIT.toLocaleString()}자마다 1크레딧</b>씩 더 차감됩니다.
+     유효기간은 없고, 서버 오류로 검증이 완료되지 않으면 차감된 크레딧은 자동으로 환급됩니다.</p>
+
+     <h2>구독 상품</h2>
+     <table>
+       <tr><th>상품</th><th>판매가격</th><th>제공 시기</th></tr>
+       ${planRows}
+     </table>
+
+     <h2>크레딧 추가 구매</h2>
+     <p class="muted">구독 크레딧을 모두 사용한 경우 추가로 구매할 수 있습니다. 구독 없이도 구매할 수 있습니다.</p>
+     <table>
+       <tr><th>상품</th><th>판매가격</th><th>제공 시기</th></tr>
+       ${packRows}
+     </table>
+
+     <h2>제공 시기와 배송</h2>
+     <ol>
+     <li>모든 상품은 디지털 콘텐츠로, <b>배송되는 실물이 없습니다.</b> 별도의 배송비와 배송 기간이 발생하지 않습니다.</li>
+     <li>결제가 확인되면 <b>즉시</b> 회원 계정에 적립되며, 적립 내역은 계정 설정의 크레딧 화면에서 확인할 수 있습니다.</li>
+     <li>구독 크레딧은 매달 결제일 기준으로 지급됩니다.</li>
+     </ol>
+
+     <h2>교환과 환불</h2>
+     <ol>
+     <li>디지털 콘텐츠이므로 교환은 제공하지 않으며, 환불로만 처리합니다.</li>
+     <li>사용하지 않은 크레딧은 결제일부터 7일 이내에 환불받을 수 있습니다. 자세한 조건은 <a href="/refund">환불정책</a>을 확인해주세요.</li>
+     <li>환불 문의: <a href="mailto:${esc(COMPANY.email)}">${esc(COMPANY.email)}</a>${COMPANY.tel ? ` · ${esc(COMPANY.tel)}` : ""}</li>
+     </ol>
+
+     <p class="muted">표시된 금액은 부가세를 포함한 최종 결제 금액입니다. 품절되는 상품이 없으며, 가격은 변경 시 이 화면에 먼저 고지합니다.</p>`,
+  );
+}
+
 export function renderRefundPage() {
   return layout(
     "환불정책",

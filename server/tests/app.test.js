@@ -143,6 +143,23 @@ test("공개 페이지마다 사업자 정보 다섯 항목이 살아 있다", a
   }
 });
 
+// 카드사 심사는 판매 가능한 상품과 가격을 로그인 없이 확인한다. 0원이나 품절이 보이면
+// 반려된다. 가격이 실제 판매 설정에서 나오는지까지 같이 본다.
+test("상품 안내에 판매 상품과 가격이 다 나온다", async () => {
+  const t = await (await fetch(`${base}/products`)).text();
+  const { CREDIT_PACKS } = await import("../credits.js");
+  const { PLANS } = await import("../plans.js");
+  for (const pack of CREDIT_PACKS) {
+    assert.ok(t.includes(pack.krw.toLocaleString()), `${pack.label} 가격이 없다`);
+  }
+  for (const key of ["standard", "expert"]) {
+    assert.ok(t.includes(PLANS[key].monthlyKrw.toLocaleString()), `${key} 가격이 없다`);
+  }
+  // "12,000원"에도 "0원"이 들어 있으므로 칸 전체가 그 값일 때만 잡는다.
+  assert.ok(!/>\s*0원\s*</.test(t), "판매가가 0원인 상품이 있으면 심사가 반려된다");
+  assert.ok(!/>\s*품절\s*</.test(t), "품절 표시가 있으면 심사가 반려된다");
+});
+
 test("환불정책에 필수 항목이 다 들어 있다", async () => {
   const t = await (await fetch(`${base}/refund`)).text();
   for (const need of ["리머", "627-03-03900", "정원영", "대구광역시", "053-557-3415", "청약철회", "7일"]) {
@@ -161,7 +178,7 @@ test("www 없는 주소는 www로 넘긴다", async () => {
 });
 
 test("스토어 심사용 공개 페이지(약관·개인정보·계정 삭제 안내)", async () => {
-  for (const p of ["/terms", "/privacy", "/refund", "/account-deletion"]) {
+  for (const p of ["/terms", "/privacy", "/refund", "/products", "/account-deletion"]) {
     const r = await fetch(`${base}${p}`);
     assert.equal(r.status, 200, p);
   }

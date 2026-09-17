@@ -18,11 +18,14 @@ import { now } from "./db.js";
 // 쓰지 못하게 막는다. 예전에는 월 3,000 크레딧에 하루 200회처럼 한도가 서로 맞지
 // 않아서, 한도가 걸리기 전에 원가가 먼저 터지는 구조였다. 이제 월 지급량의 절반쯤을
 // 하루 상한으로 둔다 — 정상 사용은 걸리지 않고, 폭주만 걸린다.
+// monthlyKrw는 공개 상품 안내(/products)와 카드사 심사에서 쓰는 판매가다. 화면의 요금제
+// 카드는 src/YumeDashboard.jsx에 따로 있으니 가격을 고칠 때 두 곳을 같이 봐야 한다.
+// 무료·비즈니스는 판매 상품이 아니라 0원이 아니라 null이다 — 심사는 0원 상품을 반려한다.
 export const PLANS = {
-  free: { label: "무료", dailyLimit: 3, historyLimit: 50 },
-  standard: { label: "스탠다드", dailyLimit: 15, historyLimit: null },
-  expert: { label: "전문가", dailyLimit: 40, historyLimit: null },
-  business: { label: "비즈니스", dailyLimit: 120, historyLimit: null },
+  free: { label: "무료", dailyLimit: 3, historyLimit: 50, monthlyKrw: null },
+  standard: { label: "스탠다드", dailyLimit: 15, historyLimit: null, monthlyKrw: 9900 },
+  expert: { label: "전문가", dailyLimit: 40, historyLimit: null, monthlyKrw: 29000 },
+  business: { label: "비즈니스", dailyLimit: 120, historyLimit: null, monthlyKrw: null },
 };
 export const FREE_DAILY_LIMIT = PLANS.free.dailyLimit;
 export const TOKEN_PRICE_KRW = 100;

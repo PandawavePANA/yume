@@ -1529,7 +1529,8 @@ export default function YumeDashboard() {
             <span style={{ display: "flex", gap: 0 }}>
               <a href="/terms" target="_blank" rel="noopener noreferrer" className="yume-footer-link" style={{ color: UI.ink2, textDecoration: "none", paddingRight: 12, borderRight: `1px solid ${UI.hairline}` }}>이용약관</a>
               <a href="/privacy" target="_blank" rel="noopener noreferrer" className="yume-footer-link" style={{ color: UI.ink, textDecoration: "none", fontWeight: 600, padding: "0 12px", borderRight: `1px solid ${UI.hairline}` }}>개인정보처리방침</a>
-              <a href="/refund" target="_blank" rel="noopener noreferrer" className="yume-footer-link" style={{ color: UI.ink2, textDecoration: "none", paddingLeft: 12 }}>환불정책</a>
+              <a href="/refund" target="_blank" rel="noopener noreferrer" className="yume-footer-link" style={{ color: UI.ink2, textDecoration: "none", padding: "0 12px", borderRight: `1px solid ${UI.hairline}` }}>환불정책</a>
+              <a href="/products" target="_blank" rel="noopener noreferrer" className="yume-footer-link" style={{ color: UI.ink2, textDecoration: "none", paddingLeft: 12 }}>상품 안내</a>
             </span>
           </div>
         </div>

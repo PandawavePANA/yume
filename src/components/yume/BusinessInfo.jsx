@@ -46,6 +46,7 @@ export default function BusinessInfo({ compact = false, style = {} }) {
         <a href="/terms" target="_blank" rel="noopener noreferrer" style={{ color: "#8577A8", textDecoration: "none" }}>이용약관</a>
         <a href="/privacy" target="_blank" rel="noopener noreferrer" style={{ color: "#8577A8", textDecoration: "none" }}>개인정보처리방침</a>
         <a href="/refund" target="_blank" rel="noopener noreferrer" style={{ color: "#8577A8", textDecoration: "none", fontWeight: 600 }}>환불정책</a>
+        <a href="/products" target="_blank" rel="noopener noreferrer" style={{ color: "#8577A8", textDecoration: "none" }}>상품 안내</a>
       </div>
     </address>
   );

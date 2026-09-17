@@ -25,7 +25,7 @@ import apiV1Router from "./apiV1.js";
 import adminApiRouter from "./adminApi.js";
 import { openExportDownload, purgeOldExportFiles } from "./dataset.js";
 import { renderAdminPage } from "./renderAdminPage.js";
-import { renderResetPasswordPage, renderTermsPage, renderPrivacyPage, renderRefundPage, renderAccountDeletionPage, renderApiDocsPage } from "./renderPages.js";
+import { renderResetPasswordPage, renderTermsPage, renderPrivacyPage, renderRefundPage, renderProductsPage, renderAccountDeletionPage, renderApiDocsPage } from "./renderPages.js";
 import { clientIp, createLimiter, limitMiddleware, sameOriginGuard, securityHeaders, IS_PROD } from "./security.js";
 import { mailConfigured } from "./mailer.js";
 import { UpstreamError, OPERATOR_NOTE, userMessageFor, upstreamStatus } from "./upstream.js";
@@ -219,6 +219,7 @@ app.get("/reset-password", (req, res) => html(res, renderResetPasswordPage()));
 app.get("/terms", (req, res) => html(res, renderTermsPage()));
 app.get("/privacy", (req, res) => html(res, renderPrivacyPage()));
 app.get("/refund", (req, res) => html(res, renderRefundPage()));
+app.get("/products", (req, res) => html(res, renderProductsPage()));
 app.get("/account-deletion", (req, res) => html(res, renderAccountDeletionPage()));
 app.get("/docs/api", (req, res) => html(res, renderApiDocsPage(process.env.PUBLIC_BASE_URL || `${req.protocol}://${req.get("host")}`)));
 // 서비스 소개 릴(화면 녹화용) — 빌드에 포함된 정적 파일을 확장자 없는 주소로도 열어준다.
