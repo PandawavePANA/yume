@@ -131,6 +131,14 @@ test("비회원 사용량과 입력 검증", async () => {
 
 // apex로 들어온 요청은 www로 넘긴다. 두 주소가 동시에 살아 있으면 세션 쿠키가
 // 갈리고 공유 링크도 둘로 쪼개진다.
+// PG 심사는 사업자 정보 다섯 항목과 환불 조건을 본다. 페이지에서 사라지면 재심사다.
+test("환불정책에 필수 항목이 다 들어 있다", async () => {
+  const t = await (await fetch(`${base}/refund`)).text();
+  for (const need of ["리머", "627-03-03900", "정원영", "대구광역시", "청약철회", "7일"]) {
+    assert.ok(t.includes(need), `환불정책에 "${need}"가 없다`);
+  }
+});
+
 test("www 없는 주소는 www로 넘긴다", async () => {
   const r = await fetch(`${base}/terms`, { headers: { "X-Forwarded-Host": "yume-reamer.com" }, redirect: "manual" });
   assert.equal(r.status, 301);
@@ -142,7 +150,7 @@ test("www 없는 주소는 www로 넘긴다", async () => {
 });
 
 test("스토어 심사용 공개 페이지(약관·개인정보·계정 삭제 안내)", async () => {
-  for (const p of ["/terms", "/privacy", "/account-deletion"]) {
+  for (const p of ["/terms", "/privacy", "/refund", "/account-deletion"]) {
     const r = await fetch(`${base}${p}`);
     assert.equal(r.status, 200, p);
   }

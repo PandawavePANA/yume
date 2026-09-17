@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
+import BusinessInfo from "@/components/yume/BusinessInfo";
 import { apiJson } from "./api";
 
 // 계정 설정 → 크레딧 탭.
@@ -110,8 +111,10 @@ export default function CreditsTab() {
         </div>
       ))}
       <div style={{ fontSize: 11, color: "#A99BC9", lineHeight: 1.6, marginBottom: 18 }}>
+        크레딧은 AI 답변 속 사실 주장을 유메가 검증하는 데 쓰는 이용권입니다. 검증 1회에 1크레딧이 차감되고(입력 2,000자마다 1개),
+        유효기간은 없습니다. 배송되는 실물은 없으며 결제가 확인되면 계정에 바로 적립됩니다.
         온라인 결제는 준비 중이라 지금은 신청만 받고 있어요. 입금이 확인되면 운영자가 크레딧을 넣어드립니다.
-        크레딧은 현금으로 바꿔드리지 않습니다.
+        크레딧은 현금으로 바꿔드리지 않으며, 환불 조건은 아래 <a href="/refund" target="_blank" rel="noopener noreferrer" style={{ color: "#8577A8" }}>환불정책</a>을 따릅니다.
       </div>
 
       <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>친구 추천</div>
@@ -193,6 +196,9 @@ export default function CreditsTab() {
           ))}
         </>
       )}
+
+      {/* 실제로 돈을 내는 화면이다. 사업자 정보와 환불 조건이 이 화면 안에 있어야 한다. */}
+      <BusinessInfo />
     </>
   );
 }

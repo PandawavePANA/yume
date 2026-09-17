@@ -7,6 +7,7 @@ import NecPanel from "@/components/yume/NecPanel";
 import { BountyPrompt } from "@/components/yume/BountyModal";
 import { apiJson, safeUrl, CONTACT_EMAIL } from "@/components/yume/api";
 import { BUSINESS, telHref, COPYRIGHT, businessLine } from "@/businessInfo";
+import BusinessInfo from "@/components/yume/BusinessInfo";
 import { IS_NATIVE_APP, onNativeBack, shareLink } from "./native.js";
 import AuditModal from "./components/yume/AuditModal.jsx";
 import RankingModal from "@/components/yume/RankingModal";
@@ -939,6 +940,9 @@ export default function YumeDashboard() {
             onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(118,118,128,0.08)"; }}
             onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
           >⚙ 설정 · 비즈니스</button>
+          {/* 앱에서는 푸터까지 스크롤해야 사업자 정보가 보인다. 심사가 사이드 메뉴 기재를
+              대안으로 인정하므로 여기에도 둔다. */}
+          <BusinessInfo compact style={{ padding: "0 12px" }} />
         </div>
       </aside>
 
@@ -1524,7 +1528,8 @@ export default function YumeDashboard() {
             </address>
             <span style={{ display: "flex", gap: 0 }}>
               <a href="/terms" target="_blank" rel="noopener noreferrer" className="yume-footer-link" style={{ color: UI.ink2, textDecoration: "none", paddingRight: 12, borderRight: `1px solid ${UI.hairline}` }}>이용약관</a>
-              <a href="/privacy" target="_blank" rel="noopener noreferrer" className="yume-footer-link" style={{ color: UI.ink, textDecoration: "none", fontWeight: 600, paddingLeft: 12 }}>개인정보처리방침</a>
+              <a href="/privacy" target="_blank" rel="noopener noreferrer" className="yume-footer-link" style={{ color: UI.ink, textDecoration: "none", fontWeight: 600, padding: "0 12px", borderRight: `1px solid ${UI.hairline}` }}>개인정보처리방침</a>
+              <a href="/refund" target="_blank" rel="noopener noreferrer" className="yume-footer-link" style={{ color: UI.ink2, textDecoration: "none", paddingLeft: 12 }}>환불정책</a>
             </span>
           </div>
         </div>
@@ -1597,6 +1602,8 @@ export default function YumeDashboard() {
                 </div>
               ))}
             </div>
+            {/* 결제가 일어나는 화면이라 사업자 정보가 여기에도 있어야 한다(PG 심사 필수). */}
+            <BusinessInfo />
           </div>
         </div>
       )}
