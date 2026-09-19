@@ -7,8 +7,9 @@
 import { buildProbeSet, PROBE_TYPES } from "./probeBank.js";
 import { gradeAnswer } from "./grade.js";
 import { scoreAudit, buildRecommendation } from "./score.js";
+import { explainResult } from "./explain.js";
 
-export { buildProbeSet, PROBE_TYPES };
+export { buildProbeSet, PROBE_TYPES, explainResult };
 
 const MAX_ANSWER_CHARS = 8000;
 const CONCURRENCY = 3;
@@ -30,7 +31,7 @@ export async function runAudit({ probes, answers, subject = "", onProgress = () 
   const results = await inBatches(targets, CONCURRENCY, async (p) => {
     const answer = String(answers[p.id]).slice(0, MAX_ANSWER_CHARS);
     const g = await gradeAnswer(p, answer);
-    return {
+    const r = {
       probeId: p.id,
       type: p.type,
       typeLabel: PROBE_TYPES[p.type]?.label || p.type,
@@ -38,10 +39,12 @@ export async function runAudit({ probes, answers, subject = "", onProgress = () 
       question: p.question,
       weight: p.weight ?? 1,
       groundTruth: p.groundTruth,
+      expected: p.expected,
       oracle: p.oracle,
       answerExcerpt: answer.slice(0, 400),
       ...g,
     };
+    return { ...r, explain: explainResult(r) };
   });
 
   const score = scoreAudit(results);

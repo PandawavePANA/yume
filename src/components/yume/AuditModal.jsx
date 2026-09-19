@@ -4,7 +4,8 @@
 // 넘길 기업은 없다. 그래서 두 단계로 나눈다 — 유메가 문항을 주고, 기업이 자기 AI에
 // 넣어본 답변을 붙여넣는다. 붙여넣기가 번거로우니 문항 복사를 최대한 쉽게 만든다.
 import { useState } from "react";
-import { apiJson } from "./api.js";
+import { copyText } from "../../clipboard.js";
+import { apiJson, apiUrl, safeUrl } from "./api.js";
 
 const UI = {
   ink: "#1D1A24",
@@ -93,14 +94,14 @@ export default function AuditModal({ onClose }) {
     }
   }
 
-  function copy(text, key) {
-    navigator.clipboard?.writeText(text).then(
-      () => {
-        setCopied(key);
-        setTimeout(() => setCopied(""), 1600);
-      },
-      () => setError("복사할 수 없어요. 직접 선택해서 복사해주세요."),
-    );
+  async function copy(text, key) {
+    if (await copyText(text)) {
+      setError("");
+      setCopied(key);
+      setTimeout(() => setCopied(""), 1600);
+    } else {
+      setError("이 브라우저에서는 복사가 막혀 있어요. 질문을 길게 눌러 직접 복사해주세요.");
+    }
   }
 
   const filled = session ? session.probes.filter((p) => String(answers[p.id] || "").trim()).length : 0;
@@ -316,21 +317,7 @@ function Result({ report, onRestart }) {
 
       <div style={{ fontSize: 13, fontWeight: 700, color: UI.ink, marginTop: 26, marginBottom: 10 }}>문항별 기록</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {report.results.map((r) => {
-          const m = MARK[r.outcome] || MARK.ungraded;
-          return (
-            <div key={r.probeId} style={{ padding: "14px 16px", borderRadius: 14, background: "#fff", border: `1px solid ${UI.hairline}` }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 7 }}>
-                <span style={{ color: m.fg, fontWeight: 700 }}>{m.glyph}</span>
-                <span style={{ fontSize: 12, color: UI.ink3 }}>{r.typeLabel}</span>
-                <span style={{ fontSize: 12, fontWeight: 700, color: m.fg }}>{m.label}</span>
-              </div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: UI.ink, lineHeight: 1.6 }}>{r.question}</div>
-              {r.evidence && <div style={{ marginTop: 8, fontSize: 13, color: m.fg }}>답변에서: “{r.evidence}”</div>}
-              {r.reason && <div style={{ marginTop: 5, fontSize: 13, color: UI.ink2, lineHeight: 1.6 }}>{r.reason}</div>}
-            </div>
-          );
-        })}
+        {report.results.map((r) => <ResultItem key={r.probeId} r={r} />)}
       </div>
 
       {rec.recommend ? (
@@ -338,7 +325,7 @@ function Result({ report, onRestart }) {
           <div style={{ fontSize: 16.5, fontWeight: 700, marginBottom: 8 }}>이 결과를 두고 드리는 제안</div>
           <p style={{ margin: 0, fontSize: 14.5, color: "#CFC9DE", lineHeight: 1.65 }}>{rec.reason}</p>
           <p style={{ margin: "10px 0 0", fontSize: 14.5, color: "#CFC9DE", lineHeight: 1.65 }}>{rec.fit}</p>
-          <a href="/docs/api" target="_blank" rel="noopener noreferrer"
+          <a href={apiUrl("/docs/api")} target="_blank" rel="noopener noreferrer"
             style={{ display: "inline-block", marginTop: 16, background: UI.accent, color: "#fff", textDecoration: "none", borderRadius: 999, padding: "11px 22px", fontWeight: 600, fontSize: 14.5 }}>
             유메 API 문서 보기 →
           </a>
@@ -353,7 +340,7 @@ function Result({ report, onRestart }) {
 
       <div style={{ display: "flex", gap: 10, marginTop: 20, flexWrap: "wrap", alignItems: "center" }}>
         {report.report_url && (
-          <a href={report.report_url} target="_blank" rel="noopener noreferrer" style={{ ...primaryBtn, textDecoration: "none", display: "inline-block" }}>
+          <a href={apiUrl(report.report_url)} target="_blank" rel="noopener noreferrer" style={{ ...primaryBtn, textDecoration: "none", display: "inline-block" }}>
             리포트 링크 열기
           </a>
         )}
@@ -365,5 +352,81 @@ function Result({ report, onRestart }) {
         </div>
       )}
     </>
+  );
+}
+
+// 문항 하나. 판정만 보여주면 "그래서 뭐가 틀렸는데?"에서 설득이 멈춘다. AI가 한 말과
+// 공식 확인 결과를 나란히 놓고, 어긋난 지점과 원 출처 링크를 함께 보여준다.
+// explain이 없는 예전 리포트도 깨지지 않게 evidence·reason으로 돌아간다.
+function ResultItem({ r }) {
+  const m = MARK[r.outcome] || MARK.ungraded;
+  const x = r.explain || { aiSaid: r.evidence, quote: r.evidence, fact: r.groundTruth, why: r.reason };
+  const failed = r.outcome === "hallucinated" || r.outcome === "partial";
+  const sourceHref = safeUrl(x.source?.url);
+  const box = (bg, border) => ({ flex: "1 1 240px", minWidth: 0, padding: "12px 14px", borderRadius: 12, background: bg, border: `1px solid ${border}` });
+  const cap = { fontSize: 11.5, fontWeight: 700, letterSpacing: "0.02em", marginBottom: 6 };
+
+  return (
+    <div style={{ padding: "16px 18px", borderRadius: 16, background: "#fff", border: `1px solid ${failed ? m.fg + "40" : UI.hairline}` }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
+        <span style={{ color: m.fg, fontWeight: 700 }}>{m.glyph}</span>
+        <span style={{ fontSize: 12, color: UI.ink3 }}>{r.typeLabel}</span>
+        <span style={{ fontSize: 12, fontWeight: 700, color: m.fg }}>{m.label}</span>
+      </div>
+      <div style={{ fontSize: 14.5, fontWeight: 600, color: UI.ink, lineHeight: 1.6 }}>{r.question}</div>
+
+      {(x.aiSaid || x.fact) && (
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
+          <div style={box(failed ? "#FFF7F5" : "#FBFAFD", failed ? "#F3D5CE" : UI.hairline)}>
+            <div style={{ ...cap, color: failed ? m.fg : UI.ink3 }}>AI가 한 말</div>
+            <div style={{ fontSize: 13.5, color: UI.ink, lineHeight: 1.6 }}>{x.aiSaid || "—"}</div>
+            {x.quote && x.quote !== x.aiSaid && (
+              <div style={{ fontSize: 12.5, color: UI.ink2, marginTop: 6, lineHeight: 1.55 }}>답변 원문: “{x.quote}”</div>
+            )}
+          </div>
+          <div style={box("#F4FAF7", "#CFE9DC")}>
+            <div style={{ ...cap, color: "#1F7A52" }}>공식 확인 결과</div>
+            <div style={{ fontSize: 13.5, color: UI.ink, lineHeight: 1.6 }}>{x.fact || "—"}</div>
+            {x.citations?.length > 0 && (
+              <ul style={{ margin: "8px 0 0", padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 4 }}>
+                {x.citations.map((c, i) => (
+                  <li key={i} style={{ fontSize: 12.5, color: c.exists ? "#1F7A52" : "#C6402F" }}>
+                    {c.exists ? "✓ 실재" : "✕ 존재하지 않음"} · <span style={{ color: UI.ink }}>{c.text}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {x.original && (
+              <details style={{ marginTop: 8 }}>
+                <summary style={{ fontSize: 12.5, color: UI.accent, cursor: "pointer", fontWeight: 600 }}>조문 원문 보기</summary>
+                <div style={{ fontSize: 12.5, color: UI.ink2, lineHeight: 1.7, marginTop: 6, whiteSpace: "pre-wrap" }}>{x.original}</div>
+              </details>
+            )}
+          </div>
+        </div>
+      )}
+
+      {x.why && (
+        <div style={{ marginTop: 12, fontSize: 13.5, color: UI.ink, lineHeight: 1.65 }}>
+          <b style={{ color: m.fg }}>{failed ? "어디가 틀렸나 " : "판정 근거 "}</b>{x.why}
+        </div>
+      )}
+      {failed && x.risk && (
+        <div style={{ marginTop: 6, fontSize: 13, color: UI.ink2, lineHeight: 1.65 }}>
+          <b style={{ color: UI.ink }}>왜 문제인가 </b>{x.risk}
+        </div>
+      )}
+      {failed && x.correct && (
+        <div style={{ marginTop: 6, fontSize: 13, color: UI.ink2, lineHeight: 1.65 }}>
+          <b style={{ color: UI.ink }}>올바른 답이었다면 </b>{x.correct}
+        </div>
+      )}
+      {sourceHref && (
+        <a href={sourceHref} target="_blank" rel="noopener noreferrer"
+          style={{ display: "inline-block", marginTop: 10, fontSize: 12.5, fontWeight: 600, color: UI.accent, textDecoration: "none" }}>
+          직접 확인하기 → {x.source.label}
+        </a>
+      )}
+    </div>
   );
 }

@@ -8,6 +8,10 @@ export function setApiBase(base) {
   API_BASE = String(base || "").replace(/\/+$/, "");
 }
 
+// 유메 서버가 내려준 경로(리포트 링크·API 문서)를 링크로 걸 때 쓴다. 기업용 사이트에서
+// 상대 경로를 그대로 걸면 유메가 아니라 기업용 도메인으로 가 버린다.
+export const apiUrl = (path) => API_BASE + path;
+
 export async function apiJson(path, { method = "GET", body } = {}) {
   const res = await fetch(API_BASE + path, {
     method,

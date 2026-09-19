@@ -2,6 +2,8 @@
 // 돌릴 수 있어야 하고, 그러려면 숫자보다 '무엇을 어떻게 쟀는지'와 '실제로 뭐라고 답했는지'가
 // 남아 있어야 한다. 지수만 큼직하게 박은 페이지는 마케팅물로 읽히고, 마케팅물은 회의에
 // 안 올라간다. 그래서 문항별 확인된 사실과 답변 인용을 그대로 싣는다.
+import { explainResult } from "./audit/explain.js";
+
 const BAND = {
   low: { fg: "#1F7A52", bg: "#E7F6EE", border: "#B7E4CC" },
   moderate: { fg: "#8A5A14", bg: "#FDF4E3", border: "#F0D98C" },
@@ -18,6 +20,8 @@ const MARK = {
 
 const ESCAPES = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
 const esc = (s = "") => String(s).replace(/[&<>"']/g, (c) => ESCAPES[c]);
+// 출처 링크는 http(s)만 건다.
+const safeHref = (u) => (/^https?:\/\//i.test(String(u || "")) ? esc(u) : "");
 
 export function renderAuditReport(report, { baseUrl = "" } = {}) {
   const s = report.score;
@@ -36,14 +40,28 @@ export function renderAuditReport(report, { baseUrl = "" } = {}) {
   const items = report.results
     .map((r) => {
       const m = MARK[r.outcome] || MARK.ungraded;
-      return `<div class="item">
+      // 예전에 만든 리포트에는 explain이 없으므로 그 자리에서 만든다.
+      const x = r.explain || explainResult(r);
+      const failed = r.outcome === "hallucinated" || r.outcome === "partial";
+      const href = safeHref(x.source?.url);
+      const cites = x.citations?.length
+        ? `<ul class="cites">${x.citations.map((c) => `<li class="${c.exists ? "ok" : "bad"}">${c.exists ? "✓ 실재" : "✕ 존재하지 않음"} · <span>${esc(c.text)}</span></li>`).join("")}</ul>`
+        : "";
+      const original = x.original ? `<details><summary>조문 원문 보기</summary><div class="orig">${esc(x.original)}</div></details>` : "";
+      return `<div class="item${failed ? " failed" : ""}">
         <div class="ihead"><span class="glyph" style="color:${m.fg}">${m.glyph}</span>
           <span class="itype">${esc(r.typeLabel)}</span>
           <span class="ilabel" style="color:${m.fg}">${esc(m.label)}</span></div>
         <div class="q">${esc(r.question)}</div>
-        ${r.groundTruth ? `<div class="truth"><b>확인된 사실</b>${esc(String(r.groundTruth).slice(0, 220))}</div>` : ""}
-        ${r.evidence ? `<div class="quote" style="color:${m.fg}">답변에서: “${esc(r.evidence)}”</div>` : ""}
-        ${r.reason ? `<div class="reason">${esc(r.reason)}</div>` : ""}
+        <div class="cmp">
+          <div class="said${failed ? " bad" : ""}"><div class="cap">AI가 한 말</div>${esc(x.aiSaid || "—")}
+            ${x.quote && x.quote !== x.aiSaid ? `<div class="quote">답변 원문: “${esc(x.quote)}”</div>` : ""}</div>
+          <div class="fact"><div class="cap">공식 확인 결과</div>${esc(x.fact || "—")}${cites}${original}</div>
+        </div>
+        ${x.why ? `<div class="why"><b style="color:${m.fg}">${failed ? "어디가 틀렸나" : "판정 근거"}</b> ${esc(x.why)}</div>` : ""}
+        ${failed && x.risk ? `<div class="risk"><b>왜 문제인가</b> ${esc(x.risk)}</div>` : ""}
+        ${failed && x.correct ? `<div class="risk"><b>올바른 답이었다면</b> ${esc(x.correct)}</div>` : ""}
+        ${href ? `<a class="src" href="${href}" target="_blank" rel="noopener noreferrer">직접 확인하기 → ${esc(x.source.label)}</a>` : ""}
       </div>`;
     })
     .join("");
@@ -98,10 +116,24 @@ export function renderAuditReport(report, { baseUrl = "" } = {}) {
   .itype{font-size:12px;font-family:"IBM Plex Mono",monospace;color:var(--muted);letter-spacing:.05em}
   .ilabel{font-size:12px;font-weight:700}
   .q{font-weight:600}
-  .truth{margin-top:9px;font-size:13px;color:var(--ink2);background:#FBFBF9;border-left:2px solid var(--line);padding:8px 12px;border-radius:0 6px 6px 0}
-  .truth b{color:var(--muted);font-weight:600;margin-right:6px}
-  .quote{margin-top:9px;font-size:13.5px}
-  .reason{margin-top:6px;font-size:13.5px;color:var(--ink2)}
+  .item.failed{border-color:#EFC2B6}
+  .cmp{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+  .cmp>div{flex:1 1 240px;min-width:0;border-radius:10px;padding:11px 13px;font-size:13.5px}
+  .said{background:#FBFBF9;border:1px solid var(--line)}
+  .said.bad{background:#FFF7F5;border-color:#F3D5CE}
+  .fact{background:#F4FAF7;border:1px solid #CFE9DC}
+  .cap{font-size:11.5px;font-weight:700;letter-spacing:.02em;margin-bottom:5px;color:var(--muted)}
+  .said.bad .cap{color:#C6402F}
+  .fact .cap{color:#1F7A52}
+  .quote{margin-top:6px;font-size:12.5px;color:var(--ink2)}
+  .cites{list-style:none;margin:8px 0 0;padding:0;font-size:12.5px}
+  .cites li.ok{color:#1F7A52}.cites li.bad{color:#C6402F}.cites span{color:var(--ink)}
+  details{margin-top:8px}summary{cursor:pointer;color:var(--accent);font-weight:600;font-size:12.5px}
+  .orig{white-space:pre-wrap;font-size:12.5px;color:var(--ink2);margin-top:6px}
+  .why{margin-top:12px;font-size:13.5px}
+  .risk{margin-top:6px;font-size:13px;color:var(--ink2)}
+  .risk b{color:var(--ink)}
+  .src{display:inline-block;margin-top:10px;font-size:12.5px;font-weight:600;color:var(--accent);text-decoration:none}
   .method{margin-top:14px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px}
   .cta{margin-top:20px;background:#1F1B2E;color:#fff;border-radius:14px;padding:24px}
   .cta h3{margin:0 0 8px;font-size:17px}
@@ -128,7 +160,7 @@ ${report.subject ? `<div class="subject">${esc(report.subject)}</div>` : ""}
 <div class="tablewrap"><table><thead><tr><th>점검 유형</th><th class="num">실패</th><th class="num">비율</th></tr></thead><tbody>${typeRows}</tbody></table></div>
 
 <h2>문항별 기록</h2>
-<p class="lede">채점 근거를 그대로 싣습니다. 사내에서 다시 확인하실 수 있도록 확인된 사실과 답변 인용을 함께 남겼습니다.</p>
+<p class="lede">AI가 한 말과 공식 확인 결과를 나란히 싣습니다. 유메의 판정을 믿지 않으셔도 되도록, 문항마다 원 출처로 가는 링크를 달았습니다.</p>
 ${items}
 
 <h2>점검 방법</h2>

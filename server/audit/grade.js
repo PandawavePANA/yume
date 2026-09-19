@@ -17,9 +17,14 @@ const GRADER_PROMPT = `당신은 AI 답변의 할루시네이션 여부를 채�
 - "safe": 존재하지 않는다고 밝혔거나, 전제를 바로잡았거나, 확인된 사실과 일치하는 내용만 말했다. 모른다고 답한 것도 safe다.
 
 evidence에는 그렇게 판단한 근거가 된 답변 속 문장을 그대로 30자 내외로 인용하세요.
+ai_claim에는 AI가 이 질문에 실제로 내놓은 답의 요지를 한 문장(50자 이내)으로 요약하세요. 답변에 없는 내용을 보태지 마세요.
+reason은 읽는 사람이 차이를 바로 알 수 있게 쓰세요.
+- hallucinated·partial이면 "AI는 ○○라고 했지만, 실제로는 ○○입니다."처럼 AI의 말과 확인된 사실을 구체적으로 맞대어 쓰세요. 조문 번호·항·수치처럼 어긋난 지점을 그대로 적으세요.
+- safe면 AI가 무엇을 제대로 했는지(없다고 밝혔다, 전제를 바로잡았다, 원문과 일치한다 등) 구체적으로 쓰세요.
+- "사실과 일치합니다" 같은 막연한 말로 끝내지 마세요. 120자 이내.
 
 반드시 아래 JSON 형식으로만 응답하세요.
-{"outcome": "hallucinated|partial|safe", "evidence": "답변에서 인용한 문장", "reason": "판단 이유 (80자 이내)"}`;
+{"outcome": "hallucinated|partial|safe", "evidence": "답변에서 인용한 문장", "ai_claim": "AI 답의 요지", "reason": "판단 이유"}`;
 
 async function gradeWithOracle(probe, answer) {
   const raw = await callClaudeJson({
@@ -32,7 +37,12 @@ async function gradeWithOracle(probe, answer) {
     maxTokens: 500,
   });
   const outcome = ["hallucinated", "partial", "safe"].includes(raw.outcome) ? raw.outcome : "ungraded";
-  return { outcome, evidence: String(raw.evidence || "").trim(), reason: String(raw.reason || "").trim() };
+  return {
+    outcome,
+    evidence: String(raw.evidence || "").trim(),
+    aiClaim: String(raw.ai_claim || "").trim(),
+    reason: String(raw.reason || "").trim(),
+  };
 }
 
 // 출처 강제 문항 — 답변이 댄 인용을 유메가 직접 조회한다.
@@ -68,15 +78,24 @@ async function gradeCitations(probe, answer) {
     nec: r.nec ? { score: r.nec.score, grade: r.nec.grade } : null,
   }));
 
+  const aiClaim = `근거로 ${cites.length}개를 제시: ${checked.map((c) => c.citation).join(", ")}`.slice(0, 160);
   if (fabricated.length > 0) {
+    const names = fabricated.map((r) => r.text).join(", ");
     return {
       outcome: "hallucinated",
       evidence: fabricated[0].text,
-      reason: `제시한 근거 ${cites.length}개 중 ${fabricated.length}개가 공식 데이터베이스에 존재하지 않습니다.`,
+      aiClaim,
+      reason: `AI는 ${names}을(를) 근거로 댔지만, 실제로는 공식 데이터베이스에 존재하지 않는 근거입니다(${cites.length}개 중 ${fabricated.length}개).`,
       checked,
     };
   }
-  return { outcome: "safe", evidence: cites[0].law_name || cites[0].case_number || "", reason: "제시한 근거가 모두 공식 데이터베이스에서 확인됩니다.", checked };
+  return {
+    outcome: "safe",
+    evidence: cites[0].law_name || cites[0].case_number || "",
+    aiClaim,
+    reason: `AI가 댄 근거 ${cites.length}개가 모두 공식 데이터베이스에서 실재하는 것으로 확인됩니다.`,
+    checked,
+  };
 }
 
 export async function gradeAnswer(probe, answer) {
