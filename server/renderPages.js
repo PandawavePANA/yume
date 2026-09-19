@@ -16,6 +16,9 @@ const COMPANY = {
   mailOrderNo: process.env.MAIL_ORDER_NO || "",
 };
 const EFFECTIVE_DATE = "2026년 9월 12일";
+// 개인정보처리방침은 약관과 따로 개정된다. 바꿀 때마다 이 날짜와 아래 개정 이력을 함께 고친다.
+const PRIVACY_EFFECTIVE_DATE = "2026년 9월 19일";
+const PRIVACY_PREVIOUS = ["2026년 9월 12일"];
 
 import { PLANS } from "./plans.js";
 import { CREDIT_PACKS, PLAN_CREDITS, CHARS_PER_CREDIT } from "./credits.js";
@@ -353,7 +356,7 @@ export function renderRefundPage() {
 export function renderPrivacyPage() {
   return layout(
     "개인정보처리방침",
-    `<h1>개인정보처리방침</h1><p class="muted">시행일: ${EFFECTIVE_DATE}</p>
+    `<h1>개인정보처리방침</h1><p class="muted">시행일: ${PRIVACY_EFFECTIVE_DATE}</p>
 <p>${esc(COMPANY.name)}(이하 "회사")는 「개인정보 보호법」에 따라 이용자의 개인정보를 보호하고 관련 고충을 신속하게 처리하기 위해 다음과 같이 개인정보처리방침을 공개합니다.</p>
 
 <h2>1. 처리하는 개인정보와 목적</h2>
@@ -365,7 +368,9 @@ export function renderPrivacyPage() {
 <tr><td>AI 어시스턴트 대화</td><td>대화 내용</td><td>대화 응답, 서비스 품질 확인</td></tr>
 <tr><td>카카오톡 채널</td><td>카카오가 제공하는 채널 사용자 식별값, 메시지 내용</td><td>채널 대화·검증 제공, 이용 한도 관리</td></tr>
 <tr><td>API 이용 기업</td><td>담당자 이메일·회사명, API 호출 기록</td><td>API 제공, 사용량 집계와 과금</td></tr>
+<tr><td>본인확인(통합인증서비스, 해당 기능 이용 시)</td><td>이름, 생년월일, 성별, 휴대전화번호, 연계정보(CI), 중복가입확인정보(DI)</td><td>본인 확인, 만 14세 미만 가입 제한, 중복 가입 및 부정 이용 방지, 유료 서비스 이용 시 본인 확인</td></tr>
 </table>
+<p>본인확인은 본인확인기관이 제공하는 통합인증서비스(카카오·네이버·PASS 등 인증서)를 통해 이뤄지며, 회사는 <b>주민등록번호를 수집하지 않습니다</b>. 연계정보(CI)는 본인확인기관이 주민등록번호를 일방향 암호화해 만든 값으로, 이용자를 서비스 간에 동일인으로 확인하는 데에만 쓰입니다.</p>
 <p>유메 모바일 앱(Android·iOS)은 웹사이트와 같은 정보만 처리합니다. 앱은 연락처·위치·사진·카메라·마이크 등 기기 정보에 접근하지 않고, 광고 식별자를 수집하지 않으며, 이용자를 추적하지 않습니다. 앱에서 접속했는지 구분하기 위해 브라우저 정보(User-Agent)에 앱 이름이 포함됩니다.</p>
 
 <h2>2. 보유 및 이용 기간</h2>
@@ -374,6 +379,7 @@ export function renderPrivacyPage() {
 <tr><td>회원 정보와 회원의 검증 기록</td><td>탈퇴 시까지(회원이 기록을 삭제하면 즉시 파기). 무료 플랜은 최근 50건만 보관</td></tr>
 <tr><td>비회원 웹 검증 기록, 카카오톡 채널 기록, AI 어시스턴트 대화</td><td>수집일로부터 180일</td></tr>
 <tr><td>API 검증 기록과 호출 기록</td><td>수집일로부터 1년(과금·분쟁 대응)</td></tr>
+<tr><td>본인확인 정보(이름·생년월일·성별·휴대전화번호·CI·DI)</td><td>탈퇴 시까지</td></tr>
 <tr><td>로그인 세션</td><td>마지막 이용 후 30일</td></tr>
 <tr><td>오류 기록</td><td>90일</td></tr>
 </table>
@@ -392,13 +398,14 @@ export function renderPrivacyPage() {
 <p>비회원, 카카오톡 채널, API로 들어온 검증 데이터는 이 제공 대상에 포함되지 않습니다(API는 이용 기업이 계약으로 별도 허용한 경우에 한함).</p>
 
 <h2>4. 개인정보 처리 위탁 및 국외 이전</h2>
-<p>회사는 서비스 제공을 위해 다음과 같이 개인정보 처리를 위탁하며, 수탁자는 국외에 있습니다. 이전은 서비스 이용 시점에 네트워크를 통해 이루어집니다. 국외 이전을 원하지 않으면 서비스 이용을 중단하거나 탈퇴할 수 있으며, 이 경우 서비스 이용이 제한됩니다.</p>
+<p>회사는 서비스 제공을 위해 다음과 같이 개인정보 처리를 위탁합니다. 이 중 국외 수탁자에게는 서비스 이용 시점에 네트워크를 통해 이전됩니다. 국외 이전을 원하지 않으면 서비스 이용을 중단하거나 탈퇴할 수 있으며, 이 경우 서비스 이용이 제한됩니다.</p>
 <table>
 <tr><th>수탁자(국가)</th><th>위탁 업무</th><th>이전 항목</th><th>보유 기간</th></tr>
 <tr><td>Anthropic, PBC (미국)</td><td>검증 요청 텍스트의 주장 추출·분석, AI 어시스턴트 응답 생성</td><td>검증 요청 텍스트, 대화 내용</td><td>처리 후 수탁자 정책에 따른 기간(API 입력은 모델 학습에 사용되지 않음)</td></tr>
 <tr><td>Supabase, Inc. (미국 법인, 데이터는 ${esc(process.env.DB_REGION_LABEL || "프로젝트 설정 지역의 데이터센터")}에 저장)</td><td>데이터베이스 저장 및 백업</td><td>이 방침 제1항의 모든 항목</td><td>위탁 계약 종료 시까지</td></tr>
 <tr><td>Railway Corporation (미국)</td><td>서버 운영(요청 처리)</td><td>이 방침 제1항의 항목 중 처리 과정에서 전달되는 정보</td><td>처리 후 즉시(서버에 별도 저장하지 않음)</td></tr>
 <tr><td>Resend, Inc. (미국)</td><td>비밀번호 재설정 등 안내 메일 발송</td><td>이메일 주소</td><td>발송 후 수탁자 정책에 따른 기간</td></tr>
+<tr><td>주식회사 케이지이니시스 (대한민국)</td><td>본인확인(통합인증서비스)</td><td>이름, 생년월일, 성별, 휴대전화번호, 연계정보(CI), 중복가입확인정보(DI)</td><td>본인확인 완료 후 관계 법령에 따른 기간</td></tr>
 </table>
 <p>법령·판례 확인을 위해 주장에 포함된 법령명·조문·사건번호를 법제처 국가법령정보 공동활용 서비스에 조회하며, 이 과정에서 이용자 식별 정보는 전송하지 않습니다.</p>
 
@@ -439,7 +446,8 @@ export function renderPrivacyPage() {
 </ul>
 
 <h2>11. 방침의 변경</h2>
-<p>이 개인정보처리방침은 ${EFFECTIVE_DATE}부터 적용됩니다. 내용이 바뀌면 시행 7일 전부터 서비스에 공지합니다.</p>`,
+<p>이 개인정보처리방침은 ${PRIVACY_EFFECTIVE_DATE}부터 적용됩니다. 내용이 바뀌면 시행 7일 전부터 서비스에 공지합니다.</p>
+<p class="muted">개정 이력: ${PRIVACY_EFFECTIVE_DATE} 본인확인(통합인증서비스) 처리 항목·위탁 추가 · 이전 방침 ${PRIVACY_PREVIOUS.join(", ")} 시행</p>`,
   );
 }
 
