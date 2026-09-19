@@ -3,6 +3,7 @@
 import { Capacitor } from "@capacitor/core";
 import { App } from "@capacitor/app";
 import { Browser } from "@capacitor/browser";
+import { copyText } from "./clipboard.js";
 import { Share } from "@capacitor/share";
 import { SplashScreen } from "@capacitor/splash-screen";
 import { StatusBar, Style } from "@capacitor/status-bar";
@@ -99,10 +100,5 @@ export async function shareLink({ title, text, url }) {
       if (e?.name === "AbortError") return "cancelled";
     }
   }
-  try {
-    await navigator.clipboard.writeText(url);
-    return "copied";
-  } catch {
-    return "failed";
-  }
+  return (await copyText(url)) ? "copied" : "failed";
 }

@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import BusinessInfo from "@/components/yume/BusinessInfo";
 import { apiJson } from "./api";
+import { copyText } from "../../clipboard.js";
 
 // 계정 설정 → 크레딧 탭.
 //
@@ -130,10 +131,11 @@ export default function CreditsTab() {
             style={{ flex: 1, padding: "8px 10px", borderRadius: 10, border: "1px solid #EDE3FA", background: "#FBF8FF", fontSize: 12, color: "#6E6389", boxSizing: "border-box", fontFamily: "inherit" }}
           />
           <button
-            onClick={() => {
-              navigator.clipboard?.writeText(link).then(
-                () => setMsg({ type: "ok", text: "추천 링크를 복사했어요." }),
-                () => setMsg({ type: "err", text: "복사하지 못했어요. 직접 선택해 복사해주세요." }),
+            onClick={async () => {
+              setMsg(
+                (await copyText(link))
+                  ? { type: "ok", text: "추천 링크를 복사했어요." }
+                  : { type: "err", text: "복사하지 못했어요. 직접 선택해 복사해주세요." },
               );
             }}
             style={{ ...ghostBtn, flexShrink: 0 }}

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { apiJson } from "./api";
+import { copyText } from "../../clipboard.js";
 import CreditsTab from "./CreditsTab";
 
 const TABS = [
@@ -101,12 +102,7 @@ function ApiTab() {
     }
   };
   const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(created);
-      setCopied(true);
-    } catch {
-      setCopied(false);
-    }
+    setCopied(await copyText(created));
   };
   const origin = typeof window !== "undefined" ? window.location.origin : "";
 
