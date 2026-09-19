@@ -182,12 +182,14 @@ export async function handleCreditRequest(id, decision, adminNote) {
   if (!row) return { error: "구매 신청을 찾을 수 없어요." };
   if (row.status !== "requested") return { error: "이미 처리된 신청이에요." };
   const status = decision === "fulfill" ? "fulfilled" : "cancelled";
-  await run("UPDATE redemptions SET status = :status, admin_note = :note, handled_at = :t WHERE id = :id", {
+  // 버튼을 두 번 누르는 등 동시에 처리돼도 한 번만 넘어가도록 상태를 조건으로 건다.
+  const upd = await run("UPDATE redemptions SET status = :status, admin_note = :note, handled_at = :t WHERE id = :id AND status = 'requested'", {
     id,
     status,
     note: adminNote ? String(adminNote).slice(0, 500) : null,
     t: now(),
   });
+  if (!upd.changes) return { error: "이미 처리된 신청이에요." };
   if (status === "fulfilled") {
     await grant(row.user_id, row.credits, "purchase", { ref: `purchase:${id}`, memo: row.item_label });
   }

@@ -98,7 +98,11 @@ export async function checkAndConsume({ user = null, ip = null, kakaoId = null, 
 // 크레딧과 하루 사용량 둘 다 되돌려야 한다 — 하나만 돌리면 다음 검증에서 어긋난다.
 export async function refundOne({ user = null, ip = null, kakaoId = null, usedFree, creditsSpent = 1 }) {
   const key = keyFor({ user, ip, kakaoId });
-  await run("UPDATE usage_daily SET used = GREATEST(0, used - 1) WHERE client_key = :key AND day = :day", { key, day: kstDay() });
+  const day = kstDay();
+  await run("UPDATE usage_daily SET used = GREATEST(0, used - 1) WHERE client_key = :key AND day = :day", { key, day });
+  // checkAndConsume이 올린 IP 전체 사용량도 되돌린다. 안 돌리면 실패가 쌓일수록
+  // 같은 네트워크의 다른 사람까지 IP 상한에 먼저 걸린다.
+  if (ip) await run("UPDATE usage_daily SET used = GREATEST(0, used - 1) WHERE client_key = :key AND day = :day", { key: `ipall:${ip}`, day });
   if (user && usedFree === false) {
     // 차감한 만큼 그대로 돌려준다. 길이에 따라 2개 이상 빠졌을 수 있다.
     await grantCredits(user.id, Math.max(1, Number(creditsSpent) || 1), "refund", { memo: "검증 실패 환급" });

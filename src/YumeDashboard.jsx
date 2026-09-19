@@ -530,6 +530,11 @@ export default function YumeDashboard() {
   const [elapsedSec, setElapsedSec] = useState(0);
   const timerRef = React.useRef(null);
   const startTimeRef = React.useRef(null);
+  // 결과 카드를 하나씩 드러내는 타이머. 새 검증·기록 열기·초기화 때 지우지 않으면
+  // 이전 결과의 타이머가 다음 결과의 카운트를 올려 카드가 한꺼번에 튀어나온다.
+  const revealTimersRef = React.useRef([]);
+  const clearRevealTimers = () => { revealTimersRef.current.forEach(clearTimeout); revealTimersRef.current = []; };
+  React.useEffect(() => clearRevealTimers, []);
   const inputRef = React.useRef(null);
   const [pasteHint, setPasteHint] = useState("");
 
@@ -663,6 +668,7 @@ export default function YumeDashboard() {
       setInput(record.input);
       // 기록에서 열 때도 검증 id를 함께 심어둔다(제보 버튼이 이 id로 서버에 확인을 요청한다).
       setResult(record.result ? { ...record.result, id: record.id || id } : record.result);
+      clearRevealTimers();
       setRevealed((record.result?.claims || []).length);
       setStage("done");
       setTab("result");
@@ -716,6 +722,7 @@ export default function YumeDashboard() {
 
   const runCheck = async () => {
     if (!input.trim()) return;
+    clearRevealTimers();
     setStage("loading"); setResult(null); setRevealed(0); setErrMsg(""); setLimitReached(null); setTab("result");
     setProgressMsg("사실 주장을 추출하고 실시간으로 검색 중…");
 
@@ -782,14 +789,17 @@ export default function YumeDashboard() {
       }
 
       if (serverError) throw new Error(serverError);
-      if (!finalResult || !Array.isArray(finalResult.claims) || finalResult.claims.length === 0) {
+      // 결과도 오류도 없이 스트림이 끝났다면 중간에 연결이 끊긴 것이다. "주장을 못 찾았다"고
+      // 하면 입력 탓으로 오해하므로 따로 안내한다.
+      if (!finalResult) throw new Error("서버와 연결이 끊겼어요. 잠시 후 다시 시도해주세요.");
+      if (!Array.isArray(finalResult.claims) || finalResult.claims.length === 0) {
         throw new Error("검증 가능한 주장을 찾지 못했습니다.");
       }
       setElapsedSec(Math.floor((Date.now() - startTimeRef.current) / 1000));
       setResult(finalResult);
       if (finalResult.usage) setUsage(finalResult.usage);
       setStage("done");
-      finalResult.claims.forEach((_, i) => setTimeout(() => setRevealed(r => r + 1), 220 * (i + 1)));
+      revealTimersRef.current = finalResult.claims.map((_, i) => setTimeout(() => setRevealed(r => r + 1), 220 * (i + 1)));
       saveToHistory(input, finalResult);
     } catch (e) {
       console.error(e);
@@ -801,7 +811,7 @@ export default function YumeDashboard() {
     }
   };
 
-  const reset = () => { setStage("idle"); setResult(null); setRevealed(0); setTab("result"); setInput(""); };
+  const reset = () => { clearRevealTimers(); setStage("idle"); setResult(null); setRevealed(0); setTab("result"); setInput(""); };
   const shareResult = async () => {
     if (!result?.id) return;
     const outcome = await shareLink({

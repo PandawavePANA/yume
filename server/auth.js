@@ -132,6 +132,10 @@ const loginLimiter = createLimiter({ windowMs: 10 * 60 * 1000, max: 20 });
 const loginFailLimiter = createLimiter({ windowMs: 15 * 60 * 1000, max: 6 });
 const signupLimiter = createLimiter({ windowMs: 60 * 60 * 1000, max: 10 });
 const resetLimiter = createLimiter({ windowMs: 60 * 60 * 1000, max: 5 });
+// 로그인된 세션에서 현재 비밀번호를 확인하는 곳(비밀번호 변경·탈퇴). 세션을 탈취당했을 때
+// 여기서 비밀번호를 무한정 대입해 볼 수 없게 막는다.
+const passwordCheckLimiter = createLimiter({ windowMs: 15 * 60 * 1000, max: 10 });
+const passwordCheckLimit = limitMiddleware(passwordCheckLimiter, (req) => `pwcheck:${req.user?.id ?? clientIp(req)}`);
 
 // 비밀번호 재설정 메일에 들어가는 주소다. 요청이 들어온 호스트를 그대로 쓰면 배포
 // 플랫폼의 내부 도메인이나 www 없는 주소가 메일에 박힌다 — 메일은 고쳐 보낼 수 없다.
@@ -264,11 +268,15 @@ router.post("/auth/reset", limitMiddleware(resetLimiter, (req) => `reset-do:${cl
     return res.status(400).json({ error: "재설정 링크가 만료됐거나 이미 사용됐어요. 다시 요청해주세요." });
   }
   const ph = await hashPassword(password);
-  await tx(async (t) => {
+  // 같은 링크로 두 요청이 동시에 들어와도 한 번만 쓰이도록, 토큰 소진을 조건부 갱신으로 먼저 잡는다.
+  const consumed = await tx(async (t) => {
+    const u = await t.run("UPDATE password_resets SET used_at = :t WHERE token_hash = :h AND used_at IS NULL", { t: now(), h: row.token_hash });
+    if (!u.changes) return false;
     await t.run("UPDATE users SET password_hash = :ph WHERE id = :id", { ph, id: row.user_id });
-    await t.run("UPDATE password_resets SET used_at = :t WHERE token_hash = :h", { t: now(), h: row.token_hash });
     await t.run("DELETE FROM sessions WHERE user_id = :id", { id: row.user_id });
+    return true;
   });
+  if (!consumed) return res.status(400).json({ error: "재설정 링크가 만료됐거나 이미 사용됐어요. 다시 요청해주세요." });
   await audit(`user:${row.user_id}`, "password_reset", `user:${row.user_id}`, null, clientIp(req));
   res.json({ ok: true });
 });
@@ -294,7 +302,7 @@ router.patch("/account", requireUser, async (req, res) => {
   res.json({ user: publicUser(await one("SELECT * FROM users WHERE id = :id", { id: u.id })) });
 });
 
-router.post("/account/password", requireUser, async (req, res) => {
+router.post("/account/password", requireUser, passwordCheckLimit, async (req, res) => {
   const { currentPassword, newPassword } = req.body || {};
   if (!(await verifyPassword(String(currentPassword || ""), req.user.password_hash))) {
     return res.status(400).json({ error: "현재 비밀번호가 올바르지 않아요." });
@@ -311,7 +319,7 @@ router.post("/account/password", requireUser, async (req, res) => {
 });
 
 // 회원 탈퇴 — 개인정보보호법상 지체 없이 파기. 검증 원문·대화·API 키까지 전부 지운다.
-router.delete("/account", requireUser, async (req, res) => {
+router.delete("/account", requireUser, passwordCheckLimit, async (req, res) => {
   if (!(await verifyPassword(String(req.body?.password || ""), req.user.password_hash))) {
     return res.status(400).json({ error: "비밀번호가 올바르지 않아요." });
   }

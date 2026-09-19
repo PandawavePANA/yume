@@ -1,6 +1,6 @@
 import express from "express";
 import { patchAsync } from "./asyncExpress.js";
-import { authenticateApiKey, monthlyUsage, recordApiUsage } from "./apiKeys.js";
+import { authenticateApiKey, finishApiUsage, monthlyUsage, recordApiUsage } from "./apiKeys.js";
 import { getVerification, newVerificationId } from "./verificationStore.js";
 import { startVerification, MAX_INPUT_CHARS } from "./verifyPipeline.js";
 import { kstMonthStart, one } from "./db.js";
@@ -124,22 +124,32 @@ router.post("/verify", requireApiKey, async (req, res) => {
   }
 
   const id = newVerificationId();
-  const { done } = await startVerification({
-    id,
-    text,
-    source: "api",
-    userId: null,
-    apiKeyId: key.id,
-    clientKey: `key:${key.id}`,
-    dataConsent: !!key.data_sharing,
-  });
+  // 한도는 과금 행 수로 센다. 결과를 기다린 뒤(최대 60초)에야 행을 남기면 그 사이에 들어온
+  // 요청이 전부 한도 확인을 통과한다. 받아들이는 순간 먼저 잡아 둔다.
+  const usageId = await recordApiUsage(key.id, { verificationId: id, endpoint: "POST /v1/verify", statusCode: 202, billable: true });
+  let done;
+  try {
+    ({ done } = await startVerification({
+      id,
+      text,
+      source: "api",
+      userId: null,
+      apiKeyId: key.id,
+      clientKey: `key:${key.id}`,
+      dataConsent: !!key.data_sharing,
+    }));
+  } catch (e) {
+    // 시작도 못 한 요청은 과금하지 않는다.
+    if (usageId) await finishApiUsage(usageId, { statusCode: 500, cached: false, billable: false });
+    throw e;
+  }
 
   // wait를 주지 않아도 캐시 재사용분은 곧바로 끝나므로 아주 잠깐은 기다려 완료 상태로 돌려준다.
   const waitSec = req.body?.wait === true ? MAX_WAIT_SEC : Math.min(MAX_WAIT_SEC, Math.max(0, Number(req.body?.wait) || 0));
   await Promise.race([done.catch(() => null), new Promise((r) => setTimeout(r, waitSec > 0 ? waitSec * 1000 : 300))]);
   const v = await getVerification(id);
   const status = v.status === "pending" ? 202 : 200;
-  await recordApiUsage(key.id, { verificationId: id, endpoint: "POST /v1/verify", statusCode: status, billable: true, cached: !!v.from_cache });
+  if (usageId) await finishApiUsage(usageId, { statusCode: status, cached: !!v.from_cache });
   res.status(status).json({ ...publicVerification(v), poll_url: `/v1/verify/${id}`, usage: await usageInfo(key) });
 });
 

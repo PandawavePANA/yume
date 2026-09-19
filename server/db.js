@@ -95,6 +95,8 @@ async function openDriver() {
 const TABLES = [
   "users", "sessions", "password_resets", "api_keys", "api_usage", "verifications", "claims", "usage_daily",
   "wallets", "chat_messages", "error_logs", "audit_logs", "data_exports", "settings", "schema_migrations",
+  // 나중에 추가된 테이블. 여기 빠지면 search_path에 기대게 되어 위 주석의 문제가 그대로 생긴다.
+  "credit_ledger", "bounty_claims", "redemptions", "referrals", "contribution_ledger", "quarter_awards", "claim_cache",
 ];
 const TABLE_REF = new RegExp(`\\b(FROM|JOIN|INTO|UPDATE)\\s+(${TABLES.join("|")})\\b`, "gi");
 const qualify = (sql) => sql.replace(TABLE_REF, (_m, kw, table) => `${kw} ${SCHEMA}.${table}`);

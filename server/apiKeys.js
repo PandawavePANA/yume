@@ -51,12 +51,23 @@ export async function monthlyUsage(keyId) {
 
 export async function recordApiUsage(keyId, { verificationId = null, endpoint, statusCode, billable = false, cached = false }) {
   const t = now();
-  await run(
+  const r = await run(
     `INSERT INTO api_usage (api_key_id, verification_id, endpoint, status_code, billable, cached, created_at)
-     VALUES (:id, :vid, :ep, :sc, :b, :c, :t)`,
+     VALUES (:id, :vid, :ep, :sc, :b, :c, :t) RETURNING id`,
     { id: keyId, vid: verificationId, ep: endpoint, sc: statusCode, b: billable ? 1 : 0, c: cached ? 1 : 0, t },
   );
   await run("UPDATE api_keys SET last_used_at = :t WHERE id = :id", { id: keyId, t });
+  return r.rows[0]?.id ?? null;
+}
+
+// 과금 행을 먼저 잡아 두고 결과가 나온 뒤 상태 코드·캐시 여부만 채운다.
+export function finishApiUsage(usageId, { statusCode, cached, billable = true }) {
+  return run("UPDATE api_usage SET status_code = :sc, cached = :c, billable = :b WHERE id = :id", {
+    id: usageId,
+    sc: statusCode,
+    c: cached ? 1 : 0,
+    b: billable ? 1 : 0,
+  });
 }
 
 async function shape(k) {

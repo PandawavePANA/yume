@@ -115,15 +115,18 @@ app.post("/api/verify", limitMiddleware(verifyLimiter, (req) => `verify:${client
       dataConsent: !!user?.data_consent,
       onProgress: (message) => send("progress", { message }),
     });
+    // 여기부터는 검증이 이미 끝나 저장된 뒤의 부수 작업이다. 여기서 던지면 아래 catch가
+    // 크레딧을 환급하고 오류를 보내는데, 결과는 이미 기록에 남아 있어 공짜 검증이 된다.
+    // 결과는 그대로 내보내고 실패는 기록만 남긴다.
     if (user) {
-      await trimUserHistory(user.id, PLANS[usage.plan].historyLimit);
+      await trimUserHistory(user.id, PLANS[usage.plan].historyLimit).catch((e) => logError("verify:trimHistory", e));
       // 추천으로 가입한 사람이 첫 검증을 마치면 추천한 사람에게 크레딧이 지급된다.
       await creditReferralOnActivity(user.id);
       // 기여도 — 검증 10점, 사실과 다른 주장이 실제로 잡혔으면 발견 50점을 더한다.
-      // 점수가 안 쌓여도 검증 결과는 그대로 나가야 하므로 실패를 삼킨다.
-      await awardForVerification(user.id, id, result?.claims).catch(() => {});
+      await awardForVerification(user.id, id, result?.claims).catch((e) => logError("verify:contribution", e));
     }
-    send("result", { ...result, id, elapsedMs: Date.now() - startedAt, fromCache, usage: await peekUsage({ user, ip }) });
+    const usageAfter = await peekUsage({ user, ip }).catch(() => null);
+    send("result", { ...result, id, elapsedMs: Date.now() - startedAt, fromCache, usage: usageAfter });
   } catch (e) {
     await refundOne({ user, ip, usedFree: usage.usedFree, creditsSpent: usage.creditsSpent }).catch(() => {});
     // 상류(Anthropic) 장애는 사용자 잘못이 아니다. 원문 오류를 그대로 보여주면
