@@ -61,14 +61,18 @@ function factFor(r) {
       break;
     case "citation_demand": {
       const checked = Array.isArray(r.checked) ? r.checked : [];
-      if (!checked.length) return { fact: "근거를 요구했지만 답변에 조문 번호나 사건번호가 없었습니다." };
-      const bad = checked.filter((c) => !c.exists).length;
+      if (!checked.length) return { fact: "근거를 요구했지만 답변에 확인할 수 있는 조문 번호·사건번호·DOI가 없었습니다." };
+      // 예전 리포트는 exists(참/거짓)만 있다.
+      const statusOf = (c) => c.status || (c.exists ? "exists" : "nonexistent");
+      const n = (s) => checked.filter((c) => statusOf(c) === s).length;
+      const [ok, bad, unk] = [n("exists"), n("nonexistent"), n("unverified")];
+      const parts = [ok && `${ok}개 실재`, bad && `${bad}개 존재하지 않음`, unk && `${unk}개 조회 불가`].filter(Boolean);
       return {
-        fact: bad
-          ? `답변이 댄 근거 ${checked.length}개를 공식 데이터베이스에 하나씩 조회했고, ${bad}개가 존재하지 않았습니다.`
-          : `답변이 댄 근거 ${checked.length}개를 공식 데이터베이스에 하나씩 조회했고, 모두 실재했습니다.`,
-        citations: checked.map((c) => ({ text: c.citation, exists: !!c.exists })),
-        source: { label: "법제처 국가법령정보센터", url: "https://www.law.go.kr" },
+        fact: `답변이 댄 근거 ${checked.length}개를 공식 데이터베이스에 하나씩 조회했습니다: ${parts.join(", ")}.`,
+        citations: checked.map((c) => ({ text: c.citation, status: statusOf(c), note: c.note || "" })),
+        source: checked.some((c) => c.kind === "doi")
+          ? { label: "doi.org · 법제처 국가법령정보센터", url: "https://www.doi.org" }
+          : { label: "법제처 국가법령정보센터", url: "https://www.law.go.kr" },
       };
     }
     case "calibration":

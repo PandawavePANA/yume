@@ -6,7 +6,7 @@
 //   - target=detc  + nb=사건번호  : 헌법재판소 결정례 정확 검색
 //   - target=law   + query=법령명 : 부분 일치 검색(‘주택임대차법’ → 주택임대차보호법)
 import { XMLParser } from "fast-xml-parser";
-import { normalizeLawName } from "./nec/identifiers.js";
+import { expandCaseNumbers, normalizeLawName } from "./nec/identifiers.js";
 import { cacheKey, getCached, setCached } from "./lawCache.js";
 
 const BASE = "http://www.law.go.kr/DRF";
@@ -394,13 +394,30 @@ function precItem(x) {
   };
 }
 
+// 병합 사건은 사건번호 칸이 "2014다232296, 232302"처럼 되어 있어, 칸 전체와 비교하면
+// 두 번호 모두 못 찾는다. 칸을 사건번호 목록으로 펼쳐서 그중 하나와 맞는지 본다.
+const listsCase = (item, caseNumber) => expandCaseNumbers(item["사건번호"]).includes(caseNumber);
+
 export async function searchPrecedent(caseNumber) {
   const r = await callLawApi("lawSearch.do", { target: "prec", nb: caseNumber, display: 5 });
   if (!r.ok) return r;
-  const items = toArray(r.data?.PrecSearch?.prec);
-  const exact = items.find((x) => String(x["사건번호"]).replace(/\s+/g, "") === caseNumber);
-  if (!exact) return { ok: true, found: false };
-  return { ok: true, found: true, exactMatch: true, ...precItem(exact) };
+  let hit = toArray(r.data?.PrecSearch?.prec).find((x) => listsCase(x, caseNumber));
+  if (hit) return { ok: true, found: true, exactMatch: true, merged: false, ...precItem(hit) };
+
+  // 사건번호 검색(nb)은 병합된 뒤쪽 번호로는 대표 사건을 찾지 못하고, 검색 목록에도
+  // 대표 번호("2014다232296")만 나온다. 병합 번호는 본문 조회의 사건번호 칸
+  // ("2014다232296, 232302")에만 있다. 그래서 본문 검색으로 후보를 받고, 본문의
+  // 사건번호 칸에 이 번호가 실제로 들어 있는 것만 인정한다 — 본문에서 이 번호를
+  // 인용만 한 다른 판결과 섞이면 없는 사건을 있다고 하게 된다.
+  const q = await callLawApi("lawSearch.do", { target: "prec", query: caseNumber, display: 10 });
+  if (!q.ok) return { ok: true, found: false };
+  for (const x of toArray(q.data?.PrecSearch?.prec).slice(0, 3)) {
+    const d = await getPrecedentDetail(x["판례일련번호"]);
+    if (d.ok && d.found && expandCaseNumbers(d.caseNumber).includes(caseNumber)) {
+      return { ok: true, found: true, exactMatch: false, merged: true, ...precItem(x), caseNumber: d.caseNumber };
+    }
+  }
+  return { ok: true, found: false };
 }
 
 export async function getPrecedentDetail(precId) {

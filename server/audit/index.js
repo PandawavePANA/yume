@@ -51,7 +51,7 @@ export async function runAudit({ probes, answers, subject = "", onProgress = () 
   return {
     subject: String(subject || "").slice(0, 120),
     score,
-    recommendation: buildRecommendation(score),
+    recommendation: buildRecommendation(score, PROBE_TYPES),
     results,
     method: {
       summary:

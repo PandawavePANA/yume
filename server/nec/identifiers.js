@@ -59,6 +59,30 @@ export function parseCaseNumber(raw) {
   return { yearRaw: m[1], code: m[2], serialRaw: m[3] };
 }
 
+// 병합 사건은 사건번호 하나에 여러 번호가 붙는다 — "2014다232296, 232302",
+// "2014다232296, 2014다232302(병합)". 뒤쪽은 연도·부호를 생략하고 일련번호만 적는 게
+// 관례다. 이걸 첫 번호만 보고 판단하면 병합된 실재 사건을 "없다"고 하게 된다.
+// 생략된 번호는 바로 앞 번호의 연도·부호를 이어받아 온전한 사건번호 목록으로 펼친다.
+export function expandCaseNumbers(raw) {
+  let s = String(raw || "").replace(/\((병합|분리)\)/g, "");
+  s = s.replace(/^(대법원|헌법재판소|[가-힣]+(고등|지방|가정|행정|특허|회생)법원(\s*[가-힣]+지원)?)\s*/, "");
+  const out = [];
+  let prev = null;
+  for (const part of s.split(/[,，、]|\s및\s/)) {
+    const p = part.replace(/\s+/g, "");
+    if (!p) continue;
+    const full = p.match(/^(\d{2}|\d{4})([가-힣]{1,3})(\d{1,9})$/);
+    if (full) {
+      prev = { year: full[1], code: full[2] };
+      out.push(p);
+      continue;
+    }
+    const serialOnly = p.match(/^(\d{1,9})$/);
+    if (serialOnly && prev) out.push(`${prev.year}${prev.code}${serialOnly[1]}`);
+  }
+  return out;
+}
+
 export function checkCaseNumber(raw, claimedCourt = "") {
   const parsed = parseCaseNumber(raw);
   if (!parsed) {

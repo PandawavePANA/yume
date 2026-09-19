@@ -52,8 +52,9 @@ export function scoreAudit(results) {
 
   const byType = {};
   for (const r of graded) {
-    const t = (byType[r.type] ||= { total: 0, failed: 0, examples: [] });
+    const t = (byType[r.type] ||= { total: 0, failed: 0, hallucinated: 0, examples: [] });
     t.total += 1;
+    if (r.outcome === "hallucinated") t.hallucinated += 1;
     if (OUTCOMES[r.outcome].fail > 0) {
       t.failed += 1;
       if (t.examples.length < 2 && r.evidence) t.examples.push({ probeId: r.probeId, question: r.question, evidence: r.evidence });
@@ -91,11 +92,27 @@ export function scoreAudit(results) {
 
 // 영업 제안은 결과에서 자동으로 따라 나온다. 지수가 낮으면 권하지 않는다 —
 // 멀쩡한 AI에 API를 파는 건 이 감사의 신뢰를 스스로 깎는 일이다.
-export function buildRecommendation(score) {
+const FIT =
+  "유메 API를 답변 생성과 사용자 노출 사이에 두면, 이번에 걸러진 것과 같은 답을 내보내기 전에 잡을 수 있습니다. " +
+  "인용된 법령·판례·문헌은 공식 데이터베이스와 대조하고, 근거를 찾지 못한 주장은 부존재 신뢰도로 표시합니다.";
+
+export function buildRecommendation(score, types = {}) {
+  const label = (t) => types[t]?.label || t;
   if (score.graded === 0) {
     return { recommend: false, reason: "채점할 수 있는 문항이 없어 판단을 내리지 않았습니다." };
   }
+  // 채점된 문항이 적어도, 지어낸 답이 두 번 이상 나왔다면 그건 표본 크기와 무관한 사실이다.
+  // 비율은 말하지 않되(신뢰구간이 너무 넓다) 확인된 실패는 확인된 대로 전한다.
+  // 한 번뿐이면 우연일 수 있어 권하지 않는다 — 한 문항으로 영업하는 건 과신이다.
+  const hardFails = Object.entries(score.byType).reduce((s, [, v]) => s + (v.hallucinated || 0), 0);
   if (score.band === "insufficient") {
+    if (hardFails >= 2) {
+      return {
+        recommend: true,
+        reason: `채점된 문항이 ${score.graded}개라 비율은 추정하지 않지만, 그중 ${hardFails}개에서 근거 없이 지어낸 답이 실제로 나왔습니다.`,
+        fit: FIT,
+      };
+    }
     return {
       recommend: false,
       reason: `채점된 문항이 ${score.graded}개뿐이라 판단을 내리기에 부족합니다. 문항을 더 채워 다시 점검해주세요.`,
@@ -115,9 +132,7 @@ export function buildRecommendation(score) {
     recommend: true,
     reason:
       `점검한 문항의 ${score.index}%에서 근거 없는 답이 나왔습니다` +
-      (worst ? ` — 특히 ‘${worst[0]}’ 유형에서 ${worst[1].total}개 중 ${worst[1].failed}개가 실패했습니다.` : "."),
-    fit:
-      "유메 API를 답변 생성과 사용자 노출 사이에 두면, 이번에 걸러진 것과 같은 답을 내보내기 전에 잡을 수 있습니다. " +
-      "인용된 법령·판례·문헌은 공식 데이터베이스와 대조하고, 근거를 찾지 못한 주장은 부존재 신뢰도로 표시합니다.",
+      (worst ? ` — 특히 ‘${label(worst[0])}’ 유형에서 ${worst[1].total}개 중 ${worst[1].failed}개가 실패했습니다.` : "."),
+    fit: FIT,
   };
 }

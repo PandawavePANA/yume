@@ -18,6 +18,12 @@ const MARK = {
   ungraded: { glyph: "?", fg: "#6A6E76", label: "채점 불가" },
 };
 
+const CITE_STATUS = {
+  exists: { label: "✓ 실재", cls: "ok" },
+  nonexistent: { label: "✕ 존재하지 않음", cls: "bad" },
+  unverified: { label: "? 조회 불가", cls: "unk" },
+};
+
 const ESCAPES = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
 const esc = (s = "") => String(s).replace(/[&<>"']/g, (c) => ESCAPES[c]);
 // 출처 링크는 http(s)만 건다.
@@ -45,7 +51,7 @@ export function renderAuditReport(report, { baseUrl = "" } = {}) {
       const failed = r.outcome === "hallucinated" || r.outcome === "partial";
       const href = safeHref(x.source?.url);
       const cites = x.citations?.length
-        ? `<ul class="cites">${x.citations.map((c) => `<li class="${c.exists ? "ok" : "bad"}">${c.exists ? "✓ 실재" : "✕ 존재하지 않음"} · <span>${esc(c.text)}</span></li>`).join("")}</ul>`
+        ? `<ul class="cites">${x.citations.map((c) => { const st = CITE_STATUS[c.status || (c.exists ? "exists" : "nonexistent")] || CITE_STATUS.unverified; return `<li class="${st.cls}">${st.label} · <span>${esc(c.text)}</span></li>`; }).join("")}</ul>`
         : "";
       const original = x.original ? `<details><summary>조문 원문 보기</summary><div class="orig">${esc(x.original)}</div></details>` : "";
       return `<div class="item${failed ? " failed" : ""}">
@@ -127,7 +133,7 @@ export function renderAuditReport(report, { baseUrl = "" } = {}) {
   .fact .cap{color:#1F7A52}
   .quote{margin-top:6px;font-size:12.5px;color:var(--ink2)}
   .cites{list-style:none;margin:8px 0 0;padding:0;font-size:12.5px}
-  .cites li.ok{color:#1F7A52}.cites li.bad{color:#C6402F}.cites span{color:var(--ink)}
+  .cites li.ok{color:#1F7A52}.cites li.bad{color:#C6402F}.cites li.unk{color:var(--muted)}.cites span{color:var(--ink)}
   details{margin-top:8px}summary{cursor:pointer;color:var(--accent);font-weight:600;font-size:12.5px}
   .orig{white-space:pre-wrap;font-size:12.5px;color:var(--ink2);margin-top:6px}
   .why{margin-top:12px;font-size:13.5px}

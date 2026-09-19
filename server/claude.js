@@ -158,10 +158,12 @@ function extractJson(text) {
 
 // 웹검색 없이 JSON 한 덩어리만 받아오는 단순 호출. 감사(audit) 채점처럼 "주어진 근거로
 // 판단만 하라"는 작업에 쓴다 — 검색을 붙이면 채점자가 배경지식으로 추측하게 된다.
-export async function callClaudeJson({ system, user, maxTokens = 800, ledger = null, label = "json" }) {
+export async function callClaudeJson({ system, user, maxTokens = 800, ledger = null, label = "json", strong = false }) {
   const messages = [{ role: "user", content: user }];
-  // 근거가 이미 주어진 판단이라 Haiku로 충분하다(감사 채점·인용 추출).
-  const raw = await callClaude({ system, messages, max_tokens: maxTokens, model: FAST_MODEL, label, ledger });
+  // 기본은 Haiku — 인용 추출처럼 근거가 이미 주어진 기계적 작업이면 충분하다.
+  // 남의 AI에 "지어냈다"는 판정을 내리는 채점처럼 틀리면 안 되는 판단은 strong으로 부른다.
+  const model = strong ? MODEL : FAST_MODEL;
+  const raw = await callClaude({ system, messages, max_tokens: maxTokens, model, label, ledger });
   try {
     return extractJson(raw);
   } catch {
@@ -169,7 +171,7 @@ export async function callClaudeJson({ system, user, maxTokens = 800, ledger = n
     // '채점 불가'로 남는데, 그건 대상 AI의 문제가 아니라 우리 쪽 문제다.
     const retry = await callClaude({
       system,
-      model: FAST_MODEL,
+      model,
       label: `${label}:retry`,
       ledger,
       messages: [

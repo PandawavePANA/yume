@@ -30,6 +30,13 @@ const MARK = {
   ungraded: { glyph: "?", fg: "#6A6E76", label: "채점 불가" },
 };
 
+// 인용 조회 결과. "찾지 못함"을 "없음"으로 쓰면 남에게 누명을 씌우게 되므로 세 가지로 나눈다.
+const CITE_STATUS = {
+  exists: { label: "✓ 실재", fg: "#1F7A52" },
+  nonexistent: { label: "✕ 존재하지 않음", fg: "#C6402F" },
+  unverified: { label: "? 조회 불가", fg: "#6A6E76" },
+};
+
 const DOMAINS = [
   ["법률", "로펌·법무팀·법률 상담"],
   ["의료", "병원·제약·헬스케어"],
@@ -389,11 +396,14 @@ function ResultItem({ r }) {
             <div style={{ fontSize: 13.5, color: UI.ink, lineHeight: 1.6 }}>{x.fact || "—"}</div>
             {x.citations?.length > 0 && (
               <ul style={{ margin: "8px 0 0", padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 4 }}>
-                {x.citations.map((c, i) => (
-                  <li key={i} style={{ fontSize: 12.5, color: c.exists ? "#1F7A52" : "#C6402F" }}>
-                    {c.exists ? "✓ 실재" : "✕ 존재하지 않음"} · <span style={{ color: UI.ink }}>{c.text}</span>
-                  </li>
-                ))}
+                {x.citations.map((c, i) => {
+                  const st = CITE_STATUS[c.status || (c.exists ? "exists" : "nonexistent")] || CITE_STATUS.unverified;
+                  return (
+                    <li key={i} style={{ fontSize: 12.5, color: st.fg }}>
+                      {st.label} · <span style={{ color: UI.ink }}>{c.text}</span>
+                    </li>
+                  );
+                })}
               </ul>
             )}
             {x.original && (

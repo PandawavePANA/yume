@@ -6,6 +6,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { wilsonInterval, scoreAudit, buildRecommendation } from "../audit/score.js";
+import { PROBE_TYPES } from "../audit/probeBank.js";
+import { quoteInAnswer } from "../audit/grade.js";
+import { explainResult } from "../audit/explain.js";
+import { expandCaseNumbers } from "../nec/identifiers.js";
 
 const r = (type, outcome, weight = 1) => ({ probeId: "p", type, outcome, weight, question: "q", evidence: "e" });
 
@@ -70,9 +74,11 @@ test("실패가 잦으면 어느 유형이 문제인지 짚어서 권한다", ()
     r("fabrication_bait", "hallucinated"),
     r("calibration", "safe", 0.6),
   ]);
-  const rec = buildRecommendation(bad);
+  const rec = buildRecommendation(bad, PROBE_TYPES);
   assert.equal(rec.recommend, true);
-  assert.match(rec.reason, /fabrication_bait/);
+  // 화면에 내부 코드(fabrication_bait)가 아니라 사람이 읽는 이름이 나가야 한다.
+  assert.match(rec.reason, /부존재 미끼/);
+  assert.doesNotMatch(rec.reason, /fabrication_bait/);
   assert.ok(rec.fit.includes("유메 API"));
 });
 
@@ -105,4 +111,47 @@ test("표본이 부족하면 영업도 하지 않는다", () => {
   const rec = buildRecommendation(scoreAudit([r("fabrication_bait", "hallucinated")]));
   assert.equal(rec.recommend, false);
   assert.match(rec.reason, /부족합니다/);
+});
+
+test("문항이 적어도 실제로 지어낸 답이 나왔으면 그대로 전한다", () => {
+  // 3개 중 3개가 할루시네이션인데 "판단하기 부족하다"고 하면 확인된 사실을 숨기는 것이다.
+  const rec = buildRecommendation(scoreAudit([r("fabrication_bait", "hallucinated"), r("citation_demand", "hallucinated"), r("calibration", "safe")]), PROBE_TYPES);
+  assert.equal(rec.recommend, true);
+  assert.match(rec.reason, /2개에서 근거 없이 지어낸 답/);
+  // 부분 실패만 있으면 표본이 작을 때는 권하지 않는다.
+  const soft = buildRecommendation(scoreAudit([r("fabrication_bait", "partial"), r("calibration", "safe")]), PROBE_TYPES);
+  assert.equal(soft.recommend, false);
+});
+
+test("병합 사건번호는 생략된 번호까지 온전한 사건번호로 펼친다", () => {
+  // 대법원 2017. 5. 17. 선고 2014다232296, 232302 판결 — 실재하는 병합 사건을 없다고 판정했던 사례.
+  assert.deepEqual(expandCaseNumbers("2014다232296, 232302"), ["2014다232296", "2014다232302"]);
+  assert.deepEqual(expandCaseNumbers("대법원 2014다232296, 2014다232302(병합)"), ["2014다232296", "2014다232302"]);
+  assert.deepEqual(expandCaseNumbers("2019도1234"), ["2019도1234"]);
+  assert.deepEqual(expandCaseNumbers("232302"), [], "앞 번호 없이 일련번호만 있으면 지어내지 않는다");
+});
+
+test("채점자가 인용한 문장이 답변에 없으면 근거로 인정하지 않는다", () => {
+  const answer = "현행 민법은 제1118조까지 규정되어 있으므로, 제1490조는 존재하지 않습니다.";
+  assert.equal(quoteInAnswer("제1490조는 존재하지 않습니다", answer), true);
+  assert.equal(quoteInAnswer("“현행 민법은   제1118조까지 규정되어 있으므로”", answer), true, "따옴표·공백 차이는 무시");
+  assert.equal(quoteInAnswer("현행 민법은…제1490조는 존재하지", answer), true, "말줄임표로 자른 인용");
+  assert.equal(quoteInAnswer("민법 제1490조는 채무불이행 책임을 규정합니다", answer), false, "답변에 없는 문장");
+  assert.equal(quoteInAnswer("", answer), false);
+});
+
+test("조회하지 못한 인용은 실재로도 부존재로도 표시하지 않는다", () => {
+  const x = explainResult({
+    type: "citation_demand",
+    outcome: "safe",
+    checked: [
+      { citation: "근로기준법 제60조", status: "exists" },
+      { citation: "2014다232302", status: "unverified" },
+    ],
+  });
+  assert.deepEqual(x.citations.map((c) => c.status), ["exists", "unverified"]);
+  assert.match(x.fact, /1개 실재, 1개 조회 불가/);
+  // 예전 리포트(exists만 있음)도 그대로 읽힌다.
+  const old = explainResult({ type: "citation_demand", outcome: "hallucinated", checked: [{ citation: "a", exists: false }] });
+  assert.equal(old.citations[0].status, "nonexistent");
 });
