@@ -1,14 +1,37 @@
 /* REAMER — one design system for the whole site.
    Black / white / gray only. Serif display, tight sans body, mono labels. */
 
+/* 네 제품을 합친 정체성.
+ *
+ *   유메     아이보리 바탕 · 보라 #5B3FA0 · 판정 도장
+ *   프로바   남색-검정 · 전기 블루 · 빛나는 입자 구
+ *   밸러스트 순검정 · 블루 · 입자 지구본
+ *   아이픽   크림 · 따뜻한 모래 · 여백
+ *
+ * 겹치는 것은 셋이다. 어두운 바탕, 그 위에 뜬 입자 기하, 그리고 파랑에서
+ * 보라로 이어지는 빛. 그래서 바탕은 파랑 쪽으로 미세하게 기울인 검정으로 두고
+ * (순회색 #0a0a0a는 고르지 않은 색으로 읽힌다), 글자는 아이픽·유메의 따뜻한
+ * 아이보리로 둔다. 차가운 바탕과 따뜻한 글자의 그 어긋남이 이 사이트의 성격이다.
+ *
+ * 색은 아껴 쓴다. 글은 거의 전부 아이보리이고, 스펙트럼은 빛나는 것 — 배경 입자,
+ * 강조선, 초점 — 에만 쓴다. 전부 물들이면 네 제품을 합친 게 아니라 다섯 번째
+ * 색이 하나 더 생길 뿐이다. */
 :root {
-  --bg: #0a0a0a;
+  --bg: #07070b;
   --panel: rgba(255, 255, 255, 0.022);
-  --ink: #ece9e3;
-  --ink-dim: rgba(236, 233, 227, 0.72);
-  --ink-faint: rgba(236, 233, 227, 0.5);
-  --line: rgba(236, 233, 227, 0.12);
-  --line-strong: rgba(236, 233, 227, 0.26);
+  --ink: #eceae4;
+  --ink-dim: rgba(236, 234, 228, 0.72);
+  --ink-faint: rgba(236, 234, 228, 0.5);
+  --line: rgba(236, 234, 228, 0.12);
+  --line-strong: rgba(236, 234, 228, 0.26);
+
+  /* 프로바·밸러스트의 파랑 → 유메의 보라. 이 스펙트럼이 사이트의 유일한 색이다. */
+  --beam-blue: #3b82f6;
+  --beam-mid: #6d5ae0;
+  --beam-violet: #8b5cf6;
+  --beam: linear-gradient(100deg, var(--beam-blue), var(--beam-mid) 52%, var(--beam-violet));
+  /* 작업물 카드는 각자 그 제품의 색을 쓴다. 기본값은 스펙트럼 가운데. */
+  --accent: var(--beam-mid);
 
   /* Instrument Serif has no Hangul glyphs, so any Korean run inside a
      .display/.title falls through to Pretendard automatically — Latin
@@ -192,13 +215,22 @@
    빈 화면이었다. */
 .reveal-on [data-reveal] {
   opacity: 0;
-  transform: translateY(14px);
-  transition: opacity 0.7s var(--ease), transform 0.7s var(--ease);
+  /* 끝에서 살짝 되넘어오는 곡선. 블러로 흐리게 띄우던 것보다 또렷하고,
+     같은 시간 안에서 더 빨리 도착한 것처럼 읽힌다. */
+  transform: translateY(18px) scale(0.994);
+  transition:
+    opacity 0.62s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.86s cubic-bezier(0.16, 1.02, 0.28, 1);
   transition-delay: var(--d, 0s);
+  will-change: opacity, transform;
 }
+.reveal-on [data-reveal].is-in { will-change: auto; }
 .reveal-on [data-reveal].is-in {
   opacity: 1;
   transform: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-parallax] { --p: 0 !important; }
 }
 @media (prefers-reduced-motion: reduce) {
   .reveal-on [data-reveal] { opacity: 1; transform: none; transition: none; }
@@ -213,6 +245,7 @@
 
 .nav {
   position: fixed;
+  /* 아래 진행선(.nav__read)의 기준 상자 */
   top: 0;
   left: 0;
   right: 0;
@@ -1053,4 +1086,212 @@
   letter-spacing: 0.1em;
   color: var(--ink-faint);
   white-space: nowrap;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   움직임과 빛 — 네 제품에서 가져온 스펙트럼을 실제로 쓰는 자리들
+   ════════════════════════════════════════════════════════════════ */
+
+/* 화면 캡처가 스크롤과 아주 조금 어긋나 움직인다. --p는 JS가 -1~1로 써 준다.
+   폭은 일부러 작게(12px) 잡는다 — 크게 주면 눈에 띄는 순간 싸구려가 된다. */
+.case__media {
+  transform: translate3d(0, calc(var(--p, 0) * -12px), 0);
+  will-change: transform;
+}
+.case:nth-child(even) .case__media {
+  /* 반대쪽 칸은 반대로 움직여야 두 칸이 같이 흐르지 않고 서로 스친다. */
+  transform: translate3d(0, calc(var(--p, 0) * 12px), 0);
+}
+
+/* 캡처 테두리. 평소엔 조용하고, 올려놓으면 그 제품의 색이 번진다. */
+.case__frame {
+  transition:
+    border-color 0.5s var(--ease),
+    box-shadow 0.6s var(--ease),
+    transform 0.6s var(--ease);
+}
+.case__frame:hover {
+  border-color: color-mix(in srgb, var(--accent) 46%, transparent);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent),
+    0 24px 60px -24px color-mix(in srgb, var(--accent) 42%, transparent);
+  transform: translateY(-2px);
+}
+.case__img {
+  transition: transform 0.8s var(--ease);
+}
+.case__frame:hover .case__img { transform: scale(1.012); }
+
+/* 운영 중 표시. 흰 점이 아니라 그 제품의 색이고, 천천히 숨 쉰다. */
+.case__kind--live::before {
+  background: var(--accent);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 60%, transparent);
+  animation: livePulse 3.4s var(--ease) infinite;
+}
+@keyframes livePulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 52%, transparent); }
+  50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 0%, transparent); }
+}
+
+/* 이름 아래 짧은 빛줄기. 카드마다 색이 달라 목록을 훑으면 스펙트럼이 지나간다. */
+.case__name::after {
+  content: "";
+  flex: 0 0 100%;
+  height: 1px;
+  margin-top: 12px;
+  background: linear-gradient(90deg, var(--accent), transparent 72%);
+  opacity: 0.85;
+  transform: scaleX(0.999);
+  transform-origin: left;
+}
+
+.case__go {
+  transition: border-color 0.4s var(--ease), color 0.4s var(--ease);
+}
+.case__go:hover { border-color: var(--accent); }
+.case__stack li { transition: border-color 0.4s var(--ease), color 0.4s var(--ease); }
+.case:hover .case__stack li {
+  border-color: color-mix(in srgb, var(--accent) 26%, var(--line));
+}
+
+/* 섹션 머리의 라벨 앞 선이 스펙트럼을 탄다. */
+.label::before {
+  background: var(--beam);
+  opacity: 0.75;
+}
+
+/* 주 버튼 위로 지나가는 빛. 애플이 제품 버튼에 쓰는 그 쓸림이다.
+   기본 상태에서는 아무 일도 없고, 올려놓을 때 한 번 지나간다. */
+.btn--solid {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+.btn--solid::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(
+    100deg,
+    transparent 18%,
+    rgba(255, 255, 255, 0.72) 48%,
+    transparent 78%
+  );
+  transform: translateX(-120%);
+  transition: transform 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.btn--solid:hover::after { transform: translateX(120%); }
+
+/* 부 버튼은 테두리가 스펙트럼으로 바뀐다. */
+.btn--ghost { transition: background-color 0.35s var(--ease), border-color 0.35s var(--ease); }
+.btn--ghost:hover { border-color: color-mix(in srgb, var(--beam-mid) 60%, var(--line-strong)); }
+
+/* 신뢰 줄: 숫자에 스펙트럼을 아주 옅게 얹는다. 글자색 자체를 바꾸면 읽기 어려워져
+   윗부분만 물들이고 아래는 아이보리로 남긴다. */
+.trust__v {
+  background: linear-gradient(170deg, var(--ink) 38%, color-mix(in srgb, var(--beam-violet) 70%, var(--ink)));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.trust__item {
+  position: relative;
+  transition: background-color 0.45s var(--ease);
+}
+.trust__item::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 1px;
+  background: var(--beam);
+  opacity: 0;
+  transition: opacity 0.45s var(--ease);
+}
+.trust__item:hover::before { opacity: 0.9; }
+
+/* 맡기는 이유: 위쪽 선이 스펙트럼을 타고, 올려놓으면 진해진다. */
+.why__item {
+  border-top-color: transparent;
+  background-image: linear-gradient(90deg, var(--beam-blue), var(--beam-violet) 60%, transparent);
+  background-size: 100% 1px;
+  background-repeat: no-repeat;
+  background-position: 0 0;
+  transition: opacity 0.45s var(--ease);
+}
+
+/* 진행 방식 번호 — 실제 순서라 번호가 있고, 그 번호가 스펙트럼을 지나간다. */
+.step:nth-child(1) .step__no { color: var(--beam-blue); }
+.step:nth-child(2) .step__no { color: color-mix(in srgb, var(--beam-blue), var(--beam-mid)); }
+.step:nth-child(3) .step__no { color: var(--beam-mid); }
+.step:nth-child(4) .step__no { color: var(--beam-violet); }
+
+/* 양식 입력칸 초점. 흰 테두리 대신 스펙트럼으로. */
+.inquiry__field input:focus,
+.inquiry__field select:focus,
+.inquiry__field textarea:focus {
+  border-color: color-mix(in srgb, var(--beam-mid) 72%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--beam-mid) 14%, transparent);
+}
+
+/* 연락처 링크 밑줄 */
+.contact__direct a:hover { border-color: var(--beam-mid); }
+
+@media (prefers-reduced-motion: reduce) {
+  .case__media,
+  .case:nth-child(even) .case__media { transform: none; }
+  .case__kind--live::before { animation: none; }
+  .btn--solid::after { display: none; }
+}
+
+/* 상단 바 아래 읽기 진행선. --read는 JS가 0~1로 써 준다. */
+.nav__read {
+  position: absolute;
+  left: 0;
+  bottom: -1px;
+  height: 1px;
+  width: 100%;
+  transform-origin: left;
+  transform: scaleX(var(--read, 0));
+  background: var(--beam);
+  opacity: 0.9;
+  pointer-events: none;
+}
+
+/* 첫 화면 등장.
+   순서는 읽는 순서 그대로: 라벨 → 제목 → 설명 → 버튼 → 숫자.
+
+   스크롤 연출과 **같은 클래스에 걸어 둔다.** 처음에는 CSS 애니메이션이니 스크립트와
+   무관하다고 생각했는데, 애니메이션이 진행되지 않는 환경(전체 페이지 캡처처럼 시계가
+   다르게 도는 곳)에서 fill-mode: both가 첫 프레임인 opacity:0에 그대로 멈춰 섰다.
+   히어로가 통째로 빈 화면이 되는 그 버그를 방금 고쳐 놓고 다시 만들 뻔했다.
+   JS가 클래스를 붙였을 때만 감추고, 안 붙으면 그냥 보인다. */
+@keyframes heroIn {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes heroBeam {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+.reveal-on .hero .label { animation: heroIn 0.9s cubic-bezier(0.16, 1, 0.3, 1) 0.05s both; }
+.reveal-on .hero .label::before { transform-origin: left; animation: heroBeam 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.2s both; }
+.reveal-on .hero .display { animation: heroIn 1.05s cubic-bezier(0.16, 1, 0.3, 1) 0.13s both; }
+.reveal-on .hero .lede { animation: heroIn 1.05s cubic-bezier(0.16, 1, 0.3, 1) 0.24s both; }
+.reveal-on .hero .actions { animation: heroIn 1.05s cubic-bezier(0.16, 1, 0.3, 1) 0.34s both; }
+.reveal-on .trust__item { animation: heroIn 0.95s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.reveal-on .trust__item:nth-child(1) { animation-delay: 0.44s; }
+.reveal-on .trust__item:nth-child(2) { animation-delay: 0.52s; }
+.reveal-on .trust__item:nth-child(3) { animation-delay: 0.6s; }
+.reveal-on .trust__item:nth-child(4) { animation-delay: 0.68s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal-on .hero .label,
+  .reveal-on .hero .label::before,
+  .reveal-on .hero .display,
+  .reveal-on .hero .lede,
+  .reveal-on .hero .actions,
+  .reveal-on .trust__item { animation: none; }
 }

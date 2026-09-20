@@ -71,9 +71,12 @@ const hexToVec3 = (hex) => {
   return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
 };
 
-const BG = hexToVec3("#0a0a0a");
-const BASE = hexToVec3("#3a3a3a");
-const ACCENT = hexToVec3("#d8d6cf");
+// 회색 세 단계였다 — 그래서 빛이 아니라 먼지처럼 보였다. 이제 파랑에서 보라로
+// 이어지는 빛으로 둔다. 프로바의 구와 밸러스트의 지구본이 뿜는 그 빛이 이 사이트
+// 전체의 광원이 된다. 중심만 거의 흰색이라 글자 뒤에서는 여전히 조용하다.
+const BG = hexToVec3("#07070b");
+const BASE = hexToVec3("#2b3358");
+const ACCENT = hexToVec3("#cfd4f2");
 
 const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
 

@@ -106,9 +106,14 @@ export const PROCESS = [
 
 // 작업물. 배포된 주소가 있는 것은 화면을 그대로 찍어 함께 싣는다 —
 // 글로 설명하는 것보다 만든 것을 보여 주는 편이 빠르다.
+//
+// accent는 그 제품이 실제로 쓰는 색이다. 작업물을 훑어 내려가면 유메의 보라,
+// 프로바의 파랑, 아이픽의 모래, 밸러스트의 파랑, PAX의 녹색이 차례로 지나간다 —
+// 리머의 정체성은 그 다섯을 합친 스펙트럼이고, 여기가 그게 드러나는 자리다.
 export const WORK = [
   {
     slug: "yume",
+    accent: "#7c5cd6",  // 유메의 보라
     name: "유메",
     en: "YUME",
     year: "2026",
@@ -134,6 +139,7 @@ export const WORK = [
   },
   {
     slug: "proba",
+    accent: "#4c7df6",  // 프로바의 전기 블루
     name: "프로바",
     en: "PROBA",
     year: "2026",
@@ -156,6 +162,7 @@ export const WORK = [
   },
   {
     slug: "aipick",
+    accent: "#d8b48a",  // 아이픽의 따뜻한 모래
     name: "아이픽",
     en: "AIpick",
     year: "2026",
@@ -179,6 +186,7 @@ export const WORK = [
   },
   {
     slug: "ballast",
+    accent: "#59a9ff",  // 밸러스트의 파랑
     name: "밸러스트",
     en: "Ballast",
     year: "2026",
@@ -200,6 +208,7 @@ export const WORK = [
   },
   {
     slug: "pax",
+    accent: "#5fbf8f",  // 판다 익스체인지의 대나무 녹색
     name: "판다 익스체인지",
     en: "PAX",
     year: "2024",

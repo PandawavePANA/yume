@@ -14,6 +14,10 @@ const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
 const easeInOutCubic = (t) =>
   t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 
+// 먼 쪽부터 가까운 쪽까지. 프로바·밸러스트의 파랑에서 유메의 보라로 건너간다.
+// 흰색을 하나 끼워 가운데를 비워 두어야 빛으로 읽히고, 색칠한 점으로 안 보인다.
+const TINTS = ["#7d9dff", "#eaeaf4", "#b79cff"];
+
 export function createDiscLayer(canvas, { count = 2400 } = {}) {
   const ctx = canvas.getContext("2d", { alpha: true });
 
@@ -44,6 +48,8 @@ export function createDiscLayer(canvas, { count = 2400 } = {}) {
   const py = new Float32Array(count);
   const ps = new Float32Array(count);
   const pa = new Float32Array(count);
+  // 색 묶음 번호. 깊이에 따라 파랑 → 보라.
+  const pc = new Uint8Array(count);
 
   function resize(vw, vh, nextDpr) {
     dpr = nextDpr;
@@ -138,20 +144,29 @@ export function createDiscLayer(canvas, { count = 2400 } = {}) {
       pa[n] = isMote
         ? moteAlpha * (0.35 + 0.65 * scale)
         : master * Math.max(0.28, 1 - ((z1 + outerR) / (2 * outerR)) * 0.5);
+      // 깊이에 따라 색을 셋으로 나눈다. 멀수록 파랑(프로바·밸러스트), 가까울수록
+      // 보라(유메)로 와서, 원반 하나가 네 제품의 스펙트럼을 지나간다.
+      // 입자마다 fillStyle을 바꾸면 캔버스가 매번 상태를 갈아엎어 느려지므로,
+      // 번호만 적어 두고 아래에서 세 번에 나눠 그린다.
+      pc[n] = ((z1 + outerR) / (2 * outerR)) * TINTS.length;
+      pc[n] = pc[n] < 0 ? 0 : pc[n] >= TINTS.length ? TINTS.length - 1 : pc[n] | 0;
       n++;
     }
 
-    // Back half of the disc.
-    ctx.fillStyle = "#ffffff";
-    for (let i = 0; i < n; i++) {
-      ctx.globalAlpha = pa[i];
-      const s = ps[i];
-      if (s < 1.5) {
-        ctx.fillRect(px[i] - s * 0.5, py[i] - s * 0.5, s, s);
-      } else {
-        ctx.beginPath();
-        ctx.arc(px[i], py[i], s * 0.5, 0, Math.PI * 2);
-        ctx.fill();
+    // 색 묶음마다 한 번씩. 상태 변경은 세 번뿐이다.
+    for (let t = 0; t < TINTS.length; t++) {
+      ctx.fillStyle = TINTS[t];
+      for (let i = 0; i < n; i++) {
+        if (pc[i] !== t) continue;
+        ctx.globalAlpha = pa[i];
+        const s = ps[i];
+        if (s < 1.5) {
+          ctx.fillRect(px[i] - s * 0.5, py[i] - s * 0.5, s, s);
+        } else {
+          ctx.beginPath();
+          ctx.arc(px[i], py[i], s * 0.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
       }
     }
     ctx.globalAlpha = 1;
@@ -172,9 +187,9 @@ export function createDiscLayer(canvas, { count = 2400 } = {}) {
         cy,
         voidR * 1.14,
       );
-      rim.addColorStop(0, "rgba(242,240,235,0)");
-      rim.addColorStop(0.55, `rgba(242,240,235,${0.16 * master})`);
-      rim.addColorStop(1, "rgba(242,240,235,0)");
+      rim.addColorStop(0, "rgba(160,180,255,0)");
+      rim.addColorStop(0.55, `rgba(186,196,255,${0.2 * master})`);
+      rim.addColorStop(1, "rgba(160,180,255,0)");
       ctx.fillStyle = rim;
       ctx.beginPath();
       ctx.arc(cx, cy, voidR * 1.14, 0, Math.PI * 2);

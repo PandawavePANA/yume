@@ -43,6 +43,8 @@ function useReveal() {
     document.querySelectorAll("[data-reveal]").forEach((el) => io.observe(el));
 
     // 마지막 안전망. 관찰자가 어떤 이유로든 돌지 않아도 글은 반드시 보여야 한다.
+    // 히어로 등장 연출도 같은 클래스에 걸려 있어 여기서 같이 풀린다 — 2.5초면
+    // 등장(최대 1.7초)은 끝났고, 안 끝났다면 끝나야 할 이유가 더 크다.
     const failsafe = setTimeout(() => root.classList.remove("reveal-on"), 2500);
     return () => {
       clearTimeout(failsafe);
@@ -51,24 +53,46 @@ function useReveal() {
   }, []);
 }
 
-// 스크롤 한 번에 두 가지를 정한다: 상단 바를 눌러 붙일지, 그리고 배경 연출을
-// 얼마나 남길지. 히어로에서는 배경이 주인공이지만 본문에 들어서면 방해물이 된다
-// — 입자가 화면 캡처와 글 위를 그대로 지나간다. 리스너를 하나로 둬야 두 값이
-// 어긋나지 않고, 스크롤당 레이아웃 계산도 한 번만 일어난다.
+// 스크롤에 따라 움직이는 것 전부를 한 곳에서 정한다: 상단 바를 눌러 붙일지,
+// 읽기 진행선을 얼마나 채울지, 배경 연출을 얼마나 남길지, 그리고 화면 캡처를
+// 얼마나 어긋나게 둘지.
+//
+// 하나로 묶는 이유는 두 가지다. 값들이 서로 어긋나지 않고, 스크롤 한 번에
+// 레이아웃 계산이 한 번만 일어난다. 처음에는 시차 이동만 따로 떼어 관찰자로
+// "보이는 것만" 재게 해 뒀는데, 대상이 다섯 개뿐이라 아낄 것이 없으면서
+// 관찰자 콜백이 오지 않으면 통째로 죽는 경로만 하나 늘었다. 다섯 번 재는 편이
+// 싸고 확실하다.
+//
+// 배경 세기는 히어로를 지나면 내린다. 입자가 본문 글씨를 가로질러 읽기를
+// 방해하기 때문이다 — 실제로 FAQ 문단 위로 지나갔다.
 function useScrollChrome(ref) {
   useEffect(() => {
     const root = document.documentElement;
+    const still = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+    const shifted = still ? [] : Array.from(document.querySelectorAll("[data-parallax]"));
     let raf = 0;
+
     const apply = () => {
       raf = 0;
       const y = window.scrollY;
+      const vh = window.innerHeight;
       ref.current?.classList.toggle("is-scrolled", y > 24);
-      const span = Math.max(window.innerHeight * 0.85, 1);
-      const t = Math.min(1, y / span);
-      // 분위기로만 남긴다. 1 → 0.07. 이보다 진하면 입자가 본문 글씨를 가로질러
-      // 읽기를 방해한다 — 실제로 FAQ 문단 위로 지나갔다.
+
+      const doc = root.scrollHeight - vh;
+      root.style.setProperty("--read", doc > 0 ? String(Math.min(1, y / doc)) : "0");
+
+      const t = Math.min(1, y / Math.max(vh * 0.85, 1));
       root.style.setProperty("--bd", String(1 - t * 0.93));
+
+      for (const el of shifted) {
+        const r = el.getBoundingClientRect();
+        if (r.bottom < -200 || r.top > vh + 200) continue;
+        // 화면 가운데를 지날 때 0, 위아래 끝에서 ∓1.
+        const p = (r.top + r.height / 2 - vh / 2) / (vh / 2 + r.height / 2);
+        el.style.setProperty("--p", (p < -1 ? -1 : p > 1 ? 1 : p).toFixed(4));
+      }
     };
+
     const onScroll = () => {
       if (!raf) raf = requestAnimationFrame(apply);
     };
@@ -203,9 +227,10 @@ function InquiryForm() {
 function WorkCase({ item, index }) {
   const [shot, setShot] = useState(0);
   const current = item.shots[shot];
+  // 제품 색을 그 카드 안에서만 쓰도록 변수로 내려보낸다.
   return (
-    <article className="case" data-reveal>
-      <div className="case__media">
+    <article className="case" data-reveal style={item.accent ? { "--accent": item.accent } : undefined}>
+      <div className="case__media" data-parallax>
         <a className="case__frame" href={item.href} target="_blank" rel="noreferrer" aria-label={`${item.name} 사이트 열기`}>
           <img
             className="case__img"
@@ -304,6 +329,8 @@ const ReamerSite = () => {
           <a className="nav__cta" href="#contact">
             개발 문의
           </a>
+          {/* 읽은 만큼 차는 빛줄기. 긴 한 장짜리라 지금 어디쯤인지가 보이면 덜 막막하다. */}
+          <span className="nav__read" aria-hidden />
         </nav>
 
         <main id="top">
