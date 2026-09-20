@@ -9,6 +9,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import crypto from "node:crypto";
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "yume-checkout-"));
 process.env.DATA_DIR = dir;
@@ -21,6 +22,7 @@ process.env.VITE_PORTONE_CHANNEL_KEY = "channel-test";
 process.env.VITE_PORTONE_IDENTITY_CHANNEL_KEY = "channel-identity-test";
 process.env.PORTONE_V2_API_SECRET = "secret-test";
 process.env.CI_HASH_PEPPER = "pepper-test";
+process.env.PORTONE_WEBHOOK_SECRET = "whsec_" + Buffer.from("test-webhook-secret-0123456789").toString("base64");
 delete process.env.ANTHROPIC_API_KEY;
 
 const { default: app } = await import("../app.js");
@@ -200,4 +202,108 @@ test("로그인하지 않으면 결제도 본인확인도 시작할 수 없다",
   const call = client();
   assert.equal((await call("POST", "/api/checkout", { packKey: PACK.key })).status, 401);
   assert.equal((await call("POST", "/api/identity/start")).status, 401);
+});
+
+// ── 웹훅 ────────────────────────────────────────────────────────────────────
+// 이 주소는 공개돼 있다. 서명을 확인하지 않으면 누구나 "결제됐다"고 보내 크레딧을 받아 간다.
+// 서명은 포트원 공식 SDK(Standard Webhooks 규격)가 확인하므로, 여기서는 같은 규격으로 서명을
+// 만들어 보내 "맞는 서명만 통과하는가"와 "통과했을 때 지급이 한 번만 되는가"를 본다.
+function signWebhook(secret, id, timestamp, payload) {
+  const key = Buffer.from(secret.replace(/^whsec_/, ""), "base64");
+  const sig = crypto.createHmac("sha256", key).update(`${id}.${timestamp}.${payload}`).digest("base64");
+  return { "webhook-id": id, "webhook-timestamp": String(timestamp), "webhook-signature": `v1,${sig}` };
+}
+
+async function sendWebhook(body, { secret = process.env.PORTONE_WEBHOOK_SECRET, id = `msg_${Date.now()}` } = {}) {
+  const payload = JSON.stringify(body);
+  const ts = Math.floor(Date.now() / 1000);
+  const res = await realFetch(`${base}/api/portone/webhook`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...signWebhook(secret, id, ts, payload) },
+    body: payload,
+  });
+  return { status: res.status, data: await res.json().catch(() => null) };
+}
+
+test("서명이 없거나 틀린 웹훅은 크레딧을 주지 않는다", async () => {
+  const { call, userId } = await signedIn();
+  const order = await call("POST", "/api/checkout", { packKey: PACK.key });
+  portone.payment = { status: "PAID", amount: { total: PACK.krw }, method: { type: "CARD" } };
+
+  const bare = await realFetch(`${base}/api/portone/webhook`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ type: "Transaction.Paid", data: { paymentId: order.data.paymentId } }),
+  });
+  assert.equal(bare.status, 400, "서명 없는 요청은 거절해야 한다");
+
+  const forged = await sendWebhook(
+    { type: "Transaction.Paid", data: { paymentId: order.data.paymentId } },
+    { secret: "whsec_" + Buffer.from("wrong-secret-value-0123456789").toString("base64") },
+  );
+  assert.equal(forged.status, 400, "다른 키로 만든 서명은 거절해야 한다");
+  assert.equal(await credits.balance(userId), 0);
+});
+
+test("웹훅으로 입금이 확인되면 크레딧이 들어간다(가상계좌)", async () => {
+  const { call, userId } = await signedIn();
+  const order = await call("POST", "/api/checkout", { packKey: PACK.key });
+
+  // 결제창에서 돌아온 시점엔 아직 입금 전이다 — 여기서는 주지 않는다.
+  portone.payment = { status: "VIRTUAL_ACCOUNT_ISSUED", amount: { total: PACK.krw } };
+  await call("POST", "/api/checkout/confirm", { paymentId: order.data.paymentId });
+  assert.equal(await credits.balance(userId), 0);
+
+  // 입금이 되면 포트원이 알려 준다.
+  portone.payment = { status: "PAID", amount: { total: PACK.krw }, method: { type: "VIRTUAL_ACCOUNT" } };
+  const hook = await sendWebhook({ type: "Transaction.Paid", data: { paymentId: order.data.paymentId } });
+  assert.equal(hook.status, 200);
+  assert.equal(await credits.balance(userId), PACK.credits);
+});
+
+test("웹훅과 화면 확인이 겹쳐도 크레딧은 한 번만 들어간다", async () => {
+  const { call, userId } = await signedIn();
+  const order = await call("POST", "/api/checkout", { packKey: PACK.key });
+  portone.payment = { status: "PAID", amount: { total: PACK.krw }, method: { type: "CARD" } };
+  await sendWebhook({ type: "Transaction.Paid", data: { paymentId: order.data.paymentId } });
+  await call("POST", "/api/checkout/confirm", { paymentId: order.data.paymentId });
+  await sendWebhook({ type: "Transaction.Paid", data: { paymentId: order.data.paymentId } });
+  assert.equal(await credits.balance(userId), PACK.credits);
+});
+
+test("결제가 취소되면 지급했던 크레딧을 되돌린다", async () => {
+  const { call, userId } = await signedIn();
+  const order = await call("POST", "/api/checkout", { packKey: PACK.key });
+  portone.payment = { status: "PAID", amount: { total: PACK.krw }, method: { type: "CARD" } };
+  await call("POST", "/api/checkout/confirm", { paymentId: order.data.paymentId });
+  assert.equal(await credits.balance(userId), PACK.credits);
+
+  const cancel = await sendWebhook({ type: "Transaction.Cancelled", data: { paymentId: order.data.paymentId } });
+  assert.equal(cancel.status, 200);
+  assert.equal(await credits.balance(userId), 0);
+  // 같은 취소가 두 번 와도 두 번 빼지 않는다.
+  await sendWebhook({ type: "Transaction.Cancelled", data: { paymentId: order.data.paymentId } }, { id: "msg_again" });
+  assert.equal(await credits.balance(userId), 0);
+});
+
+test("모르는 주문·모르는 이벤트는 조용히 넘어간다", async () => {
+  const unknown = await sendWebhook({ type: "Transaction.Paid", data: { paymentId: "yume-does-not-exist" } });
+  assert.equal(unknown.status, 200);
+  const other = await sendWebhook({ type: "BillingKey.Issued", data: { billingKey: "bk_1" } });
+  assert.equal(other.status, 200);
+});
+
+test("동의 항목 전에 가입한 회원도 그 자리에서 동의하고 본인확인할 수 있다", async () => {
+  const { call, userId } = await signedIn();
+  // 예전 가입자를 흉내 낸다 — 동의 시각이 비어 있는 상태.
+  await db.run("UPDATE users SET identity_agreed_at = NULL WHERE id = :id", { id: userId });
+
+  const blocked = await call("POST", "/api/identity/start");
+  assert.equal(blocked.status, 400);
+  assert.equal(blocked.data.code, "NEEDS_CONSENT", "동의 없이 인증창을 열어주면 안 된다");
+
+  const start = await call("POST", "/api/identity/start", { agree: true });
+  assert.equal(start.status, 200);
+  const row = await db.one("SELECT identity_agreed_at FROM users WHERE id = :id", { id: userId });
+  assert.ok(row.identity_agreed_at, "동의 시각이 남아야 한다");
 });

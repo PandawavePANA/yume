@@ -36,6 +36,8 @@ export default function CreditsTab() {
   const [busy, setBusy] = useState(false);
   // 결제 연동이 켜져 있으면 결제창으로, 아직이면 예전처럼 입금 신청으로 받는다.
   const [pay, setPay] = useState(null);
+  // 동의 항목이 생기기 전에 가입한 회원은 이 자리에서 CI 동의를 받는다.
+  const [ciAgree, setCiAgree] = useState(false);
 
   const load = async () => {
     try {
@@ -70,11 +72,15 @@ export default function CreditsTab() {
   };
 
   const doVerifyIdentity = async () => {
+    if (pay && !pay.identityAgreed && !ciAgree) {
+      setMsg({ type: "err", text: "본인확인 정보(CI) 수집·이용에 동의해주세요." });
+      return;
+    }
     setBusy(true);
     setMsg(null);
     try {
-      const r = await verifyIdentity();
-      setPay((v) => ({ ...v, identityVerified: true }));
+      const r = await verifyIdentity({ agree: ciAgree });
+      setPay((v) => ({ ...v, identityVerified: true, identityAgreed: true }));
       setMsg({ type: "ok", text: r.name ? `${r.name}님 본인확인이 완료됐어요.` : "본인확인이 완료됐어요." });
     } catch (e) {
       if (!e.cancelled) setMsg({ type: "err", text: e.message });
@@ -134,6 +140,16 @@ export default function CreditsTab() {
         <div style={{ ...card, background: "#FBF8FF", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
           <div style={{ fontSize: 12.5, color: "#5B5470", lineHeight: 1.6 }}>
             결제 전 <b>본인확인</b>을 한 번 해주세요. 카카오·네이버·PASS 인증서 중에 고르실 수 있어요.
+            {!pay.identityAgreed && (
+              <label style={{ display: "flex", gap: 7, alignItems: "flex-start", marginTop: 8, cursor: "pointer" }}>
+                <input type="checkbox" checked={ciAgree} onChange={(e) => setCiAgree(e.target.checked)} style={{ marginTop: 2, accentColor: "#6B4FA8" }} />
+                <span style={{ fontSize: 11.5, color: "#6E6389", lineHeight: 1.6 }}>
+                  <b>[필수]</b> 이름·생년월일·성별·휴대전화번호·연계정보(CI)·중복가입확인정보(DI) 수집·이용에 동의합니다.
+                  탈퇴 시까지 보관하며 주민등록번호는 수집하지 않아요.{" "}
+                  <a href="/privacy" target="_blank" rel="noreferrer" style={{ color: "#6B4FA8" }}>개인정보처리방침</a>
+                </span>
+              </label>
+            )}
           </div>
           <button onClick={doVerifyIdentity} disabled={busy} style={{ ...ghostBtn, opacity: busy ? 0.45 : 1, flexShrink: 0 }}>본인확인</button>
         </div>

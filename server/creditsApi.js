@@ -16,7 +16,8 @@ import {
   CHANNEL_KEY, IDENTITY_CHANNEL_KEY, STORE_ID,
   confirmIdentity, confirmPayment, identityConfigured, paymentConfigured,
 } from "./portone.js";
-import { grant, packItem } from "./credits.js";
+import { packItem } from "./credits.js";
+import { getOrder, settleOrder } from "./checkoutStore.js";
 import crypto from "node:crypto";
 
 const router = patchAsync(express.Router());
@@ -104,6 +105,8 @@ router.get("/checkout/config", (req, res) => {
     payment: paymentConfigured() ? { storeId: STORE_ID, channelKey: CHANNEL_KEY } : null,
     identity: identityConfigured() ? { storeId: STORE_ID, channelKey: IDENTITY_CHANNEL_KEY } : null,
     identityVerified: !!req.user.identity_verified_at,
+    // 동의 항목이 생기기 전에 가입한 회원은 비어 있다. 화면이 동의 체크를 먼저 보여준다.
+    identityAgreed: !!req.user.identity_agreed_at,
   });
 });
 
@@ -130,36 +133,35 @@ router.post("/checkout", limitMiddleware(checkoutLimiter, (req) => `checkout:${r
 
 router.post("/checkout/confirm", limitMiddleware(checkoutLimiter, (req) => `confirm:${req.user.id}`), async (req, res) => {
   const paymentId = String(req.body?.paymentId || "");
-  const order = await one("SELECT * FROM credit_orders WHERE payment_id = :id AND user_id = :uid", { id: paymentId, uid: req.user.id });
+  // 남의 주문번호로는 확인할 수 없다(주문 조회에 user_id를 건다).
+  const order = await getOrder(paymentId, req.user.id);
   if (!order) return res.status(404).json({ error: "주문을 찾을 수 없어요." });
-  if (order.status === "paid") return res.json({ ok: true, credits: order.credits, already: true });
 
-  const r = await confirmPayment(paymentId, order.amount);
-  if (!r.ok) {
-    if (r.code !== "AWAITING_DEPOSIT") {
-      await run("UPDATE credit_orders SET status = 'failed' WHERE payment_id = :id AND status = 'pending'", { id: paymentId });
-      logError("portone:confirm", new Error(`${r.code} :: ${r.message} :: order ${paymentId}`));
-    }
-    return res.status(r.code === "AWAITING_DEPOSIT" ? 202 : 400).json({ error: r.message, code: r.code });
+  // 지급은 웹훅과 같은 함수가 한 곳에서만 한다 — 두 길로 들어와도 한 번만 들어간다.
+  const r = await settleOrder(order);
+  if (!r.ok) return res.status(r.code === "AWAITING_DEPOSIT" ? 202 : 400).json({ error: r.message, code: r.code });
+  if (!r.already) {
+    await audit(`user:${order.user_id}`, "credit_purchased", `order:${paymentId}`, { credits: order.credits, amount: order.amount, method: r.method }, clientIp(req));
   }
-
-  // 같은 결제로 두 번 지급되지 않게, 상태가 pending일 때만 paid로 바꾸고 그 성공에만 지급한다.
-  const upd = await run(
-    "UPDATE credit_orders SET status = 'paid', method = :m, paid_at = :t WHERE payment_id = :id AND status = 'pending'",
-    { id: paymentId, m: r.method, t: now() },
-  );
-  if (!upd.changes) return res.json({ ok: true, credits: order.credits, already: true });
-  await grant(order.user_id, order.credits, "purchase", { ref: `purchase:${paymentId}`, memo: `크레딧 구매(${r.method})` });
-  await audit(`user:${order.user_id}`, "credit_purchased", `order:${paymentId}`, { credits: order.credits, amount: order.amount, method: r.method }, clientIp(req));
-  res.json({ ok: true, credits: order.credits, balance: await balance(order.user_id) });
+  res.json({ ok: true, credits: order.credits, already: r.already, balance: await balance(order.user_id) });
 });
 
 // ── 본인확인 (KG이니시스 통합인증) ──────────────────────────────────────────
-// 가입 때 받아 둔 동의(users.identity_agreed_at)가 있는 회원만 인증창을 연다.
+// 동의(users.identity_agreed_at)가 있는 회원만 인증창을 연다.
 // CI는 저장하지 않고 해시만 남긴다 — 같은 사람이 계정을 여러 개 만드는 것만 막는다.
-router.post("/identity/start", limitMiddleware(checkoutLimiter, (req) => `identity:${req.user.id}`), (req, res) => {
+//
+// 동의 항목이 생기기 전에 가입한 회원은 이 값이 비어 있다. 그 사람들이 영영 본인확인을 할 수
+// 없으면 안 되므로, 인증창을 여는 자리에서 동의를 받고 그 시각을 남긴다(가입 때 받는 것과
+// 같은 동의다 — 받지 않고 넘어가는 길은 두지 않는다).
+router.post("/identity/start", limitMiddleware(checkoutLimiter, (req) => `identity:${req.user.id}`), async (req, res) => {
   if (!identityConfigured()) return res.status(503).json({ error: "본인확인 연동이 아직 설정되지 않았어요." });
-  if (!req.user.identity_agreed_at) return res.status(400).json({ error: "본인확인 정보(CI) 수집·이용에 먼저 동의해주세요." });
+  if (!req.user.identity_agreed_at) {
+    if (req.body?.agree !== true) {
+      return res.status(400).json({ error: "본인확인 정보(CI) 수집·이용에 먼저 동의해주세요.", code: "NEEDS_CONSENT" });
+    }
+    await run("UPDATE users SET identity_agreed_at = :t WHERE id = :uid AND identity_agreed_at IS NULL", { t: now(), uid: req.user.id });
+    await audit(`user:${req.user.id}`, "identity_consent_given", `user:${req.user.id}`, null, clientIp(req));
+  }
   res.json({
     identityVerificationId: `yume-id-${Date.now()}-${crypto.randomBytes(6).toString("hex")}`,
     storeId: STORE_ID,

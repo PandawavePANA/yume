@@ -18,6 +18,7 @@ import { getVerification, newVerificationId, trimUserHistory } from "./verificat
 import authRouter, { attachUser, purgeExpiredAuth } from "./auth.js";
 import accountRouter from "./accountApi.js";
 import creditsRouter from "./creditsApi.js";
+import portoneWebhookRouter from "./portoneWebhook.js";
 import { auditRouter, getAuditReport, renderAuditReport } from "./auditApi.js";
 import { creditReferralOnActivity } from "./referral.js";
 import { awardForVerification } from "./contribution.js";
@@ -53,6 +54,11 @@ app.use((req, res, next) => {
   return res.redirect(301, `https://${CANONICAL_HOST}${req.originalUrl}`);
 });
 app.use(securityHeaders);
+
+// 포트원 웹훅은 서명을 원문 그대로에 대해 확인한다. JSON 파서가 먼저 본문을 먹으면
+// 원문이 사라져 검증이 깨지므로, 파서보다 앞에 붙인다.
+app.use("/api", portoneWebhookRouter);
+
 app.use(express.json({ limit: "256kb" }));
 
 // 외부 개발자용 공개 API — 자체 CORS·키 인증을 쓰므로 쿠키 세션 미들웨어보다 먼저 붙인다.

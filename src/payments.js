@@ -49,9 +49,12 @@ export async function confirmCheckout(paymentId) {
   return r;
 }
 
-/** 본인확인(KG이니시스 통합인증). 성공하면 { name }. */
-export async function verifyIdentity() {
-  const start = await apiJson("/api/identity/start", { method: "POST" });
+/**
+ * 본인확인(KG이니시스 통합인증). 성공하면 { name }.
+ * agree는 동의 항목이 생기기 전에 가입한 회원이 이 자리에서 동의를 누른 경우에만 true다.
+ */
+export async function verifyIdentity({ agree = false } = {}) {
+  const start = await apiJson("/api/identity/start", { method: "POST", body: { agree } });
   const PortOne = await sdk();
   const res = await PortOne.requestIdentityVerification({
     storeId: start.storeId,
