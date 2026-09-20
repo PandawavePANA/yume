@@ -14,6 +14,27 @@
   height: 100%;
 }
 
+/* 히어로를 지나면 분위기 레이어를 내린다.
+   예전에는 입자와 원반이 페이지 끝까지 같은 세기로 깔려 있어, 화면 캡처와
+   본문 위로 그대로 지나갔다. 배경이 글을 읽기 어렵게 만들면 그건 배경이 아니다.
+   --bd는 스크롤에 따라 JS가 써 준다(없으면 1 — 그려지는 쪽이 기본값). */
+.backdrop__layer--bloom,
+.backdrop__layer--disc {
+  opacity: var(--bd, 1);
+}
+
+/* 좁은 화면에서는 원반이 화면을 거의 다 덮는다. 데스크톱에서는 글 옆 여백에
+   놓이던 것이 여기서는 버튼과 글 바로 뒤로 온다. 세기를 더 낮춘다. */
+@media (max-width: 720px) {
+  .backdrop__layer--bloom,
+  .backdrop__layer--disc {
+    opacity: calc(var(--bd, 1) * 0.42);
+  }
+}
+
+/* 커서 트레일은 내리지 않는다. 타일이 지나간 글자는 어둡게 뒤집히는데(.is-trail),
+   타일이 사라지면 검은 바탕에 검은 글자만 남는다. */
+
 /* The trail sits behind the copy on purpose: tiles pass *under* text, and
    the characters flip dark (.is-trail) so they stay legible. */
 .backdrop__layer--trail {

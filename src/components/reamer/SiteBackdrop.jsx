@@ -157,8 +157,8 @@ export const SiteBackdrop = () => {
 
   return (
     <div className="backdrop" aria-hidden>
-      <canvas className="backdrop__layer" ref={bloomRef} />
-      <canvas className="backdrop__layer" ref={discRef} />
+      <canvas className="backdrop__layer backdrop__layer--bloom" ref={bloomRef} />
+      <canvas className="backdrop__layer backdrop__layer--disc" ref={discRef} />
       <canvas className="backdrop__layer backdrop__layer--trail" ref={trailRef} />
     </div>
   );

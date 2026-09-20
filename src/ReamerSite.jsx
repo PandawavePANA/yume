@@ -1,9 +1,10 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import "./reamer.css";
 import "@/components/reamer/site.css";
 import SiteBackdrop from "@/components/reamer/SiteBackdrop";
 import Logo from "@/components/reamer/Logo";
 import { BUSINESS, telHref, COPYRIGHT, businessLine } from "@/businessInfo";
+import { NAV, TRUST, SERVICES, PROCESS, WORK, ALSO, TIMELINE, FAQ, AFTER_SEND } from "@/reamerContent";
 
 // Characters are split into spans so the global cursor-tile trail can flip
 // them dark as a tile passes underneath.
@@ -16,9 +17,19 @@ const Chars = ({ text }) =>
     ),
   );
 
+// 스크롤에 맞춰 나타나는 연출.
+//
+// 감추는 일은 CSS가 하지만, 감추는 규칙 자체는 JS가 켜 준 뒤에만 적용된다
+// (<html class="reveal-on">). 관찰자가 돌지 않는 환경 — 스크립트 실패, 크롤러,
+// 링크 미리보기, 페이지 전체 캡처 — 에서는 규칙이 아예 붙지 않아 글이 그대로 보인다.
+// 이걸 CSS만으로 하면 그런 환경에서 페이지가 통째로 빈 화면이 된다. 실제로 그랬다.
 function useReveal() {
   useEffect(() => {
-    const els = document.querySelectorAll("[data-reveal]");
+    const root = document.documentElement;
+    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+    if (reduce || !("IntersectionObserver" in window)) return;
+
+    root.classList.add("reveal-on");
     const io = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
@@ -27,258 +38,244 @@ function useReveal() {
           io.unobserve(entry.target);
         }
       },
-      { threshold: 0.12, rootMargin: "0px 0px -6% 0px" },
+      { threshold: 0.08, rootMargin: "0px 0px -4% 0px" },
     );
-    els.forEach((el) => io.observe(el));
-    return () => io.disconnect();
+    document.querySelectorAll("[data-reveal]").forEach((el) => io.observe(el));
+
+    // 마지막 안전망. 관찰자가 어떤 이유로든 돌지 않아도 글은 반드시 보여야 한다.
+    const failsafe = setTimeout(() => root.classList.remove("reveal-on"), 2500);
+    return () => {
+      clearTimeout(failsafe);
+      io.disconnect();
+    };
   }, []);
 }
 
-// Scroll-scrubbed timeline spine. Written straight to a CSS variable so it
-// tracks the scrollbar without a React render per frame.
-function useTimelineFill(ref) {
+// 스크롤 한 번에 두 가지를 정한다: 상단 바를 눌러 붙일지, 그리고 배경 연출을
+// 얼마나 남길지. 히어로에서는 배경이 주인공이지만 본문에 들어서면 방해물이 된다
+// — 입자가 화면 캡처와 글 위를 그대로 지나간다. 리스너를 하나로 둬야 두 값이
+// 어긋나지 않고, 스크롤당 레이아웃 계산도 한 번만 일어난다.
+function useScrollChrome(ref) {
   useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
+    const root = document.documentElement;
     let raf = 0;
-    let current = 0;
-    const update = () => {
-      const rect = el.getBoundingClientRect();
-      const vh = window.innerHeight;
-      const span = rect.height + vh * 0.35;
-      const target = Math.min(
-        1,
-        Math.max(0, (vh * 0.82 - rect.top) / Math.max(span, 1)),
-      );
-      current += (target - current) * 0.18;
-      el.style.setProperty("--fill", `${current * 100}%`);
-      raf = requestAnimationFrame(update);
+    const apply = () => {
+      raf = 0;
+      const y = window.scrollY;
+      ref.current?.classList.toggle("is-scrolled", y > 24);
+      const span = Math.max(window.innerHeight * 0.85, 1);
+      const t = Math.min(1, y / span);
+      // 분위기로만 남긴다. 1 → 0.07. 이보다 진하면 입자가 본문 글씨를 가로질러
+      // 읽기를 방해한다 — 실제로 FAQ 문단 위로 지나갔다.
+      root.style.setProperty("--bd", String(1 - t * 0.93));
     };
-    raf = requestAnimationFrame(update);
-    return () => cancelAnimationFrame(raf);
-  }, [ref]);
-}
-
-function useScrolledNav(ref) {
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
     const onScroll = () => {
-      el.classList.toggle("is-scrolled", window.scrollY > 80);
+      if (!raf) raf = requestAnimationFrame(apply);
     };
-    onScroll();
+    apply();
     window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    window.addEventListener("resize", onScroll, { passive: true });
+    return () => {
+      if (raf) cancelAnimationFrame(raf);
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+    };
   }, [ref]);
 }
 
-function useCardGlow() {
-  useEffect(() => {
-    const cards = Array.from(document.querySelectorAll(".card"));
-    const onMove = (e) => {
-      const el = e.currentTarget;
-      const r = el.getBoundingClientRect();
-      el.style.setProperty("--mx", `${e.clientX - r.left}px`);
-      el.style.setProperty("--my", `${e.clientY - r.top}px`);
-    };
-    cards.forEach((c) => c.addEventListener("pointermove", onMove));
-    return () => cards.forEach((c) => c.removeEventListener("pointermove", onMove));
-  }, []);
+// 개발 문의 양식.
+//
+// 메일 주소만 적어 두면 대부분은 눌러 보고 만다 — 무엇을 써야 할지 모르기 때문이다.
+// 무엇을 만들고 싶은지, 예산이 어느 정도인지를 미리 물어 두면 첫 회신에서 바로
+// 다음 이야기를 할 수 있다. 메일 주소도 그대로 남겨 둔다(양식을 싫어하는 사람이 있다).
+const API = (import.meta.env?.VITE_YUME_API_ORIGIN || "https://www.yume-reamer.com").replace(/\/+$/, "");
+
+const KINDS = [
+  ["web", "웹사이트 · 웹서비스"],
+  ["app", "모바일 앱"],
+  ["ai", "AI 기능 연동"],
+  ["automation", "업무 자동화 · 데이터"],
+  ["maintain", "기존 서비스 개선"],
+  ["other", "그 외"],
+];
+const BUDGETS = [
+  ["undecided", "아직 미정"],
+  ["under-500", "500만원 미만"],
+  ["500-1000", "500만~1,000만원"],
+  ["1000-3000", "1,000만~3,000만원"],
+  ["over-3000", "3,000만원 이상"],
+];
+
+function InquiryForm() {
+  const [form, setForm] = useState({ name: "", contact: "", company: "", kind: "web", budget: "undecided", message: "", website: "" });
+  const [state, setState] = useState("idle");
+  const [error, setError] = useState("");
+  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setError("");
+    setState("sending");
+    try {
+      const r = await fetch(`${API}/api/inquiry`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.error || "보내지 못했어요. 잠시 후 다시 시도해주세요.");
+      setState("done");
+    } catch (err) {
+      // 네트워크가 막혀도 메일이라는 길이 남아 있다는 걸 알려 준다.
+      setError(err.message || "보내지 못했어요.");
+      setState("idle");
+    }
+  };
+
+  if (state === "done") {
+    return (
+      <div className="inquiry inquiry--done">
+        <p className="inquiry__done-title">문의가 접수됐습니다.</p>
+        <p className="inquiry__done-desc">
+          영업일 기준 하루 안에 <b>{form.contact}</b>로 회신드리겠습니다.
+          급하시면 <a href={`mailto:${BUSINESS.email}`}>{BUSINESS.email}</a>로 바로 연락 주셔도 됩니다.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <form className="inquiry" onSubmit={submit}>
+      <div className="inquiry__row">
+        <label className="inquiry__field">
+          <span>성함 *</span>
+          <input id="iq-name" value={form.name} onChange={set("name")} required maxLength={60} placeholder="홍길동" />
+        </label>
+        <label className="inquiry__field">
+          <span>회사 · 팀</span>
+          <input id="iq-company" value={form.company} onChange={set("company")} maxLength={100} placeholder="선택" />
+        </label>
+      </div>
+
+      <label className="inquiry__field">
+        <span>연락받으실 곳 *</span>
+        <input id="iq-contact" value={form.contact} onChange={set("contact")} required maxLength={200} placeholder="이메일 또는 전화번호" />
+      </label>
+
+      <div className="inquiry__row">
+        <label className="inquiry__field">
+          <span>어떤 걸 만드시나요</span>
+          <select id="iq-kind" value={form.kind} onChange={set("kind")}>
+            {KINDS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+          </select>
+        </label>
+        <label className="inquiry__field">
+          <span>예산</span>
+          <select id="iq-budget" value={form.budget} onChange={set("budget")}>
+            {BUDGETS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+          </select>
+        </label>
+      </div>
+
+      <label className="inquiry__field">
+        <span>내용 *</span>
+        <textarea id="iq-message" value={form.message} onChange={set("message")} required rows={5}
+          placeholder="만들고 싶은 것, 참고할 만한 서비스, 원하시는 일정 — 아는 만큼만 적어주셔도 됩니다." />
+      </label>
+
+      {/* 봇 함정. 사람에게는 보이지 않는다. */}
+      <input className="inquiry__trap" tabIndex={-1} autoComplete="off" aria-hidden
+        value={form.website} onChange={set("website")} />
+
+      {error && <p className="inquiry__error">{error} 메일로는 <a href={`mailto:${BUSINESS.email}`}>{BUSINESS.email}</a>.</p>}
+
+      <button className="btn btn--solid inquiry__submit" type="submit" disabled={state === "sending"}>
+        {state === "sending" ? "보내는 중…" : "문의 보내기"} <span className="btn__arrow">→</span>
+      </button>
+      <p className="inquiry__note">
+        보내주신 내용은 회신에만 씁니다. 영업일 기준 하루 안에 답장드립니다.
+      </p>
+    </form>
+  );
 }
 
-const NAV = [
-  { label: "제품", href: "#products" },
-  { label: "소개", href: "#about" },
-  { label: "포트폴리오", href: "#portfolio" },
-  { label: "문의", href: "#contact" },
-];
+// 작업물 한 건. 화면 캡처가 먼저 오고 설명이 따라온다 — 글보다 만든 것이 빠르다.
+function WorkCase({ item, index }) {
+  const [shot, setShot] = useState(0);
+  const current = item.shots[shot];
+  return (
+    <article className="case" data-reveal>
+      <div className="case__media">
+        <a className="case__frame" href={item.href} target="_blank" rel="noreferrer" aria-label={`${item.name} 사이트 열기`}>
+          <img
+            className="case__img"
+            src={current.src}
+            alt={current.alt}
+            width={1440}
+            height={900}
+            loading={index === 0 ? "eager" : "lazy"}
+            decoding="async"
+          />
+        </a>
+        {item.shots.length > 1 && (
+          <div className="case__dots">
+            {item.shots.map((s, i) => (
+              <button
+                key={s.src}
+                type="button"
+                aria-label={s.alt}
+                aria-pressed={i === shot}
+                className={`case__dot${i === shot ? " is-on" : ""}`}
+                onClick={() => setShot(i)}
+              />
+            ))}
+          </div>
+        )}
+      </div>
 
-const SPECS = [
-  { k: "설립", v: "2026" },
-  { k: "대표", v: "정원영" },
-  { k: "제품", v: "유메 · 아이픽 · 밸러스트" },
-  { k: "분야", v: "AI 소프트웨어" },
-];
+      <div className="case__body">
+        <p className="case__meta">
+          <span className={`case__kind${item.live ? " case__kind--live" : ""}`}>{item.kind}</span>
+          <span className="case__year">{item.year}</span>
+        </p>
+        <h3 className="case__name">
+          {/* 글자별 span을 flex 항목으로 두면 낱자 사이마다 gap이 들어가 "유메"가
+              "유 메"로 벌어진다. 한 겹 감싸서 이름은 한 덩어리로 둔다. */}
+          <span className="case__name-ko">
+            <Chars text={item.name} />
+          </span>
+          <span className="case__en">{item.en}</span>
+        </h3>
+        <p className="case__blurb">{item.blurb}</p>
+        <p className="case__problem">{item.problem}</p>
 
-const PRODUCTS = [
-  {
-    no: "01",
-    status: "운영 중",
-    live: true,
-    name: "유메",
-    en: "YUME",
-    desc: "AI 답변을 위한 팩트체크. 답변 속 사실 주장을 추출해 공식 자료와 실시간 웹으로 검증하고, 무엇이 맞고 무엇이 확인되지 않았는지까지 구분해 보여줍니다.",
-    href: "https://www.yume-reamer.com/",
-    go: "yume-reamer.com",
-  },
-  {
-    no: "02",
-    status: "개발 완료",
-    live: true,
-    name: "아이픽",
-    en: "AIpick",
-    desc: "대구에 머무는 하루를 맞춤 제작으로 바꿉니다. AI가 치수를 재고 공방과 식사까지 하루 동선을 짜두면, 고객은 몸만 오면 됩니다 — 그날 저녁 완성된 안경과 반지를 들고 돌아갑니다.",
-    href: "https://www.aipick-reamer.com/",
-    go: "aipick-reamer.com",
-  },
-  {
-    no: "03",
-    status: "개발 완료",
-    live: true,
-    name: "밸러스트",
-    en: "Ballast",
-    desc: "자동 매매 프로토콜. 사람이 화면 앞에 붙어 있지 않아도 정해둔 규칙대로 시장을 읽고 진입과 청산을 실행합니다.",
-    href: "https://www.ballast-reamer.com/",
-    go: "ballast-reamer.com",
-  },
-];
+        <ul className="case__built">
+          {item.built.map((b) => (
+            <li key={b}>{b}</li>
+          ))}
+        </ul>
 
-const PORTFOLIO = [
-  {
-    year: "2026",
-    kind: "특허 출원",
-    title: "검색공간 완전성 기반 부존재 신뢰도 정량화",
-    en: "Quantifying Non-Existence Confidence Based on Search-Space Completeness",
-    desc: "AI는 존재하지 않는 판례와 문헌을 실재하는 것처럼 지어냅니다. 그런데 검증하는 쪽에도 구멍이 있습니다 — 데이터베이스에서 찾지 못했다는 사실은 “없다”가 아니라 “찾아본 범위 안에는 없다”일 뿐이니까요. 이 발명은 그 판정을 이분법으로 내리지 않습니다. 탐색이 실제로 덮은 범위, 식별자의 형식오류, 유사 항목과의 근접도를 가중 결합해 부존재 신뢰도를 수치로 산출하고, 아직 확인하지 못한 영역이 어디인지까지 함께 제시합니다.",
-    formula: "NEC = w₁·C + w₂·F + w₃·(1 − P)",
-    tags: [
-      "방법 청구항 9",
-      "시스템 청구항 2",
-      "기록매체 청구항 1",
-      "유메 검증 엔진의 기반 기술",
-    ],
-    featured: true,
-  },
-  {
-    year: "2026",
-    kind: "제품 엔지니어링",
-    title: "유메 검증 파이프라인",
-    desc: "AI 답변에서 검증 가능한 사실 주장만 골라내고, 도메인에 따라 검증 경로를 나눕니다. 일반 주제는 웹 교차검증으로, 법률은 법제처 국가법령정보 공동활용 API를 직접 조회해 이중으로 확인합니다.",
-    tags: ["React", "Express", "법제처 Open API", "Claude API"],
-  },
-  {
-    year: "2024",
-    kind: "판다웨이브 · 핀테크",
-    title: "펀드메이트",
-    en: "Fund Mate",
-    desc: "대화형 AI로 투자 포트폴리오를 짜주는 개인 자산관리 서비스. “당신의 경제 비서”를 목표로, 복잡한 상품 비교 대신 대화만으로 자기 상황에 맞는 포트폴리오가 나오도록 설계했습니다.",
-    tags: ["대화형 AI", "개인 자산관리", "포트폴리오 설계"],
-  },
-  {
-    year: "2024",
-    kind: "판다웨이브 · 생산성",
-    title: "데일리메이트",
-    en: "Daily Mate",
-    desc: "일정 관리와 습관 분석을 함께 다루는 서비스. 기록을 쌓는 데서 끝내지 않고, 쌓인 기록에서 반복되는 패턴을 찾아 다음 하루를 설계하도록 만들었습니다.",
-    tags: ["일정 관리", "습관 분석", "행동 데이터"],
-  },
-  {
-    year: "20XX",
-    kind: "블록체인",
-    title: "판다 익스체인지 (PAX)",
-    desc: "BNB 체인 기반 디플레이션 토큰. 발행량이 알고리즘에 따라 자동으로 소각되어 시간이 지날수록 공급이 줄어드는 구조로, 인플레이션 헷지 자산을 목표로 설계했습니다.",
-    tags: ["BNB Chain", "AI 자동 소각", "디플레이션", "인플레이션 헷지"],
-    href: "https://www.paxpresale.com",
-    go: "paxpresale.com",
-  },
-  {
-    year: "20XX",
-    kind: "트레이딩 시스템",
-    title: "저스트로맨스 — 트레이딩 지표",
-    desc: "트레이딩뷰 차트 위에서 사람이 직접 판단하도록 돕는 지표를, 파인 스크립트로 전부 직접 짰습니다. 시장을 읽는 관점을 세 갈래로 나눠 각각 독립된 프로그램으로 만들었고, 이름이 곧 역할입니다 — 다윗은 흐름을 거스르고, 골리앗은 흐름을 타고, 노아는 물이 차오르기 전에 배를 띄웁니다.",
-    subs: [
-      {
-        name: "다윗",
-        role: "역추세",
-        desc: "오더블록, FVG 등 스마트 머니 컨셉(SMC)을 기반으로, 흐름이 되돌아서는 자리를 잡아냅니다.",
-      },
-      {
-        name: "골리앗",
-        role: "추세",
-        desc: "이동평균선과 매수강도를 비롯해 500가지가 넘는 기법을 학습시켜, 살아 있는 추세를 끝까지 따라갑니다.",
-      },
-      {
-        name: "노아",
-        role: "붕괴 대비",
-        desc: "ICT를 기반으로 큰 하락을 미리 읽어, 사용자가 빠져나올 시간을 벌어주는 것을 목표로 만들었습니다.",
-      },
-    ],
-    tags: ["Pine Script", "TradingView API", "SMC", "ICT"],
-  },
-  {
-    year: "20XX",
-    kind: "딥러닝",
-    title: "폐렴 엑스레이 판독 모델",
-    desc: "흉부 엑스레이 이미지에서 폐렴 소견을 판독하는 딥러닝 모델. 의료 영상 분류를 처음부터 끝까지 다뤄본 프로젝트입니다.",
-    tags: ["딥러닝", "의료 영상", "이미지 분류"],
-  },
-];
+        {item.note && <p className="case__note">{item.note}</p>}
 
-const TIMELINE = [
-  {
-    year: "20XX",
-    title: "정보올림피아드 전국 2위",
-    desc: "학생 시절 전국 규모 정보올림피아드에서 2위에 입상하며 기술적 기반을 다졌습니다.",
-  },
-  {
-    year: "20XX",
-    title: "한국디지털미디어고등학교 해킹방어과 졸업",
-    desc: "보안을 전공하며 시스템을 깊이 뜯어보는 훈련을 쌓았습니다.",
-  },
-  {
-    year: "20XX",
-    title: "중앙대학교 전자전기공학부 재학",
-  },
-  {
-    year: "20XX",
-    title: "딥러닝 기반 폐렴 환자 엑스레이 판독 프로그램 개발",
-    desc: "흉부 엑스레이 이미지에서 폐렴 소견을 판독하는 딥러닝 모델을 만들었습니다.",
-  },
-  {
-    year: "2024",
-    title: "판다웨이브 설립 · 대표",
-    desc: "대화형 AI로 투자 포트폴리오를 짜주는 펀드메이트(Fund Mate)와, 일정·습관을 분석하는 데일리메이트(Daily Mate)를 만들었습니다. 첫 창업으로 제품을 처음부터 끝까지 만들고 책임지는 경험을 했습니다.",
-  },
-  {
-    year: "20XX",
-    title: "판다 익스체인지 발행",
-    desc: "BNB 체인 기반 AI 자동 소각 디플레이션 토큰을 발행했습니다. 공급이 알고리즘에 따라 계속 줄어드는 구조로, 인플레이션 헷지 자산을 목표로 설계했습니다.",
-  },
-  {
-    year: "20XX",
-    title: "저스트로맨스 설립",
-    desc: "트레이딩 지표 개발 프로젝트. 다윗 · 골리앗 · 노아 세 개의 프로그램으로 구성했습니다.",
-  },
-  {
-    year: "20XX",
-    title: "법정 분쟁 중 AI 오답으로 실제 피해",
-    desc: "AI가 제시한 잘못된 정보를 믿었다가 실제 피해를 입은 경험이, 유메를 만들게 된 계기가 되었습니다.",
-  },
-  {
-    year: "2026",
-    title: "「검색공간 완전성 기반 부존재 신뢰도 정량화 방법 및 시스템」 특허 출원",
-    desc: "“못 찾았다”를 “없다”로 단정하지 않고, 그 판정이 얼마나 믿을 만한지를 수치로 산출하는 방법과 시스템. 유메 검증 엔진의 기반 기술입니다.",
-  },
-  {
-    year: "2026",
-    title: "리머 설립 · 유메 출시",
-    desc: "정밀함을 기준으로 삼은 AI 소프트웨어 스튜디오, 리머를 설립하고 유메를 출시했습니다.",
-  },
-  {
-    year: "진행 중",
-    title: "아이픽 · 밸러스트 출시",
-    desc: "대구 원데이 맞춤 제작 아이픽과 자동 매매 프로토콜 밸러스트의 개발을 마쳤습니다. 유메까지 세 개 제품 체제로 운영합니다.",
-    now: true,
-  },
-];
+        <ul className="case__stack">
+          {item.stack.map((t) => (
+            <li key={t}>{t}</li>
+          ))}
+        </ul>
+
+        <a className="case__go" href={item.href} target="_blank" rel="noreferrer">
+          {item.go}
+          <span className="btn__arrow"> →</span>
+        </a>
+      </div>
+    </article>
+  );
+}
 
 const ReamerSite = () => {
-  const timelineRef = useRef(null);
   const navRef = useRef(null);
   useReveal();
-  useCardGlow();
-  useTimelineFill(timelineRef);
-  useScrolledNav(navRef);
+  useScrollChrome(navRef);
 
   return (
     <>
@@ -288,12 +285,11 @@ const ReamerSite = () => {
         <div className="site__rails" aria-hidden>
           <span className="site__rail site__rail--l" />
           <span className="site__rail site__rail--r" />
-          <span className="site__rail site__rail--c" />
         </div>
 
         <nav className="nav" aria-label="Primary" ref={navRef}>
           <a className="nav__brand" href="#top">
-            <Logo size={40} full />
+            <Logo size={30} full />
             <span className="nav__word">REAMER</span>
           </a>
           <ul className="nav__links">
@@ -306,288 +302,225 @@ const ReamerSite = () => {
             ))}
           </ul>
           <a className="nav__cta" href="#contact">
-            문의하기
+            개발 문의
           </a>
         </nav>
 
         <main id="top">
-          <section className="section section--hero">
-            <div className="wrap">
-              <p className="label" data-reveal>
-                AI 소프트웨어 스튜디오
-              </p>
-              <h1 className="display" data-reveal style={{ "--d": "0.08s" }}>
-                <Chars text="레드오션 속에" />
-                <br className="force-break" />
-                {" "}
-                <Chars text="니치마켓이 있다" />
-              </h1>
-              <p className="lede" data-reveal style={{ "--d": "0.16s" }}>
-                리머는 흐릿하게 남겨진 시장을 위한 소프트웨어를 만듭니다.
-                대충 그어진 선을 다시 긋습니다 — 더 깨끗하고, 더 날카롭고,
-                더 정확하게.
-              </p>
-              <div className="actions" data-reveal style={{ "--d": "0.24s" }}>
-                <a className="btn btn--solid" href="#products">
-                  제품 보기 <span className="btn__arrow">→</span>
-                </a>
-                <a className="btn btn--ghost" href="#about">
-                  리머 소개
-                </a>
+          {/* 히어로. 화면을 꽉 채우지 않는다 — 첫 화면에서 작업물이 시작되는 것까지
+              보여야 "무엇을 만드는 곳인지"가 한 번에 전달된다. */}
+          <section className="hero">
+            <div className="wrap hero__grid">
+              {/* 첫 화면에는 나타나는 연출을 걸지 않는다. 처음 보이는 글이 스크립트가
+                  끝나야 나타나면, 탭이 뒤에 있거나 느린 기기에서는 빈 화면을 먼저 본다.
+                  연출은 스크롤해서 만나는 아래쪽에만 붙인다. */}
+              <div className="hero__copy">
+                <p className="label">소프트웨어 개발 · 대구</p>
+                <h1 className="display">
+                  <Chars text="필요한 걸" />
+                  <br />
+                  <Chars text="만들어 드립니다" />
+                </h1>
+                <p className="lede">
+                  웹사이트, 앱, 결제 연동, 업무 자동화. 기획이 반쯤 잡혀 있어도 괜찮습니다.
+                  무엇을 만들어야 하는지부터 같이 정리하고, 만들어서, 실제로 돌아가는 상태로 넘겨드립니다.
+                </p>
+                <div className="actions">
+                  <a className="btn btn--solid" href="#contact">
+                    개발 문의하기 <span className="btn__arrow">→</span>
+                  </a>
+                  <a className="btn btn--ghost" href="#work">
+                    작업물 보기
+                  </a>
+                </div>
               </div>
 
-              <div className="spec" data-reveal style={{ "--d": "0.32s" }}>
-                {SPECS.map((s) => (
-                  <div key={s.k}>
-                    <p className="spec__k">{s.k}</p>
-                    <p className="spec__v">
-                      <Chars text={s.v} />
-                    </p>
+              <ul className="trust">
+                {TRUST.map((t) => (
+                  <li className="trust__item" key={t.k}>
+                    <span className="trust__v">{t.v}</span>
+                    <span className="trust__k">{t.k}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </section>
+
+          {/* 작업물을 맨 앞에 둔다. 외주를 맡기려는 사람이 가장 먼저 확인하는 건
+              소개 글이 아니라 "이 사람이 만든 게 뭔가"다. */}
+          <section className="section" id="work">
+            <div className="wrap">
+              <header className="head" data-reveal>
+                <p className="label">작업물</p>
+                <h2 className="title">
+                  <Chars text="만들어서, 실제로 돌리고 있습니다." />
+                </h2>
+                <p className="lede">
+                  아래 네 곳은 지금 주소를 열면 그대로 동작합니다. 화면은 직접 찍은 것입니다.
+                </p>
+              </header>
+
+              <div className="cases">
+                {WORK.map((item, i) => (
+                  <WorkCase item={item} index={i} key={item.slug} />
+                ))}
+              </div>
+
+              <div className="also" data-reveal>
+                <h3 className="also__head">그 외 작업</h3>
+                <ul className="also__list">
+                  {ALSO.map((a) => (
+                    <li className="also__item" key={a.title}>
+                      <div className="also__top">
+                        <span className="also__year">{a.year}</span>
+                        <span className="also__kind">{a.kind}</span>
+                      </div>
+                      <h4 className="also__title">{a.title}</h4>
+                      <p className="also__desc">{a.desc}</p>
+                      <p className="also__meta">{a.meta}</p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </section>
+
+          <section className="section" id="services">
+            <div className="wrap">
+              <header className="head" data-reveal>
+                <p className="label">하는 일</p>
+                <h2 className="title">
+                  <Chars text="무엇을 맡길 수 있나." />
+                </h2>
+                <p className="lede">
+                  문서가 다 나와 있지 않아도 됩니다. 필요한 것을 이야기하면서 범위를 좁히고,
+                  만들어서, 실제로 돌아가는 상태로 넘겨드립니다.
+                </p>
+              </header>
+
+              <div className="svc">
+                {SERVICES.map((sv) => (
+                  <div className="svc__item" key={sv.name} data-reveal>
+                    <h3 className="svc__name">{sv.name}</h3>
+                    <p className="svc__desc">{sv.desc}</p>
+                    <ul className="svc__list">
+                      {sv.items.map((it) => (
+                        <li key={it}>{it}</li>
+                      ))}
+                    </ul>
                   </div>
                 ))}
               </div>
             </div>
           </section>
 
-          <section className="section section--tall">
-            <div className="wrap manifesto">
-              <p className="label" data-reveal style={{ justifyContent: "center" }}>
-                리머의 방식
-              </p>
-              <h2 className="title" data-reveal style={{ "--d": "0.08s" }}>
-                <Chars text="리머는 흐린 것을 다듬는다." />
-                <span className="manifesto__pause" aria-hidden>
-                  · ·
-                </span>
-                <Chars text="리머는 지금도 다듬고 있다." />
-              </h2>
-              <p className="lede" data-reveal style={{ "--d": "0.16s" }}>
-                모든 시장은 처음엔 거칠게 시작됩니다. 리머가 하는 일은
-                대충 그어진 경계를 찾아, 그 위에 발 디딜 수 있는 선을
-                다시 긋는 것입니다.
-              </p>
-            </div>
-          </section>
-
-          <section className="section" id="products">
+          {/* 맡기는 쪽의 가장 큰 불안은 "맡기고 나면 어떻게 되는가"다.
+              번호를 붙인 건 실제로 순서가 있기 때문이다. */}
+          <section className="section" id="process">
             <div className="wrap">
-              <p className="label" data-reveal>
-                제품
-              </p>
-              <h2 className="title" data-reveal style={{ "--d": "0.08s" }}>
-                <Chars text="세 개의 제품." />
-                <br className="force-break" />
-                {" "}
-                <Chars text="하나의 기준." />
-              </h2>
-              <p className="lede" data-reveal style={{ "--d": "0.14s" }}>
-                리머는 유메 · 아이픽 · 밸러스트 세 개 제품 체제로
-                운영합니다. 각각 다른 시장을 보지만, 기준은 하나입니다 —
-                흐릿한 판단을 정확한 판단으로 바꾼다.
-              </p>
+              <header className="head" data-reveal>
+                <p className="label">진행 방식</p>
+                <h2 className="title">
+                  <Chars text="맡기면 이렇게 진행됩니다." />
+                </h2>
+                <p className="lede">
+                  첫 두 단계에는 비용이 들지 않습니다. 범위와 금액을 확정한 뒤에 시작합니다.
+                </p>
+              </header>
 
-              <div className="cards cards--3">
-                {PRODUCTS.map((p, i) => {
-                  const inner = (
-                    <>
-                      <div className="card__top">
-                        <span
-                          className={`card__status${p.live ? " card__status--live" : ""}`}
-                        >
-                          {p.status}
-                        </span>
-                        <span className="card__status">{p.no}</span>
-                      </div>
-                      <h3 className="card__name">
-                        <Chars text={p.name} />
+              <ol className="steps">
+                {PROCESS.map((p) => (
+                  <li className="step" key={p.no} data-reveal>
+                    <span className="step__no">{p.no}</span>
+                    <div className="step__body">
+                      <h3 className="step__name">
+                        {p.name}
+                        <span className="step__when">{p.when}</span>
                       </h3>
-                      <p className="card__en">{p.en}</p>
-                      <p className="card__desc">{p.desc}</p>
-                      <span className="card__go">
-                        {p.go}
-                        {p.href ? <span className="btn__arrow"> →</span> : null}
-                      </span>
-                    </>
-                  );
-                  const style = { "--d": `${0.12 + i * 0.08}s` };
-                  return p.href ? (
-                    <a
-                      className="card"
-                      key={p.name}
-                      data-reveal
-                      style={style}
-                      href={p.href}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      {inner}
-                    </a>
-                  ) : (
-                    <div className="card" key={p.name} data-reveal style={style}>
-                      {inner}
+                      <p className="step__desc">{p.desc}</p>
                     </div>
-                  );
-                })}
-              </div>
+                  </li>
+                ))}
+              </ol>
+
+              <dl className="faq" data-reveal>
+                {FAQ.map((f) => (
+                  <div className="faq__item" key={f.q}>
+                    <dt className="faq__q">{f.q}</dt>
+                    <dd className="faq__a">{f.a}</dd>
+                  </div>
+                ))}
+              </dl>
             </div>
           </section>
 
           <section className="section" id="about">
-            <div className="wrap">
-              <p className="label" data-reveal>
-                소개
-              </p>
-              <h2 className="title" data-reveal style={{ "--d": "0.08s" }}>
-                <Chars text="정원영" />
-              </h2>
-              <p className="lede" data-reveal style={{ "--d": "0.16s" }}>
-                리머 대표. 한국디지털미디어고 해킹방어과를 거쳐 중앙대학교
-                전자전기공학부에 재학 중이며, 여러 번의 창업과 스스로 겪은 AI
-                오답의 피해를 계기로 리머를 시작했습니다.
-              </p>
-              <blockquote
-                className="founder__quote"
-                data-reveal
-                style={{ "--d": "0.24s" }}
-              >
-                “대충 뚫린 구멍은, 결국 누군가 대가를 치른다는 걸 직접
-                겪었습니다.”
-              </blockquote>
+            <div className="wrap about">
+              <div className="about__intro" data-reveal>
+                <p className="label">소개</p>
+                <h2 className="title">
+                  <Chars text="정원영" />
+                </h2>
+                <p className="lede">
+                  리머 대표. 한국디지털미디어고 해킹방어과를 거쳐 중앙대학교 전자전기공학부에
+                  재학 중이며, 여러 번의 창업과 스스로 겪은 AI 오답의 피해를 계기로 리머를
+                  시작했습니다. 맡은 일은 대표가 직접 만듭니다.
+                </p>
+                <blockquote className="quote">
+                  “대충 뚫린 구멍은, 결국 누군가 대가를 치른다는 걸 직접 겪었습니다.”
+                </blockquote>
+              </div>
 
-              <div className="timeline" ref={timelineRef}>
-                <span className="timeline__track" aria-hidden />
-                <span
-                  className="timeline__fill"
-                  aria-hidden
-                  style={{ height: "var(--fill, 0%)" }}
-                />
-                {TIMELINE.map((item, i) => (
-                  <div
-                    className={`tl${item.now ? " tl--now" : ""}`}
-                    key={item.title}
-                    data-reveal
-                    style={{ "--d": `${(i % 3) * 0.08}s` }}
-                  >
-                    <span className="tl__dot" aria-hidden />
+              <ol className="tl">
+                {TIMELINE.map((item) => (
+                  <li className={`tl__item${item.now ? " tl__item--now" : ""}`} key={item.title} data-reveal>
                     <span className="tl__year">{item.year}</span>
-                    <h3 className="tl__title">
-                      <Chars text={item.title} />
-                    </h3>
-                    {item.desc && <p className="tl__desc">{item.desc}</p>}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </section>
-
-          <section className="section" id="portfolio">
-            <div className="wrap">
-              <p className="label" data-reveal>
-                개발 포트폴리오
-              </p>
-              <h2 className="title" data-reveal style={{ "--d": "0.08s" }}>
-                <Chars text="만든 것들." />
-              </h2>
-              <p className="lede" data-reveal style={{ "--d": "0.14s" }}>
-                의료 영상 판독 모델부터 디플레이션 토큰, 트레이딩 지표,
-                그리고 AI 사실검증 특허까지 — 분야는 달라도 매번 같은
-                질문을 붙들었습니다. 이 판단을 어디까지 믿을 수 있는가.
-              </p>
-
-              <div className="folio">
-                {PORTFOLIO.map((item, i) => {
-                  const inner = (
-                    <>
-                      <div className="folio__top">
-                        <span className="folio__kind">{item.kind}</span>
-                        <span className="folio__year">{item.year}</span>
-                      </div>
-                      <h3 className="folio__title">
-                        <Chars text={item.title} />
-                      </h3>
-                      {item.en && <p className="folio__en">{item.en}</p>}
-                      <p className="folio__desc">{item.desc}</p>
-                      {item.formula && (
-                        <p className="folio__formula">{item.formula}</p>
-                      )}
-                      {item.subs && (
-                        <ul className="folio__subs">
-                          {item.subs.map((s) => (
-                            <li className="folio__sub" key={s.name}>
-                              <p className="folio__sub-head">
-                                <span className="folio__sub-name">{s.name}</span>
-                                <span className="folio__sub-role">{s.role}</span>
-                              </p>
-                              <p className="folio__sub-desc">{s.desc}</p>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                      {item.tags && (
-                        <ul className="folio__tags">
-                          {item.tags.map((t) => (
-                            <li className="folio__tag" key={t}>
-                              {t}
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                      {item.go && (
-                        <span className="folio__go">
-                          {item.go}
-                          {item.href ? (
-                            <span className="btn__arrow"> →</span>
-                          ) : null}
-                        </span>
-                      )}
-                    </>
-                  );
-                  const cls = `folio__item${item.featured ? " folio__item--featured" : ""}${
-                    item.featured || item.wide ? " folio__item--wide" : ""
-                  }`;
-                  const style = { "--d": `${0.12 + i * 0.06}s` };
-                  return item.href ? (
-                    <a
-                      className={cls}
-                      key={item.title}
-                      data-reveal
-                      style={style}
-                      href={item.href}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      {inner}
-                    </a>
-                  ) : (
-                    <div className={cls} key={item.title} data-reveal style={style}>
-                      {inner}
+                    <div className="tl__body">
+                      <h3 className="tl__title">{item.title}</h3>
+                      {item.desc && <p className="tl__desc">{item.desc}</p>}
                     </div>
-                  );
-                })}
-              </div>
+                  </li>
+                ))}
+              </ol>
             </div>
           </section>
 
-          <section className="section section--tall" id="contact">
+          <section className="section section--contact" id="contact">
             <div className="wrap contact">
-              <p className="label" data-reveal style={{ justifyContent: "center" }}>
-                문의
-              </p>
-              <h2 className="title" data-reveal style={{ "--d": "0.08s" }}>
-                <Chars text="정확한 것을 함께 만들어봐요." />
-              </h2>
-              <p className="lede" data-reveal style={{ "--d": "0.16s" }}>
-                제휴, 취재 요청, 혹은 너무 대충 그려졌다고 생각하는
-                시장이 있다면 — 무엇이든 다 읽습니다.
-              </p>
-              <a
-                className="contact__mail"
-                href="mailto:reamer@d-reamer.com"
-                data-reveal
-                style={{ "--d": "0.24s" }}
-              >
-                <Chars text="reamer@d-reamer.com" />
-              </a>
+              <div className="contact__copy" data-reveal>
+                <p className="label">문의</p>
+                <h2 className="title">
+                  <Chars text="무엇을 만들어 드릴까요." />
+                </h2>
+                <p className="lede">
+                  기획이 반쯤 잡혀 있어도 괜찮습니다. 무엇을 만들어야 하는지부터 같이 정리합니다.
+                  영업일 기준 하루 안에 회신드립니다.
+                </p>
+                <ul className="contact__direct">
+                  <li>
+                    <span>이메일</span>
+                    <a href={`mailto:${BUSINESS.email}`}>{BUSINESS.email}</a>
+                  </li>
+                  {BUSINESS.tel && (
+                    <li>
+                      <span>전화</span>
+                      <a href={telHref}>{BUSINESS.tel}</a>
+                    </li>
+                  )}
+                </ul>
+
+                <ol className="after">
+                  {AFTER_SEND.map((t, i) => (
+                    <li className="after__item" key={t}>
+                      <span className="after__no">{String(i + 1).padStart(2, "0")}</span>
+                      <span>{t}</span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+              <div className="contact__form" data-reveal style={{ "--d": "0.08s" }}>
+                <InquiryForm />
+              </div>
             </div>
           </section>
         </main>
@@ -595,44 +528,17 @@ const ReamerSite = () => {
         <footer className="footer">
           <div className="wrap footer__row">
             <a className="nav__brand" href="#top">
-              <Logo size={40} full />
+              <Logo size={30} full />
               <span className="nav__word">REAMER</span>
             </a>
             <ul className="footer__links">
+              {NAV.map((n) => (
+                <li key={n.href}>
+                  <a className="footer__link" href={n.href}>{n.label}</a>
+                </li>
+              ))}
               <li>
-                <a
-                  className="footer__link"
-                  href="https://www.yume-reamer.com/"
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  유메
-                </a>
-              </li>
-              <li>
-                <a className="footer__link" href="#products">
-                  아이픽
-                </a>
-              </li>
-              <li>
-                <a className="footer__link" href="#products">
-                  밸러스트
-                </a>
-              </li>
-              <li>
-                <a className="footer__link" href="#about">
-                  소개
-                </a>
-              </li>
-              <li>
-                <a className="footer__link" href="#portfolio">
-                  포트폴리오
-                </a>
-              </li>
-              <li>
-                <a className="footer__link" href="#contact">
-                  문의
-                </a>
+                <a className="footer__link" href="#contact">문의</a>
               </li>
             </ul>
           </div>
