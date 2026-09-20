@@ -255,8 +255,8 @@ app.get("/showreel", (req, res, next) => res.sendFile(path.join(distDir, "showre
 
 // 카카오톡 등 외부 채널로 보낸 검증 결과를 링크로 여는 읽기 전용 페이지.
 // 감사 리포트 공유 링크 — 받은 쪽이 사내에 그대로 돌릴 수 있도록.
-app.get("/audit/r/:id", (req, res, next) => {
-  const report = getAuditReport(req.params.id);
+app.get("/audit/r/:id", async (req, res, next) => {
+  const report = await getAuditReport(req.params.id);
   if (!report) return next();
   const base = process.env.PUBLIC_BASE_URL || `${req.protocol}://${req.get("host")}`;
   html(res.set("X-Robots-Tag", "noindex, nofollow").set("Cache-Control", "no-store"), renderAuditReport(report, { baseUrl: base }));

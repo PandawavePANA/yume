@@ -7,6 +7,7 @@ import { Router } from "express";
 import { randomToken, clientIp, createLimiter, limitMiddleware, crossOriginGate } from "./security.js";
 import { buildProbeSet, runAudit } from "./audit/index.js";
 import { logError } from "./errorLog.js";
+import { now, run, one } from "./db.js";
 import { renderAuditReport } from "./renderAuditReport.js";
 
 export const auditRouter = Router();
@@ -18,53 +19,71 @@ export const auditRouter = Router();
 const cors = crossOriginGate("AUDIT_ALLOWED_ORIGINS");
 
 // 감사 세션은 짧게만 살아 있으면 된다. 문항을 받아 자기 AI에 넣고 붙여넣는 시간이면 충분하다.
+//
+// 메모리가 아니라 DB에 둔다. Map에 두었더니 배포할 때마다 진행 중이던 감사가 전부
+// 사라졌다 — 문항을 받아 자기 AI에 넣고 돌아온 사람이 "세션이 만료됐다"는 말을 듣고,
+// 그 사람은 다시 오지 않는다. 배포는 앞으로도 계속 할 일이므로 저장소를 바꾼다.
 const SESSION_TTL_MS = 2 * 60 * 60 * 1000;
-const MAX_SESSIONS = 500;
-const sessions = new Map();
 
-function putSession(probes, meta) {
-  if (sessions.size >= MAX_SESSIONS) {
-    // 가장 오래된 것부터 정리한다.
-    const oldest = [...sessions.entries()].sort((a, b) => a[1].createdAt - b[1].createdAt).slice(0, 50);
-    for (const [k] of oldest) sessions.delete(k);
-  }
+async function putSession(probes, meta) {
   const id = randomToken(18);
-  sessions.set(id, { probes, meta, createdAt: Date.now() });
+  await run(
+    "INSERT INTO audit_sessions (id, probes, meta, created_at) VALUES (:id, :p, :m, :t)",
+    { id, p: JSON.stringify(probes), m: JSON.stringify(meta), t: now() },
+  );
+  // 지난 것들은 이때 같이 치운다. 따로 도는 청소 작업을 두지 않기 위해서다.
+  await run("DELETE FROM audit_sessions WHERE created_at < :cut", { cut: now() - SESSION_TTL_MS }).catch(() => {});
   return id;
 }
 
-function getSession(id) {
-  const s = sessions.get(id);
-  if (!s) return null;
-  if (Date.now() - s.createdAt > SESSION_TTL_MS) {
-    sessions.delete(id);
+async function getSession(id) {
+  if (!id) return null;
+  const row = await one("SELECT * FROM audit_sessions WHERE id = :id", { id });
+  if (!row) return null;
+  if (now() - Number(row.created_at) > SESSION_TTL_MS) {
+    await dropSession(id);
     return null;
   }
-  return s;
+  try {
+    return { probes: JSON.parse(row.probes), meta: JSON.parse(row.meta) };
+  } catch (e) {
+    logError("audit:session:parse", e);
+    return null;
+  }
 }
 
-// 채점 결과는 링크로 사내에 돌릴 수 있어야 리드 도구로 쓸모가 있다. 짧게 보관한다.
-const reports = new Map();
+function dropSession(id) {
+  return run("DELETE FROM audit_sessions WHERE id = :id", { id }).catch(() => {});
+}
+
+// 채점 결과는 링크로 사내에 돌릴 수 있어야 리드 도구로 쓸모가 있다. 7일이라고 안내하므로
+// 7일 동안 실제로 열려야 한다 — 메모리에 있을 때는 배포 한 번에 링크가 죽었다.
 const REPORT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
-function putReport(report) {
-  if (reports.size >= MAX_SESSIONS) {
-    const oldest = [...reports.entries()].sort((a, b) => a[1].at - b[1].at).slice(0, 50);
-    for (const [k] of oldest) reports.delete(k);
-  }
+async function putReport(report) {
   const id = randomToken(12);
-  reports.set(id, { report, at: Date.now() });
+  await run(
+    "INSERT INTO audit_reports (id, report, created_at) VALUES (:id, :r, :t)",
+    { id, r: JSON.stringify(report), t: now() },
+  );
+  await run("DELETE FROM audit_reports WHERE created_at < :cut", { cut: now() - REPORT_TTL_MS }).catch(() => {});
   return id;
 }
 
-export function getAuditReport(id) {
-  const r = reports.get(id);
-  if (!r) return null;
-  if (Date.now() - r.at > REPORT_TTL_MS) {
-    reports.delete(id);
+export async function getAuditReport(id) {
+  if (!id) return null;
+  const row = await one("SELECT * FROM audit_reports WHERE id = :id", { id });
+  if (!row) return null;
+  if (now() - Number(row.created_at) > REPORT_TTL_MS) {
+    await run("DELETE FROM audit_reports WHERE id = :id", { id }).catch(() => {});
     return null;
   }
-  return r.report;
+  try {
+    return JSON.parse(row.report);
+  } catch (e) {
+    logError("audit:report:parse", e);
+    return null;
+  }
 }
 
 export { renderAuditReport };
@@ -88,7 +107,7 @@ auditRouter.post(
       if (probes.length === 0) {
         return res.status(503).json({ error: "지금은 문항을 만들 수 없어요. 공식 데이터 조회가 일시적으로 불안정합니다. 잠시 후 다시 시도해주세요." });
       }
-      const sessionId = putSession(probes, { domain, subject: String(req.body?.subject || "").slice(0, 120) });
+      const sessionId = await putSession(probes, { domain, subject: String(req.body?.subject || "").slice(0, 120) });
       res.json({
         session_id: sessionId,
         domain,
@@ -112,7 +131,7 @@ auditRouter.post(
   cors,
   limitMiddleware(gradeLimiter, (req) => `audit:grade:${clientIp(req)}`),
   async (req, res) => {
-    const session = getSession(String(req.body?.session_id || ""));
+    const session = await getSession(String(req.body?.session_id || ""));
     if (!session) {
       return res.status(410).json({ error: "감사 세션이 만료됐어요. 문항을 다시 발급받아 주세요." });
     }
@@ -128,8 +147,8 @@ auditRouter.post(
       });
       if (report.error) return res.status(400).json(report);
       // 채점이 끝나면 세션은 더 필요 없다.
-      sessions.delete(String(req.body.session_id));
-      const reportId = putReport(report);
+      await dropSession(String(req.body.session_id));
+      const reportId = await putReport(report);
       res.json({ ...report, report_id: reportId, report_url: `/audit/r/${reportId}` });
     } catch (e) {
       logError("audit:grade", e);

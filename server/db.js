@@ -97,7 +97,7 @@ const TABLES = [
   "wallets", "chat_messages", "error_logs", "audit_logs", "data_exports", "settings", "schema_migrations",
   // 나중에 추가된 테이블. 여기 빠지면 search_path에 기대게 되어 위 주석의 문제가 그대로 생긴다.
   "credit_ledger", "bounty_claims", "redemptions", "referrals", "contribution_ledger", "quarter_awards", "claim_cache",
-  "credit_orders", "inquiries",
+  "credit_orders", "inquiries", "audit_sessions", "audit_reports",
 ];
 const TABLE_REF = new RegExp(`\\b(FROM|JOIN|INTO|UPDATE)\\s+(${TABLES.join("|")})\\b`, "gi");
 const qualify = (sql) => sql.replace(TABLE_REF, (_m, kw, table) => `${kw} ${SCHEMA}.${table}`);
@@ -600,6 +600,34 @@ const MIGRATIONS = [
   );
   CREATE INDEX idx_inquiries_created ON inquiries(created_at);
   ALTER TABLE inquiries ENABLE ROW LEVEL SECURITY;
+  `,
+
+  // 할루시네이션 감사 — 발급한 문항과 채점 결과.
+  //
+  // 둘 다 서버 메모리의 Map에 있었다. 배포하거나 서버가 재시작되면 진행 중이던 감사가
+  // 통째로 사라져서, 문항을 받아 자기 AI에 넣고 돌아온 사람이 "세션이 만료됐다"는 말을
+  // 듣는다. 실제로 그 일이 일어났다. 7일짜리라고 안내한 결과 링크도 같이 끊겼다.
+  // 이건 B2B 리드를 받으려고 만든 도구라, 한 번 끊기면 그 사람은 다시 오지 않는다.
+  //
+  // 문항의 정답(groundTruth·oracle)은 발급 응답에 절대 나가지 않지만 채점에는 필요하다.
+  // 그래서 probes 전체를 여기 두고 채점할 때 다시 꺼낸다 — 메모리에 두던 이유와 같다.
+  `
+  CREATE TABLE audit_sessions (
+    id TEXT PRIMARY KEY,
+    probes TEXT NOT NULL,
+    meta TEXT NOT NULL,
+    created_at BIGINT NOT NULL
+  );
+  CREATE INDEX idx_audit_sessions_created ON audit_sessions(created_at);
+  ALTER TABLE audit_sessions ENABLE ROW LEVEL SECURITY;
+
+  CREATE TABLE audit_reports (
+    id TEXT PRIMARY KEY,
+    report TEXT NOT NULL,
+    created_at BIGINT NOT NULL
+  );
+  CREATE INDEX idx_audit_reports_created ON audit_reports(created_at);
+  ALTER TABLE audit_reports ENABLE ROW LEVEL SECURITY;
   `,
 ];
 
