@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import BusinessInfo from "@/components/yume/BusinessInfo";
 import { apiJson } from "./api";
 import { copyText } from "../../clipboard.js";
+import { payForPack, verifyIdentity } from "../../payments.js";
 
 // 계정 설정 → 크레딧 탭.
 //
@@ -33,6 +34,8 @@ export default function CreditsTab() {
   const [msg, setMsg] = useState(null);
   const [contact, setContact] = useState("");
   const [busy, setBusy] = useState(false);
+  // 결제 연동이 켜져 있으면 결제창으로, 아직이면 예전처럼 입금 신청으로 받는다.
+  const [pay, setPay] = useState(null);
 
   const load = async () => {
     try {
@@ -45,7 +48,40 @@ export default function CreditsTab() {
   };
   useEffect(() => {
     load();
+    apiJson("/api/checkout/config").then(setPay).catch(() => setPay({ payment: null, identity: null }));
   }, []);
+
+  // 포트원 결제창으로 바로 결제한다. 크레딧은 서버가 포트원에 금액을 확인한 뒤에만 들어온다.
+  const buyNow = async (pack) => {
+    if (!window.confirm(`${pack.label}을(를) ${pack.krw.toLocaleString()}원에 결제할까요?`)) return;
+    setBusy(true);
+    setMsg(null);
+    try {
+      const r = await payForPack(pack.key);
+      if (r.pending) setMsg({ type: "ok", text: "입금이 확인되면 크레딧이 지급돼요." });
+      else setMsg({ type: "ok", text: `결제가 완료됐어요. 크레딧 ${r.credits}개를 넣어드렸어요.` });
+      await load();
+    } catch (e) {
+      if (e.cancelled) setMsg(null);
+      else setMsg({ type: "err", text: e.message });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const doVerifyIdentity = async () => {
+    setBusy(true);
+    setMsg(null);
+    try {
+      const r = await verifyIdentity();
+      setPay((v) => ({ ...v, identityVerified: true }));
+      setMsg({ type: "ok", text: r.name ? `${r.name}님 본인확인이 완료됐어요.` : "본인확인이 완료됐어요." });
+    } catch (e) {
+      if (!e.cancelled) setMsg({ type: "err", text: e.message });
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const buy = async (pack) => {
     if (!contact.trim()) return setMsg({ type: "err", text: "연락받으실 번호나 이메일을 먼저 입력해주세요." });
@@ -94,27 +130,41 @@ export default function CreditsTab() {
       </div>
 
       <div style={{ fontSize: 13, fontWeight: 700, margin: "18px 0 8px" }}>크레딧 추가 구매</div>
-      <input
+      {pay?.identity && !pay.identityVerified && (
+        <div style={{ ...card, background: "#FBF8FF", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+          <div style={{ fontSize: 12.5, color: "#5B5470", lineHeight: 1.6 }}>
+            결제 전 <b>본인확인</b>을 한 번 해주세요. 카카오·네이버·PASS 인증서 중에 고르실 수 있어요.
+          </div>
+          <button onClick={doVerifyIdentity} disabled={busy} style={{ ...ghostBtn, opacity: busy ? 0.45 : 1, flexShrink: 0 }}>본인확인</button>
+        </div>
+      )}
+      {!pay?.payment && <input
         value={contact}
         onChange={(e) => setContact(e.target.value)}
         placeholder="연락받으실 휴대폰 번호 또는 이메일"
         style={{ width: "100%", padding: "9px 12px", borderRadius: 10, border: "1px solid #D4BEF0", marginBottom: 10, fontSize: 13, boxSizing: "border-box", fontFamily: "inherit" }}
-      />
+      />}
       {data.packs.map((pack) => (
         <div key={pack.key} style={{ ...card, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
           <div>
             <div style={{ fontSize: 13, fontWeight: 600 }}>{pack.label}</div>
             <div style={{ fontSize: 11.5, color: "#A99BC9" }}>{pack.krw.toLocaleString()}원</div>
           </div>
-          <button onClick={() => buy(pack)} disabled={busy} style={{ ...ghostBtn, opacity: busy ? 0.45 : 1, flexShrink: 0 }}>
-            구매 신청
+          <button
+            onClick={() => (pay?.payment ? buyNow(pack) : buy(pack))}
+            disabled={busy}
+            style={{ ...ghostBtn, opacity: busy ? 0.45 : 1, flexShrink: 0 }}
+          >
+            {pay?.payment ? "결제하기" : "구매 신청"}
           </button>
         </div>
       ))}
       <div style={{ fontSize: 11, color: "#A99BC9", lineHeight: 1.6, marginBottom: 18 }}>
         크레딧은 AI 답변 속 사실 주장을 유메가 검증하는 데 쓰는 이용권입니다. 검증 1회에 1크레딧이 차감되고(입력 2,000자마다 1개),
         유효기간은 없습니다. 배송되는 실물은 없으며 결제가 확인되면 계정에 바로 적립됩니다.
-        온라인 결제는 준비 중이라 지금은 신청만 받고 있어요. 입금이 확인되면 운영자가 크레딧을 넣어드립니다.
+        {pay?.payment
+          ? "결제가 끝나면 서버가 결제 내역을 확인한 뒤 크레딧을 바로 넣어드립니다."
+          : "온라인 결제는 준비 중이라 지금은 신청만 받고 있어요. 입금이 확인되면 운영자가 크레딧을 넣어드립니다."}
         크레딧은 현금으로 바꿔드리지 않으며, 환불 조건은 아래 <a href="/refund" target="_blank" rel="noopener noreferrer" style={{ color: "#8577A8" }}>환불정책</a>을 따릅니다.
       </div>
 

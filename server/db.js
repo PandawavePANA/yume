@@ -541,6 +541,32 @@ const MIGRATIONS = [
   `
   ALTER TABLE users ADD COLUMN identity_agreed_at BIGINT;
   `,
+
+  // 크레딧 결제 주문. 포트원 결제창을 띄우기 전에 여기 금액을 먼저 박아 두고, 결제가 끝나면
+  // 서버가 포트원에 물어본 금액과 이 금액을 대조한다. 브라우저가 알려 준 금액은 쓰지 않는다.
+  //
+  // 본인확인은 CI를 그대로 저장하지 않고 해시만 둔다. 같은 사람이 계정을 여러 개 만들어
+  // 무료분을 반복해 받는 것을 막는 용도로만 쓴다.
+  `
+  CREATE TABLE credit_orders (
+    payment_id TEXT PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    pack_key TEXT NOT NULL,
+    credits INTEGER NOT NULL,
+    amount INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    method TEXT,
+    paid_at BIGINT,
+    created_at BIGINT NOT NULL
+  );
+  CREATE INDEX idx_credit_orders_user ON credit_orders(user_id, created_at);
+  ALTER TABLE credit_orders ENABLE ROW LEVEL SECURITY;
+
+  ALTER TABLE users ADD COLUMN identity_verified_at BIGINT;
+  ALTER TABLE users ADD COLUMN identity_ci_hash TEXT;
+  ALTER TABLE users ADD COLUMN identity_name TEXT;
+  CREATE INDEX idx_users_ci_hash ON users(identity_ci_hash);
+  `,
 ];
 
 async function migrate() {

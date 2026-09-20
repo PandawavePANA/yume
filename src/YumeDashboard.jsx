@@ -9,6 +9,7 @@ import { apiJson, safeUrl, CONTACT_EMAIL } from "@/components/yume/api";
 import { BUSINESS, telHref, COPYRIGHT, businessLine } from "@/businessInfo";
 import BusinessInfo from "@/components/yume/BusinessInfo";
 import { IS_NATIVE_APP, onNativeBack, shareLink } from "./native.js";
+import { resumeFromRedirect } from "./payments.js";
 import AuditModal from "./components/yume/AuditModal.jsx";
 import RankingModal from "@/components/yume/RankingModal";
 
@@ -579,6 +580,18 @@ export default function YumeDashboard() {
     }
   }, []);
   React.useEffect(() => { refreshSession(); }, [refreshSession]);
+
+  // 모바일 결제창·본인확인창은 페이지를 떠났다가 주소에 결과를 달고 돌아온다. 돌아온 자리에서
+  // 서버 확인까지 끝내지 않으면 결제는 됐는데 크레딧은 없는 상태가 된다.
+  React.useEffect(() => {
+    resumeFromRedirect().then((r) => {
+      if (!r) return;
+      if (r.error) setToast(r.error);
+      else if (r.kind === "payment") setToast(r.pending ? "입금이 확인되면 크레딧이 지급돼요." : `결제가 완료됐어요. 크레딧 ${r.credits}개를 넣어드렸어요.`);
+      else setToast(r.name ? `${r.name}님 본인확인이 완료됐어요.` : "본인확인이 완료됐어요.");
+      refreshSession();
+    });
+  }, [refreshSession]);
 
   React.useEffect(() => {
     if (!toast) return undefined;
