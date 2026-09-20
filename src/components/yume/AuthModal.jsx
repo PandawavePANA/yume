@@ -21,6 +21,7 @@ export default function AuthModal({ mode: initialMode = "login", onClose, onAuth
   const [mode, setMode] = useState(initialMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [password2, setPassword2] = useState("");
   const [name, setName] = useState("");
   const [nickname, setNickname] = useState("");
   const [terms, setTerms] = useState(false);
@@ -45,6 +46,9 @@ export default function AuthModal({ mode: initialMode = "login", onClose, onAuth
         const r = await apiJson("/api/auth/forgot", { method: "POST", body: { email } });
         setNotice(r.message);
       } else if (mode === "signup") {
+        // 서버는 비밀번호를 한 번만 받는다. 오타는 여기서 걸러야 하고, 놓치면
+        // 본인이 정한 줄 아는 값으로 로그인이 안 되는 상태가 된다.
+        if (password !== password2) throw new Error("두 비밀번호가 서로 달라요.");
         if (!terms || !privacy || !identity) throw new Error("필수 항목에 동의해주세요.");
         // 추천 링크(?ref=코드)로 들어왔다면 같이 보낸다 — 친구가 첫 검증을 마치면 추천한 사람에게 크레딧이 간다.
         const referralCode = new URLSearchParams(window.location.search).get("ref") || undefined;
@@ -90,6 +94,17 @@ export default function AuthModal({ mode: initialMode = "login", onClose, onAuth
           <>
             <label style={label} htmlFor="auth-pw">비밀번호</label>
             <input id="auth-pw" type="password" required autoComplete={mode === "signup" ? "new-password" : "current-password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder={mode === "signup" ? "영문+숫자 8자 이상" : "••••••••"} style={input} />
+          </>
+        )}
+
+        {mode === "signup" && (
+          <>
+            <label style={label} htmlFor="auth-pw2">비밀번호 확인</label>
+            <input id="auth-pw2" type="password" required autoComplete="new-password" value={password2} onChange={(e) => setPassword2(e.target.value)} placeholder="한 번 더 입력해주세요" style={input} />
+            {/* 다 치기 전부터 빨간 글씨가 뜨면 잘못 친 것처럼 보인다. 길이가 같아진 뒤에만 알린다. */}
+            {password2.length >= password.length && password2 && password !== password2 && (
+              <div style={{ fontSize: 12.5, color: "#C6402F", margin: "-6px 0 12px" }}>두 비밀번호가 서로 달라요.</div>
+            )}
           </>
         )}
 

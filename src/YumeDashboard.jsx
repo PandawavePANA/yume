@@ -597,7 +597,9 @@ export default function YumeDashboard() {
   const [planBusy, setPlanBusy] = React.useState("");
   const buyPlan = async (key, label) => {
     if (!user) { setShowPricing(false); setAuthModal("signup"); return; }
-    if (!window.confirm(`${label} 플랜을 1개월 결제할까요?`)) return;
+    // 다시 묻지 않는다. 버튼에 금액이 적혀 있고 바로 다음이 카드번호를 받는
+    // 이니시스 결제창이라 거기가 확인 단계다. 앞에 창을 더 띄우면 본인확인까지
+    // 이어지는 흐름이 끊긴다.
     setPlanBusy(key);
     try {
       const r = await payForPlan(key);
@@ -1124,7 +1126,7 @@ export default function YumeDashboard() {
               whileHover={{ y: -1, boxShadow: "0 10px 24px rgba(107,79,168,0.28)" }} whileTap={{ scale: 0.96 }}
               onClick={() => setAuthModal("login")} className="yume-nav-pill" style={{
               ...pillBtn, border: "none", background: UI.button, color: "#fff", fontWeight: 600,
-            }}>로그인</motion.button>
+            }}>로그인 / 회원가입</motion.button>
           )}
         </div>
       </nav>

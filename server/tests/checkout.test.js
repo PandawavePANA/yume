@@ -81,7 +81,7 @@ function client() {
 }
 
 let userSeq = 0;
-async function signedIn() {
+async function signedIn({ identity = true } = {}) {
   const call = client();
   const n = (userSeq += 1);
   const r = await call("POST", "/api/auth/signup", {
@@ -93,6 +93,13 @@ async function signedIn() {
     agreeIdentity: true,
   });
   assert.equal(r.status, 201, JSON.stringify(r.data));
+  // 결제는 본인확인을 마쳐야 시작할 수 있다(이니시스가 구매자 휴대폰 번호를 요구한다).
+  // 인증창은 브라우저 몫이라, 테스트에서는 마친 상태만 심는다. 인증 자체를 확인하는
+  // 테스트만 identity:false로 받아 안 마친 계정을 쓴다.
+  if (identity) {
+    await db.run("UPDATE users SET identity_verified_at = :t, identity_phone = :p WHERE id = :id",
+      { t: Date.now(), p: "01012345678", id: r.data.user.id });
+  }
   return { call, userId: r.data.user.id, email: r.data.user.email };
 }
 
@@ -109,6 +116,7 @@ test("결제가 끝난 만큼만 크레딧이 들어간다", async () => {
   // 이니시스 V2는 구매자 이메일 없이는 결제창을 열지 않는다. 이 값이 빠지면
   // 사용자는 "결제 창 호출에 실패하였습니다"만 보게 된다 — 실제로 한 번 겪었다.
   assert.equal(order.data.customer?.email, email, "구매자 이메일을 서버가 내려줘야 한다");
+  assert.equal(order.data.customer?.phoneNumber, "01012345678", "구매자 휴대폰 번호도 내려줘야 한다");
 
   portone.payment = { status: "PAID", amount: { total: PACK.krw }, method: { type: "PaymentMethodCard", card: { name: "국민" } }, paidAt: "2026-09-20T00:00:00Z" };
   const done = await call("POST", "/api/checkout/confirm", { paymentId: order.data.paymentId });
@@ -370,14 +378,13 @@ test("요금제 결제가 취소되면 늘려 준 기간을 도로 깎는다", a
 // 계정으로 검증하려면 휴대폰 본인확인을 마쳐야 한다. 크레딧과 기여도가 걸려 있어
 // 계정을 여러 개 만드는 게 이득인 구조라, 이메일만으로는 열어 주지 않는다.
 test("본인확인 전에는 검증이 막히고, 마치면 열린다", async () => {
-  const { call, userId } = await signedIn();
+  const { call, userId } = await signedIn({ identity: false });
 
   const blocked = await call("POST", "/api/verify", { text: "민법 제750조는 불법행위 책임을 규정한다." });
   assert.equal(blocked.status, 403);
   assert.equal(blocked.data.code, "IDENTITY_REQUIRED");
 
   // 본인확인을 마친 상태로 만든다(창 호출은 브라우저 몫이라 여기서는 결과만 심는다).
-  const db = await import("../db.js");
   await db.run("UPDATE users SET identity_verified_at = :t WHERE id = :id", { t: Date.now(), id: userId });
 
   const after = await call("POST", "/api/verify", { text: "민법 제750조는 불법행위 책임을 규정한다." });

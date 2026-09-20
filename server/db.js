@@ -574,6 +574,14 @@ const MIGRATIONS = [
   ALTER TABLE credit_orders ADD COLUMN kind TEXT NOT NULL DEFAULT 'credits';
   ALTER TABLE credit_orders ADD COLUMN plan TEXT;
   `,
+
+  // 본인확인에서 받은 휴대폰 번호. 처음에는 저장하지 않으려 했는데, 이니시스 V2 일반결제가
+  // 구매자 휴대폰 번호를 필수로 요구해서 결제창이 열리지 않았다. 결제할 때마다 다시
+  // 입력받는 것보다, 이미 본인확인으로 확인된 번호를 쓰는 편이 정확하고 손이 덜 간다.
+  // 개인정보처리방침 수집 항목에도 같이 적었다.
+  `
+  ALTER TABLE users ADD COLUMN identity_phone TEXT;
+  `,
 ];
 
 async function migrate() {

@@ -55,7 +55,9 @@ export default function CreditsTab() {
 
   // 포트원 결제창으로 바로 결제한다. 크레딧은 서버가 포트원에 금액을 확인한 뒤에만 들어온다.
   const buyNow = async (pack) => {
-    if (!window.confirm(`${pack.label}을(를) ${pack.krw.toLocaleString()}원에 결제할까요?`)) return;
+    // 다시 묻지 않는다. 버튼에 금액이 적혀 있고 바로 다음이 카드번호를 받는
+    // 이니시스 결제창이라 거기가 확인 단계다. 앞에 창을 더 띄우면 본인확인까지
+    // 이어지는 흐름이 끊긴다.
     setBusy(true);
     setMsg(null);
     try {

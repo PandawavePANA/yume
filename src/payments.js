@@ -19,8 +19,26 @@ function cancelled(message) {
   return e;
 }
 
+/**
+ * 결제 전에 본인확인이 끝나 있게 만든다.
+ *
+ * 이니시스 V2는 구매자 이메일과 휴대폰 번호가 없으면 결제창을 열지 않는데, 그 번호는
+ * 본인확인에서 받아 둔 값이다. 그래서 인증이 없으면 결제 자체가 불가능하다.
+ *
+ * 인증창을 먼저 띄우고, 끝나면 그 자리에서 결제창으로 넘어간다. 사용자가 "결제하기"를
+ * 한 번 눌렀는데 인증만 하고 다시 눌러야 한다면 그건 중간에 끊긴 것이다.
+ */
+async function ensureIdentity() {
+  const cfg = await apiJson("/api/checkout/config");
+  if (cfg?.identityVerified) return;
+  if (!cfg?.identity) throw new Error("본인확인이 아직 준비되지 않았어요. 잠시 후 다시 시도해주세요.");
+  // 동의 항목이 생기기 전에 가입한 회원은 이 자리에서 동의를 받는다.
+  await verifyIdentity({ agree: !cfg.identityAgreed });
+}
+
 /** 크레딧 팩 결제. 성공하면 { credits } 또는 입금 대기면 { pending: true }. */
 export async function payForPack(packKey) {
+  await ensureIdentity();
   const order = await apiJson("/api/checkout", { method: "POST", body: { packKey } });
   const PortOne = await sdk();
   const res = await PortOne.requestPayment({
@@ -93,6 +111,7 @@ export async function resumeFromRedirect() {
 
 /** 요금제 1개월 이용권 결제. 성공하면 { plan, planExpiresAt }. */
 export async function payForPlan(plan) {
+  await ensureIdentity();
   const order = await apiJson("/api/checkout", { method: "POST", body: { plan } });
   const PortOne = await sdk();
   const res = await PortOne.requestPayment({

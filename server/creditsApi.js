@@ -115,6 +115,13 @@ router.get("/checkout/config", (req, res) => {
 router.post("/checkout", limitMiddleware(checkoutLimiter, (req) => `checkout:${req.user.id}`), async (req, res) => {
   if (!paymentConfigured()) return res.status(503).json({ error: "결제 연동이 아직 설정되지 않았어요." });
 
+  // 이니시스 V2는 구매자 휴대폰 번호 없이는 결제창을 열지 않는다. 그 번호는 본인확인에서
+  // 받아 둔 값이므로, 인증 전에 주문을 만들면 열리지도 않을 결제창을 위해 주문만 쌓인다.
+  // 여기서 막고 화면이 인증창을 먼저 띄우게 한다.
+  if (!req.user.identity_verified_at) {
+    return res.status(403).json({ error: "휴대폰 본인확인을 마치면 결제하실 수 있어요.", code: "IDENTITY_REQUIRED" });
+  }
+
   const planKey = String(req.body?.plan || "");
   let order;
   if (planKey) {
@@ -148,7 +155,10 @@ router.post("/checkout", limitMiddleware(checkoutLimiter, (req) => `checkout:${r
     customer: {
       customerId: String(req.user.id),
       email: req.user.email,
-      fullName: req.user.name || req.user.display_name || undefined,
+      // 이니시스 V2는 이메일과 휴대폰 번호 둘 다 없으면 결제창을 열지 않는다.
+      // 본인확인을 마쳐야 결제 화면까지 올 수 있으므로 이 값은 늘 채워져 있다.
+      phoneNumber: req.user.identity_phone || undefined,
+      fullName: req.user.identity_name || req.user.name || req.user.display_name || undefined,
     },
   });
 });
@@ -210,8 +220,8 @@ router.post("/identity/confirm", limitMiddleware(checkoutLimiter, (req) => `iden
   }
   // 같은 사람이 다른 계정으로 이미 인증했다면 알려 준다. 막지는 않되 기록은 남긴다.
   const dup = await one("SELECT id FROM users WHERE identity_ci_hash = :h AND id != :uid", { h: r.ciHash, uid: req.user.id });
-  await run("UPDATE users SET identity_verified_at = :t, identity_ci_hash = :h, identity_name = :n WHERE id = :uid", {
-    t: now(), h: r.ciHash, n: r.name || null, uid: req.user.id,
+  await run("UPDATE users SET identity_verified_at = :t, identity_ci_hash = :h, identity_name = :n, identity_phone = :p WHERE id = :uid", {
+    t: now(), h: r.ciHash, n: r.name || null, p: r.phoneNumber || null, uid: req.user.id,
   });
   await audit(`user:${req.user.id}`, "identity_verified", `user:${req.user.id}`, { duplicate: !!dup }, clientIp(req));
   res.json({ ok: true, name: r.name, duplicate: !!dup });
