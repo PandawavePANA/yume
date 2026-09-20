@@ -97,6 +97,7 @@ const TABLES = [
   "wallets", "chat_messages", "error_logs", "audit_logs", "data_exports", "settings", "schema_migrations",
   // 나중에 추가된 테이블. 여기 빠지면 search_path에 기대게 되어 위 주석의 문제가 그대로 생긴다.
   "credit_ledger", "bounty_claims", "redemptions", "referrals", "contribution_ledger", "quarter_awards", "claim_cache",
+  "credit_orders", "inquiries",
 ];
 const TABLE_REF = new RegExp(`\\b(FROM|JOIN|INTO|UPDATE)\\s+(${TABLES.join("|")})\\b`, "gi");
 const qualify = (sql) => sql.replace(TABLE_REF, (_m, kw, table) => `${kw} ${SCHEMA}.${table}`);
@@ -581,6 +582,24 @@ const MIGRATIONS = [
   // 개인정보처리방침 수집 항목에도 같이 적었다.
   `
   ALTER TABLE users ADD COLUMN identity_phone TEXT;
+  `,
+
+  // 개발 외주 문의. 메일이 실패해도 문의가 사라지지 않게 먼저 여기 남긴다.
+  `
+  CREATE TABLE inquiries (
+    id SERIAL PRIMARY KEY,
+    name TEXT NOT NULL,
+    contact TEXT NOT NULL,
+    company TEXT,
+    kind TEXT,
+    budget TEXT,
+    message TEXT NOT NULL,
+    ip TEXT,
+    status TEXT NOT NULL DEFAULT 'new',
+    created_at BIGINT NOT NULL
+  );
+  CREATE INDEX idx_inquiries_created ON inquiries(created_at);
+  ALTER TABLE inquiries ENABLE ROW LEVEL SECURITY;
   `,
 ];
 

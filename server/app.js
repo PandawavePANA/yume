@@ -20,6 +20,7 @@ import accountRouter from "./accountApi.js";
 import creditsRouter from "./creditsApi.js";
 import portoneWebhookRouter from "./portoneWebhook.js";
 import { auditRouter, getAuditReport, renderAuditReport } from "./auditApi.js";
+import { inquiryRouter } from "./inquiryApi.js";
 import { creditReferralOnActivity } from "./referral.js";
 import { awardForVerification } from "./contribution.js";
 import apiV1Router from "./apiV1.js";
@@ -67,6 +68,7 @@ app.use("/v1", apiV1Router);
 // 무료 할루시네이션 점검 — 기업용 사이트(별도 도메인)에서 부르므로 자체 CORS를 쓴다.
 // 쿠키 세션 미들웨어보다 먼저 붙여야 동일 출처 가드에 걸리지 않는다(/v1과 같은 이유).
 app.use("/api", auditRouter);
+app.use("/api", inquiryRouter);
 
 app.use("/api", attachUser, sameOriginGuard);
 app.use("/api", authRouter);

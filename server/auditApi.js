@@ -4,7 +4,7 @@
 // 그걸 그대로 자기 AI에 붙여넣어 만점을 만들 수 있고, 그러면 이 감사는 의미가 없다.
 // 발급 때 만든 문항은 서버에 세션으로 두고, 채점 때 세션 id로 다시 꺼내 쓴다.
 import { Router } from "express";
-import { randomToken, clientIp, createLimiter, limitMiddleware } from "./security.js";
+import { randomToken, clientIp, createLimiter, limitMiddleware, crossOriginGate } from "./security.js";
 import { buildProbeSet, runAudit } from "./audit/index.js";
 import { logError } from "./errorLog.js";
 import { renderAuditReport } from "./renderAuditReport.js";
@@ -15,25 +15,7 @@ export const auditRouter = Router();
 // 이 엔드포인트들은 쿠키도 세션도 쓰지 않고 IP 레이트리밋만으로 보호되니 열어도 되지만,
 // 아무 출처나 받지는 않는다 — AUDIT_ALLOWED_ORIGINS에 적힌 곳만 허용한다.
 // 환경변수를 비워두면 아무 것도 추가되지 않아 같은 출처에서만 동작한다(기존과 동일).
-const ALLOWED_ORIGINS = new Set(
-  (process.env.AUDIT_ALLOWED_ORIGINS || "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean),
-);
-
-auditRouter.use((req, res, next) => {
-  const origin = req.get("origin");
-  if (origin && ALLOWED_ORIGINS.has(origin)) {
-    res.set("Access-Control-Allow-Origin", origin);
-    res.set("Vary", "Origin");
-    res.set("Access-Control-Allow-Headers", "Content-Type");
-    res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
-    res.set("Access-Control-Max-Age", "600");
-  }
-  if (req.method === "OPTIONS") return res.sendStatus(origin && ALLOWED_ORIGINS.has(origin) ? 204 : 403);
-  next();
-});
+const cors = crossOriginGate("AUDIT_ALLOWED_ORIGINS");
 
 // 감사 세션은 짧게만 살아 있으면 된다. 문항을 받아 자기 AI에 넣고 붙여넣는 시간이면 충분하다.
 const SESSION_TTL_MS = 2 * 60 * 60 * 1000;
@@ -91,8 +73,12 @@ const issueLimiter = createLimiter({ windowMs: 60 * 60 * 1000, max: 10 });
 const gradeLimiter = createLimiter({ windowMs: 60 * 60 * 1000, max: 20 });
 
 // ── 1단계: 문항 발급 ────────────────────────────────────────────────────
+auditRouter.options("/audit/probes", cors);
+auditRouter.options("/audit/grade", cors);
+
 auditRouter.post(
   "/audit/probes",
+  cors,
   limitMiddleware(issueLimiter, (req) => `audit:issue:${clientIp(req)}`),
   async (req, res) => {
     const domain = ["법률", "의료", "금융", "일반"].includes(req.body?.domain) ? req.body.domain : "법률";
@@ -123,6 +109,7 @@ auditRouter.post(
 // ── 2단계: 답변 채점 ────────────────────────────────────────────────────
 auditRouter.post(
   "/audit/grade",
+  cors,
   limitMiddleware(gradeLimiter, (req) => `audit:grade:${clientIp(req)}`),
   async (req, res) => {
     const session = getSession(String(req.body?.session_id || ""));
