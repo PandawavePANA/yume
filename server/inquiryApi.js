@@ -80,6 +80,8 @@ inquiryRouter.post("/inquiry", cors, limitMiddleware(limiter, (req) => `inquiry:
   const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
   sendMail({
     to,
+    // 연락처가 이메일이면 그대로 답장할 수 있게 건다. 전화번호면 걸 것이 없다.
+    replyTo: looksEmail(contact) ? contact : undefined,
     subject: `[리머 문의 #${id}] ${name} · ${kindLabel}`,
     text: [
       `이름: ${name}`,

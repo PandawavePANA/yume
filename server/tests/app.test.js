@@ -138,7 +138,7 @@ test("비회원 사용량과 입력 검증", async () => {
 test("공개 페이지마다 사업자 정보 다섯 항목이 살아 있다", async () => {
   for (const path of ["/terms", "/privacy", "/refund"]) {
     const t = await (await fetch(`${base}${path}`)).text();
-    for (const need of ["리머", "627-03-03900", "정원영", "대구광역시", "053-557-3415"]) {
+    for (const need of ["리머", "627-03-03900", "정원영", "대구광역시", "010-3882-3415"]) {
       assert.ok(t.includes(need), `${path}에 "${need}"가 없다`);
     }
   }
@@ -163,7 +163,7 @@ test("상품 안내에 판매 상품과 가격이 다 나온다", async () => {
 
 test("환불정책에 필수 항목이 다 들어 있다", async () => {
   const t = await (await fetch(`${base}/refund`)).text();
-  for (const need of ["리머", "627-03-03900", "정원영", "대구광역시", "053-557-3415", "청약철회", "7일"]) {
+  for (const need of ["리머", "627-03-03900", "정원영", "대구광역시", "010-3882-3415", "청약철회", "7일"]) {
     assert.ok(t.includes(need), `환불정책에 "${need}"가 없다`);
   }
 });

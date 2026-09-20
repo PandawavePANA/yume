@@ -6,7 +6,10 @@ export function mailConfigured() {
   return !!(process.env.RESEND_API_KEY && process.env.MAIL_FROM);
 }
 
-export async function sendMail({ to, subject, html, text }) {
+// replyTo는 "받은 메일에서 그냥 답장"이 되게 한다. 문의 알림이 no-reply 주소에서
+// 오면 답장 버튼이 쓸모없어서, 보낸 사람 주소를 손으로 복사해 새 메일을 써야 한다.
+// 회신이 한 번에 되느냐가 리드 응답 속도를 그대로 좌우한다.
+export async function sendMail({ to, subject, html, text, replyTo }) {
   if (!mailConfigured()) {
     console.log(`\n[메일 미설정 — 실제 발송 안 함]\n받는 사람: ${to}\n제목: ${subject}\n${text || html}\n`);
     return { sent: false };
@@ -14,7 +17,14 @@ export async function sendMail({ to, subject, html, text }) {
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ from: process.env.MAIL_FROM, to: [to], subject, html, text }),
+    body: JSON.stringify({
+      from: process.env.MAIL_FROM,
+      to: [to],
+      subject,
+      html,
+      text,
+      ...(replyTo ? { reply_to: [replyTo] } : {}),
+    }),
   });
   if (!res.ok) {
     const body = await res.text().catch(() => "");
