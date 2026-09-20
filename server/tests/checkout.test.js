@@ -307,3 +307,59 @@ test("동의 항목 전에 가입한 회원도 그 자리에서 동의하고 본
   const row = await db.one("SELECT identity_agreed_at FROM users WHERE id = :id", { id: userId });
   assert.ok(row.identity_agreed_at, "동의 시각이 남아야 한다");
 });
+
+// ── 요금제 1개월 이용권 ─────────────────────────────────────────────────────
+// 크레딧과 같은 결제 경로를 쓰되, 지급되는 것이 크레딧이 아니라 기간이다.
+test("요금제는 결제가 확인돼야 열리고, 기간은 30일이다", async () => {
+  const { call, userId } = await signedIn();
+  const order = await call("POST", "/api/checkout", { plan: "standard" });
+  assert.equal(order.status, 200);
+  assert.equal(order.data.totalAmount, 9900, "금액은 서버 plans.js가 정한다");
+
+  // 결제 전에는 무료 그대로다.
+  let u = await db.one("SELECT plan FROM users WHERE id = :id", { id: userId });
+  assert.equal(u.plan, "free");
+
+  portone.payment = { status: "PAID", amount: { total: 9900 }, method: { type: "CARD" } };
+  const done = await call("POST", "/api/checkout/confirm", { paymentId: order.data.paymentId });
+  assert.equal(done.status, 200);
+  assert.equal(done.data.plan, "standard");
+
+  u = await db.one("SELECT plan, plan_expires_at FROM users WHERE id = :id", { id: userId });
+  assert.equal(u.plan, "standard");
+  const days = (u.plan_expires_at - Date.now()) / (24 * 3600 * 1000);
+  assert.ok(days > 29 && days < 31, `30일이어야 하는데 ${days.toFixed(1)}일`);
+});
+
+test("이미 있는 기간 뒤에 이어 붙는다", async () => {
+  const { call, userId } = await signedIn();
+  portone.payment = { status: "PAID", amount: { total: 9900 }, method: { type: "CARD" } };
+  const first = await call("POST", "/api/checkout", { plan: "standard" });
+  await call("POST", "/api/checkout/confirm", { paymentId: first.data.paymentId });
+  const second = await call("POST", "/api/checkout", { plan: "standard" });
+  await call("POST", "/api/checkout/confirm", { paymentId: second.data.paymentId });
+
+  const u = await db.one("SELECT plan_expires_at FROM users WHERE id = :id", { id: userId });
+  const days = (u.plan_expires_at - Date.now()) / (24 * 3600 * 1000);
+  assert.ok(days > 59 && days < 61, `미리 산 기간이 날아가면 안 된다 — ${days.toFixed(1)}일`);
+});
+
+test("파는 요금제가 아니면 주문되지 않는다", async () => {
+  const { call } = await signedIn();
+  assert.equal((await call("POST", "/api/checkout", { plan: "business" })).status, 400, "비즈니스는 문의 상품이다");
+  assert.equal((await call("POST", "/api/checkout", { plan: "free" })).status, 400);
+  assert.equal((await call("POST", "/api/checkout", { plan: "nope" })).status, 400);
+});
+
+test("요금제 결제가 취소되면 늘려 준 기간을 도로 깎는다", async () => {
+  const { call, userId } = await signedIn();
+  portone.payment = { status: "PAID", amount: { total: 29000 }, method: { type: "CARD" } };
+  const order = await call("POST", "/api/checkout", { plan: "expert" });
+  await call("POST", "/api/checkout/confirm", { paymentId: order.data.paymentId });
+  assert.equal((await db.one("SELECT plan FROM users WHERE id = :id", { id: userId })).plan, "expert");
+
+  await sendWebhook({ type: "Transaction.Cancelled", data: { paymentId: order.data.paymentId } });
+  const u = await db.one("SELECT plan, plan_expires_at FROM users WHERE id = :id", { id: userId });
+  assert.equal(u.plan, "free", "30일짜리 한 번을 취소하면 요금제가 닫혀야 한다");
+  assert.equal(u.plan_expires_at, null);
+});

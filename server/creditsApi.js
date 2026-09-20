@@ -5,7 +5,7 @@ import { audit } from "./audit.js";
 import { clientIp, createLimiter, limitMiddleware } from "./security.js";
 import { CREDIT_KRW, CREDIT_PACKS, PLAN_CREDITS, balance, ensureMonthlyGrant, listLedger, listUserCreditRequests, requestCreditPack } from "./credits.js";
 import { POINTS, QUARTER_REWARDS, leaderboard, listLedger as listContribLedger, periodEndsAt, periodOf, rankOf, handleFor } from "./contribution.js";
-import { effectivePlan } from "./usageStore.js";
+import { PLANS, effectivePlan } from "./usageStore.js";
 import { listUserBounties, submitBounty } from "./bounty.js";
 import { PLATFORMS } from "./shareLink.js";
 import { referralSummary } from "./referral.js";
@@ -110,23 +110,37 @@ router.get("/checkout/config", (req, res) => {
   });
 });
 
+// 크레딧 팩({ packKey }) 또는 요금제 1개월 이용권({ plan })을 주문한다.
+// 금액은 서버가 정한다 — 브라우저가 보낸 금액은 쓰지 않는다.
 router.post("/checkout", limitMiddleware(checkoutLimiter, (req) => `checkout:${req.user.id}`), async (req, res) => {
   if (!paymentConfigured()) return res.status(503).json({ error: "결제 연동이 아직 설정되지 않았어요." });
-  const item = packItem(String(req.body?.packKey || ""));
-  if (!item) return res.status(400).json({ error: "선택한 크레딧 팩을 찾을 수 없어요." });
+
+  const planKey = String(req.body?.plan || "");
+  let order;
+  if (planKey) {
+    const p = PLANS[planKey];
+    // monthlyKrw가 없는 요금제(무료·비즈니스)는 파는 상품이 아니다.
+    if (!p || !p.monthlyKrw) return res.status(400).json({ error: "결제할 수 없는 요금제예요." });
+    order = { kind: "plan", plan: planKey, key: `plan:${planKey}`, credits: 0, amount: p.monthlyKrw, name: `유메 ${p.label} 플랜 1개월` };
+  } else {
+    const item = packItem(String(req.body?.packKey || ""));
+    if (!item) return res.status(400).json({ error: "선택한 크레딧 팩을 찾을 수 없어요." });
+    order = { kind: "credits", plan: null, key: item.key, credits: item.credits, amount: item.krw, name: `유메 ${item.label}` };
+  }
+
   const paymentId = `yume-${Date.now()}-${crypto.randomBytes(6).toString("hex")}`;
   await run(
-    `INSERT INTO credit_orders (payment_id, user_id, pack_key, credits, amount, status, created_at)
-     VALUES (:id, :uid, :key, :credits, :amount, 'pending', :t)`,
-    { id: paymentId, uid: req.user.id, key: item.key, credits: item.credits, amount: item.krw, t: now() },
+    `INSERT INTO credit_orders (payment_id, user_id, pack_key, kind, plan, credits, amount, status, created_at)
+     VALUES (:id, :uid, :key, :kind, :plan, :credits, :amount, 'pending', :t)`,
+    { id: paymentId, uid: req.user.id, key: order.key, kind: order.kind, plan: order.plan, credits: order.credits, amount: order.amount, t: now() },
   );
-  await audit(`user:${req.user.id}`, "credit_checkout_started", `order:${paymentId}`, { item: item.label, amount: item.krw }, clientIp(req));
+  await audit(`user:${req.user.id}`, "credit_checkout_started", `order:${paymentId}`, { item: order.name, amount: order.amount }, clientIp(req));
   res.json({
     paymentId,
     storeId: STORE_ID,
     channelKey: CHANNEL_KEY,
-    orderName: `유메 ${item.label}`,
-    totalAmount: item.krw,
+    orderName: order.name,
+    totalAmount: order.amount,
     currency: "CURRENCY_KRW",
   });
 });
@@ -141,9 +155,18 @@ router.post("/checkout/confirm", limitMiddleware(checkoutLimiter, (req) => `conf
   const r = await settleOrder(order);
   if (!r.ok) return res.status(r.code === "AWAITING_DEPOSIT" ? 202 : 400).json({ error: r.message, code: r.code });
   if (!r.already) {
-    await audit(`user:${order.user_id}`, "credit_purchased", `order:${paymentId}`, { credits: order.credits, amount: order.amount, method: r.method }, clientIp(req));
+    await audit(`user:${order.user_id}`, order.kind === "plan" ? "plan_purchased" : "credit_purchased", `order:${paymentId}`,
+      { kind: order.kind, plan: order.plan, credits: order.credits, amount: order.amount, method: r.method }, clientIp(req));
   }
-  res.json({ ok: true, credits: order.credits, already: r.already, balance: await balance(order.user_id) });
+  res.json({
+    ok: true,
+    kind: order.kind,
+    plan: order.plan,
+    planExpiresAt: r.planExpiresAt ?? null,
+    credits: order.credits,
+    already: r.already,
+    balance: await balance(order.user_id),
+  });
 });
 
 // ── 본인확인 (KG이니시스 통합인증) ──────────────────────────────────────────

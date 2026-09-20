@@ -88,3 +88,24 @@ export async function resumeFromRedirect() {
     return { kind: paymentId ? "payment" : "identity", error: e.message };
   }
 }
+
+/** 요금제 1개월 이용권 결제. 성공하면 { plan, planExpiresAt }. */
+export async function payForPlan(plan) {
+  const order = await apiJson("/api/checkout", { method: "POST", body: { plan } });
+  const PortOne = await sdk();
+  const res = await PortOne.requestPayment({
+    storeId: order.storeId,
+    channelKey: order.channelKey,
+    paymentId: order.paymentId,
+    orderName: order.orderName,
+    totalAmount: order.totalAmount,
+    currency: order.currency,
+    payMethod: "CARD",
+    redirectUrl: `${window.location.origin}/?checkout=${encodeURIComponent(order.paymentId)}`,
+  });
+  if (res?.code != null) {
+    if (CANCEL_CODES.has(res.code)) throw cancelled(res.message);
+    throw new Error(res.message || "결제에 실패했어요.");
+  }
+  return confirmCheckout(order.paymentId);
+}

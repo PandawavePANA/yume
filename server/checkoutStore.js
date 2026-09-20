@@ -35,6 +35,22 @@ export async function settleOrder(order) {
     { id: order.payment_id, m: r.method, t: now() },
   );
   if (!upd.changes) return { ok: true, credits: order.credits, already: true };
+
+  if (order.kind === "plan") {
+    // 요금제는 1개월 이용권으로 판다. 남은 기간이 있으면 그 뒤에 붙인다 — 미리 사 둔 기간을
+    // 결제 한 번으로 날리면 안 된다.
+    const user = await one("SELECT plan, plan_expires_at FROM users WHERE id = :id", { id: order.user_id });
+    const from = user?.plan === order.plan && user?.plan_expires_at > now() ? user.plan_expires_at : now();
+    const until = from + 30 * 24 * 3600 * 1000;
+    await run("UPDATE users SET plan = :plan, plan_expires_at = :until WHERE id = :id", {
+      plan: order.plan,
+      until,
+      id: order.user_id,
+    });
+    // 이번 달 지급분은 검증을 시작할 때 ensureMonthlyGrant가 요금제 기준으로 넣는다.
+    return { ok: true, plan: order.plan, planExpiresAt: until, method: r.method };
+  }
+
   await grant(order.user_id, order.credits, "purchase", {
     ref: `purchase:${order.payment_id}`,
     memo: `크레딧 구매(${r.method})`,
@@ -53,6 +69,16 @@ export async function reverseOrder(order, { memo = "결제 취소" } = {}) {
     id: order.payment_id,
   });
   if (!upd.changes) return { ok: true, already: true };
+
+  if (order.kind === "plan") {
+    // 요금제 결제가 취소되면 이 결제로 늘려 준 30일을 도로 깎는다. 남은 기간이 지금보다
+    // 이르면 요금제를 바로 닫는다.
+    const user = await one("SELECT plan_expires_at FROM users WHERE id = :id", { id: order.user_id });
+    const until = Math.max(0, (user?.plan_expires_at || 0) - 30 * 24 * 3600 * 1000);
+    if (until > now()) await run("UPDATE users SET plan_expires_at = :until WHERE id = :id", { until, id: order.user_id });
+    else await run("UPDATE users SET plan = 'free', plan_expires_at = NULL WHERE id = :id", { id: order.user_id });
+    return { ok: true, plan: order.plan };
+  }
   await grant(order.user_id, -order.credits, "purchase_cancelled", {
     ref: `cancel:${order.payment_id}`,
     memo,

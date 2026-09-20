@@ -567,6 +567,13 @@ const MIGRATIONS = [
   ALTER TABLE users ADD COLUMN identity_name TEXT;
   CREATE INDEX idx_users_ci_hash ON users(identity_ci_hash);
   `,
+
+  // 주문 하나로 크레딧 팩과 요금제(1개월 이용권)를 같이 다룬다. kind가 'plan'이면 결제가
+  // 확인될 때 요금제를 열어 주고, 'credits'면 크레딧을 넣는다. 예전 주문은 전부 크레딧이다.
+  `
+  ALTER TABLE credit_orders ADD COLUMN kind TEXT NOT NULL DEFAULT 'credits';
+  ALTER TABLE credit_orders ADD COLUMN plan TEXT;
+  `,
 ];
 
 async function migrate() {

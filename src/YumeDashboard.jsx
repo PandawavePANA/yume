@@ -9,7 +9,7 @@ import { apiJson, safeUrl, CONTACT_EMAIL } from "@/components/yume/api";
 import { BUSINESS, telHref, COPYRIGHT, businessLine } from "@/businessInfo";
 import BusinessInfo from "@/components/yume/BusinessInfo";
 import { IS_NATIVE_APP, onNativeBack, shareLink } from "./native.js";
-import { resumeFromRedirect } from "./payments.js";
+import { payForPlan, resumeFromRedirect } from "./payments.js";
 import AuditModal from "./components/yume/AuditModal.jsx";
 import RankingModal from "@/components/yume/RankingModal";
 
@@ -17,6 +17,12 @@ import RankingModal from "@/components/yume/RankingModal";
 const BUSINESS_URL = (import.meta.env?.VITE_BUSINESS_URL || "https://business.yume-reamer.com").replace(/\/+$/, "");
 
 const EASE_APPLE = [0.22, 1, 0.36, 1];
+
+// 결제 버튼에 찍는 판매가. 서버 plans.js의 monthlyKrw와 같은 값이어야 한다 —
+// 금액은 서버가 정하므로 여기 값이 틀려도 결제는 서버 금액으로 되지만, 화면과 청구가
+// 어긋나면 그 자체가 사고다. 둘 중 하나를 고치면 반드시 둘 다 고칠 것.
+// 값이 없는 요금제(무료·비즈니스)는 파는 상품이 아니다.
+const PLAN_PRICE_KRW = { standard: 9900, expert: 29000 };
 
 // 디자인 토큰 — 유메의 파스텔 퍼플은 그대로, 애플 제품 페이지처럼 여백·타이포·유리 질감으로
 // 고급스러움을 낸다. 색을 새로 들이지 말고 여기 값을 재사용할 것.
@@ -580,6 +586,30 @@ export default function YumeDashboard() {
     }
   }, []);
   React.useEffect(() => { refreshSession(); }, [refreshSession]);
+
+  // 결제 연동이 켜져 있는지. 켜져 있으면 요금제를 바로 결제하고, 아니면 예전처럼 문의로 받는다.
+  const [payCfg, setPayCfg] = React.useState(null);
+  React.useEffect(() => {
+    if (!user) { setPayCfg(null); return; }
+    apiJson("/api/checkout/config").then(setPayCfg).catch(() => setPayCfg(null));
+  }, [user?.id]);
+
+  const [planBusy, setPlanBusy] = React.useState("");
+  const buyPlan = async (key, label) => {
+    if (!user) { setShowPricing(false); setAuthModal("signup"); return; }
+    if (!window.confirm(`${label} 플랜을 1개월 결제할까요?`)) return;
+    setPlanBusy(key);
+    try {
+      const r = await payForPlan(key);
+      setToast(r.pending ? "입금이 확인되면 플랜이 열려요." : `${label} 플랜이 열렸어요.`);
+      await refreshSession();
+      setShowPricing(false);
+    } catch (e) {
+      if (!e.cancelled) setToast(e.message || "결제하지 못했어요.");
+    } finally {
+      setPlanBusy("");
+    }
+  };
 
   // 모바일 결제창·본인확인창은 페이지를 떠났다가 주소에 결과를 달고 돌아온다. 돌아온 자리에서
   // 서버 확인까지 끝내지 않으면 결제는 됐는데 크레딧은 없는 상태가 된다.
@@ -1583,7 +1613,11 @@ export default function YumeDashboard() {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
               <div>
                 <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: "-0.03em", color: UI.ink }}>요금제</div>
-                <div style={{ fontSize: 14, color: UI.ink2, marginTop: 4 }}>{IS_NATIVE_APP ? "앱에서는 무료 플랜을 이용할 수 있어요. 유료 플랜은 준비 중이에요." : "온라인 결제는 준비 중이에요. 유료 플랜은 문의해주시면 바로 열어드려요."}</div>
+                <div style={{ fontSize: 14, color: UI.ink2, marginTop: 4 }}>{IS_NATIVE_APP
+                  ? "앱에서는 무료 플랜을 이용할 수 있어요. 유료 플랜은 준비 중이에요."
+                  : payCfg?.payment
+                    ? "카드로 바로 결제하고 1개월 동안 이용하실 수 있어요. 자동 갱신되지 않습니다."
+                    : "온라인 결제는 준비 중이에요. 유료 플랜은 문의해주시면 바로 열어드려요."}</div>
               </div>
               <button onClick={() => setShowPricing(false)} aria-label="닫기" style={{ width: 32, height: 32, flexShrink: 0, borderRadius: 999, border: "none", background: "rgba(118,118,128,0.12)", color: UI.ink2, fontSize: 16, cursor: "pointer" }}>×</button>
             </div>
@@ -1615,13 +1649,20 @@ export default function YumeDashboard() {
                   ) : IS_NATIVE_APP ? (
                     // 앱스토어·플레이스토어는 앱 안의 디지털 상품을 자체 결제로만 팔게 한다 — 외부 결제 안내를 두지 않는다.
                     <div style={{ width: "100%", padding: "12px 0", borderRadius: 12, background: "rgba(118,118,128,0.10)", color: UI.ink3, fontSize: 14, fontWeight: 600, textAlign: "center" }}>준비 중</div>
+                  ) : payCfg?.payment && PLAN_PRICE_KRW[key] ? (
+                    // 결제 연동이 켜져 있으면 바로 산다. 금액은 서버가 정하고, 크레딧·플랜은
+                    // 서버가 포트원에 결제를 확인한 뒤에만 열린다.
+                    <button onClick={() => buyPlan(key, p.label)} disabled={!!planBusy} style={{
+                      width: "100%", padding: "12px 0", borderRadius: 12, border: "none", cursor: planBusy ? "default" : "pointer",
+                      background: UI.button, color: "#fff", fontSize: 14, fontWeight: 600, opacity: planBusy ? 0.6 : 1, fontFamily: "inherit",
+                    }}>{planBusy === key ? "결제창 여는 중…" : `${PLAN_PRICE_KRW[key].toLocaleString()}원 결제하기`}</button>
                   ) : (
                     <a href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(`[유메] ${p.label} 플랜 이용 문의`)}&body=${encodeURIComponent(`가입 이메일: ${user?.email || ""}
 원하는 플랜: ${p.label}
 `)}`} style={{
                       display: "block", width: "100%", padding: "12px 0", borderRadius: 12, textAlign: "center", textDecoration: "none",
                       background: UI.button, color: "#fff", fontSize: 14, fontWeight: 600,
-                    }}>이용 문의하기</a>
+                    }}>{PLAN_PRICE_KRW[key] ? "이용 문의하기" : "도입 문의하기"}</a>
                   )}
                 </div>
               ))}
