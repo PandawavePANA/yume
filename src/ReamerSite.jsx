@@ -4,7 +4,7 @@ import "@/components/reamer/site.css";
 import SiteBackdrop from "@/components/reamer/SiteBackdrop";
 import Logo from "@/components/reamer/Logo";
 import { BUSINESS, telHref, COPYRIGHT, businessLine } from "@/businessInfo";
-import { NAV, TRUST, SERVICES, PROCESS, WORK, ALSO, TIMELINE, FAQ, AFTER_SEND } from "@/reamerContent";
+import { NAV, TRUST, WHY, SERVICES, PROCESS, WORK, ALSO, TIMELINE, FAQ, AFTER_SEND } from "@/reamerContent";
 
 // Characters are split into spans so the global cursor-tile trail can flip
 // them dark as a tile passes underneath.
@@ -315,19 +315,19 @@ const ReamerSite = () => {
                   끝나야 나타나면, 탭이 뒤에 있거나 느린 기기에서는 빈 화면을 먼저 본다.
                   연출은 스크롤해서 만나는 아래쪽에만 붙인다. */}
               <div className="hero__copy">
-                <p className="label">소프트웨어 개발 · 대구</p>
+                <p className="label">개발 외주 · 웹 · 앱 · AI</p>
                 <h1 className="display">
-                  <Chars text="필요한 걸" />
+                  <Chars text="무엇이든" />
                   <br />
-                  <Chars text="만들어 드립니다" />
+                  <Chars text="개발해 드립니다" />
                 </h1>
                 <p className="lede">
-                  웹사이트, 앱, 결제 연동, 업무 자동화. 기획이 반쯤 잡혀 있어도 괜찮습니다.
-                  무엇을 만들어야 하는지부터 같이 정리하고, 만들어서, 실제로 돌아가는 상태로 넘겨드립니다.
+                  웹사이트, 앱, 결제·인증 연동, AI 기능, 업무 자동화. 기획이 반쯤 잡혀 있어도 괜찮습니다.
+                  <b> 상담과 견적은 무료이고, 한 번 확정한 금액은 바뀌지 않습니다.</b>
                 </p>
                 <div className="actions">
                   <a className="btn btn--solid" href="#contact">
-                    개발 문의하기 <span className="btn__arrow">→</span>
+                    무료로 견적 받기 <span className="btn__arrow">→</span>
                   </a>
                   <a className="btn btn--ghost" href="#work">
                     작업물 보기
@@ -340,6 +340,7 @@ const ReamerSite = () => {
                   <li className="trust__item" key={t.k}>
                     <span className="trust__v">{t.v}</span>
                     <span className="trust__k">{t.k}</span>
+                    <span className="trust__sub">{t.sub}</span>
                   </li>
                 ))}
               </ul>
@@ -356,7 +357,8 @@ const ReamerSite = () => {
                   <Chars text="만들어서, 실제로 돌리고 있습니다." />
                 </h2>
                 <p className="lede">
-                  아래 네 곳은 지금 주소를 열면 그대로 동작합니다. 화면은 직접 찍은 것입니다.
+                  {/* 개수를 글에 박아두면 작업물을 추가할 때마다 한쪽만 고치게 된다. */}
+                  아래 {WORK.length}개는 지금 주소를 열면 그대로 동작합니다. 화면은 직접 찍은 것입니다.
                 </p>
               </header>
 
@@ -385,6 +387,32 @@ const ReamerSite = () => {
             </div>
           </section>
 
+          {/* 작업물이 "만들 수 있는가"에 답했다면, 여기는 "맡겨도 되는가"에 답한다.
+              개발 외주에서 사고가 나는 지점은 거의 정해져 있어서 그 지점을 먼저 짚는다. */}
+          <section className="section" id="why">
+            <div className="wrap">
+              <header className="head" data-reveal>
+                <p className="label">맡기는 이유</p>
+                <h2 className="title">
+                  <Chars text="외주가 틀어지는 지점은 정해져 있습니다." />
+                </h2>
+                <p className="lede">
+                  말이 바뀌고, 담당자가 바뀌고, 다 만들고 나서 심사에서 막히고, 끝나고 나면
+                  코드를 못 받습니다. 그 넷을 먼저 막아두고 시작합니다.
+                </p>
+              </header>
+
+              <ul className="why">
+                {WHY.map((w) => (
+                  <li className="why__item" key={w.head} data-reveal>
+                    <h3 className="why__head">{w.head}</h3>
+                    <p className="why__body">{w.body}</p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </section>
+
           <section className="section" id="services">
             <div className="wrap">
               <header className="head" data-reveal>
@@ -401,7 +429,10 @@ const ReamerSite = () => {
               <div className="svc">
                 {SERVICES.map((sv) => (
                   <div className="svc__item" key={sv.name} data-reveal>
-                    <h3 className="svc__name">{sv.name}</h3>
+                    <h3 className="svc__name">
+                      {sv.name}
+                      <span className="svc__when">{sv.when}</span>
+                    </h3>
                     <p className="svc__desc">{sv.desc}</p>
                     <ul className="svc__list">
                       {sv.items.map((it) => (
