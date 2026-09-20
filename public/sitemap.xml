@@ -1,7 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- 유메(www.yume-reamer.com)용. 리머·기업용 사이트는 각자 빌드에서 자기 것으로 덮어쓴다 —
+     public/은 세 빌드가 공유해서, 이 파일이 그대로 가면 다른 도메인이 남의 사이트맵을 내놓는다. -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>https://www.yume-reamer.com/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>
+  <url><loc>https://www.yume-reamer.com/products</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
   <url><loc>https://www.yume-reamer.com/docs/api</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://www.yume-reamer.com/refund</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
   <url><loc>https://www.yume-reamer.com/terms</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
   <url><loc>https://www.yume-reamer.com/privacy</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
   <url><loc>https://www.yume-reamer.com/account-deletion</loc><changefreq>yearly</changefreq><priority>0.2</priority></url>
