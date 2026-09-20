@@ -26,7 +26,7 @@ html {
 body {
   margin: 0;
   font-family: var(--yume-font);
-  background: #f6f2fc;
+  background: #FBFAF8;
   color: #1d1a24;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -44,7 +44,7 @@ select {
 }
 
 ::selection {
-  background: rgba(180, 154, 238, 0.35);
+  background: rgba(91, 63, 160, 0.16);
 }
 
 /* 입력칸 포커스 — 애플식 부드러운 링 */
@@ -53,9 +53,10 @@ select {
 }
 .yume-field:focus {
   outline: none;
-  border-color: #b49aee !important;
+  /* 포커스 링을 얇고 진하게. 두껍고 흐린 보라 링은 어느 서비스에나 있는 모양이다. */
+  border-color: #5b3fa0 !important;
   background-color: #fff !important;
-  box-shadow: 0 0 0 4px rgba(180, 154, 238, 0.22) !important;
+  box-shadow: 0 0 0 3px rgba(91, 63, 160, 0.14) !important;
 }
 
 button:focus-visible,
