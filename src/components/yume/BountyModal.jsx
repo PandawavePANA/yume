@@ -25,7 +25,7 @@ export function BountyPrompt({ claim, claimIdx, verificationId, user, onNeedLogi
   }
   return (
     <>
-      <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", background: "rgba(139,111,216,0.08)", borderRadius: 12, padding: "10px 12px" }}>
+      <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", border: "1px solid rgba(20,17,24,0.10)", borderRadius: 10, padding: "10px 12px" }}>
         <div style={{ fontSize: 12.5, color: "#5B5470", lineHeight: 1.6, flex: 1, minWidth: 180 }}>
           아직 알려지지 않은 인용이라면 제보하고 기여도 점수를 받을 수 있어요.
         </div>
@@ -33,7 +33,7 @@ export function BountyPrompt({ claim, claimIdx, verificationId, user, onNeedLogi
           onClick={() => (user ? setOpen(true) : onNeedLogin?.())}
           style={{
             flexShrink: 0, padding: "7px 14px", borderRadius: 999, border: "none",
-            background: "linear-gradient(90deg,#B49AEE,#6B4FA8)", color: "#fff", fontSize: 12.5, fontWeight: 600, cursor: "pointer",
+            background: "#5B3FA0", color: "#fff", fontSize: 12.5, fontWeight: 600, cursor: "pointer",
           }}
         >
           조사하고 기여도 받기
@@ -105,7 +105,7 @@ export default function BountyModal({ verificationId, claimIdx, claim, reportPoi
             <div style={{ fontSize: 13, color: "#5B5470", lineHeight: 1.7, marginBottom: 18 }}>
               공유 링크를 확인한 뒤 기여도 점수를 드립니다. 결과는 랭킹 → 내 적립 내역에서 볼 수 있어요.
             </div>
-            <button onClick={onClose} style={{ padding: "10px 18px", borderRadius: 10, border: "none", background: "linear-gradient(90deg,#B49AEE,#6B4FA8)", color: "#fff", fontSize: 13.5, fontWeight: 600, cursor: "pointer" }}>
+            <button onClick={onClose} style={{ padding: "10px 18px", borderRadius: 10, border: "none", background: "#5B3FA0", color: "#fff", fontSize: 13.5, fontWeight: 600, cursor: "pointer" }}>
               확인
             </button>
           </>
@@ -143,7 +143,7 @@ export default function BountyModal({ verificationId, claimIdx, claim, reportPoi
 
             <button onClick={submit} disabled={busy} style={{
               marginTop: 16, width: "100%", padding: "11px 0", borderRadius: 10, border: "none",
-              background: "linear-gradient(90deg,#B49AEE,#6B4FA8)", color: "#fff", fontSize: 13.5, fontWeight: 600,
+              background: "#5B3FA0", color: "#fff", fontSize: 13.5, fontWeight: 600,
               cursor: busy ? "default" : "pointer", opacity: busy ? 0.6 : 1,
             }}>
               {busy ? "보내는 중…" : "제보하기"}

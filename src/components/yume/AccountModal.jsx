@@ -18,7 +18,7 @@ const field = {
 };
 const lbl = { fontSize: 12, color: "#6E6389", fontWeight: 600 };
 const primaryBtn = (disabled) => ({
-  padding: "9px 16px", borderRadius: 10, border: "none", background: "linear-gradient(90deg,#B49AEE,#6B4FA8)",
+  padding: "9px 16px", borderRadius: 10, border: "none", background: "#5B3FA0",
   color: "#fff", fontSize: 13, fontWeight: 600, cursor: disabled ? "default" : "pointer", opacity: disabled ? 0.6 : 1,
 });
 const ghostBtn = { padding: "8px 14px", borderRadius: 999, border: "1px solid #D4BEF0", background: "#fff", color: "#6B4FA8", fontSize: 12.5, fontWeight: 600, cursor: "pointer" };

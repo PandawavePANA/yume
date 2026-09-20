@@ -18,12 +18,12 @@ import { apiJson } from "./api";
 import { startCheckout } from "../../payments.js";
 
 const UI = {
-  ink: "#241F33", ink2: "#5B5470", ink3: "#8E85A8",
-  line: "#EDE3FA", accent: "#6B4FA8",
+  ink: "#141118", ink2: "#54505E", ink3: "#8B8694",
+  line: "rgba(20,17,24,0.12)", accent: "#5B3FA0",
 };
 
 const input = {
-  width: "100%", padding: "12px 14px", borderRadius: 12, border: `1px solid #D9CCF0`,
+  width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid rgba(20,17,24,0.16)",
   fontSize: 15, marginTop: 6, boxSizing: "border-box", fontFamily: "inherit", color: UI.ink,
 };
 const label = { fontSize: 13, fontWeight: 600, color: UI.ink2, display: "block", marginTop: 14 };
@@ -65,7 +65,7 @@ export default function CheckoutPage({ order, user, onClose, onDone }) {
 
   return (
     <div style={{
-      position: "fixed", inset: 0, zIndex: 80, background: "#F7F3FD", overflowY: "auto",
+      position: "fixed", inset: 0, zIndex: 80, background: "#FBFAF8", overflowY: "auto",
       padding: "calc(20px + var(--yume-safe-top)) 20px calc(40px + var(--yume-safe-bottom))",
     }}>
       <div style={{ maxWidth: 520, margin: "0 auto" }}>
@@ -74,7 +74,7 @@ export default function CheckoutPage({ order, user, onClose, onDone }) {
           cursor: busy ? "not-allowed" : "pointer", padding: "6px 0", marginBottom: 10,
         }}>← 돌아가기</button>
 
-        <div style={{ background: "#fff", border: `1px solid ${UI.line}`, borderRadius: 20, padding: "24px 22px" }}>
+        <div style={{ background: "#fff", border: `1px solid ${UI.line}`, borderRadius: 14, padding: "24px 22px" }}>
           <div style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: "0.08em", color: UI.accent }}>결제</div>
           <h1 style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.02em", margin: "6px 0 0", color: UI.ink }}>
             {order?.orderName}
@@ -85,7 +85,8 @@ export default function CheckoutPage({ order, user, onClose, onDone }) {
             marginTop: 18, paddingTop: 16, borderTop: `1px solid ${UI.line}`,
           }}>
             <span style={{ fontSize: 14, color: UI.ink2 }}>결제 금액</span>
-            <span style={{ fontSize: 26, fontWeight: 700, color: UI.ink, letterSpacing: "-0.02em" }}>{won(order?.totalAmount)}</span>
+            <span style={{ fontSize: 26, fontWeight: 700, color: UI.ink, letterSpacing: "-0.02em",
+              fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace', fontVariantNumeric: "tabular-nums" }}>{won(order?.totalAmount)}</span>
           </div>
           <div style={{ fontSize: 12.5, color: UI.ink3, marginTop: 6, lineHeight: 1.6 }}>
             부가세 포함 · 배송되는 실물이 없으며 결제가 확인되면 즉시 적용됩니다.
@@ -108,7 +109,7 @@ export default function CheckoutPage({ order, user, onClose, onDone }) {
             <label style={label} htmlFor="co-email">이메일</label>
             {/* 영수증이 계정이 아닌 곳으로 가면 안 되므로 계정 이메일로 고정한다. */}
             <input id="co-email" value={order?.customer?.email || user?.email || ""} readOnly
-              style={{ ...input, background: "#F6F2FC", color: UI.ink3 }} />
+              style={{ ...input, background: "#F5F2ED", color: UI.ink3 }} />
           </div>
 
           <label style={{
@@ -131,8 +132,8 @@ export default function CheckoutPage({ order, user, onClose, onDone }) {
           )}
 
           <button onClick={pay} disabled={busy} style={{
-            width: "100%", marginTop: 18, padding: "15px 0", borderRadius: 14, border: "none",
-            background: busy ? "rgba(118,118,128,0.18)" : "linear-gradient(90deg,#B49AEE,#6B4FA8)",
+            width: "100%", marginTop: 18, padding: "15px 0", borderRadius: 12, border: "none",
+            background: busy ? "rgba(118,118,128,0.18)" : "#5B3FA0",
             color: busy ? UI.ink3 : "#fff", fontSize: 16, fontWeight: 700,
             cursor: busy ? "not-allowed" : "pointer", letterSpacing: "-0.01em",
           }}>{busy ? "결제창을 여는 중…" : `${won(order?.totalAmount)} 결제하기`}</button>

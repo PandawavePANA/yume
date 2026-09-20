@@ -109,14 +109,17 @@ const PLACEHOLDER = `여기에 ChatGPT, 클로드, 제미나이 등 AI의 답변
 
 예시: "비타민 C를 하루 10g 이상 섭취하면 감기를 완전히 예방할 수 있다는 연구가 2021년 하버드 의대에서 발표됐다..."`;
 
+// 판정 색. 파스텔로 두면 셋 다 "부드러운 알림"으로 읽힌다 — 이 제품에서 판정은
+// 알림이 아니라 도장이다. 글자색을 진하게 내리고 배경은 거의 흰색으로 남겨,
+// 색이 아니라 글자가 판정을 말하게 한다.
 const VERDICT = {
-  confirmed: { label: "확인됨", bg: "#E7F6EE", color: "#1F9D66", glyph: "✓" },
-  false: { label: "사실과 다름", bg: "#FBE9E7", color: "#C6402F", glyph: "✕" },
-  uncertain: { label: "확인되지 않음", bg: "#FCEAE6", color: "#B23B2B", glyph: "?" },
+  confirmed: { label: "확인됨", bg: "#EAF6F0", color: "#0F6B45", glyph: "✓" },
+  false: { label: "사실과 다름", bg: "#FBEBE7", color: "#A32B1A", glyph: "✕" },
+  // 확인되지 않음은 중립이 아니라 경고다. 같은 붉은 계열에 두되 톤을 달리한다.
+  uncertain: { label: "확인되지 않음", bg: "#FCF0EA", color: "#9A4318", glyph: "?" },
 };
-const VBORDER = { confirmed: "#E6EFE9", false: "#F5D8D3", uncertain: "#EFC9C0" };
-const VBG = { confirmed: "#F9FBF9", false: "#FDF4F3", uncertain: "#FFF8F6" };
-
+const VBORDER = { confirmed: "#C6E2D2", false: "#EEC3B9", uncertain: "#EBCDBA" };
+const VBG = { confirmed: "#FCFDFC", false: "#FFFBFA", uncertain: "#FFFCFA" };
 const PLANS = {
   free: { label: "무료", price: "0원", period: "", tagline: "일상적인 사실관계 확인", features: ["매달 10 크레딧 (2,000자당 1크레딧)", "법률 주장 법제처 공식 대조", "인용된 판례·법령·논문의 부존재 신뢰도", "로그인 시 검증 기록 최근 50건 저장"] },
   standard: { label: "스탠다드", price: "9,900원", period: "/월", tagline: "매일 AI 답변을 확인하는 분께", features: ["매달 25 크레딧", "무료 플랜 기능 전체 포함", "검증 기록 무제한 저장", "크레딧 소진 시 추가 구매 가능"] },
@@ -135,11 +138,11 @@ const HALLUCINATION_CAUSES = [
 
 // 총평 배너 색상 — 서버가 계산한 tone(confirmed/uncertain/false)에 맞춰 색만 바꾼다.
 const OVERALL_TONE = {
-  confirmed: { bg: "#EAF7F0", border: "#B7E4CC", fg: "#fff", chipBg: "#1F9D66" },
-  uncertain: { bg: "#FFF6E0", border: "#F0D98C", fg: "#7A5B00", chipBg: "#FCE7A6" },
-  false: { bg: "#FBEDEA", border: "#F0BCB0", fg: "#fff", chipBg: "#C6402F" },
-  // 확인되지 않음 — 중립이 아니라 경고다. 붉은 계열로 두되 '사실과 다름'과는 구분한다.
-  unverified: { bg: "#FDEFEC", border: "#EFC2B6", fg: "#fff", chipBg: "#B23B2B" },
+  confirmed: { bg: "#F1F9F5", border: "#C6E2D2", fg: "#fff", chipBg: "#0F6B45" },
+  uncertain: { bg: "#FDF8EC", border: "#E8D5A0", fg: "#6B4E06", chipBg: "#F5E4B4" },
+  false: { bg: "#FDF2EF", border: "#EEC3B9", fg: "#fff", chipBg: "#A32B1A" },
+  // 확인되지 않음 — 중립이 아니라 경고다. 붉은 계열로 두되 "사실과 다름"과는 구분한다.
+  unverified: { bg: "#FDF5F0", border: "#EBCDBA", fg: "#fff", chipBg: "#9A4318" },
 };
 
 function StatusIcon({ verdict }) {
@@ -296,17 +299,22 @@ function YumeChatWidget() {
         animate={{ opacity: scrolling && !open ? 0.32 : 1, scale: scrolling && !open ? 0.82 : 1 }}
         transition={{ layout: { duration: 0.25, ease: EASE_APPLE }, default: { duration: 0.25, ease: EASE_APPLE } }}
         whileHover={{ y: -2 }} whileTap={{ scale: 0.97 }} onClick={() => setOpen((o) => !o)} style={{
-        height: 52, borderRadius: 999, border: "none", cursor: "pointer",
-        background: UI.button, color: "#fff",
-        boxShadow: "0 10px 28px rgba(107,79,168,0.36)", display: "flex", alignItems: "center", justifyContent: "center",
-        gap: 7, padding: open ? 0 : "0 18px 0 15px", width: open ? 52 : "auto",
+        // 화면에서 제일 큰 소리를 내던 자리다. 보라 알약에 두꺼운 그림자와 반짝임까지
+        // 붙어 있어서, 정작 중요한 판정보다 눈에 먼저 들어왔다. 보조 기능은 찾을 수
+        // 있으면 충분하다.
+        height: 46, borderRadius: 999, cursor: "pointer",
+        border: `1px solid ${UI.hairlineStrong}`,
+        background: UI.surface, color: UI.ink,
+        boxShadow: "0 2px 10px rgba(20,17,24,0.08)", display: "flex", alignItems: "center", justifyContent: "center",
+        gap: 8, padding: open ? 0 : "0 16px", width: open ? 46 : "auto",
       }}>
         {open ? (
           <span style={{ fontSize: 21 }}>×</span>
         ) : (
           <>
-            <span style={{ fontSize: 17 }}>✨</span>
-            <span style={{ fontSize: 13.5, fontWeight: 700, whiteSpace: "nowrap" }}>AI에게 물어보기</span>
+            {/* 이모지 대신 점 하나. AI가 답한다는 것은 글자가 이미 말하고 있다. */}
+            <span aria-hidden style={{ width: 6, height: 6, borderRadius: 999, background: UI.accent }} />
+            <span style={{ fontSize: 13.5, fontWeight: 600, whiteSpace: "nowrap", letterSpacing: "-0.01em" }}>AI에게 물어보기</span>
           </>
         )}
       </motion.button>
@@ -579,8 +587,6 @@ export default function YumeDashboard() {
   // 배경에 은은하게 떠다니는 블러 오브 — 페이지 전체 스크롤량에 따라 서로 다른
   // 속도로 움직여서(패럴랙스) 스크롤하는 내내 배경이 살아있는 느낌을 준다.
   const orb1Y = useTransform(pageScrollY, [0, 6000], [0, -800]);
-  const orb2Y = useTransform(pageScrollY, [0, 6000], [0, 680]);
-  const orb3Y = useTransform(pageScrollY, [0, 6000], [0, -420]);
   const [authModal, setAuthModal] = useState(null); // null | "login" | "signup"
   const [accountTab, setAccountTab] = useState(null); // null | "profile" | "api" | "data" | "security"
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -1007,7 +1013,7 @@ export default function YumeDashboard() {
               <div key={h.id} onClick={() => loadFromHistory(h.id)} style={{
                 display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6,
                 padding: "10px 12px", borderRadius: 10, cursor: "pointer", marginBottom: 2,
-                background: activeId === h.id ? "rgba(139,111,216,0.12)" : "transparent", transition: "background-color 0.15s ease",
+                background: activeId === h.id ? UI.surfaceAlt : "transparent", transition: "background-color 0.15s ease",
               }}
                 onMouseEnter={(e) => { if (activeId !== h.id) e.currentTarget.style.background = "rgba(118,118,128,0.08)"; }}
                 onMouseLeave={(e) => { if (activeId !== h.id) e.currentTarget.style.background = "transparent"; }}
@@ -1361,7 +1367,7 @@ export default function YumeDashboard() {
                             <div style={{ fontSize: 12.5, fontWeight: 600, color: UI.ink3, marginBottom: 6, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                               <span>{c.domain} · <span style={{ color: (VERDICT[c.verdict] || VERDICT.uncertain).color }}>{VERDICT[c.verdict]?.label || "확인되지 않음"}</span></span>
                               {c.verified_via === "official" && (
-                                <span style={{ fontSize: 11, fontWeight: 600, color: UI.accent, background: "rgba(139,111,216,0.12)", borderRadius: 999, padding: "2px 9px" }}>
+                                <span style={{ fontSize: 11, fontWeight: 600, color: UI.ink2, border: `1px solid ${UI.hairlineStrong}`, borderRadius: 999, padding: "2px 9px" }}>
                                   법제처 공식 확인{c.effective_date ? ` · ${c.effective_date} 시행 기준` : ""}
                                 </span>
                               )}
@@ -1454,9 +1460,9 @@ export default function YumeDashboard() {
 
                 <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
                   {result.id && (
-                    <motion.button whileHover={{ backgroundColor: "rgba(118,118,128,0.16)" }} whileTap={{ scale: 0.985 }} onClick={shareResult} style={{
+                    <motion.button whileHover={{ backgroundColor: "#F5F2ED" }} whileTap={{ scale: 0.985 }} onClick={shareResult} style={{
                       flex: 1, height: 50, borderRadius: 14,
-                      border: "none", background: "rgba(118,118,128,0.10)", color: UI.accent, fontSize: 15, fontWeight: 600, cursor: "pointer", letterSpacing: "-0.01em",
+                      border: `1px solid ${UI.hairlineStrong}`, background: UI.surface, color: UI.ink, fontSize: 15, fontWeight: 600, cursor: "pointer", letterSpacing: "-0.01em",
                     }}>결과 공유</motion.button>
                   )}
                   <motion.button whileHover={{ backgroundColor: "rgba(118,118,128,0.16)" }} whileTap={{ scale: 0.985 }} onClick={reset} style={{

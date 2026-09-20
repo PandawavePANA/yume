@@ -17,7 +17,7 @@ function Meter({ label, value, hint, invert = false }) {
           initial={{ width: 0 }}
           animate={{ width: `${pct}%` }}
           transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-          style={{ height: "100%", background: invert ? "linear-gradient(90deg,#F3C98B,#D9822B)" : "linear-gradient(90deg,#B49AEE,#6B4FA8)" }}
+          style={{ height: "100%", background: invert ? "linear-gradient(90deg,#F3C98B,#D9822B)" : "#5B3FA0" }}
         />
       </div>
       {hint && <div style={{ fontSize: 11, color: "#A99BC9", marginTop: 3, lineHeight: 1.5 }}>{hint}</div>}
@@ -34,7 +34,7 @@ export default function NecPanel({ nec }) {
   const similar = nec.proximity?.similar || [];
 
   return (
-    <div style={{ marginTop: 10, borderRadius: 12, border: `1px solid ${sure ? "#F2CFC8" : "#E6DAF6"}`, background: sure ? "#FFF8F6" : "#FBF8FF" }}>
+    <div style={{ marginTop: 10, borderRadius: 10, border: `1px solid ${sure ? "#EEC3B9" : "rgba(20,17,24,0.12)"}`, background: sure ? "#FFFBFA" : "#FCFBFE" }}>
       <button
         onClick={() => setOpen((o) => !o)}
         style={{
@@ -43,15 +43,16 @@ export default function NecPanel({ nec }) {
         }}
       >
         <span style={{
-          flexShrink: 0, fontSize: 15, fontWeight: 800, fontVariantNumeric: "tabular-nums",
-          color: sure ? "#C6402F" : "#6B4FA8",
+          flexShrink: 0, fontSize: 17, fontWeight: 700, fontVariantNumeric: "tabular-nums",
+          fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace', letterSpacing: "-0.02em",
+          color: sure ? "#A32B1A" : "#5B3FA0",
         }}>{Number(nec.score).toFixed(2)}</span>
         <span style={{ flex: 1, minWidth: 0 }}>
-          <span style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#3B3159" }}>
+          <span style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#141118" }}>
             부존재 신뢰도 · {nec.gradeLabel}
           </span>
-          <span style={{ display: "block", fontSize: 11.5, color: "#8577A8", lineHeight: 1.5 }}>
-            <span style={{ whiteSpace: "nowrap" }}>{nec.identifier?.value || nec.identifier?.canonical}</span> — {nec.identifier?.searchSpace}
+          <span style={{ display: "block", fontSize: 11.5, color: "#8B8694", lineHeight: 1.5 }}>
+            <span style={{ whiteSpace: "nowrap", fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace', fontSize: "0.95em", color: "#54505E" }}>{nec.identifier?.value || nec.identifier?.canonical}</span> — {nec.identifier?.searchSpace}
             {/* 좁은 폰에서 식별자가 쪼개지지 않게, 펼치기 안내는 별도 칸이 아니라 설명 끝에 붙인다 */}
             <span style={{ color: "#9C8FC2", whiteSpace: "nowrap", marginLeft: 8 }}>{open ? "접기 ▴" : "근거 보기 ▾"}</span>
           </span>
@@ -82,7 +83,7 @@ export default function NecPanel({ nec }) {
               <Meter label="유사항목 근접도 P" value={nec.proximity?.value} hint={similar.length ? null : "가까운 실재 항목이 없어요"} />
               {similar.length > 0 && (
                 <div style={{ margin: "4px 0 10px" }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: "#3B3159", marginBottom: 4 }}>혹시 이것을 말한 걸까요?</div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#141118", marginBottom: 4 }}>혹시 이것을 말한 걸까요?</div>
                   {similar.map((s, i) => (
                     <div key={i} style={{ fontSize: 12, marginBottom: 3 }}>
                       {safeUrl(s.url) ? (
@@ -101,7 +102,7 @@ export default function NecPanel({ nec }) {
               </div>
               {nec.uncovered?.length > 0 && (
                 <div style={{ marginTop: 10 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: "#3B3159", marginBottom: 4 }}>아직 확인하지 못한 영역</div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#141118", marginBottom: 4 }}>아직 확인하지 못한 영역</div>
                   {nec.uncovered.map((u, i) => (
                     <div key={i} style={{ fontSize: 12, marginBottom: 6 }}>
                       <div>{u.area}</div>
