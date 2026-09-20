@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import BusinessInfo from "@/components/yume/BusinessInfo";
 import { apiJson } from "./api";
 import { copyText } from "../../clipboard.js";
-import { payForPack, verifyIdentity } from "../../payments.js";
+import { orderPack, verifyIdentity } from "../../payments.js";
+import CheckoutPage from "@/components/yume/CheckoutPage";
 
 // 계정 설정 → 크레딧 탭.
 //
@@ -29,6 +30,7 @@ const card = { border: "1px solid #EDE3FA", borderRadius: 12, padding: 14, margi
 const ghostBtn = { padding: "7px 13px", borderRadius: 999, border: "1px solid #D4BEF0", background: "#fff", color: "#6B4FA8", fontSize: 12.5, fontWeight: 600, cursor: "pointer" };
 
 export default function CreditsTab() {
+  const [checkout, setCheckout] = useState(null);
   const [data, setData] = useState(null);
   const [referral, setReferral] = useState(null);
   const [msg, setMsg] = useState(null);
@@ -61,10 +63,8 @@ export default function CreditsTab() {
     setBusy(true);
     setMsg(null);
     try {
-      const r = await payForPack(pack.key);
-      if (r.pending) setMsg({ type: "ok", text: "입금이 확인되면 크레딧이 지급돼요." });
-      else setMsg({ type: "ok", text: `결제가 완료됐어요. 크레딧 ${r.credits}개를 넣어드렸어요.` });
-      await load();
+      // 주문만 만들고 결제 화면으로 넘어간다(구매자 이름·휴대폰 번호를 받는 자리).
+      setCheckout(await orderPack(pack.key));
     } catch (e) {
       if (e.cancelled) setMsg(null);
       else setMsg({ type: "err", text: e.message });
@@ -269,6 +269,24 @@ export default function CreditsTab() {
 
       {/* 실제로 돈을 내는 화면이다. 사업자 정보와 환불 조건이 이 화면 안에 있어야 한다. */}
       <BusinessInfo />
+
+      {/* 결제 화면은 계정 설정 창 위에 뜬다(z-index가 더 높다). */}
+      {checkout && (
+        <CheckoutPage
+          order={checkout}
+          onClose={() => setCheckout(null)}
+          onDone={async (r) => {
+            setCheckout(null);
+            setMsg({
+              type: "ok",
+              text: r?.pending
+                ? "입금이 확인되면 크레딧이 지급돼요."
+                : `결제가 완료됐어요. 크레딧 ${r.credits}개를 넣어드렸어요.`,
+            });
+            await load();
+          }}
+        />
+      )}
     </>
   );
 }

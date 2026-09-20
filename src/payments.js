@@ -36,7 +36,47 @@ async function ensureIdentity() {
   await verifyIdentity({ agree: !cfg.identityAgreed });
 }
 
-/** 크레딧 팩 결제. 성공하면 { credits } 또는 입금 대기면 { pending: true }. */
+/** 크레딧 팩 주문을 만든다. 결제창은 결제 화면(CheckoutPage)에서 연다. */
+export async function orderPack(packKey) {
+  await ensureIdentity();
+  return apiJson("/api/checkout", { method: "POST", body: { packKey } });
+}
+
+/** 요금제 1개월 이용권 주문을 만든다. */
+export async function orderPlan(plan) {
+  await ensureIdentity();
+  return apiJson("/api/checkout", { method: "POST", body: { plan } });
+}
+
+/**
+ * 결제창을 연다. buyer는 결제 화면에서 받은 이름·휴대폰 번호다.
+ *
+ * 이니시스 V2는 이 둘이 비면 창을 열지 않는다. 본인확인으로 이미 알고 있으면 그대로 쓰고,
+ * 모르면 화면에서 받아 채운다 — 번호를 저장하기 전에 인증한 회원이 여기에 해당한다.
+ * 금액과 주문번호는 서버가 만든 주문 그대로다.
+ */
+export async function startCheckout(order, buyer) {
+  const PortOne = await sdk();
+  const res = await PortOne.requestPayment({
+    storeId: order.storeId,
+    channelKey: order.channelKey,
+    paymentId: order.paymentId,
+    orderName: order.orderName,
+    totalAmount: order.totalAmount,
+    currency: order.currency,
+    payMethod: "CARD",
+    customer: { ...(order.customer || {}), ...(buyer || {}) },
+    // 모바일 결제창은 페이지를 떠났다가 돌아온다. 돌아올 곳을 지정하지 않으면 결과를 잃는다.
+    redirectUrl: `${window.location.origin}/?checkout=${encodeURIComponent(order.paymentId)}`,
+  });
+  if (res?.code != null) {
+    if (CANCEL_CODES.has(res.code)) throw cancelled(res.message);
+    throw new Error(res.message || "결제에 실패했어요.");
+  }
+  return confirmCheckout(order.paymentId);
+}
+
+/** 예전 경로 — 주문 생성과 결제창 호출을 한 번에. 남은 호출부가 있으면 그대로 동작한다. */
 export async function payForPack(packKey) {
   await ensureIdentity();
   const order = await apiJson("/api/checkout", { method: "POST", body: { packKey } });

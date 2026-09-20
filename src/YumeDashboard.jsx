@@ -9,9 +9,10 @@ import { apiJson, safeUrl, CONTACT_EMAIL } from "@/components/yume/api";
 import { BUSINESS, telHref, COPYRIGHT, businessLine } from "@/businessInfo";
 import BusinessInfo from "@/components/yume/BusinessInfo";
 import { IS_NATIVE_APP, onNativeBack, shareLink } from "./native.js";
-import { payForPlan, resumeFromRedirect, verifyIdentity } from "./payments.js";
+import { orderPlan, resumeFromRedirect, verifyIdentity } from "./payments.js";
 import AuditModal from "./components/yume/AuditModal.jsx";
 import RankingModal from "@/components/yume/RankingModal";
+import CheckoutPage from "@/components/yume/CheckoutPage";
 
 // 기업용 사이트 주소. 별도 도메인에 따로 배포되므로 코드에 박지 않고 빌드 환경변수로 받는다.
 const BUSINESS_URL = (import.meta.env?.VITE_BUSINESS_URL || "https://business.yume-reamer.com").replace(/\/+$/, "");
@@ -595,17 +596,16 @@ export default function YumeDashboard() {
   }, [user?.id]);
 
   const [planBusy, setPlanBusy] = React.useState("");
+  const [checkout, setCheckout] = React.useState(null);
   const buyPlan = async (key, label) => {
     if (!user) { setShowPricing(false); setAuthModal("signup"); return; }
-    // 다시 묻지 않는다. 버튼에 금액이 적혀 있고 바로 다음이 카드번호를 받는
-    // 이니시스 결제창이라 거기가 확인 단계다. 앞에 창을 더 띄우면 본인확인까지
-    // 이어지는 흐름이 끊긴다.
+    // 주문만 만들고 결제 화면으로 넘어간다. 구매자 이름·휴대폰 번호를 확인하거나
+    // 채워 넣을 자리가 필요해서다 — 이니시스는 그 둘이 비면 창을 열지 않는다.
     setPlanBusy(key);
     try {
-      const r = await payForPlan(key);
-      setToast(r.pending ? "입금이 확인되면 플랜이 열려요." : `${label} 플랜이 열렸어요.`);
-      await refreshSession();
+      const order = await orderPlan(key);
       setShowPricing(false);
+      setCheckout({ ...order, kind: "plan", label });
     } catch (e) {
       if (!e.cancelled) setToast(e.message || "결제하지 못했어요.");
     } finally {
@@ -1764,6 +1764,26 @@ export default function YumeDashboard() {
           loggedIn={!!user}
           onClose={() => setShowRanking(false)}
           onNeedLogin={() => { setShowRanking(false); setAuthModal("login"); }}
+        />
+      )}
+
+      {checkout && (
+        <CheckoutPage
+          order={checkout}
+          user={user}
+          onClose={() => setCheckout(null)}
+          onDone={async (r) => {
+            setCheckout(null);
+            // 결제가 끝나면 그 자리에서 반영한다. 다시 눌러 새로고침하게 두지 않는다.
+            await refreshSession();
+            setToast(
+              r?.pending
+                ? "입금이 확인되면 바로 적용돼요."
+                : checkout.kind === "plan"
+                  ? `${checkout.label} 플랜이 열렸어요.`
+                  : "크레딧이 들어왔어요.",
+            );
+          }}
         />
       )}
 
