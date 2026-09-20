@@ -31,6 +31,8 @@ export async function payForPack(packKey) {
     totalAmount: order.totalAmount,
     currency: order.currency,
     payMethod: "CARD",
+    // 이니시스 V2 일반결제는 구매자 이메일이 없으면 창을 열지 않는다. 서버가 계정에서 꺼내 준 값이다.
+    customer: order.customer,
     // 모바일 결제창은 페이지를 떠났다가 돌아온다. 돌아올 곳을 지정하지 않으면 결과를 잃는다.
     redirectUrl: `${window.location.origin}/?checkout=${encodeURIComponent(order.paymentId)}`,
   });
@@ -101,6 +103,7 @@ export async function payForPlan(plan) {
     totalAmount: order.totalAmount,
     currency: order.currency,
     payMethod: "CARD",
+    customer: order.customer,
     redirectUrl: `${window.location.origin}/?checkout=${encodeURIComponent(order.paymentId)}`,
   });
   if (res?.code != null) {

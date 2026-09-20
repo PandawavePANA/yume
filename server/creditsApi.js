@@ -142,6 +142,14 @@ router.post("/checkout", limitMiddleware(checkoutLimiter, (req) => `checkout:${r
     orderName: order.name,
     totalAmount: order.amount,
     currency: "CURRENCY_KRW",
+    // 이니시스 V2 일반결제는 구매자 이메일이 없으면 결제창 자체가 열리지 않는다.
+    // 브라우저가 채우게 두지 않고 서버가 로그인한 계정에서 꺼내 내려보낸다 — 영수증이
+    // 엉뚱한 주소로 가거나, 결제한 사람과 계정이 어긋나는 일이 없어야 한다.
+    customer: {
+      customerId: String(req.user.id),
+      email: req.user.email,
+      fullName: req.user.name || req.user.display_name || undefined,
+    },
   });
 });
 

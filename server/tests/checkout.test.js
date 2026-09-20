@@ -93,19 +93,22 @@ async function signedIn() {
     agreeIdentity: true,
   });
   assert.equal(r.status, 201, JSON.stringify(r.data));
-  return { call, userId: r.data.user.id };
+  return { call, userId: r.data.user.id, email: r.data.user.email };
 }
 
 const PACK = { key: "pack_20", credits: 20, krw: 12000 };
 
 test("결제가 끝난 만큼만 크레딧이 들어간다", async () => {
-  const { call, userId } = await signedIn();
+  const { call, userId, email } = await signedIn();
   const before = await credits.balance(userId);
 
   const order = await call("POST", "/api/checkout", { packKey: PACK.key });
   assert.equal(order.status, 200);
   assert.equal(order.data.totalAmount, PACK.krw);
   assert.equal(order.data.storeId, "store-test");
+  // 이니시스 V2는 구매자 이메일 없이는 결제창을 열지 않는다. 이 값이 빠지면
+  // 사용자는 "결제 창 호출에 실패하였습니다"만 보게 된다 — 실제로 한 번 겪었다.
+  assert.equal(order.data.customer?.email, email, "구매자 이메일을 서버가 내려줘야 한다");
 
   portone.payment = { status: "PAID", amount: { total: PACK.krw }, method: { type: "PaymentMethodCard", card: { name: "국민" } }, paidAt: "2026-09-20T00:00:00Z" };
   const done = await call("POST", "/api/checkout/confirm", { paymentId: order.data.paymentId });
