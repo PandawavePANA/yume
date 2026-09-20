@@ -75,6 +75,10 @@ export function publicUser(u) {
     planLabel: PLANS[plan].label,
     planExpiresAt: u.plan_expires_at || null,
     dataConsent: !!u.data_consent,
+    // 가입 뒤 휴대폰 본인확인을 마쳤는지. 화면이 첫 로딩에 바로 알아야 인증 창을 띄울지
+    // 판단할 수 있다(검증을 눌러 403을 받고 나서야 아는 건 한 박자 늦다).
+    identityVerified: !!u.identity_verified_at,
+    identityAgreed: !!u.identity_agreed_at,
     createdAt: u.created_at,
   };
 }

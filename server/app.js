@@ -99,6 +99,23 @@ app.post("/api/verify", limitMiddleware(verifyLimiter, (req) => `verify:${client
 
   const user = req.user;
   const ip = clientIp(req);
+
+  // 계정으로 쓰려면 휴대폰 본인확인을 마쳐야 한다.
+  //
+  // 크레딧·기여도·분기 보상이 걸려 있어서, 계정을 여러 개 만드는 것이 이득이 되는 구조다.
+  // 이메일은 얼마든지 만들 수 있지만 휴대폰 본인확인은 그렇지 않다. 가입 자체를 막지 않고
+  // 여기서 막는 이유는, 인증 창이 계정과 세션이 있어야 열리기 때문이다 —
+  // 계정은 만들어지되 확인 전에는 아무것도 할 수 없다.
+  //
+  // 로그인하지 않은 사람은 예전처럼 하루 무료 횟수로 쓴다. 그쪽은 쌓이는 것이 없어
+  // 계정을 여러 개 만들 이유가 없다.
+  if (user && !user.identity_verified_at) {
+    return res.status(403).json({
+      error: "휴대폰 본인확인을 마치면 바로 이용하실 수 있어요.",
+      code: "IDENTITY_REQUIRED",
+    });
+  }
+
   const usage = await checkAndConsume({ user, ip, chars: text.length });
   if (!usage.allowed) return res.status(402).json({ error: limitMessage(usage, user), limitReached: true, loggedIn: !!user });
 

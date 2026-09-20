@@ -366,3 +366,20 @@ test("요금제 결제가 취소되면 늘려 준 기간을 도로 깎는다", a
   assert.equal(u.plan, "free", "30일짜리 한 번을 취소하면 요금제가 닫혀야 한다");
   assert.equal(u.plan_expires_at, null);
 });
+
+// 계정으로 검증하려면 휴대폰 본인확인을 마쳐야 한다. 크레딧과 기여도가 걸려 있어
+// 계정을 여러 개 만드는 게 이득인 구조라, 이메일만으로는 열어 주지 않는다.
+test("본인확인 전에는 검증이 막히고, 마치면 열린다", async () => {
+  const { call, userId } = await signedIn();
+
+  const blocked = await call("POST", "/api/verify", { text: "민법 제750조는 불법행위 책임을 규정한다." });
+  assert.equal(blocked.status, 403);
+  assert.equal(blocked.data.code, "IDENTITY_REQUIRED");
+
+  // 본인확인을 마친 상태로 만든다(창 호출은 브라우저 몫이라 여기서는 결과만 심는다).
+  const db = await import("../db.js");
+  await db.run("UPDATE users SET identity_verified_at = :t WHERE id = :id", { t: Date.now(), id: userId });
+
+  const after = await call("POST", "/api/verify", { text: "민법 제750조는 불법행위 책임을 규정한다." });
+  assert.notEqual(after.status, 403, "본인확인을 마치면 더는 403이 아니다");
+});

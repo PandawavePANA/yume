@@ -9,7 +9,7 @@ import { apiJson, safeUrl, CONTACT_EMAIL } from "@/components/yume/api";
 import { BUSINESS, telHref, COPYRIGHT, businessLine } from "@/businessInfo";
 import BusinessInfo from "@/components/yume/BusinessInfo";
 import { IS_NATIVE_APP, onNativeBack, shareLink } from "./native.js";
-import { payForPlan, resumeFromRedirect } from "./payments.js";
+import { payForPlan, resumeFromRedirect, verifyIdentity } from "./payments.js";
 import AuditModal from "./components/yume/AuditModal.jsx";
 import RankingModal from "@/components/yume/RankingModal";
 
@@ -629,11 +629,27 @@ export default function YumeDashboard() {
     return () => clearTimeout(id);
   }, [toast]);
 
-  const onAuthed = (u) => {
+  // 가입·로그인 직후 휴대폰 본인확인이 안 돼 있으면 그 자리에서 창을 연다.
+  // 나중으로 미루면 검증을 누른 순간 막히는데, 그때는 이미 쓸 마음으로 들어온 사람이라
+  // 흐름이 끊긴다. 취소해도 계정은 남으므로 다시 시도할 수 있다.
+  const askIdentity = async () => {
+    try {
+      const r = await verifyIdentity({ agree: true });
+      setToast(`${r?.name ? `${r.name}님, ` : ""}본인확인을 마쳤어요.`);
+    } catch (e) {
+      if (!e?.cancelled) setToast(e?.message || "본인확인에 실패했어요.");
+      return false;
+    }
+    await refreshSession();
+    return true;
+  };
+
+  const onAuthed = async (u) => {
     setAuthModal(null);
     setLimitReached(null);
     setToast(`${u.name || u.email}님, 반가워요.`);
-    refreshSession();
+    await refreshSession();
+    if (!u.identityVerified) await askIdentity();
   };
 
   const logout = async () => {
@@ -803,6 +819,13 @@ export default function YumeDashboard() {
         const parsed = await response.json().catch(() => ({}));
         if (response.status === 402 && parsed.limitReached) {
           setLimitReached({ message: parsed.error, loggedIn: parsed.loggedIn });
+        }
+        // 본인확인만 남은 경우다. 오류로 끝내지 않고 인증 창을 띄운 뒤,
+        // 마쳤으면 방금 누른 검증을 그대로 이어서 실행한다.
+        if (response.status === 403 && parsed.code === "IDENTITY_REQUIRED") {
+          setStage("idle");
+          if (await askIdentity()) return runCheck();
+          throw new Error(parsed.error);
         }
         throw new Error(parsed.error || "서버 오류가 발생했습니다.");
       }
