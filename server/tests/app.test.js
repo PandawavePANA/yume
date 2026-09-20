@@ -74,6 +74,7 @@ const signupBody = (email, extra = {}) => ({
   nickname: `tester${++nickSeq}`,
   agreeTerms: true,
   agreePrivacy: true,
+  agreeIdentity: true,
   ...extra,
 });
 

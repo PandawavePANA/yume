@@ -535,6 +535,12 @@ const MIGRATIONS = [
   CREATE INDEX idx_claim_cache_created ON claim_cache(created_at);
   ALTER TABLE claim_cache ENABLE ROW LEVEL SECURITY;
   `,
+
+  // 본인확인(통합인증) 동의 시각. CI는 본인확인기관이 주민등록번호를 일방향 암호화한 값이라
+  // 동의를 받은 사실이 남아 있어야 한다. CI 값 자체는 저장하지 않는다.
+  `
+  ALTER TABLE users ADD COLUMN identity_agreed_at BIGINT;
+  `,
 ];
 
 async function migrate() {

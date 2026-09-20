@@ -158,7 +158,7 @@ router.post("/auth/signup", limitMiddleware(signupLimiter, (req) => `signup:${cl
   const password = req.body?.password;
   const name = String(req.body?.name || "").trim().slice(0, 40);
   const nickname = String(req.body?.nickname || "").trim();
-  const { agreeTerms, agreePrivacy, dataConsent } = req.body || {};
+  const { agreeTerms, agreePrivacy, agreeIdentity, dataConsent } = req.body || {};
 
   if (!isEmail(email)) return res.status(400).json({ error: "올바른 이메일 주소를 입력해주세요." });
   // 닉네임은 랭킹에 그대로 나가는 이름이라 가입할 때 정하고, 겹칠 수 없다.
@@ -168,6 +168,7 @@ router.post("/auth/signup", limitMiddleware(signupLimiter, (req) => `signup:${cl
   const pwErr = passwordProblem(password);
   if (pwErr) return res.status(400).json({ error: pwErr });
   if (!agreeTerms || !agreePrivacy) return res.status(400).json({ error: "필수 약관(이용약관·개인정보 수집·이용)에 동의해주세요." });
+  if (!agreeIdentity) return res.status(400).json({ error: "본인확인 정보(CI) 수집·이용에 동의해주세요." });
   if (await one("SELECT id FROM users WHERE email = :email", { email })) {
     return res.status(409).json({ error: "이미 가입된 이메일이에요. 로그인해주세요." });
   }
@@ -178,8 +179,8 @@ router.post("/auth/signup", limitMiddleware(signupLimiter, (req) => `signup:${cl
   let user;
   try {
     const r = await run(
-      `INSERT INTO users (email, password_hash, name, display_name, role, data_consent, data_consent_at, terms_agreed_at, privacy_agreed_at, created_at, last_login_at)
-       VALUES (:email, :ph, :name, :nickname, :role, :dc, :dcAt, :t, :t, :t, :t) RETURNING *`,
+      `INSERT INTO users (email, password_hash, name, display_name, role, data_consent, data_consent_at, terms_agreed_at, privacy_agreed_at, identity_agreed_at, created_at, last_login_at)
+       VALUES (:email, :ph, :name, :nickname, :role, :dc, :dcAt, :t, :t, :t, :t, :t) RETURNING *`,
       { email, ph: passwordHash, name, nickname, role, dc: dataConsent ? 1 : 0, dcAt: dataConsent ? t : null, t },
     );
     user = r.rows[0];

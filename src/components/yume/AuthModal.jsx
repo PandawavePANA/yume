@@ -25,14 +25,16 @@ export default function AuthModal({ mode: initialMode = "login", onClose, onAuth
   const [nickname, setNickname] = useState("");
   const [terms, setTerms] = useState(false);
   const [privacy, setPrivacy] = useState(false);
+  const [identity, setIdentity] = useState(false);
   const [dataConsent, setDataConsent] = useState(false);
   const [showDataDetail, setShowDataDetail] = useState(false);
+  const [showIdentityDetail, setShowIdentityDetail] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
-  const allChecked = terms && privacy && dataConsent;
-  const setAll = (v) => { setTerms(v); setPrivacy(v); setDataConsent(v); };
+  const allChecked = terms && privacy && identity && dataConsent;
+  const setAll = (v) => { setTerms(v); setPrivacy(v); setIdentity(v); setDataConsent(v); };
 
   const submit = async (e) => {
     e?.preventDefault();
@@ -43,10 +45,10 @@ export default function AuthModal({ mode: initialMode = "login", onClose, onAuth
         const r = await apiJson("/api/auth/forgot", { method: "POST", body: { email } });
         setNotice(r.message);
       } else if (mode === "signup") {
-        if (!terms || !privacy) throw new Error("필수 항목에 동의해주세요.");
+        if (!terms || !privacy || !identity) throw new Error("필수 항목에 동의해주세요.");
         // 추천 링크(?ref=코드)로 들어왔다면 같이 보낸다 — 친구가 첫 검증을 마치면 추천한 사람에게 크레딧이 간다.
         const referralCode = new URLSearchParams(window.location.search).get("ref") || undefined;
-        const r = await apiJson("/api/auth/signup", { method: "POST", body: { email, password, name, nickname, agreeTerms: terms, agreePrivacy: privacy, dataConsent, referralCode } });
+        const r = await apiJson("/api/auth/signup", { method: "POST", body: { email, password, name, nickname, agreeTerms: terms, agreePrivacy: privacy, agreeIdentity: identity, dataConsent, referralCode } });
         onAuthed(r.user);
       } else {
         const r = await apiJson("/api/auth/login", { method: "POST", body: { email, password } });
@@ -117,6 +119,21 @@ export default function AuthModal({ mode: initialMode = "login", onClose, onAuth
               <Check checked={privacy} onChange={setPrivacy}>
                 [필수] <a href="/privacy" target="_blank" rel="noreferrer" style={{ color: "#6B4FA8" }}>개인정보 수집·이용</a>에 동의합니다 (검증 처리를 위한 국외 위탁 포함)
               </Check>
+              <Check checked={identity} onChange={setIdentity}>
+                [필수] 본인확인 서비스 이용 및 연계정보(CI) 수집·이용에 동의합니다{" "}
+                <span onClick={(e) => { e.preventDefault(); setShowIdentityDetail((v) => !v); }} style={{ color: "#6B4FA8", textDecoration: "underline", cursor: "pointer" }}>
+                  {showIdentityDetail ? "접기" : "자세히"}
+                </span>
+              </Check>
+              {showIdentityDetail && (
+                <div style={{ fontSize: 11.5, color: "#6E6389", background: "#FAF7FF", borderRadius: 8, padding: "9px 10px", marginBottom: 9, lineHeight: 1.65 }}>
+                  <b>수집 항목</b> 이름, 생년월일, 성별, 휴대전화번호, 연계정보(CI), 중복가입확인정보(DI)<br />
+                  <b>목적</b> 본인 확인, 만 14세 미만 가입 제한, 중복 가입·부정 이용 방지, 유료 결제 시 명의 확인<br />
+                  <b>보유 기간</b> 탈퇴 시까지<br />
+                  <b>수탁자</b> 본인확인기관의 통합인증서비스(카카오·네이버·PASS 등 인증서)<br />
+                  유메는 <b>주민등록번호를 수집하지 않습니다.</b> CI는 본인확인기관이 주민등록번호를 일방향 암호화해 만든 값이에요.
+                </div>
+              )}
               <Check checked={dataConsent} onChange={setDataConsent}>
                 [선택] 가명처리한 검증 데이터의 제3자 제공에 동의합니다{" "}
                 <span onClick={(e) => { e.preventDefault(); setShowDataDetail((v) => !v); }} style={{ color: "#6B4FA8", textDecoration: "underline", cursor: "pointer" }}>
