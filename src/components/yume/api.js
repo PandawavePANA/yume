@@ -24,6 +24,9 @@ export async function apiJson(path, { method = "GET", body } = {}) {
     const err = new Error(data.error || `요청을 처리하지 못했어요 (${res.status})`);
     err.status = res.status;
     err.data = data;
+    // 서버가 주는 code(IDENTITY_REQUIRED 등)를 오류 자체에도 올려 둔다.
+    // err.data.code로만 두면 부르는 쪽에서 err.code로 잘못 읽고 조용히 넘어간다.
+    if (data && data.code) err.code = data.code;
     throw err;
   }
   return data;

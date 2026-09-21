@@ -12,6 +12,7 @@ import { resolveProductLinks } from "./coupang.js";
 import { checkAndConsume, refundOne, peekUsage, PLANS } from "./usageStore.js";
 import { appendTurns } from "./chatHistory.js";
 import { logError } from "./errorLog.js";
+import { repairContext, MAX_TRANSCRIPT_CHARS, MIN_TRANSCRIPT_CHARS } from "./contextRepair.js";
 import { audit } from "./audit.js";
 import { runVerification, MAX_INPUT_CHARS } from "./verifyPipeline.js";
 import { getVerification, newVerificationId, trimUserHistory } from "./verificationStore.js";
@@ -79,6 +80,8 @@ app.use("/api", accountRouter);
 app.use("/api", creditsRouter);
 
 const verifyLimiter = createLimiter({ windowMs: 60_000, max: 6 });
+// 문맥 복구는 대화 전체를 통째로 보내므로 한 번이 무겁다. 검증보다 낮게 잡는다.
+const repairLimiter = createLimiter({ windowMs: 60_000, max: 3 });
 const chatLimiter = createLimiter({ windowMs: 60_000, max: 20 });
 const chatDailyLimiter = createLimiter({ windowMs: 24 * 3600 * 1000, max: 150 });
 
@@ -168,6 +171,41 @@ app.post("/api/verify", limitMiddleware(verifyLimiter, (req) => `verify:${client
     }
   } finally {
     res.end();
+  }
+});
+
+
+// 문맥 복구 — 길어진 대화에서 AI가 앞부분을 잃고 틀린 말을 하기 시작할 때,
+// 다시 붙여넣을 문맥 요약 프롬프트를 만들어 준다.
+//
+// 검증과 같은 문을 쓴다: 본인확인, 하루 한도, 크레딧. 다른 문을 새로 파면
+// 한쪽만 조이는 실수가 나고, 실제로 이쪽이 더 비싼 호출이다.
+app.post("/api/context-repair", limitMiddleware(repairLimiter, (req) => `repair:${clientIp(req)}`), async (req, res) => {
+  const text = typeof req.body?.transcript === "string" ? req.body.transcript.trim() : "";
+  if (!text) return res.status(400).json({ error: "대화 내용을 붙여넣어 주세요." });
+  if (text.length < MIN_TRANSCRIPT_CHARS) {
+    return res.status(400).json({ error: "대화 내용이 너무 짧아요. 주고받은 내용을 조금 더 붙여넣어 주세요." });
+  }
+  if (text.length > MAX_TRANSCRIPT_CHARS) {
+    return res.status(413).json({ error: `한 번에 ${MAX_TRANSCRIPT_CHARS.toLocaleString()}자까지 볼 수 있어요. 최근 대화 위주로 잘라서 붙여넣어 주세요.` });
+  }
+
+  const user = req.user;
+  const ip = clientIp(req);
+  if (user && !user.identity_verified_at) {
+    return res.status(403).json({ error: "휴대폰 본인확인을 마치면 바로 이용하실 수 있어요.", code: "IDENTITY_REQUIRED" });
+  }
+
+  const usage = await checkAndConsume({ user, ip, chars: text.length });
+  if (!usage.allowed) return res.status(402).json({ error: limitMessage(usage, user), limitReached: true, loggedIn: !!user });
+
+  try {
+    const result = await repairContext(text);
+    res.json({ ...result, usage: { plan: usage.plan, remainingFree: usage.remainingFree, credits: usage.credits } });
+  } catch (e) {
+    if (e.code === "TOO_SHORT") return res.status(400).json({ error: e.message });
+    logError("context-repair", e);
+    res.status(502).json({ error: userMessageFor(e) });
   }
 });
 

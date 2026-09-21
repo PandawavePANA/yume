@@ -4,6 +4,7 @@ import CatMouseGame from "@/components/yume/CatMouseGame";
 import AuthModal from "@/components/yume/AuthModal";
 import AccountModal from "@/components/yume/AccountModal";
 import NecPanel from "@/components/yume/NecPanel";
+import ContextRepairCard from "@/components/yume/ContextRepairCard";
 import { BountyPrompt } from "@/components/yume/BountyModal";
 import { apiJson, safeUrl, CONTACT_EMAIL } from "@/components/yume/api";
 import { BUSINESS, telHref, COPYRIGHT, businessLine } from "@/businessInfo";
@@ -1475,6 +1476,11 @@ export default function YumeDashboard() {
           )}
         </motion.div>
         </motion.div>
+
+        {/* 두 번째 서비스. 검증이 "모르는 걸 아는 척하는" 경우를 잡는다면,
+            이건 "알던 걸 잊고 지어내는" 경우를 잡는다.
+            본인확인은 검증 쪽과 같은 창을 쓴다 — 마치면 그 자리에서 이어진다. */}
+        <ContextRepairCard onNeedIdentity={askIdentity} />
 
         <Reveal y={20} scale={1}>
           <p style={{ textAlign: "center", fontSize: 12.5, color: UI.ink3, margin: "20px auto 0", lineHeight: 1.7, maxWidth: 600 }}>
