@@ -97,7 +97,7 @@ const TABLES = [
   "wallets", "chat_messages", "error_logs", "audit_logs", "data_exports", "settings", "schema_migrations",
   // 나중에 추가된 테이블. 여기 빠지면 search_path에 기대게 되어 위 주석의 문제가 그대로 생긴다.
   "credit_ledger", "bounty_claims", "redemptions", "referrals", "contribution_ledger", "quarter_awards", "claim_cache",
-  "credit_orders", "inquiries", "audit_sessions", "audit_reports",
+  "credit_orders", "inquiries", "audit_sessions", "audit_reports", "projects", "product_tasks",
 ];
 const TABLE_REF = new RegExp(`\\b(FROM|JOIN|INTO|UPDATE)\\s+(${TABLES.join("|")})\\b`, "gi");
 const qualify = (sql) => sql.replace(TABLE_REF, (_m, kw, table) => `${kw} ${SCHEMA}.${table}`);
@@ -628,6 +628,53 @@ const MIGRATIONS = [
   );
   CREATE INDEX idx_audit_reports_created ON audit_reports(created_at);
   ALTER TABLE audit_reports ENABLE ROW LEVEL SECURITY;
+  `,
+
+  // 스튜디오 운영 보드 — 외주 건과 자사 제품 진행 상황.
+  //
+  // 문의(inquiries)는 들어온 기록일 뿐이라 "지금 어디까지 왔나"를 담지 못한다.
+  // 수주해서 만들고 돈을 받는 과정은 문의와 수명이 다르므로 별도 표로 둔다.
+  // 문의에서 전환된 건은 inquiry_id로 이어 두어 어디서 온 일인지 남긴다.
+  //
+  // 금액은 두 개다. amount_krw는 계약한 금액, paid_krw는 실제로 받은 금액.
+  // 매출을 계약 기준으로 세면 받지 못한 돈까지 매출로 잡히므로, 합계는 받은 쪽으로 낸다.
+  `
+  CREATE TABLE projects (
+    id SERIAL PRIMARY KEY,
+    title TEXT NOT NULL,
+    client TEXT,
+    contact TEXT,
+    kind TEXT,
+    status TEXT NOT NULL DEFAULT 'lead',
+    amount_krw BIGINT NOT NULL DEFAULT 0,
+    paid_krw BIGINT NOT NULL DEFAULT 0,
+    progress INTEGER NOT NULL DEFAULT 0,
+    started_at BIGINT,
+    due_at BIGINT,
+    done_at BIGINT,
+    note TEXT,
+    inquiry_id INTEGER,
+    created_at BIGINT NOT NULL,
+    updated_at BIGINT NOT NULL
+  );
+  CREATE INDEX idx_projects_status ON projects(status, updated_at);
+  ALTER TABLE projects ENABLE ROW LEVEL SECURITY;
+
+  -- 자사 제품(유메·프로바·밸러스트·아이픽)의 할 일 체크리스트.
+  -- 외주 건과 표를 합치지 않는 이유는, 이쪽은 고객도 금액도 마감도 없고
+  -- "무엇이 남았나"만 필요해서다. 한 표에 억지로 넣으면 양쪽 다 빈 칸이 많아진다.
+  CREATE TABLE product_tasks (
+    id SERIAL PRIMARY KEY,
+    product TEXT NOT NULL,
+    title TEXT NOT NULL,
+    state TEXT NOT NULL DEFAULT 'todo',
+    sort INTEGER NOT NULL DEFAULT 0,
+    note TEXT,
+    created_at BIGINT NOT NULL,
+    updated_at BIGINT NOT NULL
+  );
+  CREATE INDEX idx_product_tasks ON product_tasks(product, sort);
+  ALTER TABLE product_tasks ENABLE ROW LEVEL SECURITY;
   `,
 ];
 

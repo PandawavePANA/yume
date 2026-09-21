@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import express from "express";
 import { patchAsync } from "./asyncExpress.js";
 import { all, DB_DESCRIPTION, kstDay, now, one, run, PERSISTENT_STORAGE } from "./db.js";
+import { hasAdminCookie } from "./adminGate.js";
 import { audit, listAudit } from "./audit.js";
 import { listErrors } from "./errorLog.js";
 import { listAllKeys, adminUpdateKey, monthlyBillingReport } from "./apiKeys.js";
@@ -23,6 +24,11 @@ const router = patchAsync(express.Router());
 export function requireAdmin(req, res, next) {
   if (req.user?.role === "admin") {
     req.adminActor = `user:${req.user.id}`;
+    return next();
+  }
+  // 비밀번호로 들어온 브라우저. 헤더를 넣을 수 없는 사람이 쓰는 길이다.
+  if (hasAdminCookie(req)) {
+    req.adminActor = "admin-password";
     return next();
   }
   const secret = process.env.ADMIN_SECRET;

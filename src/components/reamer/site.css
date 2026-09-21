@@ -1295,3 +1295,59 @@
   .reveal-on .hero .actions,
   .reveal-on .trust__item { animation: none; }
 }
+
+/* ---------- 약속 ---------- */
+/* 여섯 개라 3×2로 정확히 떨어진다. 체크 표시는 유메의 판정 도장에서 가져온
+   모티프다 — "확인됨"이 그 제품의 핵심 기호이고, 여기서도 같은 뜻으로 쓴다. */
+.vow {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 28px 40px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.vow__item {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 13px;
+  align-items: start;
+}
+.vow__mark {
+  position: relative;
+  width: 22px;
+  height: 22px;
+  margin-top: 1px;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--beam-mid) 52%, transparent);
+}
+.vow__mark::after {
+  content: "";
+  position: absolute;
+  left: 7px;
+  top: 5px;
+  width: 5px;
+  height: 9px;
+  border: solid color-mix(in srgb, var(--beam-violet) 86%, var(--ink));
+  border-width: 0 1.5px 1.5px 0;
+  transform: rotate(42deg);
+}
+.vow__head {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: -0.01em;
+}
+.vow__body {
+  margin: 7px 0 0;
+  font-size: 13px;
+  line-height: 1.8;
+  color: var(--ink-dim);
+}
+@media (max-width: 900px) {
+  .vow { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px 28px; }
+}
+@media (max-width: 620px) {
+  .vow { grid-template-columns: 1fr; gap: 20px; }
+}

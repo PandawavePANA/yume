@@ -4,7 +4,7 @@ import "@/components/reamer/site.css";
 import SiteBackdrop from "@/components/reamer/SiteBackdrop";
 import Logo from "@/components/reamer/Logo";
 import { BUSINESS, telHref, COPYRIGHT, businessLine } from "@/businessInfo";
-import { NAV, TRUST, WHY, SERVICES, PROCESS, WORK, ALSO, TIMELINE, FAQ, AFTER_SEND } from "@/reamerContent";
+import { NAV, TRUST, WHY, GUARANTEES, SERVICES, PROCESS, WORK, ALSO, TIMELINE, FAQ, AFTER_SEND } from "@/reamerContent";
 
 // Characters are split into spans so the global cursor-tile trail can flip
 // them dark as a tile passes underneath.
@@ -509,6 +509,29 @@ const ReamerSite = () => {
                   </div>
                 ))}
               </dl>
+            </div>
+          </section>
+
+          {/* 약속. 맡기는 쪽이 손해 볼 수 있는 지점마다 하나씩 대응한다. */}
+          <section className="section section--vow" id="guarantee">
+            <div className="wrap">
+              <header className="head" data-reveal>
+                <p className="label">약속</p>
+                <h2 className="title">
+                  <Chars text="여섯 가지를 보장합니다." />
+                </h2>
+              </header>
+              <ul className="vow">
+                {GUARANTEES.map((g) => (
+                  <li className="vow__item" key={g.head} data-reveal>
+                    <span className="vow__mark" aria-hidden />
+                    <div>
+                      <h3 className="vow__head">{g.head}</h3>
+                      <p className="vow__body">{g.body}</p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
             </div>
           </section>
 

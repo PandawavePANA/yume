@@ -25,6 +25,9 @@ import { creditReferralOnActivity } from "./referral.js";
 import { awardForVerification } from "./contribution.js";
 import apiV1Router from "./apiV1.js";
 import adminApiRouter from "./adminApi.js";
+import { studioRouter } from "./studioApi.js";
+import { renderStudioPage } from "./renderStudioPage.js";
+import { adminLogin, adminLogout, hasAdminCookie, renderLoginPage } from "./adminGate.js";
 import { openExportDownload, purgeOldExportFiles } from "./dataset.js";
 import { renderAdminPage } from "./renderAdminPage.js";
 import { renderResetPasswordPage, renderTermsPage, renderPrivacyPage, renderRefundPage, renderProductsPage, renderAccountDeletionPage, renderApiDocsPage } from "./renderPages.js";
@@ -236,13 +239,31 @@ function requireKakaoSecret(req, res, next) {
 }
 app.post("/api/kakao/skill", requireKakaoSecret, kakaoSkillHandler);
 
+// 로그인·로그아웃은 관리자 라우터보다 **앞에** 둔다. 뒤에 두면 requireAdmin이
+// 먼저 걸려서, 로그인하려면 이미 로그인해 있어야 하는 상태가 된다.
+app.post("/api/admin/login", adminLogin);
+app.post("/api/admin/logout", adminLogout);
+
 app.use("/api/admin", adminApiRouter);
+// 스튜디오 보드도 같은 문(requireAdmin)을 쓴다. 관리자 화면이 둘인데 문이 둘이면
+// 한쪽만 잠그는 실수가 반드시 생긴다.
+app.use("/api/admin", studioRouter);
 
 app.use("/api", (req, res) => res.status(404).json({ error: "존재하지 않는 API예요." }));
 
 // ── 서버 렌더링 페이지 ──
 const html = (res, body) => res.set("Content-Type", "text/html; charset=utf-8").send(body);
-app.get("/admin", (req, res) => html(res.set("Cache-Control", "no-store"), renderAdminPage()));
+// 관리자 화면. 들어갈 자격이 없으면 화면 대신 비밀번호를 묻는다.
+// 유메 관리자 계정으로 로그인해 있으면 그대로 통과한다.
+const adminPage = (render) => (req, res) => {
+  res.set("Cache-Control", "no-store").set("X-Robots-Tag", "noindex, nofollow");
+  const allowed = req.user?.role === "admin" || hasAdminCookie(req);
+  html(res, allowed ? render() : renderLoginPage(req.path));
+};
+// attachUser는 /api에만 붙어 있어서 이 경로에서는 req.user가 비어 있다. 여기서
+// 직접 붙여야 유메 관리자 계정으로 로그인한 사람이 비밀번호를 또 묻지 않는다.
+app.get("/admin", attachUser, adminPage(renderAdminPage));
+app.get("/admin/studio", attachUser, adminPage(renderStudioPage));
 app.get("/reset-password", (req, res) => html(res, renderResetPasswordPage()));
 app.get("/terms", (req, res) => html(res, renderTermsPage()));
 app.get("/privacy", (req, res) => html(res, renderPrivacyPage()));
