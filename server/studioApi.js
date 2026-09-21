@@ -87,9 +87,11 @@ studioRouter.get("/studio", async (req, res) => {
 
   // 형제 제품은 각자 자기 서버에 물어본다. 느리거나 죽어 있어도 이 화면은 뜬다.
   const external = await collectProductRevenue();
-  const externalTotal = external
-    .filter((e) => e.state === "ok" || e.state === "stale")
-    .reduce((a, e) => a + Number(e.total || 0), 0);
+  const live = external.filter((e) => e.state === "ok" || e.state === "stale");
+  // 입금이 확인된 것만 총 매출에 넣는다.
+  const externalTotal = live.filter((e) => !e.unverified).reduce((a, e) => a + Number(e.total || 0), 0);
+  // 아직 결제 연동이 없는 제품의 "완료 기준" 금액은 따로 센다.
+  const externalPending = live.filter((e) => e.unverified).reduce((a, e) => a + Number(e.total || 0), 0);
 
   res.json({
     products: PRODUCTS,
@@ -105,6 +107,7 @@ studioRouter.get("/studio", async (req, res) => {
       revenueYume: Number(yume.krw || 0),
       yumeOrders: Number(yume.n || 0),
       revenueProducts: externalTotal,
+      revenueUnverified: externalPending,
       contracted: sum(projects.filter((p) => p.status !== "dropped"), "amount_krw"),
       outstanding,
     },

@@ -58,6 +58,9 @@ async function fetchOne(p) {
       total: Math.max(0, Math.floor(Number(d.total) || 0)),
       count: Math.max(0, Math.floor(Number(d.count) || 0)),
       currency: String(d.currency || "KRW").slice(0, 8),
+      // 결제 연동이 없는 제품은 "완료된 건의 가격"을 보낸다. 입금 확인된 돈이 아니므로
+      // 총 매출에 섞지 않는다 — 섞으면 보드의 총액이 통장과 어긋난다.
+      unverified: d.unverified === true,
       note: typeof d.note === "string" ? d.note.slice(0, 120) : null,
       at: Date.now(),
     };

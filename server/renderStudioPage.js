@@ -296,8 +296,11 @@ export function renderStudioPage() {
     ext.forEach(function (e) {
       var tint = TINT[e.key] || "var(--mid)";
       if (e.state === "ok" || e.state === "stale") {
-        tiles += asset(tint, E(e.label), won(e.total),
-          e.count + "건" + (e.state === "stale" ? " · 응답 없음(직전 값)" : ""));
+        var sub = e.count + "건";
+        // 결제 연동 전 제품은 그 사실을 칸에 적는다. 안 적으면 통장에 있는 돈으로 읽힌다.
+        if (e.unverified) sub = "완료 기준 · 결제 연동 전";
+        else if (e.state === "stale") sub += " · 응답 없음(직전 값)";
+        tiles += asset(e.unverified ? "rgba(236,234,228,.4)" : tint, E(e.label), won(e.total), sub);
       } else if (e.state === "unlinked") {
         tiles += asset("rgba(236,234,228,.25)", E(e.label), "—", "연결 안 됨");
       } else {
