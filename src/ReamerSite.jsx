@@ -350,7 +350,7 @@ const ReamerSite = () => {
                 </h1>
                 <p className="lede">
                   웹사이트, 앱, 결제·인증 연동, AI 기능, 업무 자동화. 기획이 반쯤 잡혀 있어도 괜찮습니다.
-                  <b> 상담과 견적은 무료이고, 한 번 확정한 금액은 바뀌지 않습니다.</b>
+                  <b> 기획만 가져오세요. 마케팅 방안까지 세워드립니다.</b>
                 </p>
                 <div className="actions">
                   <a className="btn btn--solid" href="#contact">
