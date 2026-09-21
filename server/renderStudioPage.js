@@ -184,6 +184,8 @@ export function renderStudioPage() {
   td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
   .scroll { overflow-x: auto; }
   .empty { padding: 26px 0; text-align: center; font-size: 12.5px; color: var(--faint); line-height: 1.7; }
+  .extwarn { display: none; margin-top: 14px; padding: 9px 12px; border-radius: 10px; font-size: 12px; line-height: 1.6;
+             background: rgba(224,116,92,.1); border: 1px solid rgba(224,116,92,.26); color: #f0a08c; }
   .err { display: none; margin-bottom: 12px; padding: 11px 13px; border-radius: 11px; font-size: 12.5px;
          background: rgba(224,116,92,.12); border: 1px solid rgba(224,116,92,.3); color: #f0a08c; }
   .hint { font-size: 11px; color: var(--faint); margin-top: 8px; line-height: 1.6; }
@@ -207,6 +209,7 @@ export function renderStudioPage() {
     <div class="assets" id="assets"></div>
     <div class="pipe" id="pipe"></div>
     <div class="pipekey" id="pipekey"></div>
+    <div class="extwarn" id="extwarn"></div>
   </section>
 
   <nav class="tabs" id="tabs"></nav>
@@ -277,12 +280,43 @@ export function renderStudioPage() {
   // ── 잔액 ──
   function wallet() {
     var s = S.summary;
-    document.getElementById("total").textContent = won(s.revenueOutsourcing + s.revenueYume);
-    document.getElementById("assets").innerHTML =
+    var ext = S.external || [];
+    var linked = ext.filter(function (e) { return e.state === "ok" || e.state === "stale"; });
+    var broken = ext.filter(function (e) { return e.state === "error"; });
+
+    document.getElementById("total").textContent =
+      won(s.revenueOutsourcing + s.revenueYume + (s.revenueProducts || 0));
+
+    var tiles =
       asset("var(--violet)", "외주", won(s.revenueOutsourcing), s.done + "건 완료") +
-      asset("var(--blue)", "유메 결제", won(s.revenueYume), s.yumeOrders + "건") +
+      asset("var(--blue)", "유메", won(s.revenueYume), s.yumeOrders + "건");
+
+    // 제품마다 한 칸씩. 연결 안 한 것과 연결이 깨진 것을 0원으로 뭉개지 않는다 —
+    // 0원은 "안 팔렸다"는 뜻인데, 사실은 "물어보지 않았다"거나 "못 물어봤다"이다.
+    ext.forEach(function (e) {
+      var tint = TINT[e.key] || "var(--mid)";
+      if (e.state === "ok" || e.state === "stale") {
+        tiles += asset(tint, E(e.label), won(e.total),
+          e.count + "건" + (e.state === "stale" ? " · 응답 없음(직전 값)" : ""));
+      } else if (e.state === "unlinked") {
+        tiles += asset("rgba(236,234,228,.25)", E(e.label), "—", "연결 안 됨");
+      } else {
+        tiles += asset("var(--bad)", E(e.label), "!", "불러오지 못함");
+      }
+    });
+
+    tiles +=
       asset("var(--warn)", "미수금", won(s.outstanding), "계약 " + kwon(s.contracted)) +
       asset("var(--good)", "진행 중", String(s.active), "상담 " + s.lead + " · 신규 의뢰 " + s.inquiriesNew);
+
+    document.getElementById("assets").innerHTML = tiles;
+
+    var warn = document.getElementById("extwarn");
+    warn.innerHTML = broken.length
+      ? broken.map(function (e) { return "<b>" + E(e.label) + "</b> 매출을 불러오지 못했어요 — " + E(e.error || ""); }).join("<br>")
+      : "";
+    warn.style.display = broken.length ? "block" : "none";
+    void linked;
 
     // 계약된 돈이 어느 단계에 묶여 있는지. 합이 0이면 막대를 감춘다.
     var leadK = 0, activeK = 0, doneK = 0;

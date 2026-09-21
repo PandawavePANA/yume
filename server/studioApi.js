@@ -11,6 +11,7 @@ import express from "express";
 import { patchAsync } from "./asyncExpress.js";
 import { requireAdmin } from "./adminApi.js";
 import { now, all, one, run } from "./db.js";
+import { collectProductRevenue } from "./productRevenue.js";
 
 export const studioRouter = patchAsync(express.Router());
 studioRouter.use(requireAdmin);
@@ -84,9 +85,16 @@ studioRouter.get("/studio", async (req, res) => {
     "SELECT COALESCE(SUM(amount), 0) AS krw, COUNT(*) AS n FROM credit_orders WHERE status = 'paid'",
   ).catch(() => ({ krw: 0, n: 0 }));
 
+  // 형제 제품은 각자 자기 서버에 물어본다. 느리거나 죽어 있어도 이 화면은 뜬다.
+  const external = await collectProductRevenue();
+  const externalTotal = external
+    .filter((e) => e.state === "ok" || e.state === "stale")
+    .reduce((a, e) => a + Number(e.total || 0), 0);
+
   res.json({
     products: PRODUCTS,
     extras: EXTRA_OWNERS,
+    external,
     summary: {
       inquiriesNew: inquiries.filter((i) => (i.status || "new") === "new").length,
       inquiriesTotal: inquiries.length,
@@ -96,6 +104,7 @@ studioRouter.get("/studio", async (req, res) => {
       revenueOutsourcing: sum(projects, "paid_krw"),
       revenueYume: Number(yume.krw || 0),
       yumeOrders: Number(yume.n || 0),
+      revenueProducts: externalTotal,
       contracted: sum(projects.filter((p) => p.status !== "dropped"), "amount_krw"),
       outstanding,
     },
