@@ -28,7 +28,7 @@ const business = {
   alternateName: "REAMER",
   url: ORIGIN,
   email: "reamer@d-reamer.com",
-  telephone: "+82-10-3882-3415",
+  telephone: "+82-53-557-3415",
   description:
     "웹사이트, 앱, 결제·인증 연동, AI 기능, 업무 자동화를 만드는 개발 외주 스튜디오. 대표가 직접 개발합니다.",
   founder: { "@type": "Person", name: "정원영" },

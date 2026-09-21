@@ -5,6 +5,84 @@ import { now, one, run } from "./db.js";
 import { grant } from "./credits.js";
 import { confirmPayment } from "./portone.js";
 import { logError } from "./errorLog.js";
+import { sendMail } from "./mailer.js";
+import { COMPANY } from "./renderPages.js";
+
+// 결제 완료 안내.
+//
+// 「전자상거래 등에서의 소비자보호에 관한 법률」 제13조는 계약 내용을 적은 서면을
+// 주도록 하고 있고, 카드사·PG 심사도 이걸 확인한다. 화면에 한 번 보여 주는 것과
+// 나중에 다시 꺼내 볼 수 있는 기록이 남는 것은 다르다.
+//
+// 이 메일은 실패해도 결제를 되돌리지 않는다. 돈은 이미 받았고 크레딧도 이미 들어갔다 —
+// 메일이 안 갔다고 그걸 없던 일로 만들면 훨씬 큰 사고다. 그래서 기다리지 않고 보내고,
+// 실패는 기록만 남긴다.
+function sendReceipt(order, { method, planExpiresAt }) {
+  (async () => {
+    const user = await one("SELECT email, name FROM users WHERE id = :id", { id: order.user_id });
+    if (!user?.email) return;
+
+    const won = (n) => `${Number(n || 0).toLocaleString("ko-KR")}원`;
+    const when = new Date(now()).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" });
+    const item = order.kind === "plan"
+      ? `유메 ${order.plan} 플랜 1개월 이용권`
+      : `유메 크레딧 ${Number(order.credits || 0).toLocaleString("ko-KR")}개`;
+    const until = planExpiresAt
+      ? new Date(planExpiresAt).toLocaleDateString("ko-KR", { timeZone: "Asia/Seoul" })
+      : null;
+
+    const rows = [
+      ["상품", item],
+      ["결제 금액", `${won(order.amount)} (부가세 포함)`],
+      ["결제 수단", method || "카드"],
+      ["결제 일시", when],
+      ["주문번호", order.payment_id],
+      order.kind === "plan" && until ? ["이용 기간", `${until}까지 · 자동 갱신되지 않습니다`] : null,
+    ].filter(Boolean);
+
+    const esc = (v) => String(v).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+    const seller = [
+      `상호 ${COMPANY.name}`,
+      `대표 ${COMPANY.ceo}`,
+      `사업자등록번호 ${COMPANY.regNo}`,
+      COMPANY.mailOrderNo ? `통신판매업 신고 ${COMPANY.mailOrderNo}` : null,
+      `주소 ${COMPANY.address}`,
+      `전화 ${COMPANY.tel}`,
+      `이메일 ${COMPANY.email}`,
+    ].filter(Boolean).join(" · ");
+
+    await sendMail({
+      to: user.email,
+      subject: `[유메] 결제가 완료되었습니다 · ${item}`,
+      text: [
+        `${user.name ? user.name + "님, " : ""}결제가 완료되었습니다.`,
+        "",
+        ...rows.map(([k, v]) => `${k}: ${v}`),
+        "",
+        "청약철회는 결제일부터 7일 이내에 가능합니다. 다만 이미 사용한 크레딧은",
+        "전자상거래법 제17조 제2항 제5호에 따라 청약철회가 제한됩니다.",
+        `환불 문의: ${COMPANY.email}`,
+        "환불정책: https://www.yume-reamer.com/refund",
+        "",
+        seller,
+      ].join("\n"),
+      html: `<div style="font-family:system-ui,-apple-system,'Noto Sans KR',sans-serif;max-width:560px;color:#241F33;line-height:1.7">
+  <p style="margin:0 0 6px;font-size:13px;color:#8577A8">유메 YUME</p>
+  <h2 style="margin:0 0 18px;font-size:19px">결제가 완료되었습니다</h2>
+  <table style="border-collapse:collapse;font-size:14px;width:100%">
+    ${rows.map(([k, v]) => `<tr><td style="padding:7px 14px 7px 0;color:#8577A8;white-space:nowrap">${esc(k)}</td><td style="padding:7px 0"><b>${esc(v)}</b></td></tr>`).join("")}
+  </table>
+  <p style="margin:20px 0 0;font-size:13px;color:#54505E">
+    청약철회는 결제일부터 <b>7일 이내</b>에 가능합니다. 다만 이미 사용한 크레딧은
+    전자상거래법 제17조 제2항 제5호에 따라 청약철회가 제한됩니다.<br/>
+    환불 문의 <a href="mailto:${esc(COMPANY.email)}">${esc(COMPANY.email)}</a> ·
+    <a href="https://www.yume-reamer.com/refund">환불정책</a>
+  </p>
+  <p style="margin:18px 0 0;padding-top:14px;border-top:1px solid #E6DAF6;font-size:11.5px;color:#8577A8">${esc(seller)}</p>
+</div>`,
+    });
+  })().catch((e) => logError("checkout:receipt", e));
+}
 
 export function getOrder(paymentId, userId = null) {
   return userId == null
@@ -48,6 +126,7 @@ export async function settleOrder(order) {
       id: order.user_id,
     });
     // 이번 달 지급분은 검증을 시작할 때 ensureMonthlyGrant가 요금제 기준으로 넣는다.
+    sendReceipt(order, { method: r.method, planExpiresAt: until });
     return { ok: true, plan: order.plan, planExpiresAt: until, method: r.method };
   }
 
@@ -55,6 +134,7 @@ export async function settleOrder(order) {
     ref: `purchase:${order.payment_id}`,
     memo: `크레딧 구매(${r.method})`,
   });
+  sendReceipt(order, { method: r.method });
   return { ok: true, credits: order.credits, method: r.method };
 }
 
