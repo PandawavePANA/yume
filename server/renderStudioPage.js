@@ -150,6 +150,10 @@ export function renderStudioPage() {
   .todo:hover .ops { opacity: 1; }
   .todo .ops button { border: 0; background: none; color: var(--faint); cursor: pointer; font-size: 12px; padding: 1px 3px; line-height: 1; }
   .todo .ops button:hover { color: var(--ink); }
+  /* 하는 중인 일은 표시가 계속 보여야 한다 — 손대는 중이라는 건 지나가는 상태가 아니고,
+     마우스를 올려야만 보이면 목록을 훑을 때 아무 소용이 없다. */
+  .todo .ops button.doing.on { color: var(--warn); }
+  .todo:has(.ops button.doing.on) .ops { opacity: 1; }
   .addrow { margin-top: 10px; }
 
   /* ── 완료 칸 ── */
@@ -485,12 +489,15 @@ export function renderStudioPage() {
       var tail = inDone
         ? '<span class="from"><i style="background:' + o.tint + '"></i><b>' + E(o.label) + "</b></span>" +
           '<button class="drop" data-tdel="' + t.id + '" title="삭제">×</button>'
-        : '<span class="ops"><button data-move="' + t.id + '" data-dir="up" title="위로">↑</button>' +
+        : '<span class="ops">' +
+          '<button class="doing' + (t.state === "doing" ? " on" : "") + '" data-doing="' + t.id + '" data-state="' + t.state + '" ' +
+            'title="' + (t.state === "doing" ? "하는 중 해제" : "하는 중으로") + '">◐</button>' +
+          '<button data-move="' + t.id + '" data-dir="up" title="위로">↑</button>' +
           '<button data-move="' + t.id + '" data-dir="down" title="아래로">↓</button>' +
           '<button data-tdel="' + t.id + '" title="삭제">×</button></span>';
       return '<div class="todo' + (inDone ? " is-done" : "") + '" data-flip="t' + t.id + '">' +
         '<button class="box is-' + t.state + '" data-task="' + t.id + '" data-state="' + t.state + '" ' +
-          'title="' + (inDone ? "완료 해제" : "상태 바꾸기") + '"></button>' +
+          'title="' + (inDone ? "완료 해제" : "완료로") + '"></button>' +
         '<span class="tx" data-edit="' + t.id + '">' + E(t.title) + "</span>" +
         tail +
       "</div>";
@@ -498,8 +505,8 @@ export function renderStudioPage() {
 
     document.getElementById("pane-todo").innerHTML =
       '<section class="card"><h2>체크리스트</h2>' +
-      '<p class="d">개인 할 일과 사업마다 하나씩. 네모를 누르면 할 일 → 하는 중 → 완료로 돕니다. ' +
-      '완료하면 맨 끝 <b>완료</b> 칸으로 옮겨가고, 해제하면 원래 자리로 돌아옵니다.</p>' +
+      '<p class="d">개인 할 일과 사업마다 하나씩. <b>네모를 누르면 바로 완료</b>되어 맨 끝 완료 칸으로 옮겨가고, ' +
+      '다시 누르면 원래 자리로 돌아옵니다. 손대는 중인 일은 ◐로 표시해 두세요.</p>' +
       '<div class="lists">' + owners.map(function (o) {
         var ts = tasksOf(o.key);
         var left = ts.filter(function (t) { return t.state !== "done"; });
@@ -617,10 +624,15 @@ export function renderStudioPage() {
         await api("/studio/project/" + el.dataset.del, { method: "DELETE" }); return load();
       }
       if (el.dataset.task) {
-        // 완료 칸에서 누른 것은 해제다. 목록에서는 할 일 → 하는 중 → 완료로 돈다.
-        var back = !!el.closest(".done-box");
-        var next = back ? "todo" : NEXT[el.dataset.state];
+        // 한 번 누르면 완료. 완료된 것을 누르면 해제되어 원래 목록으로 돌아간다.
+        var next = el.dataset.state === "done" ? "todo" : "done";
         await api("/studio/task/" + el.dataset.task, { method: "PATCH", body: { state: next } });
+        return load();
+      }
+      if (el.dataset.doing) {
+        // 하는 중 켜고 끄기. 완료와 섞이지 않게 따로 둔다.
+        var to = el.dataset.state === "doing" ? "todo" : "doing";
+        await api("/studio/task/" + el.dataset.doing, { method: "PATCH", body: { state: to } });
         return load();
       }
       if (el.dataset.move) { await api("/studio/task/" + el.dataset.move + "/move", { method: "POST", body: { dir: el.dataset.dir } }); return load(); }
