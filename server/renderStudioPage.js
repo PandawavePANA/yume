@@ -153,21 +153,33 @@ export function renderStudioPage() {
   .addrow { margin-top: 10px; }
 
   /* ── 완료 칸 ── */
-  /* 목록에서 끝난 일이 이리로 모인다. 카드 색을 살짝 달리해 "지나간 것"으로 읽히게 하되,
-     지워진 것처럼 보이지는 않게 한다 — 해제하면 돌아가야 하는 살아 있는 항목이다. */
+  /* 목록에서 끝난 일이 이리로 모인다. 사업 목록과 **같은 줄에 나란히 선 카드**다 —
+     따로 떨어진 칸이면 끝낸 일이 어디로 갔는지 눈으로 따라가지 못한다.
+     카드 색을 살짝 달리해 "지나간 것"으로 읽히게 하되, 지워진 것처럼 보이지는
+     않게 한다 — 해제하면 돌아가야 하는 살아 있는 항목이다. */
   .done-box { background: rgba(70,192,138,.045); border-color: rgba(70,192,138,.2); }
-  .done-box > h2 { display: flex; align-items: center; gap: 8px; }
   .done-box .cnt {
     font: 600 11px/1 var(--mono); padding: 3px 8px; border-radius: 99px;
     background: rgba(70,192,138,.16); color: #7ddab0; border: 1px solid rgba(70,192,138,.28);
   }
-  /* 완료 항목은 목록보다 촘촘해도 된다. 읽을 일보다 되돌릴 일이 많다. */
-  .donelist { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px,1fr)); gap: 0 22px; }
-  .donelist .todo { border-top: 1px solid var(--line); }
+  /* 완료는 계속 쌓인다. 카드 안에서만 스크롤하게 둔다 — 카드가 길어지면
+     같은 줄의 사업 목록까지 늘어나 화면이 통째로 흔들린다. */
+  .donelist {
+    max-height: 340px; overflow-y: auto; overscroll-behavior: contain;
+    padding-right: 4px; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.16) transparent;
+  }
+  .donelist::-webkit-scrollbar { width: 7px; }
+  .donelist::-webkit-scrollbar-thumb { background: rgba(255,255,255,.16); border-radius: 99px; }
+  .donelist::-webkit-scrollbar-track { background: transparent; }
+  .donelist .todo:first-of-type { border-top: 0; }
+  /* 좁은 카드 안이라 제목이 줄바꿈될 자리를 먼저 내준다 */
+  .donelist .tx { min-width: 0; }
   .from {
     display: inline-flex; align-items: center; gap: 6px; flex: none;
+    min-width: 0; max-width: 42%;
     font-size: 11px; color: var(--faint); white-space: nowrap;
   }
+  .from b { font-weight: 400; overflow: hidden; text-overflow: ellipsis; }
   .from i { width: 7px; height: 7px; border-radius: 50%; flex: none; }
   .drop {
     flex: none; border: 0; background: none; color: var(--faint); cursor: pointer;
@@ -471,7 +483,7 @@ export function renderStudioPage() {
     var row = function (t, inDone) {
       var o = ownerOf[t.product];
       var tail = inDone
-        ? '<span class="from"><i style="background:' + o.tint + '"></i>' + E(o.label) + "</span>" +
+        ? '<span class="from"><i style="background:' + o.tint + '"></i><b>' + E(o.label) + "</b></span>" +
           '<button class="drop" data-tdel="' + t.id + '" title="삭제">×</button>'
         : '<span class="ops"><button data-move="' + t.id + '" data-dir="up" title="위로">↑</button>' +
           '<button data-move="' + t.id + '" data-dir="down" title="아래로">↓</button>' +
@@ -487,7 +499,7 @@ export function renderStudioPage() {
     document.getElementById("pane-todo").innerHTML =
       '<section class="card"><h2>체크리스트</h2>' +
       '<p class="d">개인 할 일과 사업마다 하나씩. 네모를 누르면 할 일 → 하는 중 → 완료로 돕니다. ' +
-      '완료하면 아래 완료 칸으로 옮겨가고, 해제하면 원래 자리로 돌아옵니다.</p>' +
+      '완료하면 맨 끝 <b>완료</b> 칸으로 옮겨가고, 해제하면 원래 자리로 돌아옵니다.</p>' +
       '<div class="lists">' + owners.map(function (o) {
         var ts = tasksOf(o.key);
         var left = ts.filter(function (t) { return t.state !== "done"; });
@@ -498,14 +510,18 @@ export function renderStudioPage() {
           (left.length ? left.map(function (t) { return row(t, false); }).join("")
                        : '<div class="allclear">남은 일이 없습니다</div>') +
           '<div class="addrow"><input data-add="' + E(o.key) + '" placeholder="할 일 추가 후 Enter" /></div></div>';
-      }).join("") + "</div></section>" +
+      }).join("") +
 
-      '<section class="card done-box"><h2>완료 <span class="cnt">' + doneAll.length + '</span></h2>' +
-      '<p class="d">끝난 일이 모입니다. 네모를 다시 누르면 원래 목록으로 돌아갑니다.</p>' +
+      // 완료 칸도 목록과 같은 격자에 들어가는 카드다. 사업 카드를 모두 지난
+      // **맨 끝**에 둬서, 끝낸 일이 오른쪽 아래로 빠진다는 방향이 눈에 남게 한다.
+      // 비어 있어도 항상 그린다 — 자리가 보여야 어디로 가는지 알 수 있다.
+      '<div class="list done-box"><h3><span class="dot" style="background:var(--good)"></span>완료' +
+        '<span class="cnt">' + doneAll.length + "</span></h3>" +
+      '<div class="meta"><span>끝난 일이 모입니다</span><span>네모를 누르면 제자리로</span></div>' +
       (doneAll.length
         ? '<div class="donelist">' + doneAll.map(function (t) { return row(t, true); }).join("") + "</div>"
-        : '<div class="empty">아직 완료한 일이 없습니다.</div>') +
-      "</section>";
+        : '<div class="allclear">아직 완료한 일이 없습니다</div>') +
+      "</div></div></section>";
   }
 
   // ── 가격 ──
