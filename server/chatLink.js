@@ -117,6 +117,59 @@ async function fetchHtml(url) {
   throw new LinkError("링크가 너무 여러 번 돌아가요. 주소를 다시 확인해주세요.", "REDIRECT");
 }
 
+// ── 서비스별 어댑터 ──────────────────────────────────────────────────────
+//
+// ChatGPT 공유 페이지의 HTML에는 대화가 없다. 페이지가 뜬 뒤 브라우저가 따로
+// 불러오는 구조라, 서버가 HTML만 받아서는 아무것도 못 읽는다(실제로 그랬다 —
+// 521KB짜리 JSON이 박혀 있는데 그 안은 거의 전부 기능 플래그였다).
+// 대신 페이지가 부르는 그 주소(/backend-api/share/…)를 직접 부른다.
+//
+// **다만 이 경로는 지금 서버에서 열리지 않는다.** 같은 주소·같은 헤더로 curl은
+// 200을 받는데 Node의 fetch는 403을 받는다 — 헤더가 아니라 HTTP 클라이언트의
+// 지문을 보고 막는 것이다. 다른 TLS 스택으로 우회하는 방법이 있지만 하지 않았다.
+// 상대가 프로그램 접근을 막아 두었다는 뜻이고, 우회는 곧 깨질 뿐 아니라 해서는
+// 안 되는 종류의 일이다. 그래서 여기서는 시도하고, 막히면 붙여넣기로 안내한다.
+// (진짜로 필요해지면 헤드리스 브라우저로 여는 것이 정직한 해법이다.)
+const CHATGPT_SHARE = /^\/share\/([A-Za-z0-9-]{8,})/;
+
+// ChatGPT가 사용자 지정 지침 자리에 넣어 두는 문구. 대화가 아니라서 뺀다.
+const NOISE = [/^Original custom instructions no longer available$/i];
+
+function chatgptApiUrl(url) {
+  const m = CHATGPT_SHARE.exec(url.pathname);
+  if (!m) return null;
+  return new URL(`/backend-api/share/${m[1]}`, url.origin);
+}
+
+function fromChatgptJson(raw) {
+  let data;
+  try {
+    data = JSON.parse(raw);
+  } catch {
+    return "";
+  }
+  // linear_conversation은 순서가 보장된다. mapping은 그래프라 순서를 다시 세워야 한다.
+  const nodes = Array.isArray(data?.linear_conversation)
+    ? data.linear_conversation
+    : Object.values(data?.mapping || {});
+
+  const out = [];
+  for (const n of nodes) {
+    const m = n?.message;
+    if (!m) continue;
+    const role = m.author?.role;
+    // system은 모델에게 주는 지시라 대화가 아니다.
+    if (role !== "user" && role !== "assistant") continue;
+    const text = (m.content?.parts || [])
+      .filter((x) => typeof x === "string")
+      .join("\n")
+      .trim();
+    if (!text || NOISE.some((re) => re.test(text))) continue;
+    out.push(`${role === "user" ? "나" : "AI"}: ${text}`);
+  }
+  return out.join("\n\n");
+}
+
 // ── 대화 뽑아내기 ────────────────────────────────────────────────────────
 // 서비스마다 담는 모양이 다르고 예고 없이 바뀐다. 그래서 특정 구조를 하나 찍어
 // 두지 않고, 페이지 안의 JSON을 훑어 "사람/AI가 주고받은 것처럼 생긴 것"을 찾는다.
@@ -216,6 +269,23 @@ export async function fetchSharedChat(rawUrl, { minChars = 200 } = {}) {
   const url = parseLink(rawUrl);
   const service = SUPPORTED.find((s) => url.hostname.toLowerCase().endsWith(s.host))?.label || "AI";
 
+  // 전용 경로가 있으면 먼저 쓴다. HTML을 훑는 것보다 정확하고, 페이지 겉모습이
+  // 바뀌어도 흔들리지 않는다.
+  const api = service === "ChatGPT" ? chatgptApiUrl(url) : null;
+  if (api) {
+    try {
+      const transcript = fromChatgptJson(await fetchHtml(api));
+      if (transcript.length >= minChars) {
+        return { transcript, service, url: url.toString(), via: "api" };
+      }
+    } catch (e) {
+      // 공유가 꺼졌거나 없는 대화면 그대로 알린다.
+      if (e instanceof LinkError && e.code === "NOT_FOUND") throw e;
+      // 그 외(차단 포함)는 아래 일반 경로로 내려간다. 여기서 끝내지 않는다.
+      if (!(e instanceof LinkError)) logError("chatLink:api", e);
+    }
+  }
+
   let html;
   try {
     html = await fetchHtml(url);
@@ -229,8 +299,12 @@ export async function fetchSharedChat(rawUrl, { minChars = 200 } = {}) {
   const transcript = structured.length >= minChars ? structured : fromVisibleText(html);
 
   if (transcript.length < minChars) {
+    // 왜 못 읽었는지에 따라 사용자가 할 수 있는 일이 다르다. "읽지 못했어요"만
+    // 던지면 링크를 고쳐 보려다 시간만 쓰게 된다.
     throw new LinkError(
-      "링크는 열렸는데 대화 내용을 읽지 못했어요. 공유가 켜져 있는지 확인하시거나, 대화를 직접 붙여넣어 주세요.",
+      service === "ChatGPT"
+        ? "ChatGPT 공유 링크는 지금 서버에서 읽을 수 없어요(ChatGPT가 프로그램 접근을 막고 있습니다). 대화를 직접 붙여넣어 주세요 — 아래 칸이 열려 있어요."
+        : "링크는 열렸는데 대화 내용을 읽지 못했어요. 공유가 켜져 있는지 확인하시거나, 대화를 직접 붙여넣어 주세요.",
       "NO_CONTENT",
     );
   }
