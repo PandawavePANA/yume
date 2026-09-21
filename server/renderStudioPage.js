@@ -212,7 +212,7 @@ export function renderStudioPage() {
   var INQ = { new: "신규", replied: "회신함", quoted: "견적 보냄", won: "수주", lost: "무산" };
   var PRJ = { lead: "상담", active: "진행 중", done: "완료", dropped: "무산" };
   var NEXT = { todo: "doing", doing: "done", done: "todo" };
-  var TINT = { yume: "#7c5cd6", proba: "#4c7df6", ballast: "#59a9ff", aipick: "#d8b48a" };
+  var TINT = { yume: "#7c5cd6", proba: "#4c7df6", ballast: "#59a9ff", aipick: "#d8b48a", personal: "#4fb8a8" };
 
   function fail(m) { var e = document.getElementById("err"); e.textContent = m; e.style.display = "block"; }
   function clearErr() { document.getElementById("err").style.display = "none"; }
@@ -381,15 +381,18 @@ export function renderStudioPage() {
   // ── 할 일 ──
   // 자사 제품 넷과, 무산되지 않은 외주 일감 전부가 각자 목록을 가진다.
   function todos() {
-    var owners = S.products.map(function (p) {
+    // 개인 할 일을 맨 앞에 둔다. 사업 목록과 색을 달리해서 한눈에 갈린다.
+    var owners = (S.extras || []).map(function (o) {
+      return { key: o.key, label: o.label, href: null, tint: TINT[o.key] || "var(--mid)", sub: o.sub };
+    }).concat(S.products.map(function (p) {
       return { key: p.key, label: p.label, href: p.href, tint: TINT[p.key] || "var(--mid)", sub: "자사 제품" };
-    }).concat(S.projects.filter(function (p) { return p.status !== "dropped"; }).map(function (p) {
+    })).concat(S.projects.filter(function (p) { return p.status !== "dropped"; }).map(function (p) {
       return { key: "project:" + p.id, label: p.title, href: null, tint: "var(--mid)", sub: (PRJ[p.status] || "") + (p.client ? " · " + p.client : "") };
     }));
 
     document.getElementById("pane-todo").innerHTML =
       '<section class="card"><h2>체크리스트</h2>' +
-      '<p class="d">사업마다 하나씩. 네모를 누르면 할 일 → 하는 중 → 완료로 돕니다. 글자를 누르면 고칠 수 있고, 저장은 자동입니다.</p>' +
+      '<p class="d">개인 할 일과 사업마다 하나씩. 네모를 누르면 할 일 → 하는 중 → 완료로 돕니다. 글자를 누르면 고칠 수 있고, 저장은 자동입니다.</p>' +
       '<div class="lists">' + owners.map(function (o) {
         var ts = tasksOf(o.key);
         var done = ts.filter(function (t) { return t.state === "done"; }).length;

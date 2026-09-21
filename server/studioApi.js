@@ -25,13 +25,18 @@ export const PRODUCTS = [
 ];
 const PRODUCT_KEYS = new Set(PRODUCTS.map((p) => p.key));
 
+// 제품도 일감도 아닌 목록. 개인 할 일은 사업 어디에도 속하지 않지만, 매일 여는
+// 화면이 여기라 여기 있어야 실제로 쓰인다. 다른 앱에 따로 두면 안 보게 된다.
+export const EXTRA_OWNERS = [{ key: "personal", label: "개인", sub: "개인 할 일" }];
+const EXTRA_KEYS = new Set(EXTRA_OWNERS.map((o) => o.key));
+
 // 체크리스트는 자사 제품뿐 아니라 외주 일감에도 붙는다. 키를 "project:12"처럼
 // 두어 표를 하나로 쓴다 — 할 일은 어느 쪽이든 "제목과 상태" 하나뿐이라, 표를
 // 둘로 나누면 같은 코드를 두 벌 쓰게 된다.
 const PROJECT_KEY = /^project:(\d+)$/;
 
 async function validOwner(key) {
-  if (PRODUCT_KEYS.has(key)) return true;
+  if (PRODUCT_KEYS.has(key) || EXTRA_KEYS.has(key)) return true;
   const m = PROJECT_KEY.exec(key);
   if (!m) return false;
   return !!(await one("SELECT id FROM projects WHERE id = :id", { id: Number(m[1]) }));
@@ -81,6 +86,7 @@ studioRouter.get("/studio", async (req, res) => {
 
   res.json({
     products: PRODUCTS,
+    extras: EXTRA_OWNERS,
     summary: {
       inquiriesNew: inquiries.filter((i) => (i.status || "new") === "new").length,
       inquiriesTotal: inquiries.length,
