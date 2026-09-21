@@ -30,6 +30,7 @@ import adminApiRouter from "./adminApi.js";
 import { studioRouter } from "./studioApi.js";
 import { renderStudioPage } from "./renderStudioPage.js";
 import { adminLogin, adminLogout, hasAdminCookie, renderLoginPage } from "./adminGate.js";
+import { renderProductPage } from "./renderProductPage.js";
 import { openExportDownload, purgeOldExportFiles } from "./dataset.js";
 import { renderAdminPage } from "./renderAdminPage.js";
 import { renderResetPasswordPage, renderTermsPage, renderPrivacyPage, renderRefundPage, renderProductsPage, renderAccountDeletionPage, renderApiDocsPage } from "./renderPages.js";
@@ -325,6 +326,14 @@ const adminPage = (render) => (req, res) => {
 // 직접 붙여야 유메 관리자 계정으로 로그인한 사람이 비밀번호를 또 묻지 않는다.
 app.get("/admin", attachUser, adminPage(renderAdminPage));
 app.get("/admin/studio", attachUser, adminPage(renderStudioPage));
+// 제품별 운영 화면. 화면 코드는 하나이고 제품 키만 다르다.
+app.get("/admin/p/:key", attachUser, (req, res) => {
+  const page = renderProductPage(String(req.params.key));
+  // next()로 흘려보내면 SPA 폴백이 유메 화면을 200으로 돌려준다. 관리자 경로에서
+  // 오타를 쳤는데 제품 화면 대신 앱이 뜨면 무엇이 잘못됐는지 알 수 없다.
+  if (!page) return res.status(404).type("text/plain; charset=utf-8").send("그런 제품이 없어요.");
+  return adminPage(() => page)(req, res);
+});
 app.get("/reset-password", (req, res) => html(res, renderResetPasswordPage()));
 app.get("/terms", (req, res) => html(res, renderTermsPage()));
 app.get("/privacy", (req, res) => html(res, renderPrivacyPage()));

@@ -62,6 +62,24 @@ async function fetchOne(p) {
       // 총 매출에 섞지 않는다 — 섞으면 보드의 총액이 통장과 어긋난다.
       unverified: d.unverified === true,
       note: typeof d.note === "string" ? d.note.slice(0, 120) : null,
+      // 운영 화면에 쓰는 지표와 최근 내역. 제품이 자기에게 맞는 것을 골라 보낸다 —
+      // 보드는 모양만 알고 무엇을 세는지는 알 필요가 없다.
+      metrics: Array.isArray(d.metrics)
+        ? d.metrics.slice(0, 12).map((m) => ({
+            label: String(m?.label ?? "").slice(0, 24),
+            value: m?.value,
+            sub: m?.sub == null ? null : String(m.sub).slice(0, 16),
+          })).filter((m) => m.label)
+        : [],
+      recent: Array.isArray(d.recent)
+        ? d.recent.slice(0, 20).map((r) => ({
+            title: String(r?.title ?? "").slice(0, 80),
+            sub: String(r?.sub ?? "").slice(0, 40),
+            amount: Number(r?.amount) || 0,
+            when: String(r?.when ?? "").slice(0, 40),
+            tone: ["good", "warn", "bad"].includes(r?.tone) ? r.tone : "",
+          })).filter((r) => r.title)
+        : [],
       at: Date.now(),
     };
     cache.set(p.key, { at: Date.now(), value });
@@ -79,4 +97,13 @@ async function fetchOne(p) {
 export async function collectProductRevenue() {
   // 한 제품이 느려도 나머지는 기다리지 않는다.
   return Promise.all(EXTERNAL_PRODUCTS.map(fetchOne));
+}
+
+export function productByKey(key) {
+  return EXTERNAL_PRODUCTS.find((p) => p.key === key) || null;
+}
+
+export async function fetchProduct(key) {
+  const p = productByKey(key);
+  return p ? fetchOne(p) : null;
 }

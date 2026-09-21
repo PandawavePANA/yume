@@ -78,7 +78,7 @@ export function adminLogout(req, res) {
 // 비밀번호 화면. 잠금이 설정되지 않았으면 그 사실을 알려 준다 — 빈 화면을 주면
 // 배포한 사람이 왜 안 되는지 알 길이 없다.
 export function renderLoginPage(next = "/admin/studio") {
-  const safeNext = /^\/admin(\/[\w-]*)?$/.test(next) ? next : "/admin/studio";
+  const safeNext = /^\/admin(\/[\w-]+)*$/.test(next) ? next : "/admin/studio";
   const missing = !gateConfigured();
   return `<!doctype html>
 <html lang="ko"><head>

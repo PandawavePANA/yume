@@ -11,7 +11,7 @@ import express from "express";
 import { patchAsync } from "./asyncExpress.js";
 import { requireAdmin } from "./adminApi.js";
 import { now, all, one, run } from "./db.js";
-import { collectProductRevenue } from "./productRevenue.js";
+import { collectProductRevenue, fetchProduct, EXTERNAL_PRODUCTS } from "./productRevenue.js";
 
 export const studioRouter = patchAsync(express.Router());
 studioRouter.use(requireAdmin);
@@ -115,6 +115,13 @@ studioRouter.get("/studio", async (req, res) => {
     projects,
     tasks,
   });
+});
+
+// 제품 하나의 운영 현황. 화면이 이 주소만 부르면 되도록 제품 쪽 응답을 그대로 넘긴다.
+studioRouter.get("/studio/product/:key", async (req, res) => {
+  const p = await fetchProduct(String(req.params.key));
+  if (!p) return res.status(404).json({ error: "알 수 없는 제품이에요." });
+  res.json(p);
 });
 
 // ── 의뢰 ───────────────────────────────────────────────────────────────

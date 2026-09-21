@@ -46,7 +46,7 @@ export function renderStudioPage() {
   }
   main { position: relative; z-index: 1; max-width: 1180px; margin: 0 auto; padding: 22px clamp(14px,3vw,26px) 80px; }
 
-  .bar { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; }
+  .bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 18px; }
   .logo { display: flex; align-items: center; gap: 9px; font: 600 12px/1 var(--mono); letter-spacing: .2em; }
   .logo i { width: 9px; height: 9px; background: var(--beam); border-radius: 2px; transform: rotate(45deg); }
   .bar .sp { flex: 1; }
@@ -198,6 +198,9 @@ export function renderStudioPage() {
     <span class="logo"><i></i>REAMER</span>
     <span class="sp"></span>
     <a class="ghost" href="/admin">유메 운영</a>
+    <a class="ghost" href="/admin/p/ballast">밸러스트</a>
+    <a class="ghost" href="/admin/p/aipick">아이픽</a>
+    <a class="ghost" href="/admin/p/proba">프로바</a>
     <button class="ghost" id="out">로그아웃</button>
   </div>
 
