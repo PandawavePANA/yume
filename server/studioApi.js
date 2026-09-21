@@ -25,6 +25,18 @@ export const PRODUCTS = [
 ];
 const PRODUCT_KEYS = new Set(PRODUCTS.map((p) => p.key));
 
+// 체크리스트는 자사 제품뿐 아니라 외주 일감에도 붙는다. 키를 "project:12"처럼
+// 두어 표를 하나로 쓴다 — 할 일은 어느 쪽이든 "제목과 상태" 하나뿐이라, 표를
+// 둘로 나누면 같은 코드를 두 벌 쓰게 된다.
+const PROJECT_KEY = /^project:(\d+)$/;
+
+async function validOwner(key) {
+  if (PRODUCT_KEYS.has(key)) return true;
+  const m = PROJECT_KEY.exec(key);
+  if (!m) return false;
+  return !!(await one("SELECT id FROM projects WHERE id = :id", { id: Number(m[1]) }));
+}
+
 // lead(의뢰·상담) → active(진행 중) → done(완료). dropped는 무산된 건.
 const PROJECT_STATUS = new Set(["lead", "active", "done", "dropped"]);
 const TASK_STATE = new Set(["todo", "doing", "done"]);
@@ -188,15 +200,18 @@ studioRouter.patch("/studio/project/:id", async (req, res) => {
 });
 
 studioRouter.delete("/studio/project/:id", async (req, res) => {
-  const r = await run("DELETE FROM projects WHERE id = :id", { id: int(req.params.id) });
+  const id = int(req.params.id);
+  const r = await run("DELETE FROM projects WHERE id = :id", { id });
   if (!r.rowCount) return res.status(404).json({ error: "해당 일감이 없어요." });
+  // 주인이 사라진 할 일은 어디에도 보이지 않으면서 자리만 차지한다.
+  await run("DELETE FROM product_tasks WHERE product = :k", { k: `project:${id}` }).catch(() => {});
   res.json({ ok: true });
 });
 
 // ── 제품 진행 상황 ─────────────────────────────────────────────────────
 studioRouter.post("/studio/task", async (req, res) => {
   const product = String(req.body?.product || "");
-  if (!PRODUCT_KEYS.has(product)) return res.status(400).json({ error: "알 수 없는 제품이에요." });
+  if (!(await validOwner(product))) return res.status(400).json({ error: "알 수 없는 대상이에요." });
   const title = str(req.body?.title, 200);
   if (!title) return res.status(400).json({ error: "할 일을 적어주세요." });
 
@@ -227,6 +242,25 @@ studioRouter.patch("/studio/task/:id", async (req, res) => {
     },
   );
   res.json({ ok: true });
+});
+
+// 순서 바꾸기. 두 항목의 sort를 맞바꾼다.
+studioRouter.post("/studio/task/:id/move", async (req, res) => {
+  const id = int(req.params.id);
+  const dir = req.body?.dir === "up" ? "up" : "down";
+  const cur = await one("SELECT * FROM product_tasks WHERE id = :id", { id });
+  if (!cur) return res.status(404).json({ error: "해당 항목이 없어요." });
+  const neighbour = await one(
+    dir === "up"
+      ? "SELECT * FROM product_tasks WHERE product = :p AND (sort < :s OR (sort = :s AND id < :id)) ORDER BY sort DESC, id DESC LIMIT 1"
+      : "SELECT * FROM product_tasks WHERE product = :p AND (sort > :s OR (sort = :s AND id > :id)) ORDER BY sort ASC, id ASC LIMIT 1",
+    { p: cur.product, s: Number(cur.sort || 0), id },
+  );
+  if (!neighbour) return res.json({ ok: true, moved: false });
+  const t = now();
+  await run("UPDATE product_tasks SET sort = :s, updated_at = :t WHERE id = :id", { s: Number(neighbour.sort || 0), t, id });
+  await run("UPDATE product_tasks SET sort = :s, updated_at = :t WHERE id = :id", { s: Number(cur.sort || 0), t, id: neighbour.id });
+  res.json({ ok: true, moved: true });
 });
 
 studioRouter.delete("/studio/task/:id", async (req, res) => {
