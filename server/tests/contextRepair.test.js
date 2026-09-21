@@ -73,3 +73,72 @@ test("한도 상수는 화면과 같은 값을 쓴다", () => {
   assert.equal(MIN_TRANSCRIPT_CHARS, 200);
   assert.equal(MAX_TRANSCRIPT_CHARS, 60000);
 });
+
+// ── 공유 링크 ────────────────────────────────────────────────────────────
+// 사용자가 준 주소를 서버가 직접 여는 기능이다. 여기서 막아야 하는 것은
+// SSRF — 바깥에서 닿을 수 없는 내부 주소를 서버가 대신 열어 주는 것.
+const { fetchSharedChat, LinkError, supportedHosts } = await import("../chatLink.js");
+
+const rejects = async (url) => {
+  try {
+    await fetchSharedChat(url);
+    return null;
+  } catch (e) {
+    return e;
+  }
+};
+
+test("내부·사설 주소는 열지 않는다", async () => {
+  const blocked = [
+    "http://169.254.169.254/latest/meta-data/",   // 클라우드 메타데이터
+    "http://127.0.0.1:8787/api/admin/studio",      // 자기 자신
+    "http://localhost/",
+    "http://10.0.0.5/",
+    "http://[::1]/",
+    "https://2130706433/",                         // 127.0.0.1의 10진수 표기
+    "file:///etc/passwd",
+    "gopher://127.0.0.1:8787/",
+  ];
+  for (const u of blocked) {
+    const e = await rejects(u);
+    assert.ok(e instanceof LinkError, `${u} 는 거부돼야 한다`);
+    assert.ok(["BAD_URL", "UNSUPPORTED"].includes(e.code), `${u} → ${e.code}`);
+  }
+});
+
+test("모르는 호스트는 열지 않는다", async () => {
+  for (const u of ["https://evil.example/share/x", "https://chatgpt.com.evil.example/share/x"]) {
+    const e = await rejects(u);
+    assert.equal(e?.code, "UNSUPPORTED", u);
+  }
+});
+
+test("허용 호스트의 하위 도메인은 인정한다", async () => {
+  // 실제로 열지는 않고 주소 검사만 통과하는지 본다(네트워크는 이 테스트의 대상이 아니다).
+  const e = await rejects("https://chatgpt.com/share/not-a-real-id");
+  assert.ok(e === null || e.code !== "UNSUPPORTED", `주소 검사에서 막히면 안 된다 (${e?.code})`);
+});
+
+test("링크 복사 안내는 서비스마다 하나씩 있다", () => {
+  const list = supportedHosts();
+  assert.ok(list.length >= 4);
+  for (const s of list) {
+    assert.ok(s.label && s.how, JSON.stringify(s));
+  }
+  // 같은 서비스가 두 번 나오면 화면에 같은 안내가 두 줄로 찍힌다.
+  assert.equal(new Set(list.map((s) => s.label)).size, list.length);
+});
+
+test("링크도 대화도 없으면 무엇을 해야 하는지 알려준다", async () => {
+  const r = await post({});
+  assert.equal(r.status, 400);
+  assert.match((await r.json()).error, /링크|붙여넣/);
+});
+
+test("지원하지 않는 링크는 400과 이유를 준다", async () => {
+  const r = await post({ url: "https://evil.example/share/x" });
+  assert.equal(r.status, 400);
+  const d = await r.json();
+  assert.equal(d.code, "UNSUPPORTED");
+  assert.match(d.error, /붙여넣/);
+});

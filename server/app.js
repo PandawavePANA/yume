@@ -13,6 +13,7 @@ import { checkAndConsume, refundOne, peekUsage, PLANS } from "./usageStore.js";
 import { appendTurns } from "./chatHistory.js";
 import { logError } from "./errorLog.js";
 import { repairContext, MAX_TRANSCRIPT_CHARS, MIN_TRANSCRIPT_CHARS } from "./contextRepair.js";
+import { fetchSharedChat, LinkError, supportedHosts } from "./chatLink.js";
 import { audit } from "./audit.js";
 import { runVerification, MAX_INPUT_CHARS } from "./verifyPipeline.js";
 import { getVerification, newVerificationId, trimUserHistory } from "./verificationStore.js";
@@ -180,14 +181,36 @@ app.post("/api/verify", limitMiddleware(verifyLimiter, (req) => `verify:${client
 //
 // 검증과 같은 문을 쓴다: 본인확인, 하루 한도, 크레딧. 다른 문을 새로 파면
 // 한쪽만 조이는 실수가 나고, 실제로 이쪽이 더 비싼 호출이다.
+// 어떤 서비스의 공유 링크를 읽을 수 있는지. 화면의 안내 문구가 서버와 어긋나지
+// 않도록 목록은 한 곳에서만 들고 있는다.
+app.get("/api/context-repair/sources", (req, res) => res.json({ sources: supportedHosts() }));
+
 app.post("/api/context-repair", limitMiddleware(repairLimiter, (req) => `repair:${clientIp(req)}`), async (req, res) => {
-  const text = typeof req.body?.transcript === "string" ? req.body.transcript.trim() : "";
-  if (!text) return res.status(400).json({ error: "대화 내용을 붙여넣어 주세요." });
+  const link = typeof req.body?.url === "string" ? req.body.url.trim() : "";
+  let text = typeof req.body?.transcript === "string" ? req.body.transcript.trim() : "";
+  let source = null;
+
+  // 링크가 오면 링크가 우선이다. 링크를 읽는 것이 이 기능의 기본 사용법이고,
+  // 붙여넣기는 링크가 막혔을 때의 길이다.
+  if (link) {
+    try {
+      const got = await fetchSharedChat(link, { minChars: MIN_TRANSCRIPT_CHARS });
+      text = got.transcript.slice(0, MAX_TRANSCRIPT_CHARS);
+      source = { service: got.service, via: got.via };
+    } catch (e) {
+      if (e instanceof LinkError) return res.status(e.code === "UPSTREAM" ? 502 : 400).json({ error: e.message, code: e.code });
+      logError("context-repair:link", e);
+      return res.status(502).json({ error: "링크를 여는 데 실패했어요. 대화를 직접 붙여넣어 주세요." });
+    }
+  }
+
+  if (!text) return res.status(400).json({ error: "대화 공유 링크를 넣거나, 대화를 직접 붙여넣어 주세요." });
   if (text.length < MIN_TRANSCRIPT_CHARS) {
     return res.status(400).json({ error: "대화 내용이 너무 짧아요. 주고받은 내용을 조금 더 붙여넣어 주세요." });
   }
   if (text.length > MAX_TRANSCRIPT_CHARS) {
-    return res.status(413).json({ error: `한 번에 ${MAX_TRANSCRIPT_CHARS.toLocaleString()}자까지 볼 수 있어요. 최근 대화 위주로 잘라서 붙여넣어 주세요.` });
+    if (link) text = text.slice(0, MAX_TRANSCRIPT_CHARS);
+    else return res.status(413).json({ error: `한 번에 ${MAX_TRANSCRIPT_CHARS.toLocaleString()}자까지 볼 수 있어요. 최근 대화 위주로 잘라서 붙여넣어 주세요.` });
   }
 
   const user = req.user;
@@ -201,7 +224,7 @@ app.post("/api/context-repair", limitMiddleware(repairLimiter, (req) => `repair:
 
   try {
     const result = await repairContext(text);
-    res.json({ ...result, usage: { plan: usage.plan, remainingFree: usage.remainingFree, credits: usage.credits } });
+    res.json({ ...result, source, usage: { plan: usage.plan, remainingFree: usage.remainingFree, credits: usage.credits } });
   } catch (e) {
     if (e.code === "TOO_SHORT") return res.status(400).json({ error: e.message });
     logError("context-repair", e);

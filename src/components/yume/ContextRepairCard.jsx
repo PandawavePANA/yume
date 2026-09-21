@@ -8,7 +8,7 @@
 // 결과는 판정이 아니라 **붙여넣을 글**이다. 그래서 이 화면의 목적지는 하나,
 // 복사 버튼이다. 나머지(정해진 것·제약·어긋난 지점)는 그 글을 믿어도 되는지
 // 확인하라고 같이 보여 주는 근거다.
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { apiJson } from "@/components/yume/api";
 
@@ -58,20 +58,50 @@ function Block({ title, items, tone }) {
 
 export default function ContextRepairCard({ onNeedIdentity }) {
   const [open, setOpen] = useState(false);
+  const [url, setUrl] = useState("");
   const [text, setText] = useState("");
+  // 링크가 기본이다. 붙여넣기는 링크가 막혔을 때의 길이라 접어 둔다.
+  const [manual, setManual] = useState(false);
   const [state, setState] = useState("idle"); // idle · loading · done
   const [error, setError] = useState("");
   const [result, setResult] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [pasteHint, setPasteHint] = useState("");
+  const [sources, setSources] = useState([]);
+
+  // 어떤 서비스를 읽을 수 있는지는 서버가 정한다. 화면에 목록을 또 적어 두면
+  // 서버가 하나 늘렸을 때 안내만 옛날 것으로 남는다.
+  useEffect(() => {
+    if (!open || sources.length) return;
+    apiJson("/api/context-repair/sources")
+      .then((d) => setSources(d.sources || []))
+      .catch(() => {});
+  }, [open, sources.length]);
 
   const chars = text.trim().length;
-  const ready = chars >= MIN_CHARS && chars <= MAX_CHARS;
+  const linkOk = /^https:\/\/\S+$/i.test(url.trim());
+  const ready = manual ? chars >= MIN_CHARS && chars <= MAX_CHARS : linkOk;
+
+  // 링크를 주소창에서 복사해 온 사람이 대부분이라, 버튼 한 번으로 넣게 한다.
+  async function pasteLink() {
+    setPasteHint("");
+    try {
+      const t = (await navigator.clipboard.readText()).trim();
+      if (!t) return setPasteHint("클립보드가 비어 있어요.");
+      setUrl(t);
+      setManual(false);
+    } catch {
+      setPasteHint("브라우저가 붙여넣기를 막고 있어요. 입력칸에서 Ctrl+V(Mac은 ⌘V)를 눌러주세요.");
+    }
+  }
 
   async function run() {
     setError("");
+    setPasteHint("");
     setState("loading");
     try {
-      const data = await apiJson("/api/context-repair", { method: "POST", body: { transcript: text.trim() } });
+      const body = manual ? { transcript: text.trim() } : { url: url.trim() };
+      const data = await apiJson("/api/context-repair", { method: "POST", body });
       setResult(data);
       setState("done");
     } catch (e) {
@@ -81,6 +111,9 @@ export default function ContextRepairCard({ onNeedIdentity }) {
         setState("idle");
         if (await onNeedIdentity()) return run();
       }
+      // 링크를 못 읽는 경우는 사용자가 고칠 수 없는 것이 많다(비공개, 구조 변경).
+      // 막다른 길로 두지 않고 붙여넣기 칸을 열어 준다.
+      if (!manual && e.code && e.code !== "IDENTITY_REQUIRED") setManual(true);
       setError(e.message || "문맥을 정리하지 못했어요. 잠시 후 다시 시도해주세요.");
       setState("idle");
     }
@@ -101,6 +134,9 @@ export default function ContextRepairCard({ onNeedIdentity }) {
     setState("idle");
     setError("");
     setText("");
+    setUrl("");
+    setManual(false);
+    setPasteHint("");
   }
 
   return (
@@ -163,17 +199,65 @@ export default function ContextRepairCard({ onNeedIdentity }) {
             <div style={{ padding: "0 clamp(16px, 3vw, 28px) clamp(20px, 3vw, 26px)" }}>
               {state !== "done" && (
                 <>
-                  <textarea
-                    value={text}
-                    onChange={(e) => setText(e.target.value)}
-                    placeholder={PLACEHOLDER}
-                    rows={7}
-                    style={{
-                      width: "100%", boxSizing: "border-box", padding: "14px 15px", borderRadius: 14,
-                      border: `1px solid ${UI.hairline}`, background: "#FBFAF8", color: UI.ink,
-                      fontSize: 14.5, lineHeight: 1.7, fontFamily: "inherit", resize: "vertical", outline: "none",
-                    }}
-                  />
+                  {/* 링크가 기본 입력이다. 대화를 통째로 복사해 붙여넣는 것보다
+                      공유 링크 하나를 가져오는 편이 훨씬 짧은 동작이다. */}
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <input
+                      value={url}
+                      onChange={(e) => { setUrl(e.target.value); setManual(false); }}
+                      placeholder="https://chatgpt.com/share/…"
+                      inputMode="url"
+                      style={{
+                        flex: "1 1 240px", minWidth: 0, boxSizing: "border-box", height: 48,
+                        padding: "0 14px", borderRadius: 13, border: `1px solid ${UI.hairline}`,
+                        background: "#FBFAF8", color: UI.ink, fontSize: 14.5, fontFamily: "inherit", outline: "none",
+                      }}
+                    />
+                    <motion.button type="button" whileTap={{ scale: 0.985 }} onClick={pasteLink} style={{
+                      flex: "none", height: 48, padding: "0 16px", borderRadius: 13,
+                      border: `1px solid ${UI.hairlineStrong}`, background: UI.surface, color: UI.ink,
+                      fontSize: 14.5, fontWeight: 600, cursor: "pointer", letterSpacing: "-0.01em",
+                    }}>붙여넣기</motion.button>
+                  </div>
+
+                  {/* 링크를 어디서 복사하는지. 서비스마다 위치가 달라서 한 줄씩 적어 둔다. */}
+                  {sources.length > 0 && (
+                    <div style={{ marginTop: 10, fontSize: 12.5, color: UI.ink3, lineHeight: 1.75 }}>
+                      {sources.map((s2) => (
+                        <div key={s2.label}>
+                          <b style={{ fontWeight: 600, color: UI.ink2 }}>{s2.label}</b> · {s2.how}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* 붙여넣기 칸은 접어 둔다 — 링크가 막혔을 때만 필요하다. */}
+                  {!manual ? (
+                    <button type="button" onClick={() => setManual(true)} style={{
+                      marginTop: 10, border: "none", background: "transparent", padding: 0,
+                      fontSize: 13, color: UI.accent, fontWeight: 600, cursor: "pointer",
+                    }}>
+                      링크 대신 대화를 직접 붙여넣기
+                    </button>
+                  ) : (
+                    <div style={{ marginTop: 12 }}>
+                      <div style={{ fontSize: 12.5, color: UI.ink3, marginBottom: 7 }}>
+                        대화를 그대로 붙여넣으세요. 링크를 넣으면 이 칸은 비워 두셔도 됩니다.
+                      </div>
+                      <textarea
+                        value={text}
+                        onChange={(e) => setText(e.target.value)}
+                        placeholder={PLACEHOLDER}
+                        rows={7}
+                        style={{
+                          width: "100%", boxSizing: "border-box", padding: "14px 15px", borderRadius: 14,
+                          border: `1px solid ${UI.hairline}`, background: "#FBFAF8", color: UI.ink,
+                          fontSize: 14.5, lineHeight: 1.7, fontFamily: "inherit", resize: "vertical", outline: "none",
+                        }}
+                      />
+                    </div>
+                  )}
+
                   <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 12, flexWrap: "wrap" }}>
                     <motion.button
                       type="button"
@@ -188,19 +272,27 @@ export default function ContextRepairCard({ onNeedIdentity }) {
                         cursor: ready && state !== "loading" ? "pointer" : "default",
                       }}
                     >
-                      {state === "loading" ? "정리하는 중…" : "문맥 프롬프트 만들기"}
+                      {state === "loading" ? (manual ? "정리하는 중…" : "대화를 읽는 중…") : "문맥 프롬프트 만들기"}
                     </motion.button>
                     <span style={{ fontSize: 12.5, color: UI.ink3, fontVariantNumeric: "tabular-nums" }}>
-                      {chars < MIN_CHARS
-                        ? `${MIN_CHARS - chars}자 더 필요해요`
-                        : `${chars.toLocaleString()}자${chars > MAX_CHARS ? ` · ${MAX_CHARS.toLocaleString()}자까지` : ""}`}
+                      {manual
+                        ? (chars < MIN_CHARS ? `${(MIN_CHARS - chars).toLocaleString()}자 더 필요해요` : `${chars.toLocaleString()}자`)
+                        : "공유 링크를 넣어주세요"}
                     </span>
                   </div>
+                  {pasteHint && (
+                    <p style={{ fontSize: 12.5, color: UI.ink3, lineHeight: 1.6, margin: "10px 0 0" }}>{pasteHint}</p>
+                  )}
                 </>
               )}
 
               {state === "done" && result && (
                 <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: EASE }}>
+                  {result.source && (
+                    <div style={{ fontSize: 12.5, color: UI.ink3, marginBottom: 10 }}>
+                      {result.source.service} 공유 링크에서 읽었어요.
+                    </div>
+                  )}
                   {result.goal && (
                     <div style={{ fontSize: 13.5, color: UI.ink2, lineHeight: 1.7, marginBottom: 14 }}>
                       <b style={{ color: UI.ink, fontWeight: 600 }}>이 대화의 목적</b> · {result.goal}
@@ -283,8 +375,8 @@ export default function ContextRepairCard({ onNeedIdentity }) {
               )}
 
               <p style={{ fontSize: 12, color: UI.ink3, lineHeight: 1.7, margin: "14px 0 0" }}>
-                대화에 실제로 나온 내용만 옮깁니다. 빠진 부분을 채워 넣지 않고,
-                이름·연락처 같은 식별정보는 프롬프트에 담지 않습니다.
+                링크는 공개된 공유 페이지만 읽습니다. 대화에 실제로 나온 내용만 옮기고,
+                빠진 부분을 채워 넣지 않으며, 이름·연락처 같은 식별정보는 프롬프트에 담지 않습니다.
               </p>
             </div>
           </motion.div>
