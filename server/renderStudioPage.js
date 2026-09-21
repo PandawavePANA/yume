@@ -137,10 +137,12 @@ export function renderStudioPage() {
   .todo:first-of-type { border-top: 0; }
   .box { flex: none; width: 17px; height: 17px; margin-top: 1px; border-radius: 6px; cursor: pointer;
          border: 1px solid var(--line2); background: transparent; position: relative; }
-  .box.doing { border-color: var(--warn); }
-  .box.doing::after { content: ""; position: absolute; inset: 4px; border-radius: 2px; background: var(--warn); }
-  .box.done { border-color: transparent; background: var(--beam); }
-  .box.done::after { content: ""; position: absolute; left: 6px; top: 3px; width: 4px; height: 8px;
+  /* 상태 이름을 그대로 클래스로 쓰면 "todo"가 행 선택자(.todo)와 부딪혀
+     체크박스에까지 행 스타일이 먹는다. 접두사를 붙여 떼어 놓는다. */
+  .box.is-doing { border-color: var(--warn); }
+  .box.is-doing::after { content: ""; position: absolute; inset: 4px; border-radius: 2px; background: var(--warn); }
+  .box.is-done { border-color: transparent; background: var(--beam); }
+  .box.is-done::after { content: ""; position: absolute; left: 6px; top: 3px; width: 4px; height: 8px;
                      border: solid #fff; border-width: 0 1.6px 1.6px 0; transform: rotate(42deg); }
   .todo .tx { flex: 1; font-size: 12.5px; line-height: 1.55; cursor: text; }
   .todo.is-done .tx { color: var(--faint); text-decoration: line-through; }
@@ -149,6 +151,32 @@ export function renderStudioPage() {
   .todo .ops button { border: 0; background: none; color: var(--faint); cursor: pointer; font-size: 12px; padding: 1px 3px; line-height: 1; }
   .todo .ops button:hover { color: var(--ink); }
   .addrow { margin-top: 10px; }
+
+  /* ── 완료 칸 ── */
+  /* 목록에서 끝난 일이 이리로 모인다. 카드 색을 살짝 달리해 "지나간 것"으로 읽히게 하되,
+     지워진 것처럼 보이지는 않게 한다 — 해제하면 돌아가야 하는 살아 있는 항목이다. */
+  .done-box { background: rgba(70,192,138,.045); border-color: rgba(70,192,138,.2); }
+  .done-box > h2 { display: flex; align-items: center; gap: 8px; }
+  .done-box .cnt {
+    font: 600 11px/1 var(--mono); padding: 3px 8px; border-radius: 99px;
+    background: rgba(70,192,138,.16); color: #7ddab0; border: 1px solid rgba(70,192,138,.28);
+  }
+  /* 완료 항목은 목록보다 촘촘해도 된다. 읽을 일보다 되돌릴 일이 많다. */
+  .donelist { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px,1fr)); gap: 0 22px; }
+  .donelist .todo { border-top: 1px solid var(--line); }
+  .from {
+    display: inline-flex; align-items: center; gap: 6px; flex: none;
+    font-size: 11px; color: var(--faint); white-space: nowrap;
+  }
+  .from i { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+  .drop {
+    flex: none; border: 0; background: none; color: var(--faint); cursor: pointer;
+    font-size: 12px; line-height: 1; padding: 1px 3px; opacity: 0; transition: opacity .15s;
+  }
+  .todo:hover .drop { opacity: 1; }
+  .drop:hover { color: #f0a08c; }
+  /* 목록이 다 비었을 때. 빈 자리를 그냥 두면 고장난 것처럼 보인다. */
+  .allclear { padding: 10px 0; font-size: 12px; color: var(--faint); }
 
   table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
   th, td { text-align: left; padding: 9px 8px; border-bottom: 1px solid var(--line); }
@@ -389,26 +417,55 @@ export function renderStudioPage() {
     })).concat(S.projects.filter(function (p) { return p.status !== "dropped"; }).map(function (p) {
       return { key: "project:" + p.id, label: p.title, href: null, tint: "var(--mid)", sub: (PRJ[p.status] || "") + (p.client ? " · " + p.client : "") };
     }));
+    var ownerOf = {};
+    owners.forEach(function (o) { ownerOf[o.key] = o; });
+
+    // 끝난 일은 목록에서 빼고 아래 "완료" 칸으로 모은다. 남은 일만 보이면
+    // 무엇이 남았는지가 한눈에 들어오고, 목록이 완료 항목으로 길어지지 않는다.
+    // 어디서 왔는지는 product에 그대로 있으므로, 해제하면 그 자리로 돌아간다.
+    var doneAll = S.tasks.filter(function (t) { return t.state === "done" && ownerOf[t.product]; });
+
+    // data-flip은 이동 애니메이션이 같은 항목을 이전 위치와 짝지을 때 쓴다.
+    // 완료 칸에서는 순서 바꾸기 대신 어느 목록에서 왔는지를 보여 준다 —
+    // 해제하면 돌아갈 자리라서, 그게 지금 필요한 정보다.
+    var row = function (t, inDone) {
+      var o = ownerOf[t.product];
+      var tail = inDone
+        ? '<span class="from"><i style="background:' + o.tint + '"></i>' + E(o.label) + "</span>" +
+          '<button class="drop" data-tdel="' + t.id + '" title="삭제">×</button>'
+        : '<span class="ops"><button data-move="' + t.id + '" data-dir="up" title="위로">↑</button>' +
+          '<button data-move="' + t.id + '" data-dir="down" title="아래로">↓</button>' +
+          '<button data-tdel="' + t.id + '" title="삭제">×</button></span>';
+      return '<div class="todo' + (inDone ? " is-done" : "") + '" data-flip="t' + t.id + '">' +
+        '<button class="box is-' + t.state + '" data-task="' + t.id + '" data-state="' + t.state + '" ' +
+          'title="' + (inDone ? "완료 해제" : "상태 바꾸기") + '"></button>' +
+        '<span class="tx" data-edit="' + t.id + '">' + E(t.title) + "</span>" +
+        tail +
+      "</div>";
+    };
 
     document.getElementById("pane-todo").innerHTML =
       '<section class="card"><h2>체크리스트</h2>' +
-      '<p class="d">개인 할 일과 사업마다 하나씩. 네모를 누르면 할 일 → 하는 중 → 완료로 돕니다. 글자를 누르면 고칠 수 있고, 저장은 자동입니다.</p>' +
+      '<p class="d">개인 할 일과 사업마다 하나씩. 네모를 누르면 할 일 → 하는 중 → 완료로 돕니다. ' +
+      '완료하면 아래 완료 칸으로 옮겨가고, 해제하면 원래 자리로 돌아옵니다.</p>' +
       '<div class="lists">' + owners.map(function (o) {
         var ts = tasksOf(o.key);
-        var done = ts.filter(function (t) { return t.state === "done"; }).length;
+        var left = ts.filter(function (t) { return t.state !== "done"; });
+        var done = ts.length - left.length;
         return '<div class="list"><h3><span class="dot" style="background:' + o.tint + '"></span>' + E(o.label) + "</h3>" +
           '<div class="meta"><span>' + done + " / " + ts.length + " 완료</span>" +
           (o.href ? '<a href="' + E(o.href) + '" target="_blank" rel="noreferrer">열기 ↗</a>' : '<span>' + E(o.sub) + "</span>") + "</div>" +
-          ts.map(function (t) {
-            return '<div class="todo' + (t.state === "done" ? " is-done" : "") + '">' +
-              '<button class="box ' + t.state + '" data-task="' + t.id + '" data-state="' + t.state + '" title="' + t.state + '"></button>' +
-              '<span class="tx" data-edit="' + t.id + '">' + E(t.title) + "</span>" +
-              '<span class="ops"><button data-move="' + t.id + '" data-dir="up" title="위로">↑</button>' +
-              '<button data-move="' + t.id + '" data-dir="down" title="아래로">↓</button>' +
-              '<button data-tdel="' + t.id + '" title="삭제">×</button></span></div>';
-          }).join("") +
+          (left.length ? left.map(function (t) { return row(t, false); }).join("")
+                       : '<div class="allclear">남은 일이 없습니다</div>') +
           '<div class="addrow"><input data-add="' + E(o.key) + '" placeholder="할 일 추가 후 Enter" /></div></div>';
-      }).join("") + "</div></section>";
+      }).join("") + "</div></section>" +
+
+      '<section class="card done-box"><h2>완료 <span class="cnt">' + doneAll.length + '</span></h2>' +
+      '<p class="d">끝난 일이 모입니다. 네모를 다시 누르면 원래 목록으로 돌아갑니다.</p>' +
+      (doneAll.length
+        ? '<div class="donelist">' + doneAll.map(function (t) { return row(t, true); }).join("") + "</div>"
+        : '<div class="empty">아직 완료한 일이 없습니다.</div>') +
+      "</section>";
   }
 
   // ── 가격 ──
@@ -442,8 +499,41 @@ export function renderStudioPage() {
 
   function paint() { wallet(); tabs(); home(); inquiries(); projects(); todos(); price(); }
 
+  // 할 일이 목록과 완료 칸 사이를 옮겨 다닐 때, 그냥 사라졌다 나타나면 어디로 갔는지
+  // 알 수 없다. 다시 그리기 전에 위치를 재 두고, 그린 뒤 그 차이만큼 되돌려 놓은 채
+  // 제자리로 보낸다(FLIP). 화면을 다시 그리는 건 한 번뿐이고, 움직이는 것은 transform이라
+  // 레이아웃을 건드리지 않는다.
+  var STILL = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  function snapshot() {
+    var m = {};
+    if (STILL) return m;
+    document.querySelectorAll("[data-flip]").forEach(function (el) {
+      var r = el.getBoundingClientRect();
+      if (r.width || r.height) m[el.dataset.flip] = r;
+    });
+    return m;
+  }
+
+  function playFlip(before) {
+    if (STILL || !before) return;
+    document.querySelectorAll("[data-flip]").forEach(function (el) {
+      var b = before[el.dataset.flip];
+      if (!b || !el.animate) return;
+      var a = el.getBoundingClientRect();
+      var dx = b.left - a.left, dy = b.top - a.top;
+      // 1px 미만은 눈에 띄지도 않으면서 애니메이션만 늘린다.
+      if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
+      el.animate(
+        [{ transform: "translate(" + dx + "px," + dy + "px)" }, { transform: "none" }],
+        { duration: 460, easing: "cubic-bezier(.22,1,.36,1)" },
+      );
+    });
+  }
+
   async function load() {
-    try { S = await api("/studio"); clearErr(); paint(); }
+    var before = snapshot();
+    try { S = await api("/studio"); clearErr(); paint(); playFlip(before); }
     catch (e) {
       if (String(e.message).indexOf("관리자") >= 0) location.reload();
       else fail(e.message);
@@ -470,7 +560,13 @@ export function renderStudioPage() {
         if (!confirm("이 일감과 딸린 체크리스트를 삭제할까요? 되돌릴 수 없습니다.")) return;
         await api("/studio/project/" + el.dataset.del, { method: "DELETE" }); return load();
       }
-      if (el.dataset.task) { await api("/studio/task/" + el.dataset.task, { method: "PATCH", body: { state: NEXT[el.dataset.state] } }); return load(); }
+      if (el.dataset.task) {
+        // 완료 칸에서 누른 것은 해제다. 목록에서는 할 일 → 하는 중 → 완료로 돈다.
+        var back = !!el.closest(".done-box");
+        var next = back ? "todo" : NEXT[el.dataset.state];
+        await api("/studio/task/" + el.dataset.task, { method: "PATCH", body: { state: next } });
+        return load();
+      }
       if (el.dataset.move) { await api("/studio/task/" + el.dataset.move + "/move", { method: "POST", body: { dir: el.dataset.dir } }); return load(); }
       if (el.dataset.tdel) { await api("/studio/task/" + el.dataset.tdel, { method: "DELETE" }); return load(); }
       if (el.dataset.edit) {
