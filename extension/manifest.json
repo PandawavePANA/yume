@@ -1,0 +1,45 @@
+{
+  "manifest_version": 3,
+  "name": "유메 — AI 답변 팩트체크",
+  "version": "1.0.0",
+  "description": "ChatGPT·클로드·제미나이의 답변을 그 자리에서 유메로 확인합니다. 판례·법령은 법제처 공식 자료와 대조합니다.",
+  "icons": { "16": "icons/icon16.png", "48": "icons/icon48.png", "128": "icons/icon128.png" },
+
+  "action": {
+    "default_title": "선택한 글을 유메로 확인",
+    "default_icon": { "16": "icons/icon16.png", "48": "icons/icon48.png", "128": "icons/icon128.png" }
+  },
+
+  "background": { "service_worker": "background.js" },
+
+  "permissions": ["storage", "contextMenus", "scripting", "activeTab"],
+
+  "host_permissions": [
+    "https://chatgpt.com/*",
+    "https://chat.openai.com/*",
+    "https://claude.ai/*",
+    "https://gemini.google.com/*",
+    "https://www.perplexity.ai/*",
+    "https://www.yume-reamer.com/*"
+  ],
+
+  "content_scripts": [
+    {
+      "matches": [
+        "https://chatgpt.com/*",
+        "https://chat.openai.com/*",
+        "https://claude.ai/*",
+        "https://gemini.google.com/*",
+        "https://www.perplexity.ai/*"
+      ],
+      "js": ["content.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://www.yume-reamer.com/*"],
+      "js": ["fill.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
