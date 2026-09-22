@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { motion, AnimatePresence, useScroll, useTransform, useMotionValue, useSpring } from "framer-motion";
 import CatMouseGame from "@/components/yume/CatMouseGame";
 import AuthModal from "@/components/yume/AuthModal";
