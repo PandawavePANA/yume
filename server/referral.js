@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import { all, kstMonthStart, now, one, run } from "./db.js";
-import { REFERRAL_CREDITS, REFERRAL_MONTHLY_CAP, grant } from "./credits.js";
+import { CREDIT_KRW, REFERRAL_CREDITS, REFERRAL_MONTHLY_CAP, grant } from "./credits.js";
 import { awardForReferral, POINTS as CONTRIBUTION_POINTS } from "./contribution.js";
 import { logError } from "./errorLog.js";
 
@@ -103,6 +103,8 @@ export async function referralSummary(userId) {
   return {
     code,
     creditsPerReferral: REFERRAL_CREDITS,
+    // 정가 환산액. 크레딧 개수만 말하면 얼마짜리인지 전해지지 않는다.
+    krwPerReferral: REFERRAL_CREDITS * CREDIT_KRW,
     pointsPerReferral: CONTRIBUTION_POINTS.referral,
     monthlyCap: REFERRAL_MONTHLY_CAP,
     invited: rows.length,

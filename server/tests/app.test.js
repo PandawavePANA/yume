@@ -22,6 +22,8 @@ const db = await import("../db.js");
 const store = await import("../verificationStore.js");
 const { buildNecReport, NEC_WEIGHTS } = await import("../nec/nec.js");
 const { checkCaseNumber } = await import("../nec/identifiers.js");
+// 상수를 테스트에 복사해 두면 값을 바꿀 때마다 테스트가 같이 깨진다. 상수를 본다.
+const { API_TRIAL_QUOTA } = await import("../plans.js");
 const { coverageFor } = await import("../nec/searchSpace.js");
 const { FREE_DAILY_LIMIT } = await import("../plans.js");
 
@@ -207,7 +209,7 @@ test("API 키 발급 → 캐시 경로로 검증 → 소유권·한도", async (
   assert.equal((await noKey.json()).error.code, "invalid_api_key");
 
   const usage = await (await fetch(`${base}/v1/usage`, { headers: auth })).json();
-  assert.equal(usage.month.quota, 100);
+  assert.equal(usage.month.quota, API_TRIAL_QUOTA);
 
   const bad = await fetch(`${base}/v1/verify`, { method: "POST", headers: { ...auth, "Content-Type": "application/json" }, body: "{}" });
   assert.equal(bad.status, 400);
