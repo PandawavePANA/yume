@@ -12,6 +12,7 @@ import { Webhook } from "@portone/server-sdk";
 import { patchAsync } from "./asyncExpress.js";
 import { audit } from "./audit.js";
 import { getOrder, reverseOrder, settleOrder } from "./checkoutStore.js";
+import { quoteByPaymentId, reverseQuote, settleQuote } from "./quoteCheckout.js";
 import { logError } from "./errorLog.js";
 import { clientIp } from "./security.js";
 
@@ -39,8 +40,33 @@ router.post("/portone/webhook", express.raw({ type: "*/*", limit: "256kb" }), as
     const paymentId = event?.data?.paymentId;
     if (!paymentId) return res.json({ ok: true, ignored: type });
 
+    // 결제는 두 갈래다 — 유메 크레딧/요금제와, 리머 사이트에서 보낸 견적.
+    // 주문번호가 어느 쪽 표에 있는지로 갈린다.
     const order = await getOrder(String(paymentId));
-    if (!order) return res.json({ ok: true, ignored: "unknown order" });
+    if (!order) {
+      const quote = await quoteByPaymentId(String(paymentId));
+      if (!quote) return res.json({ ok: true, ignored: "unknown order" });
+
+      if (type === "Transaction.Paid") {
+        // 웹훅이 알려 준 번호가 기준이다. 결제창을 다시 연 경우 표에는 나중 번호가
+        // 남아 있어서, 표를 믿으면 실제로 들어온 결제를 확인할 수 없다.
+        const r = await settleQuote(quote, { paymentId: String(paymentId) });
+        if (r.ok && !r.already) {
+          await audit(`thread:${quote.thread_id}`, "quote_paid", `quote:${quote.id}`, { via: "webhook", amount: r.amount }, "portone");
+        }
+        return res.json({ ok: true });
+      }
+      if (type === "Transaction.Cancelled" || type === "Transaction.PartialCancelled") {
+        // 부분 취소도 전액을 되돌린다. 견적은 쪼개 팔지 않으므로 절반만 돌려줄 대상이 없고,
+        // 남은 금액은 사람이 보고 다시 청구해야 하는 종류의 일이다.
+        const r = await reverseQuote(quote, { memo: type === "Transaction.PartialCancelled" ? "결제 부분 취소" : "결제 취소" });
+        if (r.ok && !r.already) {
+          await audit(`thread:${quote.thread_id}`, "quote_refunded", `quote:${quote.id}`, { via: "webhook" }, "portone");
+        }
+        return res.json({ ok: true });
+      }
+      return res.json({ ok: true, ignored: type });
+    }
 
     if (type === "Transaction.Paid") {
       const r = await settleOrder(order);

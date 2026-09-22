@@ -330,6 +330,14 @@
   transition: background-color 0.3s var(--ease);
 }
 .nav__cta:hover { background: rgba(236, 233, 227, 0.09); }
+/* 오른쪽 두 개는 한 덩어리다. 메뉴가 접히는 폭에서 셋이 따로 놀면
+   space-between이 "내 의뢰"를 화면 한가운데로 밀어 버린다. */
+.nav__right {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex: none;
+}
 /* 좁은 화면에서는 메뉴만 접는다. 문의 버튼까지 감추면 전화기로 들어온 사람에게는
    연락할 방법이 사라진다. */
 @media (max-width: 860px) {
@@ -355,36 +363,25 @@
   .hero__copy { max-width: 100%; }
 }
 
-.trust {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 1px;
-  margin: clamp(44px, 5vw, 68px) 0 0;
-  padding: 0;
-  list-style: none;
-  background: var(--line);
-  border: 1px solid var(--line);
+/* 내거는 문장. 세 줄 중 마지막 줄만 스펙트럼을 태운다 —
+   앞 두 줄이 문턱을 없애고, 마지막 줄이 약속이다. */
+.display__vow {
+  font-style: normal;
+  background: var(--beam);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
-.trust__item {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 20px 22px;
-  background: var(--bg);
-}
-.trust__v {
-  font-family: var(--serif);
-  font-size: 26px;
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
-}
-.trust__k {
-  font-size: 12.5px;
-  line-height: 1.5;
+/* 배경이 그라디언트라 글자 획이 얇아 보인다. 한 단계 두껍게 잡아 균형을 맞춘다. */
+.display__vow .trail-ch { font-weight: 500; }
+
+/* 예전에 여기 있던 숫자 타일 넷(.trust)은 걷어냈다. 맡기는 쪽에서 보면 실적 자랑이고,
+   특히 자사 제품 개수는 남의 일이다. 자리에 필요한 건 한 줄뿐이다. */
+.hero__note {
+  margin: 22px 0 0;
+  font-size: 13px;
+  line-height: 1.7;
   color: var(--ink-faint);
-}
-@media (max-width: 720px) {
-  .trust { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 /* ---------- 작업물 ---------- */
@@ -1066,14 +1063,6 @@
   .why { grid-template-columns: 1fr; gap: 26px; }
 }
 
-/* 신뢰 줄의 설명 한 줄. 숫자만 있으면 무슨 뜻인지 모르고 지나간다. */
-.trust__sub {
-  margin-top: 2px;
-  font-size: 11.5px;
-  line-height: 1.5;
-  color: rgba(236, 233, 227, 0.36);
-}
-
 /* 서비스별 대략적인 기간. 문의 전에 가장 궁금한 것이라 이름 옆에 붙인다. */
 .svc__name {
   display: flex;
@@ -1187,31 +1176,6 @@
 .btn--ghost { transition: background-color 0.35s var(--ease), border-color 0.35s var(--ease); }
 .btn--ghost:hover { border-color: color-mix(in srgb, var(--beam-mid) 60%, var(--line-strong)); }
 
-/* 신뢰 줄: 숫자에 스펙트럼을 아주 옅게 얹는다. 글자색 자체를 바꾸면 읽기 어려워져
-   윗부분만 물들이고 아래는 아이보리로 남긴다. */
-.trust__v {
-  background: linear-gradient(170deg, var(--ink) 38%, color-mix(in srgb, var(--beam-violet) 70%, var(--ink)));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
-.trust__item {
-  position: relative;
-  transition: background-color 0.45s var(--ease);
-}
-.trust__item::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  height: 1px;
-  background: var(--beam);
-  opacity: 0;
-  transition: opacity 0.45s var(--ease);
-}
-.trust__item:hover::before { opacity: 0.9; }
-
 /* 맡기는 이유: 위쪽 선이 스펙트럼을 타고, 올려놓으면 진해진다. */
 .why__item {
   border-top-color: transparent;
@@ -1281,11 +1245,7 @@
 .reveal-on .hero .display { animation: heroIn 1.05s cubic-bezier(0.16, 1, 0.3, 1) 0.13s both; }
 .reveal-on .hero .lede { animation: heroIn 1.05s cubic-bezier(0.16, 1, 0.3, 1) 0.24s both; }
 .reveal-on .hero .actions { animation: heroIn 1.05s cubic-bezier(0.16, 1, 0.3, 1) 0.34s both; }
-.reveal-on .trust__item { animation: heroIn 0.95s cubic-bezier(0.16, 1, 0.3, 1) both; }
-.reveal-on .trust__item:nth-child(1) { animation-delay: 0.44s; }
-.reveal-on .trust__item:nth-child(2) { animation-delay: 0.52s; }
-.reveal-on .trust__item:nth-child(3) { animation-delay: 0.6s; }
-.reveal-on .trust__item:nth-child(4) { animation-delay: 0.68s; }
+.reveal-on .hero .hero__note { animation: heroIn 1.05s cubic-bezier(0.16, 1, 0.3, 1) 0.44s both; }
 
 @media (prefers-reduced-motion: reduce) {
   .reveal-on .hero .label,
@@ -1293,7 +1253,7 @@
   .reveal-on .hero .display,
   .reveal-on .hero .lede,
   .reveal-on .hero .actions,
-  .reveal-on .trust__item { animation: none; }
+  .reveal-on .hero .hero__note { animation: none; }
 }
 
 /* ---------- 약속 ---------- */
@@ -1350,4 +1310,42 @@
 }
 @media (max-width: 620px) {
   .vow { grid-template-columns: 1fr; gap: 20px; }
+}
+
+/* ---------- 대표 약력 ---------- */
+/* 아래 연혁이 "무엇을 했는가"라면 여기는 "무엇을 가진 사람인가"다.
+   연혁을 끝까지 읽는 사람은 많지 않아서, 확인하려는 넷을 앞에 꺼내 둔다.
+   숫자 타일로 만들지 않는다 — 그게 방금 걷어낸 것이다. */
+.cred {
+  margin: 30px 0 0;
+  border-top: 1px solid var(--line);
+}
+.cred__row {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr);
+  gap: 0 18px;
+  padding: 13px 0;
+  border-bottom: 1px solid var(--line);
+}
+.cred__k {
+  margin: 0;
+  font: 500 11px/1.7 var(--mono);
+  letter-spacing: 0.08em;
+  color: var(--ink-faint);
+}
+.cred__v {
+  margin: 0;
+  font-size: 14.5px;
+  line-height: 1.7;
+  letter-spacing: -0.01em;
+}
+.cred__sub {
+  display: block;
+  margin-top: 2px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--ink-faint);
+}
+@media (max-width: 560px) {
+  .cred__row { grid-template-columns: 1fr; gap: 3px; }
 }

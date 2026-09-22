@@ -50,7 +50,6 @@ const post = (body, headers = {}) =>
 
 const ok = {
   name: "김철수",
-  company: "테스트상사",
   contact: "test@example.com",
   kind: "web",
   budget: "500-1000",
@@ -60,12 +59,15 @@ const ok = {
 test("메일 설정이 없어도 접수되고 DB에 남는다", async () => {
   const res = await post(ok);
   assert.equal(res.status, 201);
-  assert.deepEqual(await res.json(), { ok: true });
+  const body = await res.json();
+  assert.equal(body.ok, true);
+  // 접수와 동시에 대화방이 열리고, 그 링크를 돌려준다. 메일이 안 나가는 상태에서도
+  // 화면에서 바로 들어갈 수 있어야 한다 — 배포 직후가 정확히 그 상태다.
+  assert.match(body.threadUrl, /\/t#[\w-]{20,}$/);
 
   const row = await db.one("SELECT * FROM inquiries ORDER BY id DESC LIMIT 1");
   assert.equal(row.name, "김철수");
   assert.equal(row.contact, "test@example.com");
-  assert.equal(row.company, "테스트상사");
   // 코드가 아니라 사람이 읽을 라벨로 저장한다 — 메일함에서 그대로 읽히게.
   assert.equal(row.kind, "웹사이트 · 웹서비스");
   assert.equal(row.budget, "500만~1,000만원");
@@ -88,11 +90,21 @@ test("보이지 않는 칸이 채워지면 접수한 척하고 버린다", async
   assert.equal((await db.one("SELECT COUNT(*) AS n FROM inquiries")).n, before, "저장되면 안 된다");
 });
 
-test("모르는 종류·예산은 '그 외'와 '아직 미정'으로 떨어진다", async () => {
+// 양식이 넷으로 줄면서 종류는 더 이상 묻지 않는다. 예전 양식이 아직 떠 있는
+// 브라우저가 보내오는 값은 계속 받고, 없거나 모르는 값이면 기본값으로 떨어진다.
+test("종류를 보내지 않거나 모르는 값이면 기본값으로 떨어진다", async () => {
   await post({ ...ok, kind: "지어낸값", budget: "지어낸값" });
+  const guessed = await db.one("SELECT * FROM inquiries ORDER BY id DESC LIMIT 1");
+  assert.equal(guessed.kind, "개발 문의");
+  assert.equal(guessed.budget, "아직 미정");
+
+  const { kind, ...noKind } = ok;
+  void kind;
+  await post(noKind);
   const row = await db.one("SELECT * FROM inquiries ORDER BY id DESC LIMIT 1");
-  assert.equal(row.kind, "그 외");
-  assert.equal(row.budget, "아직 미정");
+  assert.equal(row.kind, "개발 문의");
+  assert.equal(row.budget, "500만~1,000만원");
+  assert.equal(row.company, null, "회사는 이제 묻지 않는다");
 });
 
 // 이 테스트는 AUDIT_ALLOWED_ORIGINS를 일부러 비워 둔 채 돈다. 감사 API도 app.use("/api", ...)로

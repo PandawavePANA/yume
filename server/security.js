@@ -144,8 +144,10 @@ export function crossOriginGate(...envNames) {
     if (okOrigin) {
       res.set("Access-Control-Allow-Origin", origin);
       res.set("Vary", "Origin");
-      res.set("Access-Control-Allow-Headers", "Content-Type");
-      res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+      // X-Thread-Token — 의뢰 스레드의 열쇠. URL에 실으면 접속 로그에 그대로 남아서
+      // 헤더로 받는다. 헤더를 쓰는 순간 GET에도 프리플라이트가 붙으므로 GET도 함께 허용한다.
+      res.set("Access-Control-Allow-Headers", "Content-Type, X-Thread-Token");
+      res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
       res.set("Access-Control-Max-Age", "600");
     }
     if (req.method === "OPTIONS") return res.sendStatus(okOrigin ? 204 : 403);

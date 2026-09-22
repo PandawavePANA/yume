@@ -67,8 +67,11 @@ await writeFile(out("index.html"), html);
 // ── robots.txt / sitemap.xml ────────────────────────────────────────────
 await writeFile(
   out("robots.txt"),
+  // /t는 의뢰인 한 사람의 대화 화면이다. 열쇠가 해시에 있어 크롤러가 내용을 볼 수는
+  // 없지만, 색인에 주소가 오르면 "이런 게 있다"는 것까지는 드러난다. 막아 둔다.
   `User-agent: *
 Allow: /
+Disallow: /t
 
 Sitemap: ${ORIGIN}/sitemap.xml
 `,

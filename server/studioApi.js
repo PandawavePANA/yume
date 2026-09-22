@@ -67,11 +67,20 @@ const ts = (v) => {
 
 // ── 전체 현황 ──────────────────────────────────────────────────────────
 studioRouter.get("/studio", async (req, res) => {
-  const [inquiries, projects, tasks] = await Promise.all([
+  const [inquiries, projects, tasks, threads] = await Promise.all([
     all("SELECT * FROM inquiries ORDER BY id DESC LIMIT 200"),
     all("SELECT * FROM projects ORDER BY COALESCE(updated_at, created_at) DESC LIMIT 300"),
     all("SELECT * FROM product_tasks ORDER BY product, sort, id"),
+    all("SELECT id, inquiry_id, status, last_sender FROM threads ORDER BY id DESC LIMIT 300"),
   ]);
+
+  // 문의와 대화를 이어 둔다. 보드에서 의뢰를 보다가 바로 답장하러 갈 수 있어야
+  // "일감으로" 말고도 할 수 있는 일이 생긴다.
+  const threadByInquiry = new Map(threads.filter((t) => t.inquiry_id).map((t) => [t.inquiry_id, t.id]));
+  for (const q of inquiries) q.thread_id = threadByInquiry.get(q.id) ?? null;
+  // 답할 차례 — 의뢰인이 마지막으로 말한 열린 대화. 견적 발송 같은 system 기록은
+  // 우리가 움직인 것이라 차례를 넘기지 않는다.
+  const waiting = threads.filter((t) => t.status === "open" && t.last_sender === "client").length;
 
   const by = (s) => projects.filter((p) => p.status === s);
   // 외주 매출은 받은 금액만. 계약했지만 아직 안 들어온 돈은 따로 보여 준다.
@@ -100,6 +109,8 @@ studioRouter.get("/studio", async (req, res) => {
     summary: {
       inquiriesNew: inquiries.filter((i) => (i.status || "new") === "new").length,
       inquiriesTotal: inquiries.length,
+      deskWaiting: waiting,
+      deskOpen: threads.filter((t) => t.status === "open").length,
       lead: by("lead").length,
       active: by("active").length,
       done: by("done").length,
@@ -129,7 +140,7 @@ studioRouter.patch("/studio/inquiry/:id", async (req, res) => {
   const status = String(req.body?.status || "");
   if (!INQUIRY_STATUS.has(status)) return res.status(400).json({ error: "알 수 없는 상태예요." });
   const r = await run("UPDATE inquiries SET status = :s WHERE id = :id", { s: status, id: int(req.params.id) });
-  if (!r.rowCount) return res.status(404).json({ error: "해당 문의가 없어요." });
+  if (!r.changes) return res.status(404).json({ error: "해당 문의가 없어요." });
   res.json({ ok: true });
 });
 
@@ -227,7 +238,7 @@ studioRouter.patch("/studio/project/:id", async (req, res) => {
 studioRouter.delete("/studio/project/:id", async (req, res) => {
   const id = int(req.params.id);
   const r = await run("DELETE FROM projects WHERE id = :id", { id });
-  if (!r.rowCount) return res.status(404).json({ error: "해당 일감이 없어요." });
+  if (!r.changes) return res.status(404).json({ error: "해당 일감이 없어요." });
   // 주인이 사라진 할 일은 어디에도 보이지 않으면서 자리만 차지한다.
   await run("DELETE FROM product_tasks WHERE product = :k", { k: `project:${id}` }).catch(() => {});
   res.json({ ok: true });
@@ -242,10 +253,14 @@ studioRouter.post("/studio/task", async (req, res) => {
 
   const last = await one("SELECT COALESCE(MAX(sort), 0) AS s FROM product_tasks WHERE product = :p", { p: product });
   const t = now();
+  // 외주 일감의 할 일은 기본으로 의뢰인에게 공개된다 — 그게 이 목록을 쓰는 이유다.
+  // 자사 제품과 개인 목록은 공개할 상대가 없으므로 그대로 비공개다.
+  // 내부용 메모를 적을 때는 데스크에서 눈 버튼으로 내린다.
+  const shared = req.body?.shared === undefined ? PROJECT_KEY.test(product) : req.body.shared === true;
   const row = await run(
-    `INSERT INTO product_tasks (product, title, state, sort, created_at, updated_at)
-     VALUES (:p, :title, 'todo', :sort, :t, :t) RETURNING id`,
-    { p: product, title, sort: Number(last?.s || 0) + 1, t },
+    `INSERT INTO product_tasks (product, title, state, sort, shared, created_at, updated_at)
+     VALUES (:p, :title, 'todo', :sort, :shared, :t, :t) RETURNING id`,
+    { p: product, title, sort: Number(last?.s || 0) + 1, shared, t },
   );
   res.status(201).json({ ok: true, id: row.rows[0]?.id });
 });
@@ -257,12 +272,14 @@ studioRouter.patch("/studio/task/:id", async (req, res) => {
   const b = req.body || {};
   const has = (k) => Object.prototype.hasOwnProperty.call(b, k);
   await run(
-    "UPDATE product_tasks SET title = :title, state = :state, note = :note, updated_at = :t WHERE id = :id",
+    "UPDATE product_tasks SET title = :title, state = :state, note = :note, shared = :shared, updated_at = :t WHERE id = :id",
     {
       id,
       title: has("title") ? str(b.title, 200) || cur.title : cur.title,
       state: has("state") && TASK_STATE.has(b.state) ? b.state : cur.state,
       note: has("note") ? str(b.note, 1000) : cur.note,
+      // 의뢰인에게 보일지. 이 한 칸이 "진행 상황"과 "내부 메모"를 가른다.
+      shared: has("shared") ? b.shared === true : cur.shared === true,
       t: now(),
     },
   );
@@ -290,6 +307,6 @@ studioRouter.post("/studio/task/:id/move", async (req, res) => {
 
 studioRouter.delete("/studio/task/:id", async (req, res) => {
   const r = await run("DELETE FROM product_tasks WHERE id = :id", { id: int(req.params.id) });
-  if (!r.rowCount) return res.status(404).json({ error: "해당 항목이 없어요." });
+  if (!r.changes) return res.status(404).json({ error: "해당 항목이 없어요." });
   res.json({ ok: true });
 });

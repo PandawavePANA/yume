@@ -115,9 +115,10 @@ export function renderStudioPage() {
   input:focus, select:focus, textarea:focus { outline: none; border-color: var(--mid); box-shadow: 0 0 0 3px rgba(109,90,224,.16); }
   input::placeholder { color: rgba(236,234,228,.28); }
   select option { background: #14141c; }
-  button.b { font: inherit; font-size: 12.5px; padding: 8px 12px; border-radius: 9px; cursor: pointer;
-             border: 1px solid var(--line2); background: rgba(255,255,255,.05); color: var(--dim); white-space: nowrap; }
-  button.b:hover { background: rgba(255,255,255,.1); color: var(--ink); }
+  button.b, a.b { font: inherit; font-size: 12.5px; padding: 8px 12px; border-radius: 9px; cursor: pointer;
+             border: 1px solid var(--line2); background: rgba(255,255,255,.05); color: var(--dim); white-space: nowrap;
+             display: inline-block; text-decoration: none; }
+  button.b:hover, a.b:hover { background: rgba(255,255,255,.1); color: var(--ink); }
   button.b.pri { background: var(--beam); border-color: transparent; color: #fff; font-weight: 600; }
   button.b.danger:hover { color: #f0a08c; border-color: rgba(224,116,92,.4); }
   .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
@@ -213,6 +214,7 @@ export function renderStudioPage() {
   <div class="bar">
     <span class="logo"><i></i>REAMER</span>
     <span class="sp"></span>
+    <a class="ghost" href="/admin/desk" id="deskLink">의뢰 데스크</a>
     <a class="ghost" href="/admin">유메 운영</a>
     <a class="ghost" href="/admin/p/ballast">밸러스트</a>
     <a class="ghost" href="/admin/p/aipick">아이픽</a>
@@ -329,7 +331,13 @@ export function renderStudioPage() {
 
     tiles +=
       asset("var(--warn)", "미수금", won(s.outstanding), "계약 " + kwon(s.contracted)) +
-      asset("var(--good)", "진행 중", String(s.active), "상담 " + s.lead + " · 신규 의뢰 " + s.inquiriesNew);
+      asset("var(--good)", "진행 중", String(s.active), "상담 " + s.lead + " · 신규 의뢰 " + s.inquiriesNew) +
+      asset(s.deskWaiting ? "var(--warn)" : "rgba(236,234,228,.3)", "답할 차례", String(s.deskWaiting || 0), "열린 대화 " + (s.deskOpen || 0) + "건");
+
+    // 답장이 밀려 있으면 내비게이션의 데스크 링크를 눈에 띄게 둔다. 외주에서 일감을
+    // 놓치는 가장 흔한 이유가 "답장해야 하는 걸 잊는 것"이다.
+    var dl = document.getElementById("deskLink");
+    if (dl) { dl.textContent = s.deskWaiting ? "의뢰 데스크 " + s.deskWaiting : "의뢰 데스크"; dl.className = s.deskWaiting ? "ghost on" : "ghost"; }
 
     document.getElementById("assets").innerHTML = tiles;
 
@@ -423,6 +431,7 @@ export function renderStudioPage() {
           '<div class="right"><span class="pill p-' + st + '">' + INQ[st] + "</span>" +
           '<select data-inq="' + q.id + '" style="width:112px">' + Object.keys(INQ).map(function (k) {
             return '<option value="' + k + '"' + (k === st ? " selected" : "") + ">" + INQ[k] + "</option>"; }).join("") + "</select>" +
+          (q.thread_id ? '<a class="b" href="/admin/desk#t' + q.thread_id + '">대화 열기</a>' : "") +
           '<button class="b" data-conv="' + q.id + '">일감으로</button></div></div>';
       }).join("") : '<div class="empty">아직 들어온 의뢰가 없습니다.</div>') + "</section>";
   }

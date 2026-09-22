@@ -4,7 +4,7 @@ import "@/components/reamer/site.css";
 import SiteBackdrop from "@/components/reamer/SiteBackdrop";
 import Logo from "@/components/reamer/Logo";
 import { BUSINESS, telHref, COPYRIGHT, businessLine } from "@/businessInfo";
-import { NAV, TRUST, WHY, GUARANTEES, SERVICES, PROCESS, WORK, ALSO, TIMELINE, FAQ, AFTER_SEND } from "@/reamerContent";
+import { NAV, HERO_NOTE, WHY, GUARANTEES, SERVICES, PROCESS, WORK, ALSO, CREDENTIALS, TIMELINE, FAQ, AFTER_SEND } from "@/reamerContent";
 
 // Characters are split into spans so the global cursor-tile trail can flip
 // them dark as a tile passes underneath.
@@ -114,14 +114,10 @@ function useScrollChrome(ref) {
 // 다음 이야기를 할 수 있다. 메일 주소도 그대로 남겨 둔다(양식을 싫어하는 사람이 있다).
 const API = (import.meta.env?.VITE_YUME_API_ORIGIN || "https://www.yume-reamer.com").replace(/\/+$/, "");
 
-const KINDS = [
-  ["web", "웹사이트 · 웹서비스"],
-  ["app", "모바일 앱"],
-  ["ai", "AI 기능 연동"],
-  ["automation", "업무 자동화 · 데이터"],
-  ["maintain", "기존 서비스 개선"],
-  ["other", "그 외"],
-];
+// 묻는 것은 넷뿐이다 — 이름, 연락처, 내용, 희망 견적.
+//
+// 예전에는 회사명과 "어떤 걸 만드시나요" 항목도 받았다. 뺐다. 종류는 내용을 읽으면
+// 알 수 있고, 회사는 없는 사람이 더 많다. 칸이 하나 늘 때마다 보내다 마는 사람도 는다.
 const BUDGETS = [
   ["undecided", "아직 미정"],
   ["under-500", "500만원 미만"],
@@ -131,9 +127,11 @@ const BUDGETS = [
 ];
 
 function InquiryForm() {
-  const [form, setForm] = useState({ name: "", contact: "", company: "", kind: "web", budget: "undecided", message: "", website: "" });
+  const [form, setForm] = useState({ name: "", contact: "", budget: "undecided", message: "", website: "" });
   const [state, setState] = useState("idle");
   const [error, setError] = useState("");
+  // 접수와 동시에 열리는 대화방 주소. 이 링크 하나로 상담·견적·결제가 이어진다.
+  const [threadUrl, setThreadUrl] = useState("");
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
   const submit = async (e) => {
@@ -148,6 +146,7 @@ function InquiryForm() {
       });
       const data = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(data.error || "보내지 못했어요. 잠시 후 다시 시도해주세요.");
+      setThreadUrl(data.threadUrl || "");
       setState("done");
     } catch (err) {
       // 네트워크가 막혀도 메일이라는 길이 남아 있다는 걸 알려 준다.
@@ -160,10 +159,26 @@ function InquiryForm() {
     return (
       <div className="inquiry inquiry--done">
         <p className="inquiry__done-title">문의가 접수됐습니다.</p>
-        <p className="inquiry__done-desc">
-          영업일 기준 하루 안에 <b>{form.contact}</b>로 회신드리겠습니다.
-          급하시면 <a href={`mailto:${BUSINESS.email}`}>{BUSINESS.email}</a>로 바로 연락 주셔도 됩니다.
-        </p>
+        {threadUrl ? (
+          <>
+            <p className="inquiry__done-desc">
+              바로 이야기하실 수 있는 자리를 열어뒀습니다. 여기서 상담하고, 견적을 받고, 결제까지 하실 수 있습니다.
+              영업일 기준 하루 안에 첫 답변을 드립니다.
+            </p>
+            <a className="btn btn--solid inquiry__submit" href={threadUrl}>
+              대화 열기 <span className="btn__arrow">→</span>
+            </a>
+            <p className="inquiry__note">
+              같은 링크를 <b>{form.contact}</b>로도 보내드렸습니다. 이 주소를 아는 사람은 대화를 볼 수 있으니
+              공유에 주의해주세요.
+            </p>
+          </>
+        ) : (
+          <p className="inquiry__done-desc">
+            영업일 기준 하루 안에 <b>{form.contact}</b>로 회신드리겠습니다.
+            급하시면 <a href={`mailto:${BUSINESS.email}`}>{BUSINESS.email}</a>로 바로 연락 주셔도 됩니다.
+          </p>
+        )}
       </div>
     );
   }
@@ -172,39 +187,27 @@ function InquiryForm() {
     <form className="inquiry" onSubmit={submit}>
       <div className="inquiry__row">
         <label className="inquiry__field">
-          <span>성함 *</span>
+          <span>이름 *</span>
           <input id="iq-name" value={form.name} onChange={set("name")} required maxLength={60} placeholder="홍길동" />
         </label>
         <label className="inquiry__field">
-          <span>회사 · 팀</span>
-          <input id="iq-company" value={form.company} onChange={set("company")} maxLength={100} placeholder="선택" />
+          <span>연락처 *</span>
+          <input id="iq-contact" value={form.contact} onChange={set("contact")} required maxLength={200}
+            placeholder="이메일 또는 전화번호" />
         </label>
       </div>
 
       <label className="inquiry__field">
-        <span>연락받으실 곳 *</span>
-        <input id="iq-contact" value={form.contact} onChange={set("contact")} required maxLength={200} placeholder="이메일 또는 전화번호" />
+        <span>희망 견적</span>
+        <select id="iq-budget" value={form.budget} onChange={set("budget")}>
+          {BUDGETS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+        </select>
       </label>
 
-      <div className="inquiry__row">
-        <label className="inquiry__field">
-          <span>어떤 걸 만드시나요</span>
-          <select id="iq-kind" value={form.kind} onChange={set("kind")}>
-            {KINDS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-          </select>
-        </label>
-        <label className="inquiry__field">
-          <span>예산</span>
-          <select id="iq-budget" value={form.budget} onChange={set("budget")}>
-            {BUDGETS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-          </select>
-        </label>
-      </div>
-
       <label className="inquiry__field">
-        <span>내용 *</span>
+        <span>문의 내용 *</span>
         <textarea id="iq-message" value={form.message} onChange={set("message")} required rows={5}
-          placeholder="만들고 싶은 것, 참고할 만한 서비스, 원하시는 일정 — 아는 만큼만 적어주셔도 됩니다." />
+          placeholder="만들고 싶은 것, 참고할 만한 서비스, 원하시는 일정 — 아는 만큼만 적어주셔도 됩니다. 아직 막연해도 괜찮습니다." />
       </label>
 
       {/* 봇 함정. 사람에게는 보이지 않는다. */}
@@ -326,9 +329,15 @@ const ReamerSite = () => {
               </li>
             ))}
           </ul>
-          <a className="nav__cta" href="#contact">
-            개발 문의
-          </a>
+          <div className="nav__right">
+            {/* 이미 문의한 사람이 돌아올 자리. 링크를 잃었으면 여기서 다시 받는다. */}
+            <a className="nav__link" href="/t">
+              내 의뢰
+            </a>
+            <a className="nav__cta" href="#contact">
+              개발 문의
+            </a>
+          </div>
           {/* 읽은 만큼 차는 빛줄기. 긴 한 장짜리라 지금 어디쯤인지가 보이면 덜 막막하다. */}
           <span className="nav__read" aria-hidden />
         </nav>
@@ -343,14 +352,20 @@ const ReamerSite = () => {
                   연출은 스크롤해서 만나는 아래쪽에만 붙인다. */}
               <div className="hero__copy">
                 <p className="label">개발 외주 · 웹 · 앱 · AI</p>
+                {/* 내거는 문장. 앞 줄이 문턱을 없애고, 뒷 줄이 약속한다.
+                    두 줄을 같은 크기로 두면 무엇이 약속인지 흐려지므로 뒷 줄만 강조한다. */}
                 <h1 className="display">
-                  <Chars text="무엇이든" />
+                  <Chars text="아이디어마저" />
                   <br />
-                  <Chars text="개발해 드립니다" />
+                  <Chars text="없어도 괜찮습니다" />
+                  <br />
+                  <em className="display__vow">
+                    <Chars text="뭐든 만들어 드립니다" />
+                  </em>
                 </h1>
                 <p className="lede">
-                  웹사이트, 앱, 결제·인증 연동, AI 기능, 업무 자동화. 기획이 반쯤 잡혀 있어도 괜찮습니다.
-                  <b> 기획만 가져오세요. 마케팅 방안까지 세워드립니다.</b>
+                  웹사이트, 앱, 결제·인증 연동, AI 기능, 업무 자동화. 기획서가 없어도, 기획 자체가 아직
+                  없어도 됩니다. <b>무엇을 만들지부터 같이 정합니다.</b>
                 </p>
                 <div className="actions">
                   <a className="btn btn--solid" href="#contact">
@@ -360,17 +375,8 @@ const ReamerSite = () => {
                     작업물 보기
                   </a>
                 </div>
+                <p className="hero__note">{HERO_NOTE}</p>
               </div>
-
-              <ul className="trust">
-                {TRUST.map((t) => (
-                  <li className="trust__item" key={t.k}>
-                    <span className="trust__v">{t.v}</span>
-                    <span className="trust__k">{t.k}</span>
-                    <span className="trust__sub">{t.sub}</span>
-                  </li>
-                ))}
-              </ul>
             </div>
           </section>
 
@@ -550,6 +556,19 @@ const ReamerSite = () => {
                 <blockquote className="quote">
                   “대충 뚫린 구멍은, 결국 누군가 대가를 치른다는 걸 직접 겪었습니다.”
                 </blockquote>
+
+                {/* 연혁을 다 읽지 않아도 보이도록 앞에 둔다. 맡기기 전에 확인하는 건 대개 이 넷이다. */}
+                <dl className="cred">
+                  {CREDENTIALS.map((c) => (
+                    <div className="cred__row" key={c.k}>
+                      <dt className="cred__k">{c.k}</dt>
+                      <dd className="cred__v">
+                        {c.v}
+                        {c.sub && <span className="cred__sub">{c.sub}</span>}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
               </div>
 
               <ol className="tl">

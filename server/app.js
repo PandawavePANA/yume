@@ -23,11 +23,14 @@ import creditsRouter from "./creditsApi.js";
 import portoneWebhookRouter from "./portoneWebhook.js";
 import { auditRouter, getAuditReport, renderAuditReport } from "./auditApi.js";
 import { inquiryRouter } from "./inquiryApi.js";
+import { threadRouter } from "./threadApi.js";
 import { creditReferralOnActivity } from "./referral.js";
 import { awardForVerification } from "./contribution.js";
 import apiV1Router from "./apiV1.js";
 import adminApiRouter from "./adminApi.js";
 import { studioRouter } from "./studioApi.js";
+import { deskRouter } from "./deskApi.js";
+import { renderDeskPage } from "./renderDeskPage.js";
 import { renderStudioPage } from "./renderStudioPage.js";
 import { adminLogin, adminLogout, hasAdminCookie, renderLoginPage } from "./adminGate.js";
 import { renderProductPage } from "./renderProductPage.js";
@@ -75,6 +78,9 @@ app.use("/v1", apiV1Router);
 // 쿠키 세션 미들웨어보다 먼저 붙여야 동일 출처 가드에 걸리지 않는다(/v1과 같은 이유).
 app.use("/api", auditRouter);
 app.use("/api", inquiryRouter);
+// 의뢰 스레드(대화·견적·결제) — 리머 사이트가 부른다. 토큰 헤더로만 인증하므로
+// 쿠키 세션 미들웨어보다 앞에 둔다(위 둘과 같은 이유).
+app.use("/api", threadRouter);
 
 app.use("/api", attachUser, sameOriginGuard);
 app.use("/api", authRouter);
@@ -310,6 +316,7 @@ app.use("/api/admin", adminApiRouter);
 // 스튜디오 보드도 같은 문(requireAdmin)을 쓴다. 관리자 화면이 둘인데 문이 둘이면
 // 한쪽만 잠그는 실수가 반드시 생긴다.
 app.use("/api/admin", studioRouter);
+app.use("/api/admin", deskRouter);
 
 app.use("/api", (req, res) => res.status(404).json({ error: "존재하지 않는 API예요." }));
 
@@ -326,6 +333,7 @@ const adminPage = (render) => (req, res) => {
 // 직접 붙여야 유메 관리자 계정으로 로그인한 사람이 비밀번호를 또 묻지 않는다.
 app.get("/admin", attachUser, adminPage(renderAdminPage));
 app.get("/admin/studio", attachUser, adminPage(renderStudioPage));
+app.get("/admin/desk", attachUser, adminPage(renderDeskPage));
 // 제품별 운영 화면. 화면 코드는 하나이고 제품 키만 다르다.
 app.get("/admin/p/:key", attachUser, (req, res) => {
   const page = renderProductPage(String(req.params.key));

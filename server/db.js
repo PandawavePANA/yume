@@ -98,6 +98,7 @@ const TABLES = [
   // 나중에 추가된 테이블. 여기 빠지면 search_path에 기대게 되어 위 주석의 문제가 그대로 생긴다.
   "credit_ledger", "bounty_claims", "redemptions", "referrals", "contribution_ledger", "quarter_awards", "claim_cache",
   "credit_orders", "inquiries", "audit_sessions", "audit_reports", "projects", "product_tasks",
+  "threads", "thread_messages", "thread_quotes",
 ];
 const TABLE_REF = new RegExp(`\\b(FROM|JOIN|INTO|UPDATE)\\s+(${TABLES.join("|")})\\b`, "gi");
 const qualify = (sql) => sql.replace(TABLE_REF, (_m, kw, table) => `${kw} ${SCHEMA}.${table}`);
@@ -675,6 +676,97 @@ const MIGRATIONS = [
   );
   CREATE INDEX idx_product_tasks ON product_tasks(product, sort);
   ALTER TABLE product_tasks ENABLE ROW LEVEL SECURITY;
+  `,
+
+  // ── 의뢰 스레드 — 리머 사이트에서 문의·대화·견적·결제가 한 줄로 이어지도록 ──
+  //
+  // 의뢰인에게 계정을 만들게 하지 않는다. 개발 외주를 맡기려고 회원가입부터 하라고 하면
+  // 대부분 거기서 그만둔다. 대신 문의 한 건마다 긴 무작위 토큰을 만들어 그 주소를
+  // 아는 사람만 들어오게 한다 — 토큰이 곧 열쇠다.
+  //
+  // 토큰 원문은 저장하지 않고 해시만 남긴다. 세션·API 키와 같은 규칙이다. DB가 통째로
+  // 새어도 남의 대화를 열 수는 없어야 한다.
+  `
+  CREATE TABLE threads (
+    id SERIAL PRIMARY KEY,
+    token_hash TEXT NOT NULL UNIQUE,
+    -- 토큰을 되돌려 읽을 수 있는 유일한 자리. 알림 메일에 "이어서 보기" 링크를 넣으려면
+    -- 토큰이 필요한데, 해시만 두면 만들 방법이 없다. 서버 비밀값으로 봉해 두어
+    -- DB만 새는 경우와 DB와 환경변수가 함께 새는 경우를 갈라 놓는다(threads.js 참고).
+    link_enc TEXT,
+    inquiry_id INTEGER,
+    project_id INTEGER,
+    client_name TEXT,
+    client_contact TEXT,
+    client_email TEXT,
+    title TEXT,
+    status TEXT NOT NULL DEFAULT 'open',
+    client_read_at BIGINT NOT NULL DEFAULT 0,
+    admin_read_at BIGINT NOT NULL DEFAULT 0,
+    last_message_at BIGINT,
+    last_sender TEXT,
+    notified_at BIGINT NOT NULL DEFAULT 0,
+    created_at BIGINT NOT NULL,
+    updated_at BIGINT NOT NULL
+  );
+  CREATE INDEX idx_threads_updated ON threads(updated_at DESC);
+  CREATE INDEX idx_threads_email ON threads(client_email);
+  ALTER TABLE threads ENABLE ROW LEVEL SECURITY;
+
+  -- 주고받은 말. sender는 client(의뢰인) / reamer(우리) / system(기록).
+  -- system은 사람이 쓴 말이 아니라 "견적을 보냈다", "결제됐다" 같은 사건이다.
+  -- 같은 표에 두는 이유는, 대화를 읽을 때 그 사건들이 시간 순서대로 섞여 있어야
+  -- 무슨 일이 있었는지가 한 번에 보이기 때문이다.
+  CREATE TABLE thread_messages (
+    id SERIAL PRIMARY KEY,
+    thread_id INTEGER NOT NULL,
+    sender TEXT NOT NULL,
+    kind TEXT NOT NULL DEFAULT 'text',
+    body TEXT NOT NULL,
+    quote_id INTEGER,
+    created_at BIGINT NOT NULL
+  );
+  CREATE INDEX idx_thread_messages ON thread_messages(thread_id, id);
+  ALTER TABLE thread_messages ENABLE ROW LEVEL SECURITY;
+
+  -- 결제 요청(견적). 금액은 여기가 유일한 기준이다 — 브라우저가 보내온 금액으로
+  -- 결제를 승인하면 얼마든지 깎을 수 있다. 결제 확인은 이 표의 amount_krw와
+  -- 포트원이 알려 준 실제 결제 금액이 같을 때만 통과시킨다.
+  CREATE TABLE thread_quotes (
+    id SERIAL PRIMARY KEY,
+    thread_id INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    detail TEXT,
+    amount_krw BIGINT NOT NULL,
+    weeks TEXT,
+    status TEXT NOT NULL DEFAULT 'sent',
+    payment_id TEXT UNIQUE,
+    method TEXT,
+    payer_name TEXT,
+    payer_email TEXT,
+    paid_at BIGINT,
+    expires_at BIGINT,
+    created_at BIGINT NOT NULL,
+    updated_at BIGINT NOT NULL
+  );
+  CREATE INDEX idx_thread_quotes ON thread_quotes(thread_id, id);
+  ALTER TABLE thread_quotes ENABLE ROW LEVEL SECURITY;
+  `,
+
+  // ── 진행 상황 공유 ──
+  //
+  // 결제까지 끝나면 의뢰인이 가장 궁금한 것은 "지금 어디까지 됐나"인데, 지금은 물어봐야
+  // 알 수 있다. 그 답을 대화방에서 바로 보이게 한다.
+  //
+  // 표를 새로 만들지 않고 이미 있는 체크리스트(product_tasks)를 그대로 쓴다. 대시보드에서
+  // 관리하던 그 목록이 곧 진행 상황이라, 두 벌로 나누면 반드시 한쪽만 갱신하게 된다.
+  // 다만 전부를 보여 줄 수는 없다 — 내부용 메모가 섞이기 때문에, 항목마다 공개 여부를 둔다.
+  // 기본값은 비공개다. 기존 항목이 이 배포와 함께 갑자기 의뢰인에게 보이면 안 된다.
+  `
+  ALTER TABLE product_tasks ADD COLUMN shared BOOLEAN NOT NULL DEFAULT FALSE;
+
+  -- 돌아가는 화면을 볼 수 있는 주소. "매주 진행 공유"라는 약속을 지키는 가장 짧은 방법이다.
+  ALTER TABLE projects ADD COLUMN preview_url TEXT;
   `,
 ];
 

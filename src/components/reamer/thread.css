@@ -1,0 +1,718 @@
+/* 의뢰인 대화 화면.
+ *
+ * 소개 사이트와 같은 세계(어두운 바탕, 아이보리 글자, 파랑→보라 스펙트럼)를 쓰되
+ * 장식은 덜어낸다. 여기 오는 사람은 구경하러 온 것이 아니라 확인하러 온 것이다.
+ * 색을 쓰는 곳은 딱 둘 — 결제 요청 카드와, 결제가 끝났다는 표시. */
+
+.th {
+  --th-ok: #46c08a;
+  --th-warn: #e0a53c;
+  --th-bad: #e0745c;
+  position: relative;
+  z-index: 1;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 20px 16px 72px;
+  color: var(--ink);
+  font-family: var(--sans);
+  word-break: keep-all;
+}
+
+/* ── 머리 ── */
+.th__head {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+}
+.th__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  color: var(--ink);
+  text-decoration: none;
+}
+.th__mark {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  background: var(--beam);
+  transform: rotate(45deg);
+}
+.th__who {
+  margin-left: auto;
+  text-align: right;
+}
+.th__title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 620;
+  letter-spacing: -0.015em;
+}
+.th__sub {
+  margin: 2px 0 0;
+  font-size: 11.5px;
+  color: var(--ink-faint);
+}
+
+.th__loading,
+.th__closed {
+  margin: 48px 0;
+  text-align: center;
+  font-size: 13.5px;
+  color: var(--ink-faint);
+  line-height: 1.9;
+}
+.th__error {
+  margin: 14px 0 0;
+  padding: 11px 13px;
+  border-radius: 11px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #f0a08c;
+  background: rgba(224, 116, 92, 0.12);
+  border: 1px solid rgba(224, 116, 92, 0.3);
+}
+
+/* ── 결제 요청 ──
+   이 화면에서 색을 가장 많이 쓰는 한 칸. 의뢰인이 열었을 때 제일 먼저 보여야 하고,
+   금액과 버튼 사이에 다른 것이 끼면 안 된다. */
+.th__quote {
+  margin-top: 18px;
+  padding: 20px;
+  border-radius: 18px;
+  border: 1px solid rgba(139, 92, 246, 0.34);
+  background:
+    radial-gradient(420px 200px at 8% -30%, rgba(109, 90, 224, 0.2), transparent 70%),
+    rgba(255, 255, 255, 0.03);
+}
+.th__quoteLabel {
+  margin: 0;
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--ink-faint);
+}
+.th__quoteTitle {
+  margin: 9px 0 0;
+  font-size: 18px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 1.35;
+  text-wrap: balance;
+}
+.th__quoteAmount {
+  margin: 12px 0 0;
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+.th__quoteAmount span {
+  margin-left: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--ink-faint);
+}
+.th__quoteMeta {
+  margin: 8px 0 0;
+  font-size: 12.5px;
+  color: var(--ink-dim);
+}
+.th__quoteDetail {
+  margin: 12px 0 0;
+  padding: 12px 14px;
+  border-radius: 11px;
+  background: rgba(0, 0, 0, 0.26);
+  font-size: 13px;
+  line-height: 1.75;
+  color: var(--ink-dim);
+  white-space: pre-wrap;
+}
+.th__quoteNote {
+  margin: 11px 0 0;
+  font-size: 11.5px;
+  line-height: 1.7;
+  color: var(--ink-faint);
+}
+
+.th__pay {
+  margin-top: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 22px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--beam);
+  color: #fff;
+  font: inherit;
+  font-size: 14.5px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: transform 0.18s var(--ease), filter 0.18s var(--ease);
+}
+.th__pay:hover:not(:disabled) {
+  transform: translateY(-1px);
+  filter: brightness(1.08);
+}
+.th__pay:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+@media (prefers-reduced-motion: reduce) {
+  .th__pay {
+    transition: none;
+  }
+  .th__pay:hover:not(:disabled) {
+    transform: none;
+  }
+}
+
+/* ── 대화 ── */
+.th__talk {
+  margin-top: 18px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: min(62vh, 560px);
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.022);
+}
+.th__msg {
+  max-width: min(84%, 460px);
+  padding: 10px 14px;
+  border-radius: 15px;
+  font-size: 14px;
+  line-height: 1.7;
+}
+.th__msg p {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.th__msg time {
+  display: block;
+  margin-top: 5px;
+  font-size: 10px;
+  opacity: 0.6;
+  font-variant-numeric: tabular-nums;
+}
+.th__msg--mine {
+  align-self: flex-end;
+  background: var(--beam);
+  color: #fff;
+  border-bottom-right-radius: 5px;
+}
+.th__msg--them {
+  align-self: flex-start;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid var(--line);
+  border-bottom-left-radius: 5px;
+}
+.th__from {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--ink-faint);
+}
+.th__sys {
+  align-self: center;
+  max-width: 100%;
+  padding: 6px 14px;
+  border-radius: 99px;
+  border: 1px dashed var(--line-strong);
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--ink-faint);
+  text-align: center;
+}
+.th__sys--paid {
+  color: var(--th-ok);
+  border-style: solid;
+  border-color: rgba(70, 192, 138, 0.42);
+}
+.th__receipt {
+  display: block;
+  margin-top: 3px;
+  font-family: var(--mono);
+  font-size: 10px;
+  opacity: 0.75;
+  overflow-wrap: anywhere;
+}
+
+/* ── 입력 ── */
+.th__compose {
+  margin-top: 12px;
+}
+.th textarea,
+.th input {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 13px;
+  border: 1px solid var(--line-strong);
+  background: rgba(0, 0, 0, 0.3);
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.65;
+  resize: vertical;
+}
+.th textarea::placeholder,
+.th input::placeholder {
+  color: var(--ink-faint);
+}
+.th textarea:focus,
+.th input:focus {
+  outline: 2px solid rgba(109, 90, 224, 0.62);
+  outline-offset: 1px;
+}
+.th__composeRow {
+  margin-top: 9px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.th__send {
+  padding: 10px 20px;
+  border-radius: 11px;
+  border: 0;
+  background: var(--ink);
+  color: #07070b;
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 650;
+  cursor: pointer;
+}
+.th__send:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.th__hint {
+  font-size: 11px;
+  color: var(--ink-faint);
+}
+
+/* ── 지난 견적 ── */
+.th__history {
+  margin-top: 26px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+.th__history h2 {
+  margin: 0 0 10px;
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--ink-faint);
+}
+.th__past {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 0;
+  border-top: 1px solid var(--line);
+  font-size: 13px;
+}
+.th__past:first-of-type {
+  border-top: 0;
+}
+.th__pastTitle {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.th__pastAmount {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  font-weight: 620;
+  white-space: nowrap;
+}
+.th__tag {
+  flex: none;
+  padding: 2px 9px;
+  border-radius: 99px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--ink-dim);
+}
+.th__tag--paid {
+  color: #7ddab0;
+  background: rgba(70, 192, 138, 0.15);
+  border-color: rgba(70, 192, 138, 0.3);
+}
+.th__tag--refunded,
+.th__tag--cancelled {
+  color: #f0a08c;
+  background: rgba(224, 116, 92, 0.14);
+  border-color: rgba(224, 116, 92, 0.3);
+}
+
+/* ── 바닥 ── */
+.th__foot {
+  margin-top: 30px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+  line-height: 1.8;
+  color: var(--ink-dim);
+}
+.th__foot p {
+  margin: 0 0 10px;
+}
+.th__fine {
+  font-size: 11px;
+  color: var(--ink-faint);
+}
+.th__foot a {
+  color: inherit;
+}
+
+/* ── 결제 시트 ── */
+.th__sheetWrap {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(3, 3, 6, 0.72);
+  backdrop-filter: blur(6px);
+  overflow-y: auto;
+}
+.th__sheet {
+  width: min(100%, 420px);
+  padding: 22px;
+  border-radius: 20px;
+  border: 1px solid var(--line-strong);
+  background: #0b0b12;
+  display: grid;
+  gap: 11px;
+}
+.th__sheetLabel {
+  margin: 0;
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--ink-faint);
+}
+.th__sheetTitle {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 620;
+  letter-spacing: -0.015em;
+  line-height: 1.4;
+}
+.th__sheetAmount {
+  margin: 0 0 4px;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+.th__field {
+  display: grid;
+  gap: 5px;
+  font-size: 11.5px;
+  color: var(--ink-faint);
+}
+.th__sheetError {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: #f0a08c;
+}
+.th__sheetTerms {
+  margin: 2px 0 0;
+  font-size: 11px;
+  line-height: 1.7;
+  color: var(--ink-faint);
+}
+.th__sheetRow {
+  margin-top: 4px;
+  display: flex;
+  gap: 9px;
+  align-items: center;
+}
+.th__sheetRow .th__pay {
+  margin: 0;
+  margin-left: auto;
+}
+.th__sheetGhost {
+  padding: 11px 18px;
+  border-radius: 12px;
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  color: var(--ink-dim);
+  font: inherit;
+  font-size: 13.5px;
+  cursor: pointer;
+}
+
+/* ── 링크 없음 ── */
+.th__gate {
+  margin-top: 40px;
+  text-align: center;
+}
+.th__gate h1 {
+  margin: 0 0 12px;
+  font-size: clamp(22px, 5vw, 28px);
+  font-weight: 650;
+  letter-spacing: -0.03em;
+  line-height: 1.3;
+  text-wrap: balance;
+}
+.th__gate > p {
+  margin: 0 auto 20px;
+  max-width: 34em;
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--ink-dim);
+}
+.th__gateForm {
+  display: flex;
+  gap: 9px;
+  max-width: 420px;
+  margin: 0 auto 18px;
+  flex-wrap: wrap;
+}
+.th__gateForm input {
+  flex: 1 1 200px;
+}
+.th__gateForm .th__pay {
+  margin: 0;
+  flex: none;
+}
+.th__gateDone {
+  margin: 0 auto 18px;
+  max-width: 34em;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(70, 192, 138, 0.32);
+  background: rgba(70, 192, 138, 0.1);
+  font-size: 13px;
+  line-height: 1.75;
+  color: #9fe0c0;
+}
+.th__gate .th__fine {
+  margin: 8px 0 0;
+}
+
+/* ── 확정된 견적 ──
+   확정 전과 후를 색으로 가른다. 결제만 남았다는 게 한눈에 보여야, 의뢰인이
+   "내가 뭘 해야 하지"를 다시 읽지 않는다. */
+.th__quote--accepted {
+  border-color: rgba(70, 192, 138, 0.38);
+  background:
+    radial-gradient(420px 200px at 8% -30%, rgba(70, 192, 138, 0.16), transparent 70%),
+    rgba(255, 255, 255, 0.03);
+}
+.th__quoteRow {
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.th__quoteRow .th__pay {
+  margin-top: 0;
+}
+.th__undo {
+  padding: 11px 16px;
+  border-radius: 11px;
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  color: var(--ink-faint);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.th__undo:hover:not(:disabled) {
+  color: var(--ink-dim);
+}
+.th__undo:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* ── 진행 상황 ── */
+.th__prog {
+  margin-top: 18px;
+  padding: 18px 20px;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.025);
+}
+.th__progHead {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.th__preview {
+  margin-left: auto;
+  font-size: 12.5px;
+  color: var(--ink-dim);
+  text-decoration: none;
+  border-bottom: 1px solid var(--line-strong);
+  padding-bottom: 1px;
+}
+.th__preview:hover {
+  color: var(--ink);
+}
+
+/* 단계. 지나온 것과 지금과 아직을 선 하나로 잇는다. */
+.th__steps {
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0;
+}
+.th__step {
+  position: relative;
+  padding-top: 18px;
+  text-align: center;
+  font-size: 11.5px;
+  color: var(--ink-faint);
+}
+.th__step::before {
+  content: "";
+  position: absolute;
+  top: 5px;
+  left: 0;
+  right: 50%;
+  height: 1px;
+  background: var(--line);
+}
+.th__step::after {
+  content: "";
+  position: absolute;
+  top: 5px;
+  left: 50%;
+  right: 0;
+  height: 1px;
+  background: var(--line);
+}
+.th__step:first-child::before,
+.th__step:last-child::after {
+  display: none;
+}
+.th__step--past::before,
+.th__step--past::after,
+.th__step--now::before {
+  background: var(--beam-mid);
+}
+.th__stepDot {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 11px;
+  height: 11px;
+  margin-left: -5.5px;
+  border-radius: 50%;
+  background: var(--bg);
+  border: 1.5px solid var(--line-strong);
+}
+.th__step--past .th__stepDot {
+  background: var(--beam-mid);
+  border-color: var(--beam-mid);
+}
+.th__step--now .th__stepDot {
+  background: var(--beam-violet);
+  border-color: var(--beam-violet);
+  box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.22);
+}
+.th__step--now .th__stepLabel {
+  color: var(--ink);
+  font-weight: 650;
+}
+
+.th__bar {
+  position: relative;
+  margin-top: 18px;
+  height: 28px;
+  border-radius: 9px;
+  background: rgba(0, 0, 0, 0.32);
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+.th__barFill {
+  height: 100%;
+  background: var(--beam);
+  border-radius: 8px 0 0 8px;
+  transition: width 0.5s var(--ease);
+}
+@media (prefers-reduced-motion: reduce) {
+  .th__barFill {
+    transition: none;
+  }
+}
+.th__barNum {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11.5px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+.th__tasks {
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 7px;
+}
+.th__tasks li {
+  display: flex;
+  gap: 9px;
+  align-items: baseline;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--ink-dim);
+}
+.th__tasks li.is-done {
+  color: var(--ink-faint);
+  text-decoration: line-through;
+  text-decoration-color: var(--line-strong);
+}
+.th__tasks li.is-doing {
+  color: var(--ink);
+}
+.th__check {
+  flex: none;
+  width: 14px;
+  font-size: 12px;
+  color: var(--ink-faint);
+}
+.th__tasks li.is-done .th__check {
+  color: var(--th-ok);
+}
+.th__tasks li.is-doing .th__check {
+  color: var(--th-warn);
+}
