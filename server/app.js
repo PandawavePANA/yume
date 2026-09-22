@@ -24,6 +24,7 @@ import portoneWebhookRouter from "./portoneWebhook.js";
 import { auditRouter, getAuditReport, renderAuditReport } from "./auditApi.js";
 import { inquiryRouter } from "./inquiryApi.js";
 import { threadRouter } from "./threadApi.js";
+import screenshotRouter from "./screenshotApi.js";
 import { creditReferralOnActivity } from "./referral.js";
 import { awardForVerification } from "./contribution.js";
 import apiV1Router from "./apiV1.js";
@@ -69,7 +70,10 @@ app.use(securityHeaders);
 // 원문이 사라져 검증이 깨지므로, 파서보다 앞에 붙인다.
 app.use("/api", portoneWebhookRouter);
 
-app.use(express.json({ limit: "256kb" }));
+const jsonBody = express.json({ limit: "256kb" });
+// 캡처 업로드만 큰 본문을 받는다. 전역 상한을 올리면 모든 엔드포인트가 같이 열리므로
+// 이 경로만 비켜 가게 하고, 아래에서 자기 파서를 따로 붙인다.
+app.use((req, res, next) => (req.path === "/api/screenshot" ? next() : jsonBody(req, res, next)));
 
 // 외부 개발자용 공개 API — 자체 CORS·키 인증을 쓰므로 쿠키 세션 미들웨어보다 먼저 붙인다.
 app.use("/v1", apiV1Router);
@@ -86,6 +90,8 @@ app.use("/api", attachUser, sameOriginGuard);
 app.use("/api", authRouter);
 app.use("/api", accountRouter);
 app.use("/api", creditsRouter);
+// 캡처 읽기. 본문이 크므로 자기 파서를 달고 들어온다(위 전역 파서는 이 경로를 건너뛴다).
+app.use("/api", express.json({ limit: "28mb" }), screenshotRouter);
 
 const verifyLimiter = createLimiter({ windowMs: 60_000, max: 6 });
 // 문맥 복구는 대화 전체를 통째로 보내므로 한 번이 무겁다. 검증보다 낮게 잡는다.

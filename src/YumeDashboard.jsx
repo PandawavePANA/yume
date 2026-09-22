@@ -813,6 +813,42 @@ export default function YumeDashboard() {
     }
   };
 
+  // ── 캡처에서 읽어오기 ──
+  //
+  // AI 대화를 가져오는 공식 경로가 사실상 없다. ChatGPT 공유 링크는 서버에서 열리지
+  // 않고, 앱에서 나눈 대화는 링크조차 없다. 캡처는 어떤 서비스든, 앱이든 웹이든 된다.
+  //
+  // 읽어낸 글은 **입력칸에 넣고 멈춘다.** 바로 검증으로 이어 버리면 잘못 읽었을 때
+  // 사용자는 무엇이 검증됐는지 모른 채 결과만 보게 된다. 한 번 눈으로 보게 한다.
+  const [shotBusy, setShotBusy] = useState(false);
+  const fileRef = useRef(null);
+
+  const readShots = async (files) => {
+    const pics = Array.from(files || []).filter((f) => f.type.startsWith("image/")).slice(0, 4);
+    if (!pics.length) return;
+    setShotBusy(true);
+    setPasteHint("");
+    try {
+      const images = await Promise.all(pics.map((f) => new Promise((ok, no) => {
+        const r = new FileReader();
+        r.onload = () => ok(r.result);
+        r.onerror = () => no(new Error("이미지를 읽지 못했어요."));
+        r.readAsDataURL(f);
+      })));
+      const d = await apiJson("/api/screenshot", { method: "POST", body: { images } });
+      setInput((prev) => {
+        const joined = prev.trim() ? `${prev.trim()}\n\n${d.text}` : d.text;
+        return joined.slice(0, MAX_INPUT_CHARS);
+      });
+      inputRef.current?.focus();
+    } catch (e) {
+      setPasteHint(e.message || "캡처를 읽지 못했어요.");
+    } finally {
+      setShotBusy(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
   const runCheck = async () => {
     if (!input.trim()) return;
     clearRevealTimers();
@@ -1231,6 +1267,21 @@ export default function YumeDashboard() {
                 )}
               </div>
               <textarea ref={inputRef} className="yume-field" value={input} onChange={(e) => { setInput(e.target.value); if (pasteHint) setPasteHint(""); }} placeholder={PLACEHOLDER} rows={7}
+                onPaste={(e) => {
+                  // 캡처를 찍고 Ctrl+V 하는 것이 가장 자연스러운 동작이다. 글이면 그대로 두고,
+                  // 이미지가 섞여 있을 때만 가로채서 읽는다.
+                  const pics = Array.from(e.clipboardData?.files || []).filter((f) => f.type.startsWith("image/"));
+                  if (!pics.length) return;
+                  e.preventDefault();
+                  readShots(pics);
+                }}
+                onDragOver={(e) => { if (e.dataTransfer?.types?.includes("Files")) e.preventDefault(); }}
+                onDrop={(e) => {
+                  const pics = Array.from(e.dataTransfer?.files || []).filter((f) => f.type.startsWith("image/"));
+                  if (!pics.length) return;
+                  e.preventDefault();
+                  readShots(pics);
+                }}
                 style={{ width: "100%", fontSize: 16, lineHeight: 1.7, color: UI.ink, padding: "18px 20px", background: UI.surface,
                   borderRadius: UI.radius, border: `1px solid ${UI.hairlineStrong}`, marginBottom: 16, resize: "vertical", fontFamily: "inherit", boxSizing: "border-box", letterSpacing: "-0.01em" }} />
               {stage === "error" && limitReached ? (
@@ -1269,6 +1320,18 @@ export default function YumeDashboard() {
                   fontSize: 15, fontWeight: 600, letterSpacing: "-0.01em", cursor: "pointer", whiteSpace: "nowrap",
                   transition: "border-color 0.2s ease, background-color 0.2s ease",
                 }}>붙여넣기</motion.button>
+                {/* 캡처 올리기. 붙여넣기·드래그로도 되지만 그건 보이지 않는 기능이라,
+                    눌러서 고를 수 있는 자리를 같이 둔다. */}
+                <motion.button
+                  whileHover={{ backgroundColor: "#FAF8FF" }} whileTap={{ scale: 0.98 }}
+                  onClick={() => fileRef.current?.click()} type="button" disabled={shotBusy}
+                  aria-label="캡처 이미지에서 읽어오기" style={{
+                  flex: "none", height: 54, padding: "0 18px", borderRadius: 16,
+                  border: `1px solid ${UI.hairline}`, background: "#fff", color: shotBusy ? UI.ink3 : UI.accent,
+                  fontSize: 15, fontWeight: 600, letterSpacing: "-0.01em", cursor: shotBusy ? "progress" : "pointer", whiteSpace: "nowrap",
+                }}>{shotBusy ? "읽는 중…" : "캡처 올리기"}</motion.button>
+                <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" multiple
+                  onChange={(e) => readShots(e.target.files)} style={{ display: "none" }} />
               </div>
               {pasteHint && (
                 <div style={{ fontSize: 13, color: UI.ink3, marginTop: 10, lineHeight: 1.6 }}>{pasteHint}</div>
