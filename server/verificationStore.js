@@ -131,3 +131,25 @@ export async function trimUserHistory(userId, keep) {
     { userId, keep },
   );
 }
+
+/**
+ * 검증 한 건의 원가를 기록한다.
+ *
+ * 검증 자체는 이미 끝났고 사용자에게도 결과가 나갔다. 여기서 실패해도 되돌릴 것이
+ * 없으므로 부르는 쪽에서 기다리지 않고, 실패는 삼킨다 — 운영 지표 한 줄 때문에
+ * 검증이 오류로 끝나면 그게 더 큰 손해다.
+ */
+export function recordApiCost(id, cost) {
+  if (!id || !cost) return Promise.resolve();
+  return run(
+    `UPDATE verifications SET cost_usd = :usd, api_calls = :calls, searches = :searches, reused_claims = :reused
+      WHERE id = :id`,
+    {
+      id: String(id),
+      usd: Number(cost.usd) || 0,
+      calls: Number(cost.calls) || 0,
+      searches: Number(cost.searches) || 0,
+      reused: Number(cost.reusedClaims) || 0,
+    },
+  ).catch(() => {});
+}

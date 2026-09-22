@@ -768,6 +768,26 @@ const MIGRATIONS = [
   -- 돌아가는 화면을 볼 수 있는 주소. "매주 진행 공유"라는 약속을 지키는 가장 짧은 방법이다.
   ALTER TABLE projects ADD COLUMN preview_url TEXT;
   `,
+
+  // ── 검증 한 건의 원가를 남긴다 ──
+  //
+  // apiCost.js는 호출마다 토큰과 검색 횟수를 이미 세고 있었다. 그런데 그 결과가
+  // console.log로만 나갔다. 로그는 보존 기간이 짧고 질의할 수 없어서, "검증 1건 210원"이
+  // 어디서 나온 숫자인지도, 지금도 210원인지도 확인할 방법이 없었다.
+  //
+  // 원가를 깎는 것이 이 서비스에서 가장 레버리지가 큰 일인데(손익분기 전환율이 건당
+  // 210원에서 7.2%, 105원이면 2.6%다) 깎으려면 먼저 보여야 한다.
+  //
+  // 검색 횟수를 총액과 따로 두는 이유는 그게 가장 비싼 항목이면서 줄일 수 있는
+  // 항목이기 때문이다 — 건당 과금인 데다 결과가 대화에 쌓여 다음 턴의 입력 토큰까지
+  // 부풀린다. 무엇을 줄일지는 총액이 아니라 이 칸이 말해 준다.
+  `
+  ALTER TABLE verifications ADD COLUMN cost_usd DOUBLE PRECISION;
+  ALTER TABLE verifications ADD COLUMN api_calls INTEGER;
+  ALTER TABLE verifications ADD COLUMN searches INTEGER;
+  ALTER TABLE verifications ADD COLUMN reused_claims INTEGER;
+  CREATE INDEX idx_verifications_cost ON verifications(created_at) WHERE cost_usd IS NOT NULL;
+  `,
 ];
 
 async function migrate() {

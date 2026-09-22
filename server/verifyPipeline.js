@@ -15,6 +15,7 @@ import {
   createVerification,
   failVerification,
   findCached,
+  recordApiCost,
 } from "./verificationStore.js";
 
 export const MAX_INPUT_CHARS = 10_000;
@@ -83,7 +84,12 @@ async function processVerification({ id, text, source, onProgress = () => {} }) 
     await completeVerification(id, result, { elapsedMs: Date.now() - startedAt });
     // 원가는 사용자에게 내보내지 않는다 — 운영 지표라 로그로만 남긴다.
     const cost = summarize(ledger);
-    if (cost) logApiCost(id, source, { ...cost, reusedClaims: reusedCount });
+    if (cost) {
+      const full = { ...cost, reusedClaims: reusedCount };
+      logApiCost(id, source, full);
+      // 질의할 수 있는 자리에도 남긴다. 로그는 지워지고, 원가는 나중에 세어야 한다.
+      recordApiCost(id, full);
+    }
     return { result, fromCache: false };
   } catch (e) {
     await failVerification(id, e.message).catch(() => {});
