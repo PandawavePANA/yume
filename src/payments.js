@@ -129,23 +129,55 @@ export async function verifyIdentity({ agree = false } = {}) {
   return apiJson("/api/identity/confirm", { method: "POST", body: { identityVerificationId: start.identityVerificationId } });
 }
 
+/**
+ * 비밀번호를 잊은 사람의 본인확인. 위 verifyIdentity와 다른 문을 쓴다 — 저쪽은 로그인한
+ * 사람이 자기 계정에 인증을 붙이는 것이고, 이쪽은 아직 누구인지 모르는 사람이 자기가
+ * 누구인지 밝히는 것이다. 그래서 서버에서도 세션이 아니라 CI로 계정을 찾는다.
+ *
+ * 성공하면 { name, accounts: [{ email, token }] }. 같은 명의로 계정이 여럿일 수 있어
+ * 하나가 아니라 목록이다.
+ */
+export async function startIdentityReset() {
+  const start = await apiJson("/api/auth/identity-reset/start", { method: "POST", body: { agree: true } });
+  const PortOne = await sdk();
+  const res = await PortOne.requestIdentityVerification({
+    storeId: start.storeId,
+    channelKey: start.channelKey,
+    identityVerificationId: start.identityVerificationId,
+    redirectUrl: `${window.location.origin}/?pwreset=${encodeURIComponent(start.identityVerificationId)}`,
+  });
+  if (res?.code != null) {
+    if (CANCEL_CODES.has(res.code)) throw cancelled(res.message);
+    throw new Error(res.message || "본인확인에 실패했어요.");
+  }
+  return confirmIdentityReset(start.identityVerificationId);
+}
+
+export function confirmIdentityReset(identityVerificationId) {
+  return apiJson("/api/auth/identity-reset/confirm", { method: "POST", body: { identityVerificationId } });
+}
+
 // 모바일 결제창은 결제를 마치고 주소에 결과를 달아 돌아온다. 그 자리에서 서버 확인까지
 // 끝내 주지 않으면 결제는 됐는데 크레딧은 없는 상태로 남는다.
 export async function resumeFromRedirect() {
   const q = new URLSearchParams(window.location.search);
   const paymentId = q.get("checkout");
   const identityId = q.get("identity");
-  if (!paymentId && !identityId) return null;
+  // 비밀번호 재설정 본인확인은 로그인 전에 일어나므로 위 둘과 다른 표를 달고 돌아온다.
+  const pwResetId = q.get("pwreset");
+  if (!paymentId && !identityId && !pwResetId) return null;
   // 주소를 먼저 정리한다 — 새로고침할 때마다 같은 확인이 반복되지 않도록.
   const clean = new URL(window.location.href);
   clean.searchParams.delete("checkout");
   clean.searchParams.delete("identity");
+  clean.searchParams.delete("pwreset");
   window.history.replaceState({}, "", clean.toString());
   try {
     if (paymentId) return { kind: "payment", ...(await confirmCheckout(paymentId)) };
+    if (pwResetId) return { kind: "identityReset", ...(await confirmIdentityReset(pwResetId)) };
     return { kind: "identity", ...(await apiJson("/api/identity/confirm", { method: "POST", body: { identityVerificationId: identityId } })) };
   } catch (e) {
-    return { kind: paymentId ? "payment" : "identity", error: e.message };
+    return { kind: paymentId ? "payment" : pwResetId ? "identityReset" : "identity", error: e.message };
   }
 }
 

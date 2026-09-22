@@ -590,7 +590,9 @@ export default function YumeDashboard() {
   // 배경에 은은하게 떠다니는 블러 오브 — 페이지 전체 스크롤량에 따라 서로 다른
   // 속도로 움직여서(패럴랙스) 스크롤하는 내내 배경이 살아있는 느낌을 준다.
   const orb1Y = useTransform(pageScrollY, [0, 6000], [0, -800]);
-  const [authModal, setAuthModal] = useState(null); // null | "login" | "signup"
+  const [authModal, setAuthModal] = useState(null); // null | "login" | "signup" | "forgot"
+  // 모바일에서 본인확인창을 다녀오면 페이지가 새로 뜬다. 그때 찾아낸 계정을 모달에 다시 쥐여 준다.
+  const [resetAccounts, setResetAccounts] = useState(null);
   const [accountTab, setAccountTab] = useState(null); // null | "profile" | "api" | "data" | "security"
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [showBiz, setShowBiz] = useState(false);
@@ -652,6 +654,8 @@ export default function YumeDashboard() {
       if (!r) return;
       if (r.error) setToast(r.error);
       else if (r.kind === "payment") setToast(r.pending ? "입금이 확인되면 크레딧이 지급돼요." : `결제가 완료됐어요. 크레딧 ${r.credits}개를 넣어드렸어요.`);
+      // 비밀번호 재설정은 로그인 전이라 토스트로 끝낼 수 없다 — 계정을 고르는 화면까지 이어져야 한다.
+      else if (r.kind === "identityReset") { setResetAccounts(r.accounts || []); setAuthModal("forgot"); return; }
       else setToast(r.name ? `${r.name}님 본인확인이 완료됐어요.` : "본인확인이 완료됐어요.");
       refreshSession();
     });
@@ -1708,7 +1712,7 @@ export default function YumeDashboard() {
       </footer>
       </div>
 
-      {authModal && <AuthModal mode={authModal} onClose={() => setAuthModal(null)} onAuthed={onAuthed} />}
+      {authModal && <AuthModal mode={authModal} initialAccounts={resetAccounts} onClose={() => { setAuthModal(null); setResetAccounts(null); }} onAuthed={onAuthed} />}
       {accountTab && user && (
         <AccountModal
           user={user}

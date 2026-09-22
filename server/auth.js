@@ -20,6 +20,7 @@ import { effectivePlan, PLANS, peekUsage } from "./usageStore.js";
 import { logError } from "./errorLog.js";
 import { attachReferral } from "./referral.js";
 import { nicknameProblem, nicknameTaken } from "./contribution.js";
+import { confirmIdentity, identityConfigured, IDENTITY_CHANNEL_KEY, STORE_ID } from "./portone.js";
 
 const scrypt = promisify(crypto.scrypt);
 const SESSION_COOKIE = "yume_sid";
@@ -284,6 +285,86 @@ router.post("/auth/reset", limitMiddleware(resetLimiter, (req) => `reset-do:${cl
   if (!consumed) return res.status(400).json({ error: "재설정 링크가 만료됐거나 이미 사용됐어요. 다시 요청해주세요." });
   await audit(`user:${row.user_id}`, "password_reset", `user:${row.user_id}`, null, clientIp(req));
   res.json({ ok: true });
+});
+
+// ── 본인확인으로 비밀번호 재설정 ────────────────────────────────────────────
+//
+// 메일로 보내는 길은 메일함을 열 수 있어야 쓴다. 회사를 옮겨 그 주소가 죽었거나, 가입할 때
+// 어느 주소를 썼는지 기억나지 않으면 그 길은 막혀 있다. 계정에 크레딧이 남아 있어도 못 들어간다.
+//
+// 그래서 두 번째 길을 둔다. 기준은 CI다 — 본인확인기관이 같은 사람에게 늘 같은 값을 주므로,
+// 다시 인증해서 같은 해시가 나오면 그 계정의 주인이라는 뜻이다. 이메일을 몰라도 된다.
+//
+// **인증 번호만으로는 열리지 않게 한다.** 이 번호는 모바일에서 주소창을 타고 돌아오므로
+// 방문 기록이나 리퍼러에 남을 수 있다. 번호를 주운 사람이 남의 계정을 여는 일이 없도록,
+// 인증을 시작한 그 브라우저에만 쿠키를 쥐여 주고 확인할 때 둘이 맞는지 본다.
+// 번호와 쿠키가 함께 있어야 열리므로, 주소만 새는 것으로는 부족하다.
+const IDENTITY_RESET_COOKIE = "yume_pwr";
+// 이메일 링크보다 짧게 둔다. 링크는 메일함에 남지만 이건 인증을 막 끝낸 화면에서 바로 쓴다.
+const IDENTITY_RESET_TTL_MS = 10 * 60 * 1000;
+// 본인확인은 창을 열 때마다 우리 돈이 나간다. 남의 명의로는 어차피 통과하지 못하므로,
+// 여기서 막는 것은 도용이 아니라 비용이다.
+const identityResetLimiter = createLimiter({ windowMs: 3600 * 1000, max: 6 });
+
+// 어느 계정인지 본인은 알아보되, 어깨너머로 보는 사람에게 주소가 드러나지는 않을 만큼만 남긴다.
+function maskEmail(email) {
+  const [id, domain] = String(email || "").split("@");
+  if (!domain) return "***";
+  return `${id.slice(0, 2)}${"*".repeat(Math.max(2, id.length - 2))}@${domain}`;
+}
+
+router.post("/auth/identity-reset/start", limitMiddleware(identityResetLimiter, (req) => `pwr:${clientIp(req)}`), async (req, res) => {
+  if (!identityConfigured()) {
+    return res.status(503).json({ error: "본인확인이 아직 준비되지 않았어요. 이메일로 재설정해주세요." });
+  }
+  // 로그인 전이라 동의를 걸어 둘 계정이 없다. 그래서 이 자리에서 받고, 계정을 찾은 뒤 기록에 남긴다.
+  if (req.body?.agree !== true) {
+    return res.status(400).json({ error: "본인확인 정보(CI) 수집·이용에 동의해주세요.", code: "NEEDS_CONSENT" });
+  }
+  const id = `yume-pwr-${Date.now()}-${crypto.randomBytes(8).toString("hex")}`;
+  setCookie(res, IDENTITY_RESET_COOKIE, id, { maxAgeSec: 900, req });
+  res.json({ identityVerificationId: id, storeId: STORE_ID, channelKey: IDENTITY_CHANNEL_KEY });
+});
+
+router.post("/auth/identity-reset/confirm", limitMiddleware(identityResetLimiter, (req) => `pwr-c:${clientIp(req)}`), async (req, res) => {
+  const id = String(req.body?.identityVerificationId || "");
+  const held = parseCookies(req.get("cookie"))[IDENTITY_RESET_COOKIE] || "";
+  if (!id || id !== held) {
+    return res.status(400).json({ error: "본인확인 정보가 맞지 않아요. 처음부터 다시 시도해주세요." });
+  }
+  // 한 번 쓴 번호로 두 번 열리지 않게, 결과를 보기 전에 먼저 소진한다.
+  clearCookie(res, IDENTITY_RESET_COOKIE, req);
+
+  const r = await confirmIdentity(id);
+  if (!r.ok) {
+    logError("auth:identity-reset", new Error(`${r.code} :: ${r.message}`));
+    return res.status(400).json({ error: r.message, code: r.code });
+  }
+
+  const users = await all(
+    "SELECT id, email FROM users WHERE identity_ci_hash = :h AND status = 'active' ORDER BY id",
+    { h: r.ciHash },
+  );
+  if (!users.length) {
+    // 여기서는 "계정이 없다"고 알려도 된다. 본인확인을 통과한 사람에게 돌려주는 것은 그 사람
+    // 자신에 대한 정보뿐이라, 이메일로 찾을 때와 달리 남의 가입 여부가 새지 않는다.
+    return res.status(404).json({
+      error: "본인확인은 끝났지만 이 명의로 본인확인을 마친 계정이 없어요. 가입은 했는데 본인확인 전이라면 이메일로 재설정해주세요.",
+      code: "NO_ACCOUNT",
+    });
+  }
+
+  // 같은 명의로 계정이 여럿이면 전부 돌려준다. 본인임이 증명된 이상 어느 쪽을 열지는 본인이 고른다.
+  const accounts = [];
+  for (const u of users) {
+    const token = randomToken(32);
+    await run("INSERT INTO password_resets (token_hash, user_id, created_at, expires_at) VALUES (:h, :uid, :t, :exp)", {
+      h: sha256(token), uid: u.id, t: now(), exp: now() + IDENTITY_RESET_TTL_MS,
+    });
+    await audit(`user:${u.id}`, "password_reset_identity", `user:${u.id}`, null, clientIp(req));
+    accounts.push({ email: maskEmail(u.email), token });
+  }
+  res.json({ name: r.name || "", accounts });
 });
 
 router.patch("/account", requireUser, async (req, res) => {

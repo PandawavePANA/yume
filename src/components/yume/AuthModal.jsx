@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { apiJson } from "./api";
+import { startIdentityReset } from "../../payments.js";
 
 const input = {
   width: "100%", padding: "10px 12px", borderRadius: 10, border: "1px solid #D4BEF0",
@@ -17,8 +18,10 @@ function Check({ checked, onChange, children, strong }) {
   );
 }
 
-export default function AuthModal({ mode: initialMode = "login", onClose, onAuthed }) {
-  const [mode, setMode] = useState(initialMode);
+export default function AuthModal({ mode: initialMode = "login", onClose, onAuthed, initialAccounts = null }) {
+  const [mode, setMode] = useState(initialAccounts ? "forgot" : initialMode);
+  // 본인확인으로 찾아낸 계정들. 같은 명의로 여러 개일 수 있어 목록이다.
+  const [accounts, setAccounts] = useState(initialAccounts);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [password2, setPassword2] = useState("");
@@ -65,12 +68,28 @@ export default function AuthModal({ mode: initialMode = "login", onClose, onAuth
     }
   };
 
+  // 메일함을 못 여는 사람을 위한 길. 이메일 대신 휴대폰 본인확인으로 계정을 찾는다.
+  // 취소는 실패가 아니라 창을 닫은 것이므로 빨간 글씨를 띄우지 않는다.
+  const identityReset = async () => {
+    setError(""); setNotice(""); setBusy(true);
+    try {
+      const r = await startIdentityReset();
+      setAccounts(r.accounts || []);
+    } catch (err) {
+      if (!err.cancelled) setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const title = mode === "login" ? "로그인" : mode === "signup" ? "유메 시작하기" : "비밀번호 재설정";
   const sub = mode === "login"
     ? "검증 기록이 계정에 저장되고, 어느 기기에서든 이어볼 수 있어요."
     : mode === "signup"
       ? "가입하면 검증 기록 저장과 API 키 발급을 쓸 수 있어요."
-      : "가입한 이메일로 재설정 링크를 보내드려요.";
+      : accounts
+        ? "본인확인을 마쳤어요. 비밀번호를 바꿀 계정을 골라주세요."
+        : "가입한 이메일로 재설정 링크를 보내드려요.";
 
   return (
     <div onClick={onClose} style={{
@@ -87,6 +106,32 @@ export default function AuthModal({ mode: initialMode = "login", onClose, onAuth
         <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>{title}</div>
         <div style={{ fontSize: 12.5, color: "#A99BC9", marginBottom: 20, lineHeight: 1.6 }}>{sub}</div>
 
+        {accounts && (
+          <div style={{ marginBottom: 6 }}>
+            {accounts.length === 0 && (
+              <div style={{ fontSize: 13, color: "#C6402F" }}>이 명의로 본인확인을 마친 계정이 없어요.</div>
+            )}
+            {accounts.map((a) => (
+              <button
+                key={a.token}
+                type="button"
+                onClick={() => { window.location.href = `/reset-password?token=${encodeURIComponent(a.token)}`; }}
+                style={{
+                  width: "100%", textAlign: "left", padding: "13px 14px", marginBottom: 8, cursor: "pointer",
+                  borderRadius: 12, border: "1px solid #D4BEF0", background: "#fff", fontFamily: "inherit",
+                }}
+              >
+                <div style={{ fontSize: 14, fontWeight: 600, color: "#241F33" }}>{a.email}</div>
+                <div style={{ fontSize: 12, color: "#9C8FC2", marginTop: 2 }}>이 계정의 비밀번호 바꾸기</div>
+              </button>
+            ))}
+            <div style={{ fontSize: 11.5, color: "#B6A9D6", lineHeight: 1.6, marginTop: 4 }}>
+              10분 안에 새 비밀번호를 정해주세요. 바꾸고 나면 다른 기기의 로그인은 모두 풀려요.
+            </div>
+          </div>
+        )}
+
+        {!accounts && <>
         <label style={label} htmlFor="auth-email">이메일</label>
         <input id="auth-email" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" style={input} />
 
@@ -177,6 +222,35 @@ export default function AuthModal({ mode: initialMode = "login", onClose, onAuth
         }}>
           {busy ? "처리 중…" : mode === "login" ? "로그인" : mode === "signup" ? "계정 만들기" : "재설정 링크 보내기"}
         </button>
+
+        {/* 메일함을 못 여는 사람이 여기서 막히면 갈 곳이 없다. 회사를 옮겨 그 주소가 죽었거나,
+            어느 주소로 가입했는지 기억나지 않는 경우가 실제로 가장 많다. */}
+        {mode === "forgot" && (
+          <>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "18px 0 14px" }}>
+              <div style={{ flex: 1, height: 1, background: "#EDE3FA" }} />
+              <span style={{ fontSize: 12, color: "#B6A9D6" }}>메일함을 못 쓰시나요?</span>
+              <div style={{ flex: 1, height: 1, background: "#EDE3FA" }} />
+            </div>
+            <button
+              type="button"
+              onClick={identityReset}
+              disabled={busy}
+              style={{
+                width: "100%", padding: "12px 0", borderRadius: 12, cursor: busy ? "default" : "pointer",
+                border: "1px solid #D4BEF0", background: "#fff", color: "#6B4FA8",
+                fontSize: 14.5, fontWeight: 600, fontFamily: "inherit", opacity: busy ? 0.7 : 1,
+              }}
+            >
+              휴대폰 본인확인으로 재설정
+            </button>
+            <div style={{ fontSize: 11.5, color: "#B6A9D6", lineHeight: 1.6, marginTop: 9, textAlign: "left" }}>
+              가입 후 휴대폰 본인확인을 마친 계정만 이 길로 열려요. 본인확인기관에 이름·휴대전화번호를
+              제공하고 받은 연계정보(CI)로 계정을 찾습니다 — 이메일을 몰라도 됩니다.
+            </div>
+          </>
+        )}
+        </>}
 
         <div style={{ textAlign: "center", marginTop: 14, fontSize: 13, color: "#9C8FC2", lineHeight: 1.9 }}>
           {mode === "login" && (
