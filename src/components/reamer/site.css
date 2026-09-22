@@ -1349,3 +1349,28 @@
 @media (max-width: 560px) {
   .cred__row { grid-template-columns: 1fr; gap: 3px; }
 }
+
+/* ---------- 섹션 끝 문의 버튼 ---------- */
+/* 작업물을 다 본 직후가 마음이 움직이는 지점이다. 그때 문의하려면 맨 아래 양식까지
+   다시 내려가야 했고, 그 사이에 대부분 창을 닫는다. 가운데로 모아 둔 이유는
+   그 위가 전부 왼쪽 정렬이라, 흐름이 한 번 끊겨야 눈에 걸리기 때문이다. */
+.cta {
+  margin-top: clamp(48px, 6vw, 76px);
+  padding-top: clamp(36px, 4.5vw, 52px);
+  border-top: 1px solid var(--line);
+  text-align: center;
+}
+.cta__line {
+  margin: 0 0 18px;
+  font-family: var(--serif);
+  font-size: clamp(20px, 2.1vw, 27px);
+  line-height: 1.35;
+  letter-spacing: -0.015em;
+  text-wrap: balance;
+}
+.cta__note {
+  margin: 16px 0 0;
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--ink-faint);
+}
