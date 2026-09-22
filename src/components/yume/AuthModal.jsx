@@ -121,7 +121,7 @@ export default function AuthModal({ mode: initialMode = "login", onClose, onAuth
               style={input}
             />
             <div style={{ fontSize: 11.5, color: "#B6A9D6", margin: "-6px 0 12px", lineHeight: 1.5 }}>
-              기여도 랭킹에 표시되는 이름이에요. 다른 분과 겹칠 수 없어요.
+              공헌도 랭킹에 표시되는 이름이에요. 다른 분과 겹칠 수 없어요.
             </div>
             <label style={label} htmlFor="auth-name">이름 <span style={{ color: "#B6A9D6" }}>(선택)</span></label>
             <input id="auth-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={40} style={input} />

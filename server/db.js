@@ -98,7 +98,7 @@ const TABLES = [
   // 나중에 추가된 테이블. 여기 빠지면 search_path에 기대게 되어 위 주석의 문제가 그대로 생긴다.
   "credit_ledger", "bounty_claims", "redemptions", "referrals", "contribution_ledger", "quarter_awards", "claim_cache",
   "credit_orders", "inquiries", "audit_sessions", "audit_reports", "projects", "product_tasks",
-  "threads", "thread_messages", "thread_quotes",
+  "threads", "thread_messages", "thread_quotes", "lobby_messages",
 ];
 const TABLE_REF = new RegExp(`\\b(FROM|JOIN|INTO|UPDATE)\\s+(${TABLES.join("|")})\\b`, "gi");
 const qualify = (sql) => sql.replace(TABLE_REF, (_m, kw, table) => `${kw} ${SCHEMA}.${table}`);
@@ -433,8 +433,8 @@ const MIGRATIONS = [
   ALTER TABLE referrals ENABLE ROW LEVEL SECURITY;
   `,
 
-  // 기여도 — 크레딧과 완전히 다른 물건이라 원장을 따로 둔다. 크레딧은 검증 횟수로
-  // 바꿔 쓰는 재화라 잔액이 오르내리지만, 기여도는 "이 사람이 유메에 얼마나 보탰나"를
+  // 공헌도 — 크레딧과 완전히 다른 물건이라 원장을 따로 둔다. 크레딧은 검증 횟수로
+  // 바꿔 쓰는 재화라 잔액이 오르내리지만, 공헌도는 "이 사람이 유메에 얼마나 보탰나"를
   // 누적으로만 재는 점수라 차감되지 않고 랭킹의 근거가 된다. 한 원장에 섞으면
   // 검증 횟수를 쓸 때마다 순위가 내려가는 이상한 일이 생긴다.
   //
@@ -787,6 +787,27 @@ const MIGRATIONS = [
   ALTER TABLE verifications ADD COLUMN searches INTEGER;
   ALTER TABLE verifications ADD COLUMN reused_claims INTEGER;
   CREATE INDEX idx_verifications_cost ON verifications(created_at) WHERE cost_usd IS NOT NULL;
+  `,
+
+  // ── 전체 채팅(로비) ──
+  //
+  // 순위를 혼자 보는 것과 남들이 보는 자리에서 보는 것은 전혀 다른 물건이다.
+  // 공헌도는 이미 있었지만 랭킹 화면을 따로 열어야 보였다. 말이 오가는 자리 옆에
+  // 등수가 붙어 있으면 그 숫자가 비로소 움직인다.
+  //
+  // 메시지를 지우지 않고 hidden으로 내리는 이유는, 신고가 들어와 내린 글도
+  // 나중에 왜 내렸는지 확인할 수 있어야 하기 때문이다.
+  `
+  CREATE TABLE lobby_messages (
+    id SERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    body TEXT NOT NULL,
+    hidden BOOLEAN NOT NULL DEFAULT FALSE,
+    hidden_by BIGINT,
+    created_at BIGINT NOT NULL
+  );
+  CREATE INDEX idx_lobby_recent ON lobby_messages(id DESC);
+  ALTER TABLE lobby_messages ENABLE ROW LEVEL SECURITY;
   `,
 ];
 

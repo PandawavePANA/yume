@@ -4,7 +4,7 @@ import { requireUser } from "./auth.js";
 import { audit } from "./audit.js";
 import { clientIp, createLimiter, limitMiddleware } from "./security.js";
 import { CREDIT_KRW, CREDIT_PACKS, PLAN_CREDITS, balance, ensureMonthlyGrant, listLedger, listUserCreditRequests, requestCreditPack } from "./credits.js";
-import { POINTS, QUARTER_REWARDS, leaderboard, listLedger as listContribLedger, periodEndsAt, periodOf, rankOf, handleFor } from "./contribution.js";
+import { POINTS, QUARTER_REWARDS, RANK_TIERS, leaderboard, listLedger as listContribLedger, periodEndsAt, periodOf, rankOf, handleFor } from "./contribution.js";
 import { PLANS, effectivePlan } from "./usageStore.js";
 import { listUserBounties, submitBounty } from "./bounty.js";
 import { PLATFORMS } from "./shareLink.js";
@@ -19,6 +19,7 @@ import {
 import { packItem } from "./credits.js";
 import { getOrder, settleOrder } from "./checkoutStore.js";
 import crypto from "node:crypto";
+import { CHAT_MIN_POINTS, MAX_BODY as LOBBY_MAX_BODY, meIn as lobbyMe, recent as lobbyRecent, say as lobbySay } from "./lobby.js";
 
 const router = patchAsync(express.Router());
 router.use(["/credits", "/bounty", "/credit-packs", "/referral", "/contribution", "/checkout", "/identity"], requireUser);
@@ -46,7 +47,7 @@ router.get("/credits", async (req, res) => {
   });
 });
 
-// 기여도 — 내 점수·순위와 전체 랭킹. 크레딧과 완전히 다른 값이라 응답도 따로 준다.
+// 공헌도 — 내 점수·순위와 전체 랭킹. 크레딧과 완전히 다른 값이라 응답도 따로 준다.
 router.get("/contribution", async (req, res) => {
   const me = await rankOf(req.user.id);
   res.json({
@@ -228,3 +229,32 @@ router.post("/identity/confirm", limitMiddleware(checkoutLimiter, (req) => `iden
 });
 
 export default router;
+
+// ── 전체 채팅(로비) ────────────────────────────────────────────────────
+//
+// 읽기는 로그인만으로 열어 둔다 — 남들이 무슨 이야기를 하는지 보이는 것이 들어올
+// 이유를 만든다. 쓰기는 검증과 같은 문을 쓴다(휴대폰 본인확인). 공개된 자리라
+// 계정 하나로 여러 사람인 척할 수 있으면 안 된다.
+const lobbySayLimiter = createLimiter({ windowMs: 60_000, max: 10 });
+const lobbyDayLimiter = createLimiter({ windowMs: 24 * 3600 * 1000, max: 300 });
+
+router.get("/lobby", requireUser, async (req, res) => {
+  const after = Math.max(0, Math.floor(Number(req.query.after) || 0));
+  const [messages, me] = await Promise.all([lobbyRecent({ after }), lobbyMe(req.user)]);
+  res.json({ messages, me, maxLength: LOBBY_MAX_BODY, tiers: RANK_TIERS, minPoints: CHAT_MIN_POINTS });
+});
+
+router.post(
+  "/lobby",
+  requireUser,
+  limitMiddleware(lobbySayLimiter, (req) => `lobby:${req.user.id}`, "조금 천천히 보내주세요."),
+  limitMiddleware(lobbyDayLimiter, (req) => `lobby-day:${req.user.id}`, "오늘 채팅 한도에 도달했어요."),
+  async (req, res) => {
+    if (!req.user.identity_verified_at) {
+      return res.status(403).json({ error: "휴대폰 본인확인을 마치면 채팅에 참여할 수 있어요.", code: "IDENTITY_REQUIRED" });
+    }
+    const r = await lobbySay(req.user, req.body?.body);
+    if (r.error) return res.status(r.code === "NEED_POINTS" ? 403 : 400).json({ error: r.error, code: r.code });
+    res.status(201).json(r);
+  },
+);

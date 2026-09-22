@@ -8,7 +8,7 @@ import CheckoutPage from "@/components/yume/CheckoutPage";
 // 계정 설정 → 크레딧 탭.
 //
 // 크레딧은 검증을 돌리는 데 쓰는 재화다. 요금제마다 매달 정해진 양이 들어오고,
-// 다 쓰면 최고 등급이라도 추가로 사야 한다. 기여도 점수와는 완전히 다른 값이라
+// 다 쓰면 최고 등급이라도 추가로 사야 한다. 공헌도 점수와는 완전히 다른 값이라
 // 이 화면에 섞어 보여주지 않는다 — 랭킹은 따로 있다.
 const REASON = {
   plan_grant: "요금제 월 지급",
@@ -189,7 +189,7 @@ export default function CreditsTab() {
       <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>친구 추천</div>
       <div style={card}>
         <div style={{ fontSize: 12.5, color: "#5B5470", lineHeight: 1.7, marginBottom: 10 }}>
-          내 링크로 가입한 친구가 첫 검증을 마치면 <b>{referral?.creditsPerReferral ?? 0} 크레딧</b>{referral?.krwPerReferral ? <>{" "}<span style={{ color: "#8577A8" }}>(정가 {referral.krwPerReferral.toLocaleString("ko-KR")}원 상당)</span></> : null}과 <b>기여도 {referral?.pointsPerReferral ?? 0}점</b>을 드려요.
+          내 링크로 가입한 친구가 첫 검증을 마치면 <b>{referral?.creditsPerReferral ?? 0} 크레딧</b>{referral?.krwPerReferral ? <>{" "}<span style={{ color: "#8577A8" }}>(정가 {referral.krwPerReferral.toLocaleString("ko-KR")}원 상당)</span></> : null}과 <b>공헌도 {referral?.pointsPerReferral ?? 0}점</b>을 드려요.
         </div>
         <div style={{ display: "flex", gap: 6 }}>
           <input
@@ -222,7 +222,7 @@ export default function CreditsTab() {
         <>
           <div style={{ fontSize: 13, fontWeight: 700, margin: "18px 0 8px" }}>내 제보</div>
           <div style={{ fontSize: 11.5, color: "#A99BC9", lineHeight: 1.6, marginBottom: 8 }}>
-            제보가 확인되면 크레딧이 아니라 <b>기여도 {data.reportPoints.toLocaleString()}점</b>이 쌓입니다. 점수와 순위는 랭킹에서 볼 수 있어요.
+            제보가 확인되면 크레딧이 아니라 <b>공헌도 {data.reportPoints.toLocaleString()}점</b>이 쌓입니다. 점수와 순위는 랭킹에서 볼 수 있어요.
           </div>
           {data.bounties.slice(0, 5).map((b) => {
             const s = BOUNTY_STATUS[b.status] || BOUNTY_STATUS.pending;

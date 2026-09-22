@@ -304,8 +304,8 @@ router.post("/dataset/exports/:id/revoke", async (req, res) => {
   res.json({ ok: true });
 });
 
-// ── 크레딧·기여도: 제보 검토·크레딧 구매 처리·추천 확인·랭킹 ──
-// 크레딧(쓰면 없어지는 재화)과 기여도(누적 점수)는 서로 다른 값이라 통계도 따로 낸다.
+// ── 크레딧·공헌도: 제보 검토·크레딧 구매 처리·추천 확인·랭킹 ──
+// 크레딧(쓰면 없어지는 재화)과 공헌도(누적 점수)는 서로 다른 값이라 통계도 따로 낸다.
 router.get("/credits", async (req, res) => {
   res.json({
     stats: { ...(await creditStats()), bounty: await bountyStats() },

@@ -13,6 +13,7 @@ import { IS_NATIVE_APP, onNativeBack, shareLink } from "./native.js";
 import { orderPlan, resumeFromRedirect, verifyIdentity } from "./payments.js";
 import AuditModal from "./components/yume/AuditModal.jsx";
 import RankingModal from "@/components/yume/RankingModal";
+import LobbyChat from "@/components/yume/LobbyChat";
 import CheckoutPage from "@/components/yume/CheckoutPage";
 
 // 기업용 사이트 주소. 별도 도메인에 따로 배포되므로 코드에 박지 않고 빌드 환경변수로 받는다.
@@ -175,7 +176,7 @@ function BizRow({ title, desc, cta }) {
   );
 }
 
-function YumeChatWidget() {
+function YumeChatWidget({ shiftRight = 0 }) {
   const [open, setOpen] = useState(false);
   // 떠다니는 챗봇 버튼이 화면 아무 위치에나 고정돼 있다 보니, 스크롤하는 동안
   // 그 자리의 텍스트를 가리는 순간이 반드시 생긴다(모바일에서 특히 두드러짐).
@@ -244,9 +245,10 @@ function YumeChatWidget() {
   return (
     <div ref={containerRef} style={{
       position: "fixed",
-      right: "calc(16px + var(--yume-safe-right))",
+      right: `calc(16px + var(--yume-safe-right) + ${shiftRight}px)`,
       bottom: "calc(16px + var(--yume-safe-bottom))",
-      zIndex: 60, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 12
+      zIndex: 60, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 12,
+      transition: "right 0.35s cubic-bezier(0.22,1,0.36,1)"
     }}>
       <AnimatePresence>
         {open && (
@@ -594,6 +596,8 @@ export default function YumeDashboard() {
   const [showBiz, setShowBiz] = useState(false);
   const [showAudit, setShowAudit] = useState(false);
   const [showRanking, setShowRanking] = useState(false);
+  // 전체 채팅. 넓은 화면에서는 기본으로 열려 있다 — 늘 떠 있어야 등수가 눈에 들어온다.
+  const [showLobby, setShowLobby] = useState(() => typeof window !== "undefined" && window.innerWidth >= 1200);
   const [showPricing, setShowPricing] = useState(false);
   const [toast, setToast] = useState("");
   // 로그인 세션과 오늘 남은 확인 횟수는 서버가 기준이다(요금제도 서버가 결정).
@@ -1083,6 +1087,13 @@ export default function YumeDashboard() {
             ...pillBtn, border: `1px solid ${UI.hairline}`,
             background: "rgba(255,255,255,0.55)", color: UI.ink2, fontWeight: 600,
           }}>랭킹</motion.button>
+          <motion.button {...navEnter(0.07)}
+            whileHover={{ backgroundColor: "#fff" }} whileTap={{ scale: 0.96 }}
+            onClick={() => setShowLobby((v) => !v)} className="yume-nav-pill" style={{
+            ...pillBtn, border: `1px solid ${showLobby ? UI.accent : UI.hairline}`,
+            background: showLobby ? "rgba(91,63,160,0.08)" : "rgba(255,255,255,0.55)",
+            color: showLobby ? UI.accent : UI.ink2, fontWeight: 600,
+          }}>채팅</motion.button>
           {!IS_NATIVE_APP && (
             <motion.a {...navEnter(0.08)}
               whileHover={{ backgroundColor: "#fff" }} whileTap={{ scale: 0.96 }}
@@ -1786,6 +1797,14 @@ export default function YumeDashboard() {
         />
       )}
 
+      {/* 전체 채팅. 이름 옆 등수가 이 화면의 이유다. */}
+      <LobbyChat
+        open={showLobby}
+        loggedIn={!!user}
+        onClose={() => setShowLobby(false)}
+        onNeedLogin={() => setAuthModal("login")}
+      />
+
       {checkout && (
         <CheckoutPage
           order={checkout}
@@ -1818,7 +1837,7 @@ export default function YumeDashboard() {
         )}
       </AnimatePresence>
 
-      <YumeChatWidget />
+      <YumeChatWidget shiftRight={showLobby ? 328 : 0} />
     </div>
   );
 }

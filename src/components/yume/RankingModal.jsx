@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { apiJson } from "./api";
 
-// 기여도 랭킹 보드.
+// 공헌도 랭킹 보드.
 //
-// 기여도는 크레딧과 다른 값이다. 크레딧은 검증을 돌리면 줄어들고, 기여도는 줄지 않는다.
+// 공헌도는 크레딧과 다른 값이다. 크레딧은 검증을 돌리면 줄어들고, 공헌도는 줄지 않는다.
 // 그래서 "많이 쓴 사람"이 아니라 "많이 보탠 사람"이 위로 올라온다.
 //
 // 이름은 display_name이거나 계정 id로 만든 고정 핸들이고, 이메일은 절대 보드에 올리지
@@ -56,7 +56,7 @@ export default function RankingModal({ onClose, onNeedLogin, loggedIn }) {
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 6 }}>
           <div>
-            <div style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: "0.1em", color: UI.ink3, textTransform: "uppercase" }}>기여도 랭킹</div>
+            <div style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: "0.1em", color: UI.ink3, textTransform: "uppercase" }}>공헌도 랭킹</div>
             <h2 style={{ fontSize: 25, fontWeight: 700, letterSpacing: "-0.03em", color: UI.ink, margin: "8px 0 0" }}>가장 많이 찾아낸 사람들</h2>
           </div>
           <button onClick={onClose} aria-label="닫기" style={{ width: 32, height: 32, flexShrink: 0, borderRadius: 999, border: "none", background: "rgba(118,118,128,0.12)", color: UI.ink2, fontSize: 16, cursor: "pointer" }}>×</button>
@@ -103,7 +103,7 @@ export default function RankingModal({ onClose, onNeedLogin, loggedIn }) {
             </div>
 
             <div style={{ marginTop: 12, padding: "16px 18px", borderRadius: 16, background: "linear-gradient(135deg,#F3EBFF,#EDE4FC)" }}>
-              <div style={{ fontSize: 12, color: "#6E6389", fontWeight: 600 }}>내 기여도</div>
+              <div style={{ fontSize: 12, color: "#6E6389", fontWeight: 600 }}>내 공헌도</div>
               <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
                 <span style={{ fontSize: 28, fontWeight: 800, color: "#4E3391", letterSpacing: "-0.02em", fontVariantNumeric: "tabular-nums" }}>
                   {data.points.toLocaleString()}점

@@ -1,7 +1,7 @@
-// 기여도 — 이 사람이 유메를 얼마나 나아지게 했는가.
+// 공헌도 — 이 사람이 유메를 얼마나 나아지게 했는가.
 //
 // 크레딧과 헷갈리면 안 된다. 크레딧은 검증을 돌리는 데 쓰고 없어지는 재화고,
-// 기여도는 없어지지 않는 누적 점수다. 검증을 많이 돌린다고 제품이 좋아지지는 않지만,
+// 공헌도는 없어지지 않는 누적 점수다. 검증을 많이 돌린다고 제품이 좋아지지는 않지만,
 // AI가 지어낸 걸 찾아내서 넘겨주면 좋아진다. 그래서 점수 차이를 크게 뒀다.
 //
 //   검증 10점   — 돌려본 것 자체는 작게 친다
@@ -19,7 +19,7 @@
 // 발견은 사용자가 자기 일을 하다 생기는 부산물이지만 제보는 따로 품이 든다.
 //
 // 중요 — 제보 점수는 "제출"이 아니라 "승인"에 준다. 제출만으로 1000점이면 아무 링크나
-// 넣고 순위를 올릴 수 있고, 그 순간 랭킹은 기여도가 아니라 성실함의 반대를 재게 된다.
+// 넣고 순위를 올릴 수 있고, 그 순간 랭킹은 공헌도가 아니라 성실함의 반대를 재게 된다.
 // 이미 만들어 둔 중복 차단·운영자 검토를 그대로 거치게 한다.
 import { all, one, run, now } from "./db.js";
 import { grant as grantCredits } from "./credits.js";
@@ -244,7 +244,7 @@ export async function settleQuarter(period) {
     if (reward.credits > 0) {
       await grantCredits(row.userId, reward.credits, "quarter_award", {
         ref: "award:" + period + ":" + row.userId,
-        memo: period + " 기여도 " + row.rank + "위",
+        memo: period + " 공헌도 " + row.rank + "위",
       });
     }
     settled.push({ rank: row.rank, name: row.name, points: row.points, reward: reward.label, kind: reward.kind });
@@ -258,4 +258,55 @@ export function listQuarterAwards(period) {
       WHERE a.period = :period ORDER BY a.rank ASC`,
     { period },
   );
+}
+
+// ── 등수 색 ────────────────────────────────────────────────────────────
+//
+// 순위를 혼자 보는 것과 남들이 보는 자리에서 보는 것은 전혀 다른 물건이다.
+// 전체 채팅에 이름과 함께 등수가 붙으면 그 숫자가 비로소 움직인다.
+//
+// 색은 다섯 단계뿐이다. 더 잘게 나누면 구분이 안 되고, 1위만 다른 색이어야
+// 1위가 특별해 보인다.
+export const RANK_TIERS = [
+  { max: 1, key: "top1", color: "#E03131", label: "1위" },
+  { max: 10, key: "top10", color: "#1971C2", label: "10위권" },
+  { max: 50, key: "top50", color: "#E8590C", label: "50위권" },
+  { max: 100, key: "top100", color: "#2F9E44", label: "100위권" },
+];
+
+export function tierOf(rank) {
+  if (!rank) return null;
+  return RANK_TIERS.find((t) => rank <= t.max) || null;
+}
+
+// 상위 100명의 등수만 들고 있는다.
+//
+// 메시지마다 rankOf를 부르면 채팅 한 화면에 질의가 수십 번 나간다. 그렇다고 전원을
+// 올려 두면 회원이 늘수록 메모리가 따라 는다. 색이 갈리는 경계가 100위라서,
+// 101위부터는 등수를 몰라도 화면이 똑같다 — 그래서 딱 거기까지만 센다.
+//
+// 30초면 충분하다. 공헌도는 검증 한 번에 10점씩 오르는 값이라 초 단위로 뒤집히지 않는다.
+const RANK_TTL_MS = 30_000;
+let rankCache = { at: 0, period: null, map: new Map() };
+
+export async function topRankMap(period = periodOf()) {
+  if (rankCache.period === period && rankCache.at > Date.now() - RANK_TTL_MS) return rankCache.map;
+  const rows = await all(
+    `SELECT c.user_id, SUM(c.points) AS p, MAX(c.created_at) AS last_at
+       FROM contribution_ledger c JOIN users u ON u.id = c.user_id
+      WHERE u.status = 'active' AND c.period = :period
+      GROUP BY c.user_id
+     HAVING SUM(c.points) > 0
+      ORDER BY p DESC, last_at ASC
+      LIMIT 100`,
+    { period },
+  );
+  const map = new Map(rows.map((r, i) => [Number(r.user_id), i + 1]));
+  rankCache = { at: Date.now(), period, map };
+  return map;
+}
+
+/** 방금 점수가 오른 사람의 등수가 바로 보이도록 캐시를 버린다. */
+export function forgetRankCache() {
+  rankCache = { at: 0, period: null, map: new Map() };
 }

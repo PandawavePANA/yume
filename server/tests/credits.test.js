@@ -118,7 +118,7 @@ test("공유 링크는 그 플랫폼의 https 주소만 받는다", () => {
   assert.ok(checkShareUrl("nope", "https://chatgpt.com/share/a").error, "모르는 플랫폼은 거절");
 });
 
-test("제보 → 검토 → 승인 시에만 기여도 점수가 지급된다", async () => {
+test("제보 → 검토 → 승인 시에만 공헌도 점수가 지급된다", async () => {
   const { c, id: userId } = await signedUpUser("bounty@yume.test", { dataConsent: true });
   await seed("v-bounty-1", userId, [necClaim("2019다999991")]);
 
@@ -288,7 +288,7 @@ test("추천: 가입만으로는 지급되지 않고, 친구가 검증을 마쳐
   await creditReferralOnActivity(inviteeId);
   assert.equal(await credits.balance(referrerId), credits.REFERRAL_CREDITS);
 
-  // 크레딧만이 아니라 기여도 점수도 같이 들어간다 — 찾아낼 수 있는 사람을 한 명 늘린 일이다
+  // 크레딧만이 아니라 공헌도 점수도 같이 들어간다 — 찾아낼 수 있는 사람을 한 명 늘린 일이다
   assert.equal(await contribution.total(referrerId), contribution.POINTS.referral, "초대 점수가 쌓인다");
 
   // 두 번 불려도 한 번만 지급된다. 크레딧과 점수 둘 다 그래야 한다 —
@@ -324,9 +324,9 @@ test("크레딧 API는 로그인해야 쓸 수 있다", async () => {
   assert.equal((await anon("GET", "/api/referral")).status, 401);
 });
 
-// ── 기여도 ──────────────────────────────────────────────────────────────
+// ── 공헌도 ──────────────────────────────────────────────────────────────
 // 크레딧과 다른 값이라는 것 자체가 검증 대상이다. 검증을 돌려 크레딧이 줄어도
-// 기여도는 줄지 않아야 하고, 그래야 랭킹이 "많이 쓴 사람"이 아니라 "많이 보탠 사람"을 센다.
+// 공헌도는 줄지 않아야 하고, 그래야 랭킹이 "많이 쓴 사람"이 아니라 "많이 보탠 사람"을 센다.
 
 test("검증은 10점, 사실과 다른 주장이 잡히면 50점을 더한다", async () => {
   const { id: userId } = await signedUpUser("contrib@yume.test");
@@ -360,7 +360,7 @@ test("사실과 다른 주장이 여러 건이어도 검증 한 건당 발견 �
   assert.equal(await contribution.total(userId), contribution.POINTS.verify + contribution.POINTS.finding);
 });
 
-test("크레딧을 써도 기여도는 줄지 않는다", async () => {
+test("크레딧을 써도 공헌도는 줄지 않는다", async () => {
   const { id: userId } = await signedUpUser("contrib-spend@yume.test");
   await contribution.awardForVerification(userId, "v-spend", [{ verdict: "false", text: "x" }]);
   const points = await contribution.total(userId);
@@ -368,7 +368,7 @@ test("크레딧을 써도 기여도는 줄지 않는다", async () => {
   await credits.ensureMonthlyGrant({ id: userId, plan: "free" });
   await credits.spendOne(userId, null);
   assert.ok((await credits.balance(userId)) < credits.PLAN_CREDITS.free, "크레딧은 줄고");
-  assert.equal(await contribution.total(userId), points, "기여도는 그대로다");
+  assert.equal(await contribution.total(userId), points, "공헌도는 그대로다");
 });
 
 test("랭킹은 점수 순, 동점이면 먼저 도달한 사람이 앞", async () => {
