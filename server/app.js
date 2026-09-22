@@ -38,7 +38,7 @@ import { adminLogin, adminLogout, hasAdminCookie, renderLoginPage } from "./admi
 import { renderProductPage } from "./renderProductPage.js";
 import { openExportDownload, purgeOldExportFiles } from "./dataset.js";
 import { renderAdminPage } from "./renderAdminPage.js";
-import { renderResetPasswordPage, renderTermsPage, renderPrivacyPage, renderRefundPage, renderProductsPage, renderAccountDeletionPage, renderApiDocsPage } from "./renderPages.js";
+import { renderResetPasswordPage, renderTermsPage, renderPrivacyPage, renderRefundPage, renderProductsPage, renderAccountDeletionPage, renderApiDocsPage, renderExtensionPrivacyPage } from "./renderPages.js";
 import { clientIp, createLimiter, limitMiddleware, sameOriginGuard, securityHeaders, IS_PROD } from "./security.js";
 import { mailConfigured } from "./mailer.js";
 import { UpstreamError, OPERATOR_NOTE, userMessageFor, upstreamStatus } from "./upstream.js";
@@ -354,6 +354,8 @@ app.get("/admin/p/:key", attachUser, (req, res) => {
 app.get("/reset-password", (req, res) => html(res, renderResetPasswordPage()));
 app.get("/terms", (req, res) => html(res, renderTermsPage()));
 app.get("/privacy", (req, res) => html(res, renderPrivacyPage()));
+// 크롬 웹스토어는 확장이 다루는 데이터만 적은 방침 주소를 따로 요구한다.
+app.get("/extension-privacy", (req, res) => html(res, renderExtensionPrivacyPage()));
 app.get("/refund", (req, res) => html(res, renderRefundPage()));
 app.get("/products", (req, res) => html(res, renderProductsPage()));
 app.get("/account-deletion", (req, res) => html(res, renderAccountDeletionPage()));
