@@ -98,7 +98,7 @@ const TABLES = [
   // 나중에 추가된 테이블. 여기 빠지면 search_path에 기대게 되어 위 주석의 문제가 그대로 생긴다.
   "credit_ledger", "bounty_claims", "redemptions", "referrals", "contribution_ledger", "quarter_awards", "claim_cache",
   "credit_orders", "inquiries", "audit_sessions", "audit_reports", "projects", "product_tasks",
-  "threads", "thread_messages", "thread_quotes", "lobby_messages",
+  "threads", "thread_messages", "thread_quotes", "lobby_messages", "api_costs",
 ];
 const TABLE_REF = new RegExp(`\\b(FROM|JOIN|INTO|UPDATE)\\s+(${TABLES.join("|")})\\b`, "gi");
 const qualify = (sql) => sql.replace(TABLE_REF, (_m, kw, table) => `${kw} ${SCHEMA}.${table}`);
@@ -808,6 +808,25 @@ const MIGRATIONS = [
   );
   CREATE INDEX idx_lobby_recent ON lobby_messages(id DESC);
   ALTER TABLE lobby_messages ENABLE ROW LEVEL SECURITY;
+  `,
+
+  // ── 검증이 아닌 API 호출의 원가 ──
+  //
+  // verifications에 붙인 cost_usd는 검증 한 건의 원가다. 그런데 캡처 읽기처럼
+  // 검증 행이 생기기 전에 돈이 나가는 호출이 있다. 그걸 로그로만 두면, 원가를
+  // 깎으려고 만든 장부에 정작 새로 늘어난 항목이 빠진다.
+  `
+  CREATE TABLE api_costs (
+    id BIGSERIAL PRIMARY KEY,
+    kind TEXT NOT NULL,
+    user_id BIGINT,
+    cost_usd DOUBLE PRECISION NOT NULL,
+    calls INTEGER,
+    searches INTEGER,
+    created_at BIGINT NOT NULL
+  );
+  CREATE INDEX idx_api_costs ON api_costs(kind, created_at);
+  ALTER TABLE api_costs ENABLE ROW LEVEL SECURITY;
   `,
 ];
 

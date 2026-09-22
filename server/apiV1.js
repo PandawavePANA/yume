@@ -31,7 +31,7 @@ function fail(res, status, code, message, extra = {}) {
 
 // 키별 분당 요청 제한(키마다 한도가 달라 여기서 따로 센다).
 const minuteWindows = new Map();
-function withinRate(key) {
+export function withinRate(key) {
   const t = Date.now();
   const w = minuteWindows.get(key.id);
   if (!w || w.resetAt <= t) {
@@ -99,7 +99,7 @@ function publicVerification(v) {
   };
 }
 
-async function usageInfo(key) {
+export async function usageInfo(key) {
   const used = await monthlyUsage(key.id);
   const d = new Date(kstMonthStart() + 9 * 3600 * 1000);
   const next = Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1) - 9 * 3600 * 1000;

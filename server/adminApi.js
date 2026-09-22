@@ -3,6 +3,7 @@ import express from "express";
 import { patchAsync } from "./asyncExpress.js";
 import { all, DB_DESCRIPTION, kstDay, now, one, run, PERSISTENT_STORAGE } from "./db.js";
 import { hasAdminCookie } from "./adminGate.js";
+import { hide as hideLobbyMessage, listForReview as listLobbyForReview } from "./lobby.js";
 import { audit, listAudit } from "./audit.js";
 import { listErrors } from "./errorLog.js";
 import { listAllKeys, adminUpdateKey, monthlyBillingReport } from "./apiKeys.js";
@@ -408,3 +409,18 @@ router.get("/db/backup", async (req, res) => {
 });
 
 export default router;
+
+// ── 전체 채팅 관리 ──
+//
+// 공개된 자리라 내려야 할 말이 반드시 생긴다. 지우지 않고 내리는(hidden) 이유는
+// 나중에 "왜 내렸느냐"는 질문에 답할 수 있어야 하기 때문이다.
+router.get("/lobby", async (req, res) => {
+  res.json({ messages: await listLobbyForReview(200) });
+});
+
+router.post("/lobby/:id/hide", async (req, res) => {
+  const okDone = await hideLobbyMessage(Number(req.params.id), req.user?.id ?? null);
+  if (!okDone) return res.status(404).json({ error: "이미 내렸거나 없는 메시지예요." });
+  await audit(req.adminActor, "lobby_hidden", `lobby:${req.params.id}`, null, clientIp(req));
+  res.json({ ok: true });
+});

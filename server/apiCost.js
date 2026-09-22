@@ -75,3 +75,26 @@ export function logApiCost(id, source, cost) {
       `토큰 in ${cost.input}/캐시읽기 ${cost.cachedInput}/캐시쓰기 ${cost.cacheWrite}/out ${cost.output} · ${Math.round(cost.elapsedMs / 100) / 10}s — ${parts}`,
   );
 }
+
+// 검증 행이 없는 호출의 원가를 남긴다(캡처 읽기 등).
+//
+// verifications.cost_usd는 검증 한 건에 붙는 값이라, 검증이 생기기 전에 나가는 돈은
+// 거기 실을 자리가 없다. 로그로만 두면 원가를 깎으려고 만든 장부에서 새 항목이 빠진다.
+//
+// 실패해도 삼킨다 — 사용자는 이미 답을 받았고, 지표 한 줄 때문에 그걸 오류로 만들 수 없다.
+export async function recordOpsCost(kind, userId, cost) {
+  if (!cost) return;
+  const { run, now } = await import("./db.js");
+  await run(
+    `INSERT INTO api_costs (kind, user_id, cost_usd, calls, searches, created_at)
+     VALUES (:kind, :uid, :usd, :calls, :searches, :t)`,
+    {
+      kind: String(kind).slice(0, 40),
+      uid: userId || null,
+      usd: Number(cost.usd) || 0,
+      calls: Number(cost.calls) || 0,
+      searches: Number(cost.searches) || 0,
+      t: now(),
+    },
+  ).catch(() => {});
+}

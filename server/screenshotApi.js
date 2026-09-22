@@ -17,6 +17,7 @@ import { readScreenshot } from "./claude.js";
 import { checkAndConsume } from "./usageStore.js";
 import { logError } from "./errorLog.js";
 import { UpstreamError, userMessageFor } from "./upstream.js";
+import { logApiCost, newLedger, recordOpsCost, summarize } from "./apiCost.js";
 
 const router = patchAsync(express.Router());
 
@@ -73,8 +74,15 @@ router.post(
       return res.status(402).json({ error: "오늘 남은 확인 횟수를 모두 사용했어요.", limitReached: true, loggedIn: !!user });
     }
 
+    // 캡처 읽기도 돈이 나간다. 검증 행이 없으니 api_costs에 따로 남긴다.
+    const ledger = newLedger();
     try {
-      const text = await readScreenshot(images);
+      const text = await readScreenshot(images, { ledger });
+      const cost = summarize(ledger);
+      if (cost) {
+        logApiCost(`shot-${images.length}`, "screenshot", cost);
+        recordOpsCost("screenshot", user?.id ?? null, cost);
+      }
       if (!text) {
         return res.status(422).json({
           error: "캡처에서 AI 답변을 찾지 못했어요. 답변 부분이 잘 보이게 다시 찍어주세요.",

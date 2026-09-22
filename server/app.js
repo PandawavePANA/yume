@@ -28,6 +28,7 @@ import screenshotRouter from "./screenshotApi.js";
 import { creditReferralOnActivity } from "./referral.js";
 import { awardForVerification } from "./contribution.js";
 import apiV1Router from "./apiV1.js";
+import mcpRouter from "./mcp.js";
 import adminApiRouter from "./adminApi.js";
 import { studioRouter } from "./studioApi.js";
 import { deskRouter } from "./deskApi.js";
@@ -77,6 +78,8 @@ app.use((req, res, next) => (req.path === "/api/screenshot" ? next() : jsonBody(
 
 // 외부 개발자용 공개 API — 자체 CORS·키 인증을 쓰므로 쿠키 세션 미들웨어보다 먼저 붙인다.
 app.use("/v1", apiV1Router);
+// MCP — ChatGPT·클로드가 유메를 도구로 부르는 자리. /v1과 같은 키를 쓰므로 같은 칸에 둔다.
+app.use(mcpRouter);
 
 // 무료 할루시네이션 점검 — 기업용 사이트(별도 도메인)에서 부르므로 자체 CORS를 쓴다.
 // 쿠키 세션 미들웨어보다 먼저 붙여야 동일 출처 가드에 걸리지 않는다(/v1과 같은 이유).
