@@ -218,8 +218,18 @@ export function resolveLawAlias(name) {
   return LAW_ALIASES[normalizeLawName(trimmed)] || null;
 }
 
+// 조문 표기를 번호와 가지번호로 나눈다.
+//
+// **공백을 먼저 지우면 안 된다.** 예전에는 지우고 나서 정규식을 돌렸는데, 그러면
+// "제6조의3 1항"이 "제6조의31항"이 되어 가지번호가 31로 읽혔다. 사용자는 맞는 조문을
+// 인용했는데 유메가 없는 조문을 조회하고 "그런 조문 없습니다"로 판정하는 길이었다.
+// 법률 검증에서 이건 틀린 답보다 나쁘다 — 맞는 말을 틀렸다고 하는 것이기 때문이다.
+//
+// 대신 공백이 올 수 있는 자리를 정규식 안에 적는다. 그러면 띄어쓴 항 번호는 가지번호에
+// 붙지 않고("제6조의3 1항" → 6조의3), 붙여 쓴 진짜 가지번호는 그대로 살아난다
+// ("제6조의31" → 6조의31).
 export function parseArticle(raw) {
-  const m = String(raw || "").replace(/\s+/g, "").match(/^제?(\d+)조(?:의(\d+))?/);
+  const m = String(raw || "").trim().match(/^제?\s*(\d+)\s*조(?:\s*의\s*(\d+))?/);
   if (!m) return null;
   return { no: Number(m[1]), branch: m[2] ? Number(m[2]) : null };
 }

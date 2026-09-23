@@ -2,7 +2,7 @@
 // 실행: npm test
 import test from "node:test";
 import assert from "node:assert/strict";
-import { checkCaseNumber, checkStatute, checkDoi, checkArxiv, checkIsbn, checkPmid, resolveLawAlias } from "../nec/identifiers.js";
+import { checkCaseNumber, checkStatute, checkDoi, checkArxiv, checkIsbn, checkPmid, parseArticle, resolveLawAlias } from "../nec/identifiers.js";
 import { coverageFor } from "../nec/searchSpace.js";
 import { buildNecReport, computeNec, NEC_WEIGHTS, T2_GRADE } from "../nec/nec.js";
 import { lawNameSimilarity, caseVariants, caseSimilarity } from "../nec/similarity.js";
@@ -162,4 +162,27 @@ test("현행 법령에서 못 찾은 법령명은 부존재 확실, 약칭형이
   assert.equal(buildNecReport({ identifier: checkStatute("존재하지않는특별법", "1조"), spaceKey: "statute", coverage: cov, weights: W }).grade, "nonexistent");
   const abbr = coverageFor("statute_abbrev", [{ id: "law.go.kr:law", ok: true }, { id: "web", ok: true }]);
   assert.equal(buildNecReport({ identifier: checkStatute("근기법"), spaceKey: "statute_abbrev", coverage: abbr, weights: W }).grade, "unverifiable");
+});
+
+// 조문 표기에서 항 번호가 가지번호에 흡수되면, 사용자가 맞게 인용한 조문을 유메가
+// 없는 조문으로 조회하고 "그런 조문이 없습니다"로 판정한다. 틀린 답보다 나쁘다 —
+// 맞는 말을 틀렸다고 하는 것이기 때문이다. 공백을 먼저 지우던 시절의 실제 버그다.
+test("띄어 쓴 항 번호가 가지번호에 붙지 않는다", () => {
+  const label = (raw) => {
+    const a = parseArticle(raw);
+    return a ? `제${a.no}조${a.branch ? `의${a.branch}` : ""}` : null;
+  };
+  assert.equal(label("제6조의3 1항"), "제6조의3");
+  assert.equal(label("제32조의2 2항"), "제32조의2");
+  assert.equal(label("제6조의2 3항"), "제6조의2");
+  // 제가 붙은 항은 원래도 안전했다. 같이 지킨다.
+  assert.equal(label("제6조의3 제1항"), "제6조의3");
+  assert.equal(label("제6조의3제2항"), "제6조의3");
+  // 붙여 쓴 진짜 가지번호는 그대로 살아나야 한다.
+  assert.equal(label("제6조의31"), "제6조의31");
+  // 가지번호가 없는 조문과 띄어쓰기가 흩어진 표기.
+  assert.equal(label("제750조 1항"), "제750조");
+  assert.equal(label("제 6 조 의 3"), "제6조의3");
+  assert.equal(label("750조"), "제750조");
+  assert.equal(parseArticle("조문 아님"), null);
 });
