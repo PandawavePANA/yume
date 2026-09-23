@@ -40,6 +40,7 @@ import { openExportDownload, purgeOldExportFiles } from "./dataset.js";
 import { renderAdminPage } from "./renderAdminPage.js";
 import { renderResetPasswordPage, renderTermsPage, renderPrivacyPage, renderRefundPage, renderProductsPage, renderAccountDeletionPage, renderApiDocsPage, renderExtensionPrivacyPage } from "./renderPages.js";
 import { clientIp, createLimiter, limitMiddleware, sameOriginGuard, securityHeaders, IS_PROD } from "./security.js";
+import { localizeResponses } from "./i18n.js";
 import { mailConfigured } from "./mailer.js";
 import { UpstreamError, OPERATOR_NOTE, userMessageFor, upstreamStatus } from "./upstream.js";
 
@@ -66,6 +67,9 @@ app.use((req, res, next) => {
   return res.redirect(301, `https://${CANONICAL_HOST}${req.originalUrl}`);
 });
 app.use(securityHeaders);
+// 오류·안내 문구를 사용자의 언어로 내보낸다. 라우터보다 앞에 붙어야 모든 응답을 덮는다.
+// 한국어 요청에는 아무 일도 하지 않는다.
+app.use(localizeResponses);
 
 // 포트원 웹훅은 서명을 원문 그대로에 대해 확인한다. JSON 파서가 먼저 본문을 먹으면
 // 원문이 사라져 검증이 깨지므로, 파서보다 앞에 붙인다.

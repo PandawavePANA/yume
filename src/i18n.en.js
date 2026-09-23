@@ -526,4 +526,5 @@ export default {
     "{x} the answer. Then trust it.",
   "확인하고":
     "Check",
+  "요청을 처리하지 못했어요 ({status})": "Request failed ({status})",
 };

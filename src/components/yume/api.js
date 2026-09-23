@@ -1,4 +1,5 @@
 import { BUSINESS } from "../../businessInfo.js";
+import { getLang, t } from "../../i18n.js";
 
 // 기업용 사이트는 별도 도메인에 배포되므로 유메 서버를 절대 주소로 불러야 한다.
 // 유메 본체에서는 비워 두면 기존처럼 같은 출처로 나간다.
@@ -13,15 +14,20 @@ export function setApiBase(base) {
 export const apiUrl = (path) => API_BASE + path;
 
 export async function apiJson(path, { method = "GET", body } = {}) {
+  // 화면에서 고른 언어를 함께 보낸다. 브라우저 설정(Accept-Language)만으로는
+  // 한국에서 영어로 쓰는 사람과 그 반대를 구분하지 못해, 본인이 고른 것과 어긋난다.
   const res = await fetch(API_BASE + path, {
     method,
     credentials: API_BASE ? "omit" : "same-origin",
-    headers: body ? { "Content-Type": "application/json" } : undefined,
+    headers: {
+      "X-Yume-Lang": getLang(),
+      ...(body ? { "Content-Type": "application/json" } : null),
+    },
     body: body ? JSON.stringify(body) : undefined,
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    const err = new Error(data.error || `요청을 처리하지 못했어요 (${res.status})`);
+    const err = new Error(data.error || t("요청을 처리하지 못했어요 ({status})", { status: res.status }));
     err.status = res.status;
     err.data = data;
     // 서버가 주는 code(IDENTITY_REQUIRED 등)를 오류 자체에도 올려 둔다.
