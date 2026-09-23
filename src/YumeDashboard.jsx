@@ -15,7 +15,7 @@ import AuditModal from "./components/yume/AuditModal.jsx";
 import SidePanel, { PANEL_WIDTH } from "@/components/yume/SidePanel";
 import CheckoutPage from "@/components/yume/CheckoutPage";
 import { t, useLang } from "./i18n.js";
-import { useWideScreen } from "./useMedia.js";
+import { useMediaQuery, useWideScreen } from "./useMedia.js";
 
 // 기업용 사이트 주소. 별도 도메인에 따로 배포되므로 코드에 박지 않고 빌드 환경변수로 받는다.
 const BUSINESS_URL = (import.meta.env?.VITE_BUSINESS_URL || "https://business.yume-reamer.com").replace(/\/+$/, "");
@@ -630,14 +630,22 @@ export default function YumeDashboard() {
     return window.innerWidth >= 1180 ? "chat" : null;
   });
   // 넓은 화면에서만 본문을 민다. 좁으면 채팅이 서랍으로 덮으므로 밀 자리가 없다.
+  const lastTabRef = useRef("chat");
   const wideScreen = useWideScreen();
+  // 상단 바가 한 줄에 안 들어가기 시작하는 폭. 여기서부터 알약의 글자를 줄인다.
+  const tightNav = useMediaQuery("(max-width: 480px)", false);
   const lobbyPushes = !!panelTab && wideScreen;
   const { lang, setLang } = useLang();
+
+  // 버튼이 하나이므로 "무엇을 열지"를 기억해 둔다. 랭킹을 보던 사람이 누를 때마다
+  // 채팅으로 열리면 매번 탭을 다시 골라야 한다.
+  const lastPanelTab = panelTab || lastTabRef.current;
 
   // 같은 탭을 다시 누르면 닫힌다 — 연 버튼이 닫는 버튼이기도 해야 헤매지 않는다.
   const openPanel = React.useCallback((next) => {
     setPanelTab((prev) => {
       const v = prev === next ? null : next;
+      if (v) lastTabRef.current = v;
       try { localStorage.setItem("yume:panel", v || "0"); } catch { /* 저장 못 해도 이번 방문에는 적용된다 */ }
       return v;
     });
@@ -1168,20 +1176,17 @@ export default function YumeDashboard() {
         <div className="yume-nav-right" style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end", alignItems: "center" }}>
           {/* 기업용 사이트는 별도 도메인이라 내부 이동이 아니라 바깥 링크다.
               앱에서는 숨긴다 — 도입 상담을 하려고 앱을 깔지는 않는다. */}
+          {/* 랭킹과 채팅은 같은 사이드바를 여니 버튼도 하나다. 어느 쪽을 볼지는 그 안에서
+              고르고, 마지막으로 보던 탭이 다시 열린다. 버튼이 둘이면 상단 바만 좁아졌다. */}
           <motion.button {...navEnter(0.06)}
             whileHover={{ backgroundColor: "#fff" }} whileTap={{ scale: 0.96 }}
-            onClick={() => openPanel("rank")} className="yume-nav-pill" style={{
-            ...pillBtn, border: `1px solid ${panelTab === "rank" ? UI.accent : UI.hairline}`,
-            background: panelTab === "rank" ? "rgba(91,63,160,0.08)" : "rgba(255,255,255,0.55)",
-            color: panelTab === "rank" ? UI.accent : UI.ink2, fontWeight: 600,
-          }}>{t("랭킹")}</motion.button>
-          <motion.button {...navEnter(0.07)}
-            whileHover={{ backgroundColor: "#fff" }} whileTap={{ scale: 0.96 }}
-            onClick={() => openPanel("chat")} className="yume-nav-pill" style={{
-            ...pillBtn, border: `1px solid ${panelTab === "chat" ? UI.accent : UI.hairline}`,
-            background: panelTab === "chat" ? "rgba(91,63,160,0.08)" : "rgba(255,255,255,0.55)",
-            color: panelTab === "chat" ? UI.accent : UI.ink2, fontWeight: 600,
-          }}>{t("채팅")}</motion.button>
+            onClick={() => openPanel(lastPanelTab)}
+            aria-label={t("랭킹 · 채팅")}
+            className="yume-nav-pill" style={{
+            ...pillBtn, border: `1px solid ${panelTab ? UI.accent : UI.hairline}`,
+            background: panelTab ? "rgba(91,63,160,0.08)" : "rgba(255,255,255,0.55)",
+            color: panelTab ? UI.accent : UI.ink2, fontWeight: 600,
+          }}>{tightNav ? t("랭킹") : t("랭킹 · 채팅")}</motion.button>
           {/* 언어. 바꿔 갈 언어를 그 언어로 적는다 — "English"라고 적혀 있으면
               한국어를 못 읽는 사람도 무슨 버튼인지 안다. "EN/KO" 같은 약자는
               눌러 보기 전에는 지금이 어느 쪽인지 알 수 없다. */}
@@ -1192,7 +1197,7 @@ export default function YumeDashboard() {
             className="yume-nav-pill" style={{
             ...pillBtn, border: `1px solid ${UI.hairline}`,
             background: "rgba(255,255,255,0.55)", color: UI.ink2, fontWeight: 600,
-          }}>{lang === "ko" ? "English" : "한국어"}</motion.button>
+          }}>{tightNav ? (lang === "ko" ? "EN" : "한") : (lang === "ko" ? "English" : "한국어")}</motion.button>
           <motion.button {...navEnter(0.12)}
             whileHover={{ backgroundColor: "#fff" }} whileTap={{ scale: 0.96 }}
             onClick={() => setShowPricing(true)} className="yume-nav-pill" style={{
@@ -1919,7 +1924,7 @@ export default function YumeDashboard() {
           이름 옆 등수가 이 화면의 이유이고, 그 등수의 전체 판이 바로 옆 탭에 있다. */}
       <SidePanel
         tab={panelTab}
-        onTab={(k) => setPanelTab(k)}
+        onTab={(k) => { lastTabRef.current = k; setPanelTab(k); }}
         onClose={() => openPanel(null)}
         loggedIn={!!user}
         onNeedLogin={() => setAuthModal("login")}

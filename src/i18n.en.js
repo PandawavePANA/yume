@@ -567,4 +567,5 @@ export default {
     "Report approved",
   "운영자 조정":
     "Manual adjustment",
+  "랭킹 · 채팅": "Ranking & chat",
 };
