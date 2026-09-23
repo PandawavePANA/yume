@@ -12,10 +12,8 @@ import BusinessInfo from "@/components/yume/BusinessInfo";
 import { IS_NATIVE_APP, onNativeBack, shareLink } from "./native.js";
 import { orderPlan, resumeFromRedirect, verifyIdentity } from "./payments.js";
 import AuditModal from "./components/yume/AuditModal.jsx";
-import RankingModal from "@/components/yume/RankingModal";
-import LobbyChat from "@/components/yume/LobbyChat";
+import SidePanel, { PANEL_WIDTH } from "@/components/yume/SidePanel";
 import CheckoutPage from "@/components/yume/CheckoutPage";
-import { LOBBY_WIDTH } from "@/components/yume/LobbyChat";
 import { t, useLang } from "./i18n.js";
 import { useWideScreen } from "./useMedia.js";
 
@@ -607,31 +605,40 @@ export default function YumeDashboard() {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [showBiz, setShowBiz] = useState(false);
   const [showAudit, setShowAudit] = useState(false);
-  const [showRanking, setShowRanking] = useState(false);
   // 전체 채팅. 넓은 화면에서는 기본으로 열려 있다 — 늘 떠 있어야 등수가 눈에 들어온다.
-  // 채팅을 열어 둘지. 넓은 화면에서는 기본으로 열어 둔다 — 이름 옆 등수가 보이는 것이
-  // 이 화면의 이유라, 닫혀 있으면 아무도 순위를 신경 쓰지 않는다. 대신 본문을 덮지 않고
-  // 밀어내므로 열려 있어도 잘리는 것이 없다. 한 번 닫으면 그 선택을 기억한다.
-  const [showLobby, setShowLobby] = useState(() => {
-    if (typeof window === "undefined") return false;
+  // 오른쪽 사이드바에 무엇이 열려 있나 — null · "chat" · "rank".
+  //
+  // 예전에는 채팅은 사이드바, 랭킹은 화면 한가운데 모달이라 여는 방식이 달랐다. 둘 다
+  // "누가 얼마나 보탰나"를 말하는데, 랭킹을 보려면 화면 전체가 덮이고 하던 일이 멈췄다.
+  //
+  // 넓은 화면에서는 채팅을 기본으로 열어 둔다 — 이름 옆 등수가 보이는 것이 이 화면의
+  // 이유라, 닫혀 있으면 아무도 순위를 신경 쓰지 않는다. 대신 본문을 덮지 않고 밀어내므로
+  // 열려 있어도 잘리는 것이 없다. 한 번 닫으면 그 선택을 기억한다.
+  const [panelTab, setPanelTab] = useState(() => {
+    if (typeof window === "undefined") return null;
     try {
-      const saved = localStorage.getItem("yume:lobby");
-      if (saved === "0") return false;
-      if (saved === "1") return true;
+      const saved = localStorage.getItem("yume:panel");
+      if (saved === "0") return null;
+      if (saved === "chat" || saved === "rank") return saved;
+      // 예전 이름으로 저장해 둔 선택을 이어받는다.
+      const old = localStorage.getItem("yume:lobby");
+      if (old === "0") return null;
+      if (old === "1") return "chat";
     } catch {
       // 저장소가 막혀 있으면 화면 폭으로만 정한다.
     }
-    return window.innerWidth >= 1180;
+    return window.innerWidth >= 1180 ? "chat" : null;
   });
   // 넓은 화면에서만 본문을 민다. 좁으면 채팅이 서랍으로 덮으므로 밀 자리가 없다.
   const wideScreen = useWideScreen();
-  const lobbyPushes = showLobby && wideScreen;
+  const lobbyPushes = !!panelTab && wideScreen;
   const { lang, setLang } = useLang();
 
-  const toggleLobby = React.useCallback((next) => {
-    setShowLobby((prev) => {
-      const v = typeof next === "boolean" ? next : !prev;
-      try { localStorage.setItem("yume:lobby", v ? "1" : "0"); } catch { /* 저장 못 해도 이번 방문에는 적용된다 */ }
+  // 같은 탭을 다시 누르면 닫힌다 — 연 버튼이 닫는 버튼이기도 해야 헤매지 않는다.
+  const openPanel = React.useCallback((next) => {
+    setPanelTab((prev) => {
+      const v = prev === next ? null : next;
+      try { localStorage.setItem("yume:panel", v || "0"); } catch { /* 저장 못 해도 이번 방문에는 적용된다 */ }
       return v;
     });
   }, []);
@@ -1004,13 +1011,13 @@ export default function YumeDashboard() {
     if (authModal) { setAuthModal(null); return true; }
     if (accountTab) { setAccountTab(null); return true; }
     if (showPricing) { setShowPricing(false); return true; }
-    if (showRanking) { setShowRanking(false); return true; }
+    if (panelTab && !wideScreen) { openPanel(null); return true; }
     if (showAudit) { setShowAudit(false); return true; }
     if (showBiz) { setShowBiz(false); return true; }
     if (sidebarOpen) { setSidebarOpen(false); return true; }
     if (stage === "done") { reset(); return true; }
     return false;
-  }), [userMenuOpen, authModal, accountTab, showPricing, showBiz, showAudit, showRanking, sidebarOpen, stage]);
+  }), [userMenuOpen, authModal, accountTab, showPricing, showBiz, showAudit, panelTab, wideScreen, openPanel, sidebarOpen, stage]);
   const confirmedCount = result?.claims?.filter(c => c.verdict === "confirmed").length ?? 0;
   const totalCount = result?.claims?.length ?? 0;
   const allSources = (result?.claims || []).flatMap(c => (c.sources || []).map(s => ({ ...s, forClaim: c.text })));
@@ -1128,7 +1135,7 @@ export default function YumeDashboard() {
           예전에는 채팅이 본문 위를 덮어서, 1440px 화면에서 카드의 마지막 칸과 문단
           오른쪽이 잘린 채로 보였다. 좁은 화면에서는 채팅이 서랍으로 덮으므로 밀지 않는다. */}
       <div style={{
-        paddingRight: lobbyPushes ? LOBBY_WIDTH : 0,
+        paddingRight: lobbyPushes ? PANEL_WIDTH : 0,
         transition: "padding-right 0.32s cubic-bezier(0.22,1,0.36,1)",
       }}>
       {/* 애플식 반투명 상단 바 — 스크롤하면 유리 질감과 가는 경계선이 나타난다 */}
@@ -1163,16 +1170,17 @@ export default function YumeDashboard() {
               앱에서는 숨긴다 — 도입 상담을 하려고 앱을 깔지는 않는다. */}
           <motion.button {...navEnter(0.06)}
             whileHover={{ backgroundColor: "#fff" }} whileTap={{ scale: 0.96 }}
-            onClick={() => setShowRanking(true)} className="yume-nav-pill" style={{
-            ...pillBtn, border: `1px solid ${UI.hairline}`,
-            background: "rgba(255,255,255,0.55)", color: UI.ink2, fontWeight: 600,
+            onClick={() => openPanel("rank")} className="yume-nav-pill" style={{
+            ...pillBtn, border: `1px solid ${panelTab === "rank" ? UI.accent : UI.hairline}`,
+            background: panelTab === "rank" ? "rgba(91,63,160,0.08)" : "rgba(255,255,255,0.55)",
+            color: panelTab === "rank" ? UI.accent : UI.ink2, fontWeight: 600,
           }}>{t("랭킹")}</motion.button>
           <motion.button {...navEnter(0.07)}
             whileHover={{ backgroundColor: "#fff" }} whileTap={{ scale: 0.96 }}
-            onClick={() => toggleLobby()} className="yume-nav-pill" style={{
-            ...pillBtn, border: `1px solid ${showLobby ? UI.accent : UI.hairline}`,
-            background: showLobby ? "rgba(91,63,160,0.08)" : "rgba(255,255,255,0.55)",
-            color: showLobby ? UI.accent : UI.ink2, fontWeight: 600,
+            onClick={() => openPanel("chat")} className="yume-nav-pill" style={{
+            ...pillBtn, border: `1px solid ${panelTab === "chat" ? UI.accent : UI.hairline}`,
+            background: panelTab === "chat" ? "rgba(91,63,160,0.08)" : "rgba(255,255,255,0.55)",
+            color: panelTab === "chat" ? UI.accent : UI.ink2, fontWeight: 600,
           }}>{t("채팅")}</motion.button>
           {/* 언어. 바꿔 갈 언어를 그 언어로 적는다 — "English"라고 적혀 있으면
               한국어를 못 읽는 사람도 무슨 버튼인지 안다. "EN/KO" 같은 약자는
@@ -1907,19 +1915,13 @@ export default function YumeDashboard() {
 
       {showAudit && <AuditModal onClose={() => setShowAudit(false)} />}
 
-      {showRanking && (
-        <RankingModal
-          loggedIn={!!user}
-          onClose={() => setShowRanking(false)}
-          onNeedLogin={() => { setShowRanking(false); setAuthModal("login"); }}
-        />
-      )}
-
-      {/* 전체 채팅. 이름 옆 등수가 이 화면의 이유다. */}
-      <LobbyChat
-        open={showLobby}
+      {/* 오른쪽 사이드바 — 채팅과 랭킹이 탭으로 같이 산다.
+          이름 옆 등수가 이 화면의 이유이고, 그 등수의 전체 판이 바로 옆 탭에 있다. */}
+      <SidePanel
+        tab={panelTab}
+        onTab={(k) => setPanelTab(k)}
+        onClose={() => openPanel(null)}
         loggedIn={!!user}
-        onClose={() => toggleLobby(false)}
         onNeedLogin={() => setAuthModal("login")}
       />
 
@@ -1955,7 +1957,7 @@ export default function YumeDashboard() {
         )}
       </AnimatePresence>
 
-      <YumeChatWidget shiftRight={showLobby ? LOBBY_WIDTH + 8 : 0} />
+      <YumeChatWidget shiftRight={panelTab ? PANEL_WIDTH + 8 : 0} />
     </div>
   );
 }

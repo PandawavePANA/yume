@@ -527,4 +527,44 @@ export default {
   "확인하고":
     "Check",
   "요청을 처리하지 못했어요 ({status})": "Request failed ({status})",
+
+  // ── 랭킹 사이드바 ──────────────────────────────────────────────
+  "곧 마감":
+    "Closing soon",
+  "{n}일 남음":
+    "{n} days left",
+  "오늘 마감":
+    "Closes today",
+  "검증 횟수가 아니라 찾아낸 것에 점수를 둡니다. 랭킹과 보상은 분기마다 초기화돼요.":
+    "Points go to what you catch, not how often you check. Ranks and prizes reset each quarter.",
+  "전체 {n}위":
+    "#{n} overall",
+  "아직 점수가 없어요 — 검증을 한 번 해보세요":
+    "No points yet — run a check to start",
+  "보상":
+    "prizes",
+  "{n}위":
+    "#{n}",
+  "{a}~{b}위":
+    "#{a}–{b}",
+  "(나)":
+    "(you)",
+  "제보 점수는 운영자 확인이 끝난 뒤에 쌓입니다. 분기가 끝나면 순위가 확정되고 점수는 0부터 다시 시작해요 — 지난 기록은 그대로 남습니다.":
+    "Report points land after we review them. At the end of each quarter ranks are locked in and points restart from zero — past records stay.",
+  "검증":
+    "Checks",
+  "초대":
+    "Invites",
+  "발견":
+    "Catches",
+  "제보":
+    "Reports",
+  "친구 초대":
+    "Invited a friend",
+  "사실과 다른 주장 발견":
+    "Caught a false claim",
+  "제보 승인":
+    "Report approved",
+  "운영자 조정":
+    "Manual adjustment",
 };
