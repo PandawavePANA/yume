@@ -6,6 +6,7 @@
 import { useState } from "react";
 import { copyText } from "../../clipboard.js";
 import { apiJson, apiUrl, safeUrl } from "./api.js";
+import { t } from "../../i18n.js";
 
 const UI = {
   ink: "#1D1A24",
@@ -132,14 +133,14 @@ export default function AuditModal({ onClose }) {
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
           <div>
-            <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", color: UI.ink3, textTransform: "uppercase" }}>무료 점검</div>
+            <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", color: UI.ink3, textTransform: "uppercase" }}>{t("무료 점검")}</div>
             <h2 style={{ fontSize: 27, fontWeight: 700, letterSpacing: "-0.03em", color: UI.ink, margin: "8px 0 0" }}>
               우리 회사 AI, 거짓말을 할까?
             </h2>
           </div>
           <button
             onClick={onClose}
-            aria-label="닫기"
+            aria-label={t("닫기")}
             style={{ width: 32, height: 32, flexShrink: 0, borderRadius: 999, border: "none", background: "rgba(118,118,128,0.12)", color: UI.ink2, fontSize: 16, cursor: "pointer" }}
           >×</button>
         </div>
@@ -177,21 +178,21 @@ function Intro({ domain, setDomain, subject, setSubject, busy, onStart }) {
   return (
     <>
       <p style={{ fontSize: 15, color: UI.ink2, lineHeight: 1.65, marginTop: 14 }}>
-        유메가 <b>정답을 미리 아는 질문</b> 8개를 만들어 드립니다. 귀사에서 쓰는 AI에 그대로 넣어보고
-        답변을 붙여넣으면, 지어낸 답이 얼마나 나오는지 채점해 드립니다. <b>가입도, API 키도 필요 없습니다.</b>
+        유메가 <b>{t("정답을 미리 아는 질문")}</b> 8개를 만들어 드립니다. 귀사에서 쓰는 AI에 그대로 넣어보고
+        답변을 붙여넣으면, 지어낸 답이 얼마나 나오는지 채점해 드립니다. <b>{t("가입도, API 키도 필요 없습니다.")}</b>
       </p>
 
       <div style={{ marginTop: 18, padding: "16px 18px", borderRadius: 16, background: "#FBFAFD", border: `1px solid ${UI.hairline}` }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: UI.ink, marginBottom: 8 }}>질문은 이렇게 만듭니다</div>
+        <div style={{ fontSize: 13, fontWeight: 700, color: UI.ink, marginBottom: 8 }}>{t("질문은 이렇게 만듭니다")}</div>
         <div style={{ fontSize: 13.5, color: UI.ink2, lineHeight: 1.7 }}>
           예를 들어 “민법 제9999조를 설명해주세요” 같은 질문입니다. 짐작해서 내는 게 아니라
-          <b> 법제처 국가법령정보에서 민법 마지막 조문 번호를 확인한 뒤</b> 그보다 큰 번호를 고릅니다.
+          <b> {t("법제처 국가법령정보에서 민법 마지막 조문 번호를 확인한 뒤")}</b> 그보다 큰 번호를 고릅니다.
           존재하지 않는 게 확정된 상태라, 설명을 지어내면 그 자리에서 잡힙니다.
         </div>
       </div>
 
       <div style={{ marginTop: 22 }}>
-        <label style={{ fontSize: 13, fontWeight: 600, color: UI.ink, display: "block", marginBottom: 9 }}>어떤 분야의 AI인가요?</label>
+        <label style={{ fontSize: 13, fontWeight: 600, color: UI.ink, display: "block", marginBottom: 9 }}>{t("어떤 분야의 AI인가요?")}</label>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 8 }}>
           {DOMAINS.map(([d, hint]) => (
             <button
@@ -212,11 +213,11 @@ function Intro({ domain, setDomain, subject, setSubject, busy, onStart }) {
 
       <div style={{ marginTop: 18 }}>
         <label htmlFor="audit-subject" style={{ fontSize: 13, fontWeight: 600, color: UI.ink, display: "block", marginBottom: 8 }}>
-          점검 대상 이름 <span style={{ fontWeight: 400, color: UI.ink3 }}>(선택 — 리포트에 표시됩니다)</span>
+          점검 대상 이름 <span style={{ fontWeight: 400, color: UI.ink3 }}>{t("(선택 — 리포트에 표시됩니다)")}</span>
         </label>
         <input
           id="audit-subject" value={subject} onChange={(e) => setSubject(e.target.value)}
-          placeholder="예: ○○ 로펌 사내 법률 assistant" maxLength={120} style={field}
+          placeholder={t("예: ○○ 로펌 사내 법률 assistant")} maxLength={120} style={field}
         />
       </div>
 
@@ -260,7 +261,7 @@ function AnswerStep({ session, answers, setAnswers, filled, busy, onGrade, copy,
               id={`audit-answer-${p.id}`}
               value={answers[p.id] || ""}
               onChange={(e) => setAnswers((prev) => ({ ...prev, [p.id]: e.target.value }))}
-              placeholder="AI가 준 답변을 그대로 붙여넣으세요"
+              placeholder={t("AI가 준 답변을 그대로 붙여넣으세요")}
               rows={3}
               style={{ ...field, marginTop: 11, resize: "vertical", lineHeight: 1.6 }}
             />
@@ -272,7 +273,7 @@ function AnswerStep({ session, answers, setAnswers, filled, busy, onGrade, copy,
         <button onClick={onGrade} disabled={busy || filled === 0} style={{ ...primaryBtn, opacity: busy || filled === 0 ? 0.5 : 1 }}>
           {busy ? "채점 중… (1분쯤 걸립니다)" : `답변 ${filled}개 채점하기`}
         </button>
-        <button onClick={onBack} disabled={busy} style={{ ...ghostBtn, padding: "12px 18px", fontSize: 14 }}>처음으로</button>
+        <button onClick={onBack} disabled={busy} style={{ ...ghostBtn, padding: "12px 18px", fontSize: 14 }}>{t("처음으로")}</button>
       </div>
       <div style={{ fontSize: 12.5, color: UI.ink3, marginTop: 12, lineHeight: 1.6 }}>
         답변을 다듬거나 요약하지 마시고 원문 그대로 넣어주셔야 정확하게 채점됩니다.
@@ -304,7 +305,7 @@ function Result({ report, onRestart }) {
         </div>
       </div>
 
-      <div style={{ fontSize: 13, fontWeight: 700, color: UI.ink, marginTop: 26, marginBottom: 10 }}>유형별 결과</div>
+      <div style={{ fontSize: 13, fontWeight: 700, color: UI.ink, marginTop: 26, marginBottom: 10 }}>{t("유형별 결과")}</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
         {Object.entries(s.byType).map(([type, v]) => {
           const meta = report.method.types[type] || {};
@@ -322,14 +323,14 @@ function Result({ report, onRestart }) {
         })}
       </div>
 
-      <div style={{ fontSize: 13, fontWeight: 700, color: UI.ink, marginTop: 26, marginBottom: 10 }}>문항별 기록</div>
+      <div style={{ fontSize: 13, fontWeight: 700, color: UI.ink, marginTop: 26, marginBottom: 10 }}>{t("문항별 기록")}</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {report.results.map((r) => <ResultItem key={r.probeId} r={r} />)}
       </div>
 
       {rec.recommend ? (
         <div style={{ marginTop: 24, padding: 22, borderRadius: 18, background: "#1F1B2E", color: "#fff" }}>
-          <div style={{ fontSize: 16.5, fontWeight: 700, marginBottom: 8 }}>이 결과를 두고 드리는 제안</div>
+          <div style={{ fontSize: 16.5, fontWeight: 700, marginBottom: 8 }}>{t("이 결과를 두고 드리는 제안")}</div>
           <p style={{ margin: 0, fontSize: 14.5, color: "#CFC9DE", lineHeight: 1.65 }}>{rec.reason}</p>
           <p style={{ margin: "10px 0 0", fontSize: 14.5, color: "#CFC9DE", lineHeight: 1.65 }}>{rec.fit}</p>
           <a href={apiUrl("/docs/api")} target="_blank" rel="noopener noreferrer"
@@ -339,7 +340,7 @@ function Result({ report, onRestart }) {
         </div>
       ) : (
         <div style={{ marginTop: 24, padding: 20, borderRadius: 16, background: "#FBFAFD", border: `1px solid ${UI.hairline}`, color: UI.ink2 }}>
-          <b style={{ color: UI.ink }}>이번 점검에서는 유메를 권하지 않습니다.</b>
+          <b style={{ color: UI.ink }}>{t("이번 점검에서는 유메를 권하지 않습니다.")}</b>
           <p style={{ margin: "8px 0 0", fontSize: 14, lineHeight: 1.65 }}>{rec.reason}</p>
           {rec.note && <p style={{ margin: "8px 0 0", fontSize: 14, lineHeight: 1.65 }}>{rec.note}</p>}
         </div>
@@ -351,7 +352,7 @@ function Result({ report, onRestart }) {
             리포트 링크 열기
           </a>
         )}
-        <button onClick={onRestart} style={{ ...ghostBtn, padding: "12px 18px", fontSize: 14 }}>다시 점검하기</button>
+        <button onClick={onRestart} style={{ ...ghostBtn, padding: "12px 18px", fontSize: 14 }}>{t("다시 점검하기")}</button>
       </div>
       {report.report_url && (
         <div style={{ fontSize: 12.5, color: UI.ink3, marginTop: 10, lineHeight: 1.6 }}>
@@ -385,14 +386,14 @@ function ResultItem({ r }) {
       {(x.aiSaid || x.fact) && (
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
           <div style={box(failed ? "#FFF7F5" : "#FBFAFD", failed ? "#F3D5CE" : UI.hairline)}>
-            <div style={{ ...cap, color: failed ? m.fg : UI.ink3 }}>AI가 한 말</div>
+            <div style={{ ...cap, color: failed ? m.fg : UI.ink3 }}>{t("AI가 한 말")}</div>
             <div style={{ fontSize: 13.5, color: UI.ink, lineHeight: 1.6 }}>{x.aiSaid || "—"}</div>
             {x.quote && x.quote !== x.aiSaid && (
               <div style={{ fontSize: 12.5, color: UI.ink2, marginTop: 6, lineHeight: 1.55 }}>답변 원문: “{x.quote}”</div>
             )}
           </div>
           <div style={box("#F4FAF7", "#CFE9DC")}>
-            <div style={{ ...cap, color: "#1F7A52" }}>공식 확인 결과</div>
+            <div style={{ ...cap, color: "#1F7A52" }}>{t("공식 확인 결과")}</div>
             <div style={{ fontSize: 13.5, color: UI.ink, lineHeight: 1.6 }}>{x.fact || "—"}</div>
             {x.citations?.length > 0 && (
               <ul style={{ margin: "8px 0 0", padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 4 }}>
@@ -408,7 +409,7 @@ function ResultItem({ r }) {
             )}
             {x.original && (
               <details style={{ marginTop: 8 }}>
-                <summary style={{ fontSize: 12.5, color: UI.accent, cursor: "pointer", fontWeight: 600 }}>조문 원문 보기</summary>
+                <summary style={{ fontSize: 12.5, color: UI.accent, cursor: "pointer", fontWeight: 600 }}>{t("조문 원문 보기")}</summary>
                 <div style={{ fontSize: 12.5, color: UI.ink2, lineHeight: 1.7, marginTop: 6, whiteSpace: "pre-wrap" }}>{x.original}</div>
               </details>
             )}
@@ -423,12 +424,12 @@ function ResultItem({ r }) {
       )}
       {failed && x.risk && (
         <div style={{ marginTop: 6, fontSize: 13, color: UI.ink2, lineHeight: 1.65 }}>
-          <b style={{ color: UI.ink }}>왜 문제인가 </b>{x.risk}
+          <b style={{ color: UI.ink }}>{t("왜 문제인가")} </b>{x.risk}
         </div>
       )}
       {failed && x.correct && (
         <div style={{ marginTop: 6, fontSize: 13, color: UI.ink2, lineHeight: 1.65 }}>
-          <b style={{ color: UI.ink }}>올바른 답이었다면 </b>{x.correct}
+          <b style={{ color: UI.ink }}>{t("올바른 답이었다면")} </b>{x.correct}
         </div>
       )}
       {sourceHref && (

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { safeUrl } from "./api";
+import { t } from "../../i18n.js";
 
 // 특허 도 6 — 판정 결과 화면. 인용된 판례·법령·문헌을 찾지 못했을 때 부존재 신뢰도와
 // 그 근거(탐색 커버리지·형식오류·유사 항목), 아직 확인하지 못한 영역을 함께 보여준다.
@@ -83,7 +84,7 @@ export default function NecPanel({ nec }) {
               <Meter label="유사항목 근접도 P" value={nec.proximity?.value} hint={similar.length ? null : "가까운 실재 항목이 없어요"} />
               {similar.length > 0 && (
                 <div style={{ margin: "4px 0 10px" }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: "#141118", marginBottom: 4 }}>혹시 이것을 말한 걸까요?</div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#141118", marginBottom: 4 }}>{t("혹시 이것을 말한 걸까요?")}</div>
                   {similar.map((s, i) => (
                     <div key={i} style={{ fontSize: 12, marginBottom: 3 }}>
                       {safeUrl(s.url) ? (
@@ -102,7 +103,7 @@ export default function NecPanel({ nec }) {
               </div>
               {nec.uncovered?.length > 0 && (
                 <div style={{ marginTop: 10 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: "#141118", marginBottom: 4 }}>아직 확인하지 못한 영역</div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#141118", marginBottom: 4 }}>{t("아직 확인하지 못한 영역")}</div>
                   {nec.uncovered.map((u, i) => (
                     <div key={i} style={{ fontSize: 12, marginBottom: 6 }}>
                       <div>{u.area}</div>

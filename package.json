@@ -18,7 +18,8 @@
     "test:legal": "node server/legalPipeline.test.js",
     "test:accuracy": "node server/tests/accuracy.js",
     "test": "node --test \"server/tests/*.test.js\"",
-    "cap:sync": "cap sync"
+    "cap:sync": "cap sync",
+    "i18n:check": "node scripts/i18n-check.mjs"
   },
   "dependencies": {
     "@capacitor/app": "^8.1.1",

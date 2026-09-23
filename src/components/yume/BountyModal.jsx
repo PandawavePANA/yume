@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { apiJson } from "./api";
+import { t } from "../../i18n.js";
 
 // 존재하지 않는 인용을 찾았을 때 제보하는 창.
 //
@@ -97,11 +98,11 @@ export default function BountyModal({ verificationId, claimIdx, claim, reportPoi
         initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.22 }}
         style={{ width: "min(480px, 100%)", background: "#fff", borderRadius: 20, padding: 26, boxShadow: "0 20px 60px rgba(75,55,120,0.22)", position: "relative" }}
       >
-        <button onClick={onClose} aria-label="닫기" style={{ position: "absolute", top: 14, right: 16, border: "none", background: "transparent", color: "#9C8FC2", fontSize: 18, cursor: "pointer" }}>×</button>
+        <button onClick={onClose} aria-label={t("닫기")} style={{ position: "absolute", top: 14, right: 16, border: "none", background: "transparent", color: "#9C8FC2", fontSize: 18, cursor: "pointer" }}>×</button>
 
         {done ? (
           <>
-            <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>제보 접수했어요</div>
+            <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>{t("제보 접수했어요")}</div>
             <div style={{ fontSize: 13, color: "#5B5470", lineHeight: 1.7, marginBottom: 18 }}>
               공유 링크를 확인한 뒤 공헌도 점수를 드립니다. 결과는 랭킹 → 내 적립 내역에서 볼 수 있어요.
             </div>
@@ -111,23 +112,23 @@ export default function BountyModal({ verificationId, claimIdx, claim, reportPoi
           </>
         ) : (
           <>
-            <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>제보하고 공헌도 받기</div>
+            <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>{t("제보하고 공헌도 받기")}</div>
             <div style={{ fontSize: 12.5, color: "#A99BC9", marginBottom: 16 }}>확인되면 공헌도 {reportPoints.toLocaleString()}점을 드려요 · 분기 랭킹에 반영됩니다</div>
 
             <div style={{ background: "#FBF8FF", border: "1px solid #EDE3FA", borderRadius: 12, padding: "12px 14px", marginBottom: 16 }}>
-              <div style={{ fontSize: 11.5, color: "#8577A8", fontWeight: 600, marginBottom: 4 }}>제보할 인용</div>
+              <div style={{ fontSize: 11.5, color: "#8577A8", fontWeight: 600, marginBottom: 4 }}>{t("제보할 인용")}</div>
               <div style={{ fontSize: 13, fontWeight: 600, color: "#4E3391" }}>{claim?.nec?.identifier?.value || claim?.nec?.identifier?.canonical}</div>
               <div style={{ fontSize: 12, color: "#6E6389", marginTop: 4, lineHeight: 1.6 }}>{claim?.text}</div>
             </div>
 
-            <label style={{ fontSize: 12, color: "#6E6389", fontWeight: 600 }}>어느 AI의 답변이었나요?</label>
+            <label style={{ fontSize: 12, color: "#6E6389", fontWeight: 600 }}>{t("어느 AI의 답변이었나요?")}</label>
             <select value={platform} onChange={(e) => setPlatform(e.target.value)} style={box}>
               {platforms.map((p) => (
                 <option key={p.key} value={p.key}>{p.label}</option>
               ))}
             </select>
 
-            <label style={{ fontSize: 12, color: "#6E6389", fontWeight: 600, display: "block", marginTop: 14 }}>대화 공유 링크</label>
+            <label style={{ fontSize: 12, color: "#6E6389", fontWeight: 600, display: "block", marginTop: 14 }}>{t("대화 공유 링크")}</label>
             <input value={shareUrl} onChange={(e) => setShareUrl(e.target.value)} placeholder={`https://${host}/share/...`} style={box} />
             <div style={{ fontSize: 11.5, color: "#A99BC9", lineHeight: 1.6, marginTop: 6 }}>
               해당 AI에서 대화를 공유하기로 만든 링크가 필요해요. 링크가 있어야 그 AI가 실제로 한 말인지 확인할 수 있고,
@@ -136,7 +137,7 @@ export default function BountyModal({ verificationId, claimIdx, claim, reportPoi
 
             <label style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 12.5, color: "#5B5470", lineHeight: 1.6, marginTop: 14, cursor: "pointer" }}>
               <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} style={{ marginTop: 2 }} />
-              <span>제보한 인용과 판정 내용을 유메가 할루시네이션 데이터로 활용하는 데 동의합니다.</span>
+              <span>{t("제보한 인용과 판정 내용을 유메가 할루시네이션 데이터로 활용하는 데 동의합니다.")}</span>
             </label>
 
             {err && <div style={{ fontSize: 12.5, color: "#C6402F", background: "#FBE9E7", borderRadius: 10, padding: "8px 12px", marginTop: 12 }}>{err}</div>}

@@ -82,23 +82,80 @@ export function periodEndsAt(at = Date.now()) {
   return Date.UTC(kst.getUTCFullYear(), (q + 1) * 3, 1) - 9 * 60 * 60 * 1000;
 }
 
-// 분기 보상. 1~3위는 물건이라 운영자가 직접 보내고, 4~10위는 크레딧이라 마감할 때
-// 지급된다. 서버가 물건을 사거나 돈을 보내는 일은 없다.
-// 크레딧 보상은 정가(600원)를 기준으로 다시 잡았다. 100/40이던 값은 분기마다
-// 400 크레딧, 즉 **84,000원의 원가**가 나가는 구조였다 — 골드바 세 개보다 이쪽이 더 컸다.
-// 30/15면 분기 135 크레딧(원가 28,350원)이고, 정가로는 4~5위 18,000원 · 6~10위 9,000원어치라
-// 상으로서의 무게는 오히려 또렷해진다.
+// 분기 보상.
+//
+// 물건은 **사람이 모인 다음에** 건다. 골드바를 처음부터 걸면 상금이 서비스보다 커진다 —
+// 분기 활성 30명일 때 한 돈짜리를 주는 것은 마케팅이 아니라 그냥 손해다. 그래서 가입자
+// 수에 따라 상을 올린다. 상이 오르는 조건 자체가 사람들이 남을 이유가 되기도 한다.
+//
+//   1,000명 미만 — 크레딧만. 상은 작지만 운영 원가가 확실히 회수된다.
+//   1,000명    — 1위에게 미니 골드바(1g). 여기서부터 "물건이 걸린 랭킹"이 된다.
+//   10,000명   — 1위 골드바(3.75g, 한 돈), 2~3위 미니 골드바(1g).
+//
+// 물건은 운영자가 직접 보낸다. 서버가 물건을 사거나 돈을 보내는 일은 없고, 크레딧과
+// 골드바 사이에 교환 비율을 두지도 않는다 — 그 순간 크레딧이 선불전자지급수단이 된다.
+//
 // 크레딧 보상은 월 지급량에 맞춘다. 예전 값(4~5위 1,000 / 6~10위 300)은 지급량이
 // 스탠다드 3,000이던 시절에 정한 것이라, 지금 기준으로는 전문가 요금제 1년치를
 // 분기마다 열 명에게 뿌리는 셈이 된다. 상은 눈에 띄어야 하지만 원가를 넘으면 안 된다.
-export const QUARTER_REWARDS = [
-  { from: 1, to: 1, kind: "goldbar", label: "미니 골드바 3.75g (한 돈)", credits: 0 },
-  { from: 2, to: 3, kind: "goldbar", label: "미니 골드바 1g", credits: 0 },
-  { from: 4, to: 5, kind: "credits", label: "30 크레딧", credits: 30 },
-  { from: 6, to: 10, kind: "credits", label: "15 크레딧", credits: 15 },
+export const REWARD_TIERS = [
+  {
+    minUsers: 10000,
+    key: "gold",
+    rewards: [
+      { from: 1, to: 1, kind: "goldbar", label: "골드바 3.75g (한 돈)", credits: 0 },
+      { from: 2, to: 3, kind: "goldbar", label: "미니 골드바 1g", credits: 0 },
+      { from: 4, to: 5, kind: "credits", label: "30 크레딧", credits: 30 },
+      { from: 6, to: 10, kind: "credits", label: "15 크레딧", credits: 15 },
+    ],
+  },
+  {
+    minUsers: 1000,
+    key: "mini",
+    rewards: [
+      { from: 1, to: 1, kind: "goldbar", label: "미니 골드바 1g", credits: 0 },
+      { from: 2, to: 3, kind: "credits", label: "30 크레딧", credits: 30 },
+      { from: 4, to: 10, kind: "credits", label: "15 크레딧", credits: 15 },
+    ],
+  },
+  {
+    minUsers: 0,
+    key: "credits",
+    rewards: [
+      { from: 1, to: 1, kind: "credits", label: "50 크레딧", credits: 50 },
+      { from: 2, to: 3, kind: "credits", label: "30 크레딧", credits: 30 },
+      { from: 4, to: 10, kind: "credits", label: "15 크레딧", credits: 15 },
+    ],
+  },
 ];
 
-export const rewardForRank = (rank) => QUARTER_REWARDS.find((r) => rank >= r.from && rank <= r.to) || null;
+/** 가입자 수를 센다. 탈퇴한 계정은 빼고 센다 — 상을 걸 대상이 아니다. */
+export async function userCount() {
+  const row = await one("SELECT COUNT(*) AS n FROM users WHERE status = 'active'");
+  return Number(row?.n || 0);
+}
+
+/** 이 가입자 수에서 걸리는 상. 위에서부터 먼저 걸리는 것을 쓴다. */
+export function rewardTierFor(users) {
+  return REWARD_TIERS.find((tier) => users >= tier.minUsers) || REWARD_TIERS[REWARD_TIERS.length - 1];
+}
+
+/** 다음 단계까지 얼마나 남았나. 화면에 "몇 명 더 모이면 골드바"를 적는 데 쓴다. */
+export function nextRewardTier(users) {
+  // 조건이 큰 순서로 늘어서 있으므로, 아직 못 넘은 것 중 가장 낮은 것이 다음 단계다.
+  const ahead = REWARD_TIERS.filter((tier) => users < tier.minUsers);
+  if (!ahead.length) return null;
+  const next = ahead[ahead.length - 1];
+  return { ...next, remaining: next.minUsers - users };
+}
+
+// 가입자 수를 모를 때 보여 줄 기본값. 화면이 서버를 못 불렀을 때도 무언가는 적혀야 한다.
+export const QUARTER_REWARDS = REWARD_TIERS[REWARD_TIERS.length - 1].rewards;
+
+export function rewardForRank(rank, users = null) {
+  const list = users == null ? QUARTER_REWARDS : rewardTierFor(users).rewards;
+  return list.find((r) => rank >= r.from && rank <= r.to) || null;
+}
 
 // 기본은 이번 분기 점수다. 랭킹이 분기마다 초기화되므로 화면의 "내 점수"도 같은
 // 기준이어야 한다. 누적 전체가 필요하면 period에 null을 넘긴다.
@@ -220,9 +277,13 @@ export async function contributionStats() {
 // 같은 분기를 두 번 마감해도 상은 한 번만 나간다(period+user 유니크, 크레딧은 ref).
 export async function settleQuarter(period) {
   const board = await leaderboard(10, period);
+  // 마감하는 시점의 가입자 수로 상을 정하고, 그 값을 결과에 함께 남긴다. 나중에
+  // "왜 그때는 골드바가 아니었나"를 물으면 답할 수 있어야 한다.
+  const users = await userCount();
+  const tier = rewardTierFor(users);
   const settled = [];
   for (const row of board) {
-    const reward = rewardForRank(row.rank);
+    const reward = rewardForRank(row.rank, users);
     if (!reward) continue;
     const ins = await run(
       `INSERT INTO quarter_awards (period, user_id, rank, points, reward_kind, reward_label, credits, status, created_at)
@@ -249,7 +310,7 @@ export async function settleQuarter(period) {
     }
     settled.push({ rank: row.rank, name: row.name, points: row.points, reward: reward.label, kind: reward.kind });
   }
-  return { period, settled };
+  return { period, settled, users, tier: tier.key };
 }
 
 export function listQuarterAwards(period) {

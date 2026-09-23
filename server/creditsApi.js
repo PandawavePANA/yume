@@ -4,7 +4,7 @@ import { requireUser } from "./auth.js";
 import { audit } from "./audit.js";
 import { clientIp, createLimiter, limitMiddleware } from "./security.js";
 import { CREDIT_KRW, CREDIT_PACKS, PLAN_CREDITS, balance, ensureMonthlyGrant, listLedger, listUserCreditRequests, requestCreditPack } from "./credits.js";
-import { POINTS, QUARTER_REWARDS, RANK_TIERS, leaderboard, listLedger as listContribLedger, periodEndsAt, periodOf, rankOf, handleFor } from "./contribution.js";
+import { POINTS, RANK_TIERS, leaderboard, listLedger as listContribLedger, nextRewardTier, periodEndsAt, periodOf, rankOf, handleFor, rewardTierFor, userCount } from "./contribution.js";
 import { PLANS, effectivePlan } from "./usageStore.js";
 import { listUserBounties, submitBounty } from "./bounty.js";
 import { PLATFORMS } from "./shareLink.js";
@@ -50,6 +50,11 @@ router.get("/credits", async (req, res) => {
 // 공헌도 — 내 점수·순위와 전체 랭킹. 크레딧과 완전히 다른 값이라 응답도 따로 준다.
 router.get("/contribution", async (req, res) => {
   const me = await rankOf(req.user.id);
+  // 상은 가입자 수에 따라 올라간다. 지금 걸린 상이 무엇이고 다음 단계가 얼마나
+  // 남았는지를 함께 내려 준다 — 남은 인원이 보이면 그 자체가 데려올 이유가 된다.
+  const users = await userCount();
+  const tier = rewardTierFor(users);
+  const next = nextRewardTier(users);
   res.json({
     points: me.points,
     rank: me.rank,
@@ -58,7 +63,10 @@ router.get("/contribution", async (req, res) => {
     scoring: POINTS,
     period: periodOf(),
     periodEndsAt: periodEndsAt(),
-    rewards: QUARTER_REWARDS.map((r) => ({ from: r.from, to: r.to, kind: r.kind, label: r.label })),
+    rewards: tier.rewards.map((r) => ({ from: r.from, to: r.to, kind: r.kind, label: r.label })),
+    rewardTier: tier.key,
+    users,
+    nextTier: next && { key: next.key, minUsers: next.minUsers, remaining: next.remaining, rewards: next.rewards.map((r) => ({ from: r.from, to: r.to, kind: r.kind, label: r.label })) },
     ledger: await listContribLedger(req.user.id, 30),
     leaderboard: await leaderboard(50),
   });

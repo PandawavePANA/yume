@@ -16,6 +16,7 @@ import { useEffect, useState } from "react";
 import BusinessInfo from "@/components/yume/BusinessInfo";
 import { apiJson } from "./api";
 import { startCheckout } from "../../payments.js";
+import { t } from "../../i18n.js";
 
 const UI = {
   ink: "#141118", ink2: "#54505E", ink3: "#8B8694",
@@ -72,10 +73,10 @@ export default function CheckoutPage({ order, user, onClose, onDone }) {
         <button onClick={onClose} disabled={busy} style={{
           border: "none", background: "transparent", color: UI.ink2, fontSize: 14,
           cursor: busy ? "not-allowed" : "pointer", padding: "6px 0", marginBottom: 10,
-        }}>← 돌아가기</button>
+        }}>{t("← 돌아가기")}</button>
 
         <div style={{ background: "#fff", border: `1px solid ${UI.line}`, borderRadius: 14, padding: "24px 22px" }}>
-          <div style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: "0.08em", color: UI.accent }}>결제</div>
+          <div style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: "0.08em", color: UI.accent }}>{t("결제")}</div>
           <h1 style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.02em", margin: "6px 0 0", color: UI.ink }}>
             {order?.orderName}
           </h1>
@@ -84,7 +85,7 @@ export default function CheckoutPage({ order, user, onClose, onDone }) {
             display: "flex", justifyContent: "space-between", alignItems: "baseline",
             marginTop: 18, paddingTop: 16, borderTop: `1px solid ${UI.line}`,
           }}>
-            <span style={{ fontSize: 14, color: UI.ink2 }}>결제 금액</span>
+            <span style={{ fontSize: 14, color: UI.ink2 }}>{t("결제 금액")}</span>
             <span style={{ fontSize: 26, fontWeight: 700, color: UI.ink, letterSpacing: "-0.02em",
               fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace', fontVariantNumeric: "tabular-nums" }}>{won(order?.totalAmount)}</span>
           </div>
@@ -94,19 +95,19 @@ export default function CheckoutPage({ order, user, onClose, onDone }) {
           </div>
 
           <div style={{ marginTop: 20, paddingTop: 18, borderTop: `1px solid ${UI.line}` }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: UI.ink }}>구매자 정보</div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: UI.ink }}>{t("구매자 정보")}</div>
             <div style={{ fontSize: 12.5, color: UI.ink3, marginTop: 5, lineHeight: 1.6 }}>
               카드사 확인에 쓰입니다. 영수증은 가입하신 이메일로 갑니다.
             </div>
 
-            <label style={label} htmlFor="co-name">이름</label>
-            <input id="co-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="홍길동" style={input} autoComplete="name" />
+            <label style={label} htmlFor="co-name">{t("이름")}</label>
+            <input id="co-name" value={name} onChange={(e) => setName(e.target.value)} placeholder={t("홍길동")} style={input} autoComplete="name" />
 
-            <label style={label} htmlFor="co-phone">휴대폰 번호</label>
+            <label style={label} htmlFor="co-phone">{t("휴대폰 번호")}</label>
             <input id="co-phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="010-1234-5678"
               inputMode="numeric" autoComplete="tel" style={input} />
 
-            <label style={label} htmlFor="co-email">이메일</label>
+            <label style={label} htmlFor="co-email">{t("이메일")}</label>
             {/* 영수증이 계정이 아닌 곳으로 가면 안 되므로 계정 이메일로 고정한다. */}
             <input id="co-email" value={order?.customer?.email || user?.email || ""} readOnly
               style={{ ...input, background: "#F5F2ED", color: UI.ink3 }} />
@@ -119,8 +120,8 @@ export default function CheckoutPage({ order, user, onClose, onDone }) {
             <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} style={{ marginTop: 3 }} />
             <span>
               위 결제 내용을 확인했으며,{" "}
-              <a href="/refund" target="_blank" rel="noreferrer" style={{ color: UI.accent }}>환불정책</a>과{" "}
-              <a href="/terms" target="_blank" rel="noreferrer" style={{ color: UI.accent }}>이용약관</a>에 동의합니다.
+              <a href="/refund" target="_blank" rel="noreferrer" style={{ color: UI.accent }}>{t("환불정책")}</a>과{" "}
+              <a href="/terms" target="_blank" rel="noreferrer" style={{ color: UI.accent }}>{t("이용약관")}</a>에 동의합니다.
             </span>
           </label>
 

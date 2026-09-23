@@ -454,7 +454,45 @@ test("분기가 다르면 점수가 랭킹에 잡히지 않는다", async () => 
   assert.equal((await contribution.leaderboard(50, "1999-Q1")).find((r) => r.userId === id).points, 400);
 });
 
-test("분기 마감 — 4~10위는 크레딧이 들어가고, 1~3위는 보낼 목록만 남는다", async () => {
+// 상은 가입자 수에 따라 올라간다. 사람이 적을 때 골드바가 나가면 상금이 서비스보다
+// 커지므로, 문턱을 넘기 전에는 크레딧만 나가야 한다.
+test("가입자가 적으면 골드바가 걸리지 않는다", () => {
+  assert.equal(contribution.rewardTierFor(0).key, "credits");
+  assert.equal(contribution.rewardTierFor(999).key, "credits");
+  assert.equal(contribution.rewardForRank(1, 999).kind, "credits", "999명일 때 1위는 크레딧");
+});
+
+test("1,000명을 넘으면 1위에게만 미니 골드바가 걸린다", () => {
+  assert.equal(contribution.rewardTierFor(1000).key, "mini");
+  const first = contribution.rewardForRank(1, 1000);
+  assert.equal(first.kind, "goldbar");
+  assert.match(first.label, /미니 골드바/);
+  // 2위부터는 아직 크레딧이다. 한 명에게만 걸어야 1위 자리를 두고 다툰다.
+  assert.equal(contribution.rewardForRank(2, 1000).kind, "credits");
+  assert.equal(contribution.rewardForRank(3, 5000).kind, "credits");
+});
+
+test("10,000명을 넘으면 1위 골드바, 2~3위 미니 골드바", () => {
+  assert.equal(contribution.rewardTierFor(10000).key, "gold");
+  const first = contribution.rewardForRank(1, 10000);
+  assert.equal(first.kind, "goldbar");
+  assert.match(first.label, /^골드바/, "1위는 미니가 아닌 골드바");
+  assert.equal(contribution.rewardForRank(2, 10000).kind, "goldbar");
+  assert.equal(contribution.rewardForRank(3, 10000).kind, "goldbar");
+  assert.equal(contribution.rewardForRank(4, 10000).kind, "credits");
+});
+
+test("다음 단계까지 몇 명 남았는지 알려 준다", () => {
+  assert.equal(contribution.nextRewardTier(0).minUsers, 1000);
+  assert.equal(contribution.nextRewardTier(0).remaining, 1000);
+  assert.equal(contribution.nextRewardTier(400).remaining, 600);
+  // 문턱을 막 넘은 직후에는 그 다음 문턱을 가리켜야 한다.
+  assert.equal(contribution.nextRewardTier(1000).minUsers, 10000);
+  assert.equal(contribution.nextRewardTier(1000).remaining, 9000);
+  assert.equal(contribution.nextRewardTier(10000), null, "끝까지 갔으면 다음이 없다");
+});
+
+test("분기 마감 — 4~10위는 크레딧이 들어가고, 물건은 보낼 목록만 남는다", async () => {
   const period = "2098-Q1";
   const ids = [];
   for (let i = 0; i < 6; i += 1) {
@@ -466,16 +504,32 @@ test("분기 마감 — 4~10위는 크레딧이 들어가고, 1~3위는 보낼 �
   const before = await Promise.all(ids.map((id) => credits.balance(id)));
   const r = await contribution.settleQuarter(period);
   assert.equal(r.settled.length, 6);
-  assert.equal(r.settled[0].kind, "goldbar", "1위는 물건");
+  // 시험용 DB에는 사람이 몇 없으므로 첫 단계(크레딧)가 걸린다. 마감 결과에 그때의
+  // 가입자 수와 단계가 함께 남아야, 나중에 "왜 골드바가 아니었나"에 답할 수 있다.
+  assert.equal(r.tier, "credits");
+  assert.equal(typeof r.users, "number");
+  assert.equal(r.settled[0].kind, "credits", "문턱 전에는 1위도 크레딧");
   assert.equal(r.settled[3].kind, "credits", "4위는 크레딧");
 
   const after = await Promise.all(ids.map((id) => credits.balance(id)));
-  assert.equal(after[0], before[0], "골드바 수상자에게 크레딧이 들어가면 안 된다");
-  assert.equal(after[3] - before[3], contribution.rewardForRank(4).credits, "4위 크레딧 지급");
-  assert.equal(after[5] - before[5], contribution.rewardForRank(6).credits, "6위 크레딧 지급");
+  assert.equal(after[0] - before[0], contribution.rewardForRank(1, r.users).credits, "1위 크레딧 지급");
+  assert.equal(after[3] - before[3], contribution.rewardForRank(4, r.users).credits, "4위 크레딧 지급");
+  assert.equal(after[5] - before[5], contribution.rewardForRank(6, r.users).credits, "6위 크레딧 지급");
 
   // 두 번 마감해도 상은 한 번만
   const again = await contribution.settleQuarter(period);
   assert.equal(again.settled.length, 0);
   assert.equal(await credits.balance(ids[3]), after[3]);
+});
+
+test("크레딧과 골드바 사이에 교환 비율을 두지 않는다", () => {
+  // 크레딧을 골드바로 바꿀 수 있게 되는 순간 크레딧은 선불전자지급수단이 되고,
+  // 전자금융거래법의 등록 대상이 된다. 상은 등수에 걸리는 것이지 사는 것이 아니다.
+  for (const tier of contribution.REWARD_TIERS) {
+    for (const r of tier.rewards) {
+      if (r.kind === "goldbar") {
+        assert.equal(r.credits, 0, "물건 상에는 크레딧 값이 붙으면 안 된다");
+      }
+    }
+  }
 });

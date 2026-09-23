@@ -8,6 +8,7 @@
 // 모바일 앱은 스크롤 끝까지 가야 푸터가 보이므로 사이드 메뉴에도 같은 블록을 둔다.
 // 심사 필수 항목은 다섯 개다 — 상호명, 사업자번호, 대표자명, 사업장주소지, 전화번호.
 import { BUSINESS, telHref, businessLine } from "@/businessInfo";
+import { t } from "../../i18n.js";
 
 export default function BusinessInfo({ compact = false, style = {} }) {
   const size = compact ? 11 : 11.5;
@@ -43,10 +44,10 @@ export default function BusinessInfo({ compact = false, style = {} }) {
         이메일 <a href={`mailto:${BUSINESS.email}`} style={{ color: "#A99BC9", textDecoration: "none" }}>{BUSINESS.email}</a>
       </div>
       <div style={{ marginTop: 6, display: "flex", gap: 10, flexWrap: "wrap" }}>
-        <a href="/terms" target="_blank" rel="noopener noreferrer" style={{ color: "#8577A8", textDecoration: "none" }}>이용약관</a>
-        <a href="/privacy" target="_blank" rel="noopener noreferrer" style={{ color: "#8577A8", textDecoration: "none" }}>개인정보처리방침</a>
-        <a href="/refund" target="_blank" rel="noopener noreferrer" style={{ color: "#8577A8", textDecoration: "none", fontWeight: 600 }}>환불정책</a>
-        <a href="/products" target="_blank" rel="noopener noreferrer" style={{ color: "#8577A8", textDecoration: "none" }}>상품 안내</a>
+        <a href="/terms" target="_blank" rel="noopener noreferrer" style={{ color: "#8577A8", textDecoration: "none" }}>{t("이용약관")}</a>
+        <a href="/privacy" target="_blank" rel="noopener noreferrer" style={{ color: "#8577A8", textDecoration: "none" }}>{t("개인정보처리방침")}</a>
+        <a href="/refund" target="_blank" rel="noopener noreferrer" style={{ color: "#8577A8", textDecoration: "none", fontWeight: 600 }}>{t("환불정책")}</a>
+        <a href="/products" target="_blank" rel="noopener noreferrer" style={{ color: "#8577A8", textDecoration: "none" }}>{t("상품 안내")}</a>
       </div>
     </address>
   );

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { apiJson } from "./api";
+import { t } from "../../i18n.js";
 
 // 공헌도 랭킹 보드.
 //
@@ -56,20 +57,20 @@ export default function RankingModal({ onClose, onNeedLogin, loggedIn }) {
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 6 }}>
           <div>
-            <div style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: "0.1em", color: UI.ink3, textTransform: "uppercase" }}>공헌도 랭킹</div>
-            <h2 style={{ fontSize: 25, fontWeight: 700, letterSpacing: "-0.03em", color: UI.ink, margin: "8px 0 0" }}>가장 많이 찾아낸 사람들</h2>
+            <div style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: "0.1em", color: UI.ink3, textTransform: "uppercase" }}>{t("공헌도 랭킹")}</div>
+            <h2 style={{ fontSize: 25, fontWeight: 700, letterSpacing: "-0.03em", color: UI.ink, margin: "8px 0 0" }}>{t("가장 많이 찾아낸 사람들")}</h2>
           </div>
-          <button onClick={onClose} aria-label="닫기" style={{ width: 32, height: 32, flexShrink: 0, borderRadius: 999, border: "none", background: "rgba(118,118,128,0.12)", color: UI.ink2, fontSize: 16, cursor: "pointer" }}>×</button>
+          <button onClick={onClose} aria-label={t("닫기")} style={{ width: 32, height: 32, flexShrink: 0, borderRadius: 999, border: "none", background: "rgba(118,118,128,0.12)", color: UI.ink2, fontSize: 16, cursor: "pointer" }}>×</button>
         </div>
 
         <p style={{ fontSize: 13.5, color: UI.ink2, lineHeight: 1.7, margin: "10px 0 0" }}>
-          AI가 지어낸 걸 찾아내 알려주실수록 유메가 정확해집니다. 그래서 검증 횟수가 아니라 <b>찾아낸 것</b>에 점수를 둡니다.
-          랭킹과 보상은 <b>분기마다 초기화</b>돼요.
+          AI가 지어낸 걸 찾아내 알려주실수록 유메가 정확해집니다. 그래서 검증 횟수가 아니라 <b>{t("찾아낸 것")}</b>에 점수를 둡니다.
+          랭킹과 보상은 <b>{t("분기마다 초기화")}</b>돼요.
         </p>
 
         {!loggedIn ? (
           <div style={{ marginTop: 20, padding: 20, borderRadius: 16, background: "#FBF8FF", border: `1px solid ${UI.hairline}`, textAlign: "center" }}>
-            <div style={{ fontSize: 14, color: UI.ink2, marginBottom: 14 }}>랭킹은 로그인하면 볼 수 있어요.</div>
+            <div style={{ fontSize: 14, color: UI.ink2, marginBottom: 14 }}>{t("랭킹은 로그인하면 볼 수 있어요.")}</div>
             <button onClick={onNeedLogin} style={{ padding: "11px 22px", borderRadius: 999, border: "none", background: UI.accent, color: "#fff", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>
               로그인하기
             </button>
@@ -77,7 +78,7 @@ export default function RankingModal({ onClose, onNeedLogin, loggedIn }) {
         ) : error ? (
           <div style={{ marginTop: 20, fontSize: 13.5, color: "#C6402F" }}>{error}</div>
         ) : !data ? (
-          <div style={{ marginTop: 20, fontSize: 13.5, color: UI.ink3 }}>불러오는 중…</div>
+          <div style={{ marginTop: 20, fontSize: 13.5, color: UI.ink3 }}>{t("불러오는 중…")}</div>
         ) : (
           <>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginTop: 20 }}>
@@ -100,10 +101,32 @@ export default function RankingModal({ onClose, onNeedLogin, loggedIn }) {
                   <span style={{ fontWeight: 600, color: r.kind === "goldbar" ? "#8A5A14" : UI.accent }}>{r.label}</span>
                 </div>
               ))}
+              {/* 다음 단계까지 남은 인원. 이게 이 화면에서 가장 센 문장이다 —
+                  "몇 명만 더 오면 상이 올라간다"는 사람을 데려올 이유가 되고,
+                  데려온 사람이 또 순위를 다툰다. 남은 수를 숨기면 그 고리가 끊긴다. */}
+              {data.nextTier && (
+                <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid rgba(20,17,24,0.08)" }}>
+                  <div style={{ fontSize: 12, color: "#8A5A14", fontWeight: 700, marginBottom: 6 }}>
+                    {t("{n}명 더 모이면 상이 올라갑니다", { n: data.nextTier.remaining.toLocaleString() })}
+                  </div>
+                  <div style={{ height: 5, borderRadius: 999, background: "rgba(138,90,20,0.14)", overflow: "hidden" }}>
+                    <div style={{
+                      width: Math.max(2, Math.min(100, Math.round((data.users / data.nextTier.minUsers) * 100))) + "%",
+                      height: "100%", borderRadius: 999,
+                      background: "linear-gradient(90deg,#D9A441,#8A5A14)", transition: "width 0.5s ease",
+                    }} />
+                  </div>
+                  <div style={{ marginTop: 6, fontSize: 11.5, color: UI.ink3, fontVariantNumeric: "tabular-nums" }}>
+                    {t("가입 {a}명 / {b}명", { a: data.users.toLocaleString(), b: data.nextTier.minUsers.toLocaleString() })}
+                    {" · "}
+                    {t("1위 {label}", { label: data.nextTier.rewards[0]?.label || "" })}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div style={{ marginTop: 12, padding: "16px 18px", borderRadius: 16, background: "linear-gradient(135deg,#F3EBFF,#EDE4FC)" }}>
-              <div style={{ fontSize: 12, color: "#6E6389", fontWeight: 600 }}>내 공헌도</div>
+              <div style={{ fontSize: 12, color: "#6E6389", fontWeight: 600 }}>{t("내 공헌도")}</div>
               <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
                 <span style={{ fontSize: 28, fontWeight: 800, color: "#4E3391", letterSpacing: "-0.02em", fontVariantNumeric: "tabular-nums" }}>
                   {data.points.toLocaleString()}점
@@ -115,9 +138,9 @@ export default function RankingModal({ onClose, onNeedLogin, loggedIn }) {
               </div>
             </div>
 
-            <div style={{ fontSize: 13, fontWeight: 700, color: UI.ink, margin: "22px 0 8px" }}>전체 랭킹</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: UI.ink, margin: "22px 0 8px" }}>{t("전체 랭킹")}</div>
             {data.leaderboard.length === 0 ? (
-              <div style={{ fontSize: 13, color: UI.ink3 }}>아직 순위가 없어요. 첫 번째가 되어보세요.</div>
+              <div style={{ fontSize: 13, color: UI.ink3 }}>{t("아직 순위가 없어요. 첫 번째가 되어보세요.")}</div>
             ) : (
               data.leaderboard.map((r) => {
                 const mine = r.name === data.name;
@@ -151,7 +174,7 @@ export default function RankingModal({ onClose, onNeedLogin, loggedIn }) {
 
             {data.ledger.length > 0 && (
               <>
-                <div style={{ fontSize: 13, fontWeight: 700, color: UI.ink, margin: "22px 0 8px" }}>내 적립 내역</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: UI.ink, margin: "22px 0 8px" }}>{t("내 적립 내역")}</div>
                 {data.ledger.slice(0, 12).map((l) => (
                   <div key={l.id} style={{ display: "flex", justifyContent: "space-between", gap: 10, fontSize: 12.5, padding: "7px 0", borderBottom: `1px solid ${UI.hairline}` }}>
                     <span style={{ color: UI.ink2, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
