@@ -10,6 +10,7 @@ import { apiJson, safeUrl, CONTACT_EMAIL } from "@/components/yume/api";
 import { BUSINESS, telHref, COPYRIGHT, businessLine } from "@/businessInfo";
 import BusinessInfo from "@/components/yume/BusinessInfo";
 import { IS_NATIVE_APP, onNativeBack, shareLink } from "./native.js";
+import { IS_STORE_BUILD } from "./storeBuild.js";
 import { orderPlan, resumeFromRedirect, verifyIdentity } from "./payments.js";
 import AuditModal from "./components/yume/AuditModal.jsx";
 import SidePanel, { PANEL_WIDTH } from "@/components/yume/SidePanel";
@@ -1799,7 +1800,7 @@ export default function YumeDashboard() {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
               <div>
                 <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: "-0.03em", color: UI.ink }}>{t("요금제")}</div>
-                <div style={{ fontSize: 14, color: UI.ink2, marginTop: 4 }}>{IS_NATIVE_APP
+                <div style={{ fontSize: 14, color: UI.ink2, marginTop: 4 }}>{IS_NATIVE_APP || IS_STORE_BUILD
                   ? t("앱에서는 무료 플랜을 이용할 수 있어요. 유료 플랜은 준비 중이에요.")
                   : payCfg?.payment
                     ? t("카드로 바로 결제하고 1개월 동안 이용하실 수 있어요. 자동 갱신되지 않습니다.")
@@ -1832,7 +1833,7 @@ export default function YumeDashboard() {
                         color: UI.accent, fontSize: 14, fontWeight: 600, cursor: "pointer",
                       }}>{t("무료로 가입하기")}</button>
                     )
-                  ) : IS_NATIVE_APP ? (
+                  ) : IS_NATIVE_APP || IS_STORE_BUILD ? (
                     // 앱스토어·플레이스토어는 앱 안의 디지털 상품을 자체 결제로만 팔게 한다 — 외부 결제 안내를 두지 않는다.
                     <div style={{ width: "100%", padding: "12px 0", borderRadius: 12, background: "rgba(118,118,128,0.10)", color: UI.ink3, fontSize: 14, fontWeight: 600, textAlign: "center" }}>{t("준비 중")}</div>
                   ) : payCfg?.payment && PLAN_PRICE_KRW[key] ? (

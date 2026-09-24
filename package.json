@@ -19,7 +19,8 @@
     "test:accuracy": "node server/tests/accuracy.js",
     "test": "node --test \"server/tests/*.test.js\"",
     "cap:sync": "cap sync",
-    "i18n:check": "node scripts/i18n-check.mjs"
+    "i18n:check": "node scripts/i18n-check.mjs",
+    "build:app": "vite build --config vite.app.config.mjs && node scripts/rename-app-index.mjs"
   },
   "dependencies": {
     "@capacitor/app": "^8.1.1",

@@ -396,6 +396,18 @@ app.get("/datasets/download/:token", async (req, res) => {
 });
 
 // 배포 환경: `npm run build`로 만든 프론트엔드를 같은 서버에서 서빙한다(로컬 개발 중엔 Vite가 담당).
+// 스토어(플레이·앱스토어)용 빌드. 앱이 여는 화면은 웹 루트가 아니라 이 경로다
+// (capacitor.config.json의 server.url → /app/). 웹과 같은 코드로 만들지만 결과물이 따로라,
+// 결제로 가는 길을 뺀 화면을 웹을 건드리지 않고 올릴 수 있다.
+//
+// 같은 도메인에 두는 이유는 로그인이다 — 다른 도메인이면 세션 쿠키가 교차 출처가 되어
+// 앱에서 로그인이 풀린다. 이 경로는 웹 라우팅보다 먼저 붙어야 아래 catch-all에 먹히지 않는다.
+const appDir = path.join(__dirname, "..", "dist-app");
+if (fs.existsSync(appDir)) {
+  app.use("/app", express.static(appDir, { index: false, maxAge: "1h" }));
+  app.get(/^\/app(\/.*)?$/, (req, res) => res.sendFile(path.join(appDir, "index.html")));
+}
+
 if (fs.existsSync(distDir)) {
   app.use(express.static(distDir, { index: false, maxAge: "1h" }));
   app.get(/^(?!\/(api|v1)\/).*/, (req, res) => res.sendFile(path.join(distDir, "index.html")));

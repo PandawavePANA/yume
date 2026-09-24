@@ -5,7 +5,7 @@
   "backgroundColor": "#F6F2FC",
   "appendUserAgent": "YumeApp/1.0",
   "server": {
-    "url": "https://www.yume-reamer.com",
+    "url": "https://www.yume-reamer.com/app/",
     "errorPath": "offline.html"
   },
   "android": {

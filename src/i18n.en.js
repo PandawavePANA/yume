@@ -568,4 +568,6 @@ export default {
   "운영자 조정":
     "Manual adjustment",
   "랭킹 · 채팅": "Ranking & chat",
+  "앱에서는 크레딧 구매를 준비 중이에요. 요금제로 매달 받는 크레딧은 그대로 쓰실 수 있어요.":
+    "Buying credits in the app is on the way. The credits your plan gives you each month work as usual.",
 };

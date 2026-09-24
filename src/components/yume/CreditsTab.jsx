@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import BusinessInfo from "@/components/yume/BusinessInfo";
 import { apiJson } from "./api";
 import { copyText } from "../../clipboard.js";
+import { IS_NATIVE_APP } from "../../native.js";
+import { IS_STORE_BUILD } from "../../storeBuild.js";
 import { orderPack, verifyIdentity } from "../../payments.js";
 import CheckoutPage from "@/components/yume/CheckoutPage";
 import { t } from "../../i18n.js";
@@ -138,6 +140,19 @@ export default function CreditsTab() {
         </div>
       </div>
 
+      {/* 앱(플레이스토어·앱스토어) 안에서는 크레딧을 팔지 않는다.
+          두 스토어 모두 앱 안의 디지털 상품은 자기네 결제만 허용하고, 바깥 결제로 유도하는
+          안내("웹에서 사세요")까지 금지한다 — 그래서 링크도 설명도 두지 않고 통째로 가린다.
+          요금제 모달이 앱에서 "준비 중"만 보이는 것과 같은 이유다(YumeDashboard.jsx). */}
+      {IS_NATIVE_APP || IS_STORE_BUILD ? (
+        <>
+          <div style={{ fontSize: 13, fontWeight: 700, margin: "18px 0 8px" }}>{t("크레딧 추가 구매")}</div>
+          <div style={{ ...card, background: "#FBF8FF", color: "#6E6389", fontSize: 12.5, lineHeight: 1.7 }}>
+            {t("앱에서는 크레딧 구매를 준비 중이에요. 요금제로 매달 받는 크레딧은 그대로 쓰실 수 있어요.")}
+          </div>
+        </>
+      ) : (
+      <>
       <div style={{ fontSize: 13, fontWeight: 700, margin: "18px 0 8px" }}>{t("크레딧 추가 구매")}</div>
       {pay?.identity && !pay.identityVerified && (
         <div style={{ ...card, background: "#FBF8FF", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
@@ -186,6 +201,8 @@ export default function CreditsTab() {
           : "온라인 결제는 준비 중이라 지금은 신청만 받고 있어요. 입금이 확인되면 운영자가 크레딧을 넣어드립니다."}
         크레딧은 현금으로 바꿔드리지 않으며, 환불 조건은 아래 <a href="/refund" target="_blank" rel="noopener noreferrer" style={{ color: "#8577A8" }}>{t("환불정책")}</a>을 따릅니다.
       </div>
+      </>
+      )}
 
       <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>{t("친구 추천")}</div>
       <div style={card}>
