@@ -36,3 +36,4 @@ android/keystore.properties
 # (윈도우 우클릭 압축은 내부 경로를 역슬래시로 적어서 크롬이 아이콘을 못 찾는다 —
 #  포장은 항상 슬래시로 다시 만든 것을 쓸 것.)
 extension*.zip
+.tmp-shots-profile/

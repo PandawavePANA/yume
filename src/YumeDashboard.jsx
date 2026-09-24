@@ -1362,11 +1362,13 @@ export default function YumeDashboard() {
               ) : stage === "error" && (
                 <div style={{ fontSize: 14, color: "#B3372A", background: "#FDF1EF", border: "1px solid #F5D3CD", borderRadius: 14, padding: "12px 16px", marginBottom: 16 }}>{errMsg}</div>
               )}
-              <div style={{ display: "flex", gap: 10, alignItems: "stretch" }}>
+              {/* 좁은 화면에서는 주 버튼이 눌려 글자가 여러 줄로 깨진다. 그때는 줄을 나눠
+                  주 버튼이 한 줄을 다 쓰게 하고, 보조 버튼 둘을 아래 줄에 나란히 둔다. */}
+              <div style={{ display: "flex", gap: 10, alignItems: "stretch", flexWrap: "wrap" }}>
                 <motion.button whileHover={input.trim() ? { y: -1, boxShadow: "0 14px 32px rgba(107,79,168,0.36)" } : {}} whileTap={input.trim() ? { scale: 0.985 } : {}}
                   transition={{ duration: 0.25, ease: EASE_APPLE }}
                   onClick={runCheck} disabled={!input.trim()} style={{
-                  flex: 1, minWidth: 0, height: 54, borderRadius: 16, border: "none",
+                  flex: tightNav ? "1 1 100%" : 1, minWidth: 0, height: 54, borderRadius: 16, border: "none", whiteSpace: "nowrap",
                   background: input.trim() ? UI.button : "rgba(118,118,128,0.14)",
                   boxShadow: input.trim() ? "0 8px 22px rgba(107,79,168,0.26)" : "none",
                   color: input.trim() ? "#fff" : UI.ink3, fontSize: 16.5, fontWeight: 600, letterSpacing: "-0.01em",
