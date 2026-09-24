@@ -10,7 +10,7 @@
     "dev": "concurrently -k -n SERVER,CLIENT -c yellow,cyan \"npm:dev:server\" \"npm:dev:client\"",
     "dev:server": "node --watch-path=./server server/index.js",
     "dev:client": "vite",
-    "build": "vite build",
+    "build": "vite build && npm run build:app",
     "start": "node server/index.js",
     "build:reamer": "vite build --config vite.reamer.config.mjs && node scripts/rename-reamer-index.mjs",
     "build:business": "vite build --config vite.business.config.mjs && node scripts/rename-business-index.mjs",
