@@ -1007,7 +1007,7 @@ export default function YumeDashboard() {
     const outcome = await shareLink({
       title: "유메 검증 결과",
       text: result.overall?.label ? `유메 검증 결과: ${result.overall.label}` : "유메 검증 결과",
-      url: `${window.location.origin}/r/${resultab_.id}`,
+      url: `${window.location.origin}/r/${result.id}`,
     });
     if (outcome === "copied") setToast("결과 링크를 복사했어요");
     else if (outcome === "failed") setToast("공유하지 못했어요. 잠시 후 다시 시도해주세요.");
@@ -1522,8 +1522,8 @@ export default function YumeDashboard() {
                             <div style={{ fontSize: 15.5, fontWeight: 600, color: UI.ink, lineHeight: 1.6, marginBottom: 6, letterSpacing: "-0.015em" }}>{c.text}</div>
                             <div style={{ fontSize: 14, color: UI.ink2, lineHeight: 1.7 }}>{c.explanation}</div>
                             <NecPanel nec={c.nec} />
-                            {c.nec?.grade === "nonexistent" && resultab_.id && (
-                              <BountyPrompt claim={c} claimIdx={i} verificationId={resultab_.id} user={user} onNeedLogin={() => setAuthModal("login")} />
+                            {c.nec?.grade === "nonexistent" && result.id && (
+                              <BountyPrompt claim={c} claimIdx={i} verificationId={result.id} user={user} onNeedLogin={() => setAuthModal("login")} />
                             )}
                           </div>
                         </motion.div>
@@ -1594,7 +1594,7 @@ export default function YumeDashboard() {
               </AnimatePresence>
 
                 <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
-                  {resultab_.id && (
+                  {result.id && (
                     <motion.button whileHover={{ backgroundColor: "#F5F2ED" }} whileTap={{ scale: 0.985 }} onClick={shareResult} style={{
                       flex: 1, height: 50, borderRadius: 14,
                       border: `1px solid ${UI.hairlineStrong}`, background: UI.surface, color: UI.ink, fontSize: 15, fontWeight: 600, cursor: "pointer", letterSpacing: "-0.01em",
@@ -1943,7 +1943,7 @@ export default function YumeDashboard() {
               r?.pending
                 ? t("입금이 확인되면 바로 적용돼요.")
                 : checkout.kind === "plan"
-                  ? `${checkoutab_.label} 플랜이 열렸어요.`
+                  ? `${checkout.orderName || "요금제"}가 열렸어요.`
                   : t("크레딧이 들어왔어요."),
             );
           }}
