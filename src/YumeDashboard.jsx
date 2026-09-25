@@ -178,6 +178,57 @@ function BizRow({ title, desc, cta }) {
   );
 }
 
+// 앱 하단 탭바 — 스토어 빌드에만 붙는다.
+//
+// 웹은 상단 바 하나로 충분하지만, 폰에서는 손가락이 아래에 있고 사람들은 앱의 이동 수단이
+// 아래 있기를 기대한다. 웹에서 쓰던 것(기록 서랍, 랭킹 패널, 계정 설정)을 그대로 부르되
+// 들어가는 문만 아래에 만든다 — 새 화면을 만들지 않으므로 어긋날 구석이 없다.
+const TAB_ICON = {
+  check: "M4 12.5l5 5 11-11",            // 체크
+  history: "M12 7v5l3.5 2M12 3a9 9 0 1 0 9 9",  // 시계
+  rank: "M4 20V10M10 20V4M16 20v-7M22 20H2",    // 막대그래프
+  settings: "M12 15.5A3.5 3.5 0 1 0 12 8.5a3.5 3.5 0 0 0 0 7z M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 9 19.4a1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z",
+};
+
+export const APP_TABBAR_HEIGHT = 58;
+
+function AppTabBar({ active, onTab }) {
+  const items = [
+    { key: "check", label: t("검증") },
+    { key: "history", label: t("기록") },
+    { key: "rank", label: t("랭킹") },
+    { key: "settings", label: t("설정") },
+  ];
+  return (
+    <nav aria-label={t("앱 메뉴")} style={{
+      position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 60,
+      background: "rgba(255,255,255,0.94)", backdropFilter: UI.glass, WebkitBackdropFilter: UI.glass,
+      borderTop: `1px solid ${UI.hairline}`,
+      paddingBottom: "var(--yume-safe-bottom)",
+      display: "flex",
+    }}>
+      {items.map((it) => {
+        const on = active === it.key;
+        return (
+          <button key={it.key} type="button" onClick={() => onTab(it.key)}
+            aria-current={on ? "page" : undefined}
+            style={{
+              flex: 1, height: APP_TABBAR_HEIGHT, border: "none", background: "transparent", cursor: "pointer",
+              display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3,
+              color: on ? UI.accent : UI.ink3, fontFamily: "inherit", padding: 0,
+            }}>
+            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              strokeWidth={on ? 2.2 : 1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d={TAB_ICON[it.key]} />
+            </svg>
+            <span style={{ fontSize: 11, fontWeight: on ? 700 : 500, letterSpacing: "-0.01em" }}>{it.label}</span>
+          </button>
+        );
+      })}
+    </nav>
+  );
+}
+
 function YumeChatWidget({ shiftRight = 0 }) {
   const [open, setOpen] = useState(false);
   // 떠다니는 챗봇 버튼이 화면 아무 위치에나 고정돼 있다 보니, 스크롤하는 동안
@@ -248,7 +299,7 @@ function YumeChatWidget({ shiftRight = 0 }) {
     <div ref={containerRef} style={{
       position: "fixed",
       right: `calc(16px + var(--yume-safe-right) + ${shiftRight}px)`,
-      bottom: "calc(16px + var(--yume-safe-bottom))",
+      bottom: `calc(${IS_STORE_BUILD ? APP_TABBAR_HEIGHT + 14 : 16}px + var(--yume-safe-bottom))`,
       zIndex: 60, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 12,
       transition: "right 0.35s cubic-bezier(0.22,1,0.36,1)"
     }}>
@@ -1178,8 +1229,9 @@ export default function YumeDashboard() {
           {/* 기업용 사이트는 별도 도메인이라 내부 이동이 아니라 바깥 링크다.
               앱에서는 숨긴다 — 도입 상담을 하려고 앱을 깔지는 않는다. */}
           {/* 랭킹과 채팅은 같은 사이드바를 여니 버튼도 하나다. 어느 쪽을 볼지는 그 안에서
-              고르고, 마지막으로 보던 탭이 다시 열린다. 버튼이 둘이면 상단 바만 좁아졌다. */}
-          <motion.button {...navEnter(0.06)}
+              고르고, 마지막으로 보던 탭이 다시 열린다. 버튼이 둘이면 상단 바만 좁아졌다.
+              앱에서는 아래 탭바에 같은 문이 있으므로 위에는 두지 않는다. */}
+          {!IS_STORE_BUILD && <motion.button {...navEnter(0.06)}
             whileHover={{ backgroundColor: "#fff" }} whileTap={{ scale: 0.96 }}
             onClick={() => openPanel(lastPanelTab)}
             aria-label={t("랭킹 · 채팅")}
@@ -1187,7 +1239,7 @@ export default function YumeDashboard() {
             ...pillBtn, border: `1px solid ${panelTab ? UI.accent : UI.hairline}`,
             background: panelTab ? "rgba(91,63,160,0.08)" : "rgba(255,255,255,0.55)",
             color: panelTab ? UI.accent : UI.ink2, fontWeight: 600,
-          }}>{tightNav ? t("랭킹") : t("랭킹 · 채팅")}</motion.button>
+          }}>{tightNav ? t("랭킹") : t("랭킹 · 채팅")}</motion.button>}
           {/* 언어. 바꿔 갈 언어를 그 언어로 적는다 — "English"라고 적혀 있으면
               한국어를 못 읽는 사람도 무슨 버튼인지 안다. "EN/KO" 같은 약자는
               눌러 보기 전에는 지금이 어느 쪽인지 알 수 없다. */}
@@ -1267,7 +1319,7 @@ export default function YumeDashboard() {
           <motion.header key="hero-full"
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, y: -12 }}
             transition={{ duration: 0.4, ease: EASE_APPLE }}
-            style={{ maxWidth: 820, margin: "clamp(40px, 8vh, 88px) auto 8px", padding: "0 24px", textAlign: "center" }}>
+            style={{ maxWidth: 820, margin: `${IS_STORE_BUILD ? "clamp(20px, 3vh, 36px)" : "clamp(40px, 8vh, 88px)"} auto 8px`, padding: "0 24px", textAlign: "center" }}>
             <motion.div style={{ opacity: heroFadeOpacity, scale: heroFadeScale, filter: heroFadeBlur }}>
               {/* "AI에게 질문하고 / 유메로 확인하세요" — 한 문장이다.
                   예전에는 로고를 104px로 키워 문장 한가운데 끼우고 뒤에 보라색 글로우를
@@ -1734,7 +1786,12 @@ export default function YumeDashboard() {
       </>)}
 
       {/* FOOTER */}
-      <footer style={{ marginTop: 200, borderTop: `1px solid ${UI.hairline}`, background: "rgba(248,246,253,0.7)" }}>
+      <footer style={{
+        marginTop: IS_STORE_BUILD ? 80 : 200,
+        borderTop: `1px solid ${UI.hairline}`, background: "rgba(248,246,253,0.7)",
+        // 앱에서는 하단 탭바가 화면 맨 아래에 떠 있다. 그만큼 비워 두지 않으면 푸터 마지막 줄을 덮는다.
+        paddingBottom: IS_STORE_BUILD ? APP_TABBAR_HEIGHT : 0,
+      }}>
         <div style={{ maxWidth: 1080, margin: "0 auto", padding: "40px 24px 32px", display: "flex", flexDirection: "column", gap: 24 }}>
           <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "flex-start", gap: 24 }}>
             <div>
@@ -1966,7 +2023,7 @@ export default function YumeDashboard() {
           <motion.div role="status"
             initial={{ opacity: 0, y: 16, x: "-50%" }} animate={{ opacity: 1, y: 0, x: "-50%" }} exit={{ opacity: 0, y: 16, x: "-50%" }}
             style={{
-              position: "fixed", bottom: "calc(28px + var(--yume-safe-bottom))", left: "50%", zIndex: 70, background: "rgba(29,26,36,0.88)", color: "#fff",
+              position: "fixed", bottom: `calc(${IS_STORE_BUILD ? APP_TABBAR_HEIGHT + 24 : 28}px + var(--yume-safe-bottom))`, left: "50%", zIndex: 70, background: "rgba(29,26,36,0.88)", color: "#fff",
               backdropFilter: UI.glass, WebkitBackdropFilter: UI.glass,
               fontSize: 14, padding: "12px 20px", borderRadius: 999, boxShadow: "0 16px 40px rgba(24,16,44,0.28)", maxWidth: "90vw",
             }}>{toast}</motion.div>
@@ -1974,6 +2031,22 @@ export default function YumeDashboard() {
       </AnimatePresence>
 
       <YumeChatWidget shiftRight={panelTab ? PANEL_WIDTH + 8 : 0} />
+
+      {IS_STORE_BUILD && (
+        <AppTabBar
+          active={accountTab ? "settings" : sidebarOpen ? "history" : panelTab === "rank" ? "rank" : "check"}
+          onTab={(k) => {
+            // 어느 탭을 누르든 열려 있던 다른 것은 닫는다. 앱에서 겹쳐 뜨면 뒤로가기가 꼬인다.
+            if (k !== "history") setSidebarOpen(false);
+            if (k !== "rank" && panelTab) openPanel(null);
+            if (k !== "settings") setAccountTab(null);
+            if (k === "check") { startNew(); window.scrollTo({ top: 0, behavior: "smooth" }); }
+            if (k === "history") setSidebarOpen((v) => !v);
+            if (k === "rank") openPanel("rank");
+            if (k === "settings") { if (user) setAccountTab("profile"); else setAuthModal("login"); }
+          }}
+        />
+      )}
     </div>
   );
 }
