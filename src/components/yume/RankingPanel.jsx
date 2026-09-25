@@ -70,7 +70,7 @@ export default function RankingPanel({ active, loggedIn, onNeedLogin }) {
 
       {/* 어떤 행동이 몇 점인지. 점수를 올리려면 무엇을 해야 하는지가 여기서 정해진다. */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
-        {[["검증", data.scoring.verify], ["초대", data.scoring.referral], ["발견", data.scoring.finding], ["제보", data.scoring.report]].map(([label, pts]) => (
+        {[["검증", data.scoring.verify], ["초대", data.scoring.referral], ["발견", data.scoring.finding], ["제보", data.scoring.report], ["판정 정정", data.scoring.correction]].filter(([, pts]) => pts != null).map(([label, pts]) => (
           <div key={label} style={{ padding: "8px 10px", borderRadius: 10, background: "#FBF8FF", border: `1px solid ${UI.hairline}`, display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
             <span style={{ fontSize: 11.5, color: UI.ink3 }}>{t(label)}</span>
             <b style={{ fontSize: 13.5, color: UI.accent, fontVariantNumeric: "tabular-nums" }}>{pts.toLocaleString()}</b>

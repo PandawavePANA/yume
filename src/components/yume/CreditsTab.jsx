@@ -26,6 +26,12 @@ const BOUNTY_STATUS = {
   rejected: { label: "반려", color: "#C6402F", bg: "#FBE8E5" },
   duplicate: { label: "이미 등록된 인용", color: "#6E6389", bg: "#F1EDF8" },
 };
+// 정정은 상태가 셋뿐이다. 중복은 애초에 접수되지 않는다(같은 주장에 한 번만).
+const CORRECTION_STATUS = {
+  pending: { label: "확인 중", color: "#B4690E", bg: "#FBEEDA" },
+  accepted: { label: "채택 · 점수 지급", color: "#1F9D66", bg: "#E4F5EC" },
+  rejected: { label: "반려", color: "#C6402F", bg: "#FBE8E5" },
+};
 const PURCHASE_STATUS = { requested: "입금 확인 중", fulfilled: "지급 완료", cancelled: "취소됨" };
 
 const fmt = (ts) => (ts ? new Date(ts).toLocaleDateString("ko-KR", { month: "short", day: "numeric" }) : "-");
@@ -252,6 +258,29 @@ export default function CreditsTab() {
                 </div>
                 <span style={{ flexShrink: 0, fontSize: 10.5, fontWeight: 700, color: s.color, background: s.bg, padding: "3px 9px", borderRadius: 999 }}>
                   {s.label}{b.credits ? ` +${b.credits.toLocaleString()}` : ""}
+                </span>
+              </div>
+            );
+          })}
+        </>
+      )}
+
+      {(data.corrections || []).length > 0 && (
+        <>
+          <div style={{ fontSize: 13, fontWeight: 700, margin: "18px 0 8px" }}>{t("내 판정 정정")}</div>
+          <div style={{ fontSize: 11.5, color: "#A99BC9", lineHeight: 1.6, marginBottom: 8 }}>
+            {t("유메가 틀렸다고 알려주신 것들이에요. 채택되면 공헌도 {n}점이 쌓이고 그 판정도 함께 고칩니다.", { n: (data.correctionPoints || 1000).toLocaleString() })}
+          </div>
+          {data.corrections.slice(0, 5).map((c) => {
+            const s = CORRECTION_STATUS[c.status] || CORRECTION_STATUS.pending;
+            return (
+              <div key={c.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid #F4EEFC" }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 12.5, fontWeight: 600, color: "#241F33", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.claim_text}</div>
+                  <div style={{ fontSize: 11, color: "#A99BC9" }}>{fmt(c.created_at)}{c.reviewer_note ? ` · ${c.reviewer_note}` : ""}</div>
+                </div>
+                <span style={{ flexShrink: 0, fontSize: 10.5, fontWeight: 700, color: s.color, background: s.bg, padding: "3px 9px", borderRadius: 999 }}>
+                  {t(s.label)}{c.points ? ` +${c.points.toLocaleString()}` : ""}
                 </span>
               </div>
             );

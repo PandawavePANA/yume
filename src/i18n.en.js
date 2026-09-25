@@ -568,6 +568,42 @@ export default {
   "운영자 조정":
     "Manual adjustment",
   "랭킹 · 채팅": "Ranking & chat",
+
+  // 앱 하단 탭바.
+  "기록": "History",
+  "설정": "Settings",
+  "앱 메뉴": "App menu",
+
+  // ── 판정 정정 — 유메가 틀렸을 때 알려주는 문 ──
+  "판정 정정": "Correction",
+  "이 판정이 틀렸나요? 근거를 알려주시면 공헌도를 드려요":
+    "Is this verdict wrong? Tell us why and earn contribution points",
+  "이 판정이 틀렸어요": "This verdict is wrong",
+  "채택되면 공헌도 {n}점 · 그 주장의 판정도 함께 고칩니다":
+    "{n} contribution points if accepted — and we fix the verdict too",
+  "유메가 이렇게 판정했어요": "What YUME said",
+  "맞는 판정은 무엇인가요?": "What should it be?",
+  "무엇이 왜 다른가요?": "What is different, and why?",
+  "예: 이 평점은 Wine Enthusiast 2024년 10월호에 실려 있습니다. 검색으로는 안 나오지만 구독자 데이터베이스에서 확인됩니다.":
+    "e.g. This score ran in the October 2024 issue of Wine Enthusiast. It does not turn up in a web search, but it is there in the subscriber database.",
+  "근거 링크 (있으면)": "Evidence link (optional)",
+  "링크가 없어도 됩니다. 지면 기사나 구독자 전용 자료처럼 링크를 댈 수 없는 근거가 있고, 유메는 그런 자리에서 자주 틀립니다.":
+    "A link is not required. Some evidence has no link at all — print articles, subscriber-only databases — and those are exactly the places YUME gets wrong.",
+  "보낸 내용을 유메가 판정 알고리즘 개선에 활용하는 데 동의합니다.":
+    "I agree that YUME may use what I send to improve its verdicts.",
+  "알려주기": "Send",
+  "보내는 중…": "Sending…",
+  "알려주셔서 고맙습니다": "Thank you for telling us",
+  "알려주셔서 고맙습니다. 확인 후 판정을 고치고 공헌도를 드립니다.":
+    "Thank you. We will check it, fix the verdict, and award your contribution points.",
+  "근거를 직접 확인한 뒤 판정을 고치고 공헌도를 드립니다. 결과는 랭킹 → 내 적립 내역에서 볼 수 있어요.":
+    "We check the evidence ourselves, then fix the verdict and award the points. You can follow it under Ranking → My points.",
+  "판정 정정 채택": "Correction accepted",
+  "내 판정 정정": "My corrections",
+  "유메가 틀렸다고 알려주신 것들이에요. 채택되면 공헌도 {n}점이 쌓이고 그 판정도 함께 고칩니다.":
+    "Times you told us YUME got it wrong. Accepted corrections earn {n} contribution points, and we fix the verdict too.",
+  "확인 중": "Checking",
+  "채택 · 점수 지급": "Accepted — points awarded",
   "앱에서는 크레딧 구매를 준비 중이에요. 요금제로 매달 받는 크레딧은 그대로 쓰실 수 있어요.":
     "Buying credits in the app is on the way. The credits your plan gives you each month work as usual.",
 };

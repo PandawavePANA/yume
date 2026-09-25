@@ -102,6 +102,17 @@ export async function storeAll(claims) {
   await Promise.all(claims.filter((c) => !c.from_claim_cache).map((c) => saveClaim(c).catch(() => {})));
 }
 
+// 판정이 틀렸다고 확인된 주장은 캐시에서 지운다.
+//
+// 이게 없으면 정정을 받아들여도 아무 일도 일어나지 않는다. 다음 사람이 같은 주장을
+// 들고 오면 캐시가 그 틀린 판정을 그대로 돌려주고, 파이프라인은 다시 판단해 볼 기회조차
+// 갖지 못한다. 고쳤다는 말이 실제로 고친 것이 되게 하는 자리다.
+export async function forgetClaim(claim) {
+  if (!claim?.text) return false;
+  const r = await run("DELETE FROM claim_cache WHERE hash = :hash", { hash: claimKey(claim) }).catch(() => null);
+  return !!r;
+}
+
 export async function claimCacheStats() {
   const row = await one("SELECT COUNT(*) AS n, COALESCE(SUM(hits), 0) AS hits FROM claim_cache");
   return { entries: Number(row?.n) || 0, hits: Number(row?.hits) || 0 };

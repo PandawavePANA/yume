@@ -98,7 +98,7 @@ const TABLES = [
   // 나중에 추가된 테이블. 여기 빠지면 search_path에 기대게 되어 위 주석의 문제가 그대로 생긴다.
   "credit_ledger", "bounty_claims", "redemptions", "referrals", "contribution_ledger", "quarter_awards", "claim_cache",
   "credit_orders", "inquiries", "audit_sessions", "audit_reports", "projects", "product_tasks",
-  "threads", "thread_messages", "thread_quotes", "lobby_messages", "api_costs",
+  "threads", "thread_messages", "thread_quotes", "lobby_messages", "api_costs", "verdict_corrections",
 ];
 const TABLE_REF = new RegExp(`\\b(FROM|JOIN|INTO|UPDATE)\\s+(${TABLES.join("|")})\\b`, "gi");
 const qualify = (sql) => sql.replace(TABLE_REF, (_m, kw, table) => `${kw} ${SCHEMA}.${table}`);
@@ -827,6 +827,50 @@ const MIGRATIONS = [
   );
   CREATE INDEX idx_api_costs ON api_costs(kind, created_at);
   ALTER TABLE api_costs ENABLE ROW LEVEL SECURITY;
+  `,
+
+  // ── 판정 정정 ──
+  //
+  // 유메가 틀렸을 때 사용자가 할 수 있는 일이 없었다. 화면에는 "사실과 다름"이 붙어
+  // 있는데 본인은 그게 아니라는 걸 알고, 근거도 손에 쥐고 있는데 그걸 넘길 문이
+  // 없었다. 우리는 그 사실을 영영 모르고, 같은 판정을 다음 사람에게도 내보낸다.
+  //
+  // 제보(bounty_claims)와는 다른 물건이다. 제보는 **남의 AI가** 지어낸 것을 넘겨주는
+  // 것이고, 이건 **우리가** 틀린 것을 알려주는 것이다. 공유 링크도 필요 없다 —
+  // 대상이 이미 우리 검증 기록 안에 있다.
+  //
+  // 보상을 거는 이유. 자기 시간을 써서 남의 오류를 고쳐 주는 사람은 드물고, 팩트체크
+  // 서비스가 스스로 오류를 발견할 방법은 사실상 이것뿐이다. 우리가 틀린 것을
+  // 알려주는 값이 남의 AI가 틀린 것을 알려주는 값보다 낮을 이유가 없다.
+  //
+  // 승인 시 그 주장의 캐시를 지운다(corrections.js). 판정만 고치고 캐시를 두면 같은
+  // 주장이 다음 검증에서 그 틀린 판정으로 다시 나간다.
+  `
+  CREATE TABLE verdict_corrections (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    verification_id TEXT REFERENCES verifications(id) ON DELETE SET NULL,
+    claim_idx INTEGER NOT NULL,
+    claim_text TEXT NOT NULL,
+    claim_hash TEXT,
+    yume_verdict TEXT NOT NULL,
+    yume_explanation TEXT,
+    correct_verdict TEXT NOT NULL,
+    evidence_url TEXT,
+    note TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    points INTEGER NOT NULL DEFAULT 0,
+    reviewer_note TEXT,
+    reviewed_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    reviewed_at BIGINT,
+    created_at BIGINT NOT NULL
+  );
+  -- 같은 사람이 같은 주장을 두 번 넣어 점수를 두 번 받을 수는 없다(반려된 건은 다시 열어둔다).
+  CREATE UNIQUE INDEX idx_correction_dedup ON verdict_corrections(user_id, verification_id, claim_idx)
+    WHERE status IN ('pending', 'accepted');
+  CREATE INDEX idx_correction_status ON verdict_corrections(status, created_at);
+  CREATE INDEX idx_correction_user ON verdict_corrections(user_id, id);
+  ALTER TABLE verdict_corrections ENABLE ROW LEVEL SECURITY;
   `,
 ];
 

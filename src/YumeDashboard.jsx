@@ -6,6 +6,7 @@ import AccountModal from "@/components/yume/AccountModal";
 import NecPanel from "@/components/yume/NecPanel";
 import ContextRepairCard from "@/components/yume/ContextRepairCard";
 import { BountyPrompt } from "@/components/yume/BountyModal";
+import { CorrectionPrompt } from "@/components/yume/CorrectionModal";
 import { apiJson, safeUrl, CONTACT_EMAIL } from "@/components/yume/api";
 import { BUSINESS, telHref, COPYRIGHT, businessLine } from "@/businessInfo";
 import BusinessInfo from "@/components/yume/BusinessInfo";
@@ -1579,6 +1580,13 @@ export default function YumeDashboard() {
                             <NecPanel nec={c.nec} />
                             {c.nec?.grade === "nonexistent" && result.id && (
                               <BountyPrompt claim={c} claimIdx={i} verificationId={result.id} user={user} onNeedLogin={() => setAuthModal("login")} />
+                            )}
+                            {/* 유메가 틀렸을 때 알려줄 자리. 주장마다 둔다 — 틀린 판정을 본
+                                사람은 사용자뿐이고, 그 자리에 문이 없으면 우리는 영영 모른다.
+                                "사실과 다름"에만 달지 않는 이유는, 맞다고 한 것이 틀렸을 때가
+                                더 위험하기 때문이다. */}
+                            {result.id && (
+                              <CorrectionPrompt claim={c} claimIdx={i} verificationId={result.id} user={user} onNeedLogin={() => setAuthModal("login")} />
                             )}
                           </div>
                         </motion.div>

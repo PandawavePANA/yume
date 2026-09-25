@@ -7,6 +7,7 @@ import { CREDIT_KRW, CREDIT_PACKS, PLAN_CREDITS, balance, ensureMonthlyGrant, li
 import { POINTS, RANK_TIERS, leaderboard, listLedger as listContribLedger, nextRewardTier, periodEndsAt, periodOf, rankOf, handleFor, rewardTierFor, userCount } from "./contribution.js";
 import { PLANS, effectivePlan } from "./usageStore.js";
 import { listUserBounties, submitBounty } from "./bounty.js";
+import { listUserCorrections, submitCorrection } from "./corrections.js";
 import { PLATFORMS } from "./shareLink.js";
 import { referralSummary } from "./referral.js";
 import { getVerification } from "./verificationStore.js";
@@ -22,9 +23,10 @@ import crypto from "node:crypto";
 import { CHAT_MIN_POINTS, MAX_BODY as LOBBY_MAX_BODY, meIn as lobbyMe, recent as lobbyRecent, say as lobbySay } from "./lobby.js";
 
 const router = patchAsync(express.Router());
-router.use(["/credits", "/bounty", "/credit-packs", "/referral", "/contribution", "/checkout", "/identity"], requireUser);
+router.use(["/credits", "/bounty", "/corrections", "/credit-packs", "/referral", "/contribution", "/checkout", "/identity"], requireUser);
 
 const bountyLimiter = createLimiter({ windowMs: 60 * 60 * 1000, max: 20 });
+const correctionLimiter = createLimiter({ windowMs: 60 * 60 * 1000, max: 20 });
 const purchaseLimiter = createLimiter({ windowMs: 60 * 60 * 1000, max: 10 });
 const checkoutLimiter = createLimiter({ windowMs: 60 * 60 * 1000, max: 20 });
 
@@ -42,8 +44,10 @@ router.get("/credits", async (req, res) => {
     ledger: await listLedger(userId),
     platforms: Object.entries(PLATFORMS).map(([key, p]) => ({ key, label: p.label, host: p.hosts[0] })),
     bounties: await listUserBounties(userId),
+    corrections: await listUserCorrections(userId),
     purchases: await listUserCreditRequests(userId),
     reportPoints: POINTS.report,
+    correctionPoints: POINTS.correction,
   });
 });
 
@@ -88,6 +92,34 @@ router.post("/bounty", limitMiddleware(bountyLimiter, (req) => `bounty:${req.use
   if (error) return res.status(duplicate ? 409 : 400).json({ error });
   await audit(`user:${req.user.id}`, "bounty_submitted", `bounty:${bounty.id}`, { platform: bounty.platform, identifier: bounty.identifier_value }, clientIp(req));
   res.status(201).json({ bounty: { id: bounty.id, status: bounty.status, createdAt: bounty.created_at } });
+});
+
+// 판정 정정 — 유메가 틀렸다고 알려주는 문.
+//
+// 제보(/bounty)와 같은 모양이지만 대상이 반대다. 제보는 남의 AI가 지어낸 인용을
+// 넘겨주는 것이고, 이건 우리가 낸 판정이 틀렸다고 알려주는 것이다. 공유 링크는 받지
+// 않는다 — 대상이 이미 우리 검증 기록 안에 있고, 근거 링크는 있으면 받고 없으면 글로 받는다.
+router.post("/corrections", limitMiddleware(correctionLimiter, (req) => `correction:${req.user.id}`), async (req, res) => {
+  const { verificationId, claimIdx, correctVerdict, evidenceUrl, note, consent } = req.body || {};
+  if (!consent) return res.status(400).json({ error: "보내주신 내용을 유메가 판정 개선에 쓰는 데 동의해주세요." });
+
+  const v = await getVerification(String(verificationId || ""));
+  if (!v || v.user_id !== req.user.id) return res.status(404).json({ error: "검증 기록을 찾을 수 없어요." });
+
+  const idx = Number(claimIdx);
+  if (!Number.isInteger(idx) || idx < 0) return res.status(400).json({ error: "주장을 지정해주세요." });
+
+  const { correction, error, duplicate } = await submitCorrection({
+    user: req.user,
+    verification: v,
+    claimIdx: idx,
+    correctVerdict: String(correctVerdict || ""),
+    evidenceUrl,
+    note,
+  });
+  if (error) return res.status(duplicate ? 409 : 400).json({ error });
+  await audit(`user:${req.user.id}`, "correction_submitted", `correction:${correction.id}`, { verdict: correction.yume_verdict, correct: correction.correct_verdict }, clientIp(req));
+  res.status(201).json({ correction: { id: correction.id, status: correction.status, createdAt: correction.created_at } });
 });
 
 // 크레딧 추가 구매 — 신청만 받는다. 결제 확인 전에는 크레딧이 늘지 않는다.

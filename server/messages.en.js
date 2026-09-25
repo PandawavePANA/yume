@@ -184,4 +184,18 @@ export default {
     "Enter the recipient and the purpose of the transfer.",
   "조건에 맞는 동의 데이터가 없습니다.":
     "No consented data matches those filters.",
+
+  // ── 판정 정정 ──
+  "보내주신 내용을 유메가 판정 개선에 쓰는 데 동의해주세요.":
+    "Please agree that YUME may use what you send to improve its verdicts.",
+  "맞는 판정을 골라주세요.": "Pick the verdict you believe is right.",
+  "유메가 낸 판정과 같아요. 다른 판정이어야 정정이 됩니다.":
+    "That is the verdict YUME already gave. A correction has to differ from it.",
+  "근거 링크가 올바른 주소가 아니에요. 생략하고 설명만 적어주셔도 됩니다.":
+    "That evidence link is not a valid address. You can leave it out and just describe the evidence.",
+  "근거 링크는 http 또는 https 주소만 넣을 수 있어요.":
+    "Evidence links must be http or https addresses.",
+  "이 주장은 이미 정정을 보내셨어요.": "You have already sent a correction for this claim.",
+  "정정을 찾을 수 없어요.": "That correction could not be found.",
+  "이미 처리된 정정이에요.": "That correction has already been reviewed.",
 };

@@ -382,17 +382,19 @@ async function renderDataset() {
 
 // ── 크레딧 ──
 var LINK_LABEL = { found: "링크에서 확인됨", not_found: "링크에서 못 찾음", unreachable: "링크 열지 못함", checking: "확인 중" };
+var VLABEL = { confirmed: "사실로 확인됨", "false": "사실과 다름", uncertain: "확인되지 않음" };
 
 async function renderCredits() {
   var d = await api("/api/admin/credits");
   var s = d.stats;
   var pend = d.bounties.filter(function (b) { return b.status === "pending"; });
+  var cpend = (d.corrections || []).filter(function (c) { return c.status === "pending"; });
   var reqs = d.redemptions.filter(function (r) { return r.status === "requested"; });
 
   $("main").innerHTML = '<h1>크레딧</h1><div class="sub">제보 보상 · 상품 교환 · 친구 추천. 승인하면 그 자리에서 크레딧이 지급됩니다.</div>' +
     '<div class="grid">' +
       kpi("검토 대기 제보", n(s.bounty.pending)) +
-      kpi("승인된 제보", n(s.bounty.approved)) +
+      kpi("검토 대기 정정", n(s.correction ? s.correction.pending : 0), "유메 판정이 틀렸다는 신고") +
       kpi("미사용 크레딧", n(s.outstanding), "약 " + n(s.outstandingKrw) + "원 상당") +
       kpi("교환 처리 대기", n(s.pendingRedemptions)) +
     "</div>" +
@@ -407,6 +409,18 @@ async function renderCredits() {
         "<td>" + badge(b.status, b.status === "approved" ? "승인 +" + n(b.credits) : b.status === "pending" ? "검토 중" : b.status === "rejected" ? "반려" : "중복") + "</td>" +
         "<td>" + (b.status === "pending" ? '<button class="btn" data-ok="' + b.id + '">승인</button> <button class="btn" data-no="' + b.id + '">반려</button>' : esc(b.reviewer_note || "")) + "</td></tr>";
     }).join("") : '<tr><td colspan="7" class="empty">제보가 없어요.</td></tr>') + "</tbody></table></div></div>" +
+
+    '<div class="panel"><h2>판정 정정 검토' + (cpend.length ? " (" + cpend.length + ")" : "") + "</h2>" +
+    '<div class="muted" style="margin-bottom:10px;">유메가 틀렸다는 신고입니다. 근거를 직접 확인하고 받아들이세요 — 받아들이면 공헌도가 지급되고 <b>그 주장의 캐시가 지워집니다</b>(안 지우면 같은 주장이 다음 검증에서 같은 판정으로 또 나갑니다). 반려 사유는 신고자에게 그대로 보입니다.</div>' +
+    '<div class="tablewrap"><table><thead><tr><th>보낸 사람</th><th>주장</th><th>유메 판정 → 맞다는 판정</th><th>근거</th><th>상태</th><th></th></tr></thead><tbody>' +
+    ((d.corrections || []).length ? d.corrections.map(function (c) {
+      return "<tr><td>" + esc(c.email) + "</td>" +
+        "<td><b>" + esc(String(c.claim_text || "").slice(0, 70)) + "</b><div class=\\"muted\\">" + esc(String(c.yume_explanation || "").slice(0, 100)) + "</div></td>" +
+        "<td>" + esc(VLABEL[c.yume_verdict] || c.yume_verdict) + " → <b>" + esc(VLABEL[c.correct_verdict] || c.correct_verdict) + "</b></td>" +
+        "<td>" + esc(c.note || "") + (c.evidence_url ? '<div><a href="' + safeUrl(c.evidence_url) + '" target="_blank" rel="noreferrer noopener">근거 링크 열기</a></div>' : "") + "</td>" +
+        "<td>" + badge(c.status === "accepted" ? "ok" : c.status === "pending" ? "pending" : "warn", c.status === "accepted" ? "채택 +" + n(c.points) : c.status === "pending" ? "검토 중" : "반려") + "</td>" +
+        "<td>" + (c.status === "pending" ? '<button class="btn" data-cok="' + c.id + '">채택</button> <button class="btn" data-cno="' + c.id + '">반려</button>' : esc(c.reviewer_note || "")) + "</td></tr>";
+    }).join("") : '<tr><td colspan="6" class="empty">정정 신고가 없어요.</td></tr>') + "</tbody></table></div></div>" +
 
     '<div class="panel"><h2>상품 교환' + (reqs.length ? " (" + reqs.length + ")" : "") + "</h2>" +
     '<div class="muted" style="margin-bottom:10px;">신청받은 상품은 운영자가 직접 구매해 보냅니다. 취소하면 크레딧이 자동으로 환급돼요.</div>' +
@@ -441,6 +455,16 @@ async function renderCredits() {
     var note = prompt("반려 사유 — 제보자에게 표시됩니다", "공유 링크에서 해당 내용을 확인하지 못했어요.");
     if (note === null) return Promise.resolve();
     return api("/api/admin/bounties/" + id + "/review", { method: "POST", body: { decision: "reject", note: note } });
+  });
+  act("cok", function (id) {
+    var note = prompt("채택 사유(선택) — 예: 근거 링크에서 88점 확인. 신고자에게 표시됩니다");
+    if (note === null) return Promise.resolve();
+    return api("/api/admin/corrections/" + id + "/review", { method: "POST", body: { decision: "accept", note: note } });
+  });
+  act("cno", function (id) {
+    var note = prompt("반려 사유 — 신고자에게 표시됩니다", "제시한 근거에서 다른 판정으로 볼 만한 내용을 확인하지 못했어요.");
+    if (note === null) return Promise.resolve();
+    return api("/api/admin/corrections/" + id + "/review", { method: "POST", body: { decision: "reject", note: note } });
   });
   act("rf", function (id) { return confirm("보냈다고 표시할까요?") ? api("/api/admin/redemptions/" + id + "/handle", { method: "POST", body: { decision: "fulfill" } }) : Promise.resolve(); });
   act("rc", function (id) { return confirm("취소하고 크레딧을 돌려줄까요?") ? api("/api/admin/redemptions/" + id + "/handle", { method: "POST", body: { decision: "cancel" } }) : Promise.resolve(); });

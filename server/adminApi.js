@@ -15,6 +15,7 @@ import { clientIp } from "./security.js";
 import { CREDIT_KRW, PLAN_CREDITS, creditStats, handleCreditRequest, listCreditRequests } from "./credits.js";
 import { POINTS, QUARTER_REWARDS, contributionStats, leaderboard, listQuarterAwards, periodOf, settleQuarter } from "./contribution.js";
 import { bountyStats, listBounties, reviewBounty } from "./bounty.js";
+import { correctionStats, listCorrections, reviewCorrection } from "./corrections.js";
 import { listReferralsForReview, resolveReferralReview } from "./referral.js";
 
 // 운영자 전용 API. 관리자 권한(role=admin, ADMIN_EMAILS로 지정) 세션이 있거나, 스크립트용으로
@@ -309,8 +310,9 @@ router.post("/dataset/exports/:id/revoke", async (req, res) => {
 // 크레딧(쓰면 없어지는 재화)과 공헌도(누적 점수)는 서로 다른 값이라 통계도 따로 낸다.
 router.get("/credits", async (req, res) => {
   res.json({
-    stats: { ...(await creditStats()), bounty: await bountyStats() },
+    stats: { ...(await creditStats()), bounty: await bountyStats(), correction: await correctionStats() },
     bounties: await listBounties(req.query.status || null),
+    corrections: await listCorrections(req.query.correctionStatus || null),
     redemptions: await listCreditRequests(req.query.redemptionStatus || null),
     referrals: await listReferralsForReview(),
     contribution: {
@@ -321,7 +323,7 @@ router.get("/credits", async (req, res) => {
       top: await leaderboard(20),
       awards: await listQuarterAwards(req.query.period || periodOf()),
     },
-    defaults: { reportPoints: POINTS.report, creditKrw: CREDIT_KRW, planCredits: PLAN_CREDITS },
+    defaults: { reportPoints: POINTS.report, correctionPoints: POINTS.correction, creditKrw: CREDIT_KRW, planCredits: PLAN_CREDITS },
   });
 });
 
@@ -331,6 +333,17 @@ router.post("/bounties/:id/review", async (req, res) => {
   const r = await reviewBounty(id, { decision, credits, note, reviewerId: req.user?.id ?? null });
   if (r.error) return res.status(400).json({ error: r.error });
   await audit(req.adminActor, `bounty_${r.status}`, `bounty:${id}`, { points: r.points }, clientIp(req));
+  res.json(r);
+});
+
+// 판정 정정 검토. 받아들이면 점수가 지급되고 그 주장의 캐시가 지워진다 —
+// 캐시를 두면 같은 주장이 다음 검증에서 그 틀린 판정으로 다시 나간다.
+router.post("/corrections/:id/review", async (req, res) => {
+  const id = Number(req.params.id);
+  const { decision, points, note } = req.body || {};
+  const r = await reviewCorrection(id, { decision, points, note, reviewerId: req.user?.id ?? null });
+  if (r.error) return res.status(400).json({ error: r.error });
+  await audit(req.adminActor, `correction_${r.status}`, `correction:${id}`, { points: r.points, cacheCleared: r.cacheCleared }, clientIp(req));
   res.json(r);
 });
 
@@ -372,7 +385,7 @@ router.get("/errors", async (req, res) => res.json({ errors: await listErrors(20
 router.get("/audit", async (req, res) => res.json({ logs: await listAudit(300) }));
 
 // ── DB ──
-const TABLES = ["users", "sessions", "verifications", "claims", "api_keys", "api_usage", "usage_daily", "wallets", "chat_messages", "error_logs", "audit_logs", "data_exports", "settings", "credit_ledger", "contribution_ledger", "quarter_awards", "bounty_claims", "redemptions", "referrals"];
+const TABLES = ["users", "sessions", "verifications", "claims", "api_keys", "api_usage", "usage_daily", "wallets", "chat_messages", "error_logs", "audit_logs", "data_exports", "settings", "credit_ledger", "contribution_ledger", "quarter_awards", "bounty_claims", "verdict_corrections", "redemptions", "referrals"];
 
 router.get("/db", async (req, res) => {
   const tables = [];
