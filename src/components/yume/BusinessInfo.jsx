@@ -9,6 +9,7 @@
 // 심사 필수 항목은 다섯 개다 — 상호명, 사업자번호, 대표자명, 사업장주소지, 전화번호.
 import { BUSINESS, telHref, businessLine } from "@/businessInfo";
 import { t } from "../../i18n.js";
+import { IS_STORE_BUILD } from "../../storeBuild.js";
 
 export default function BusinessInfo({ compact = false, style = {} }) {
   const size = compact ? 11 : 11.5;
@@ -47,7 +48,7 @@ export default function BusinessInfo({ compact = false, style = {} }) {
         <a href="/terms" target="_blank" rel="noopener noreferrer" style={{ color: "#8577A8", textDecoration: "none" }}>{t("이용약관")}</a>
         <a href="/privacy" target="_blank" rel="noopener noreferrer" style={{ color: "#8577A8", textDecoration: "none" }}>{t("개인정보처리방침")}</a>
         <a href="/refund" target="_blank" rel="noopener noreferrer" style={{ color: "#8577A8", textDecoration: "none", fontWeight: 600 }}>{t("환불정책")}</a>
-        <a href="/products" target="_blank" rel="noopener noreferrer" style={{ color: "#8577A8", textDecoration: "none" }}>{t("상품 안내")}</a>
+        {!IS_STORE_BUILD && <a href="/products" target="_blank" rel="noopener noreferrer" style={{ color: "#8577A8", textDecoration: "none" }}>{t("상품 안내")}</a>}
       </div>
     </address>
   );

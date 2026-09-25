@@ -1199,12 +1199,12 @@ export default function YumeDashboard() {
             ...pillBtn, border: `1px solid ${UI.hairline}`,
             background: "rgba(255,255,255,0.55)", color: UI.ink2, fontWeight: 600,
           }}>{tightNav ? (lang === "ko" ? "EN" : "한") : (lang === "ko" ? "English" : "한국어")}</motion.button>
-          <motion.button {...navEnter(0.12)}
+          {!IS_STORE_BUILD && <motion.button {...navEnter(0.12)}
             whileHover={{ backgroundColor: "#fff" }} whileTap={{ scale: 0.96 }}
             onClick={() => setShowPricing(true)} className="yume-nav-pill" style={{
             ...pillBtn, border: `1px solid ${UI.hairline}`,
             background: plan === "free" ? "rgba(255,255,255,0.55)" : "#EFE7FC", color: UI.accent, fontWeight: 600,
-          }}>{t("{plan} 플랜", { plan: t(PLANS[plan]?.label || user?.planLabel || "무료") })}</motion.button>
+          }}>{t("{plan} 플랜", { plan: t(PLANS[plan]?.label || user?.planLabel || "무료") })}</motion.button>}
           {user ? (
             <div style={{ position: "relative" }}>
               <motion.button {...navEnter(0.16)}
@@ -1354,9 +1354,9 @@ export default function YumeDashboard() {
                         ...pillBtn, border: "none", background: UI.ink, color: "#fff", fontWeight: 600,
                       }}>{t("로그인하기")}</button>
                     )}
-                    <button onClick={() => setShowPricing(true)} style={{
+                    {!IS_STORE_BUILD && <button onClick={() => setShowPricing(true)} style={{
                       ...pillBtn, border: `1px solid ${UI.hairline}`, background: "#fff", color: UI.accent, fontWeight: 600,
-                    }}>{t("요금제 보기")}</button>
+                    }}>{t("요금제 보기")}</button>}
                   </div>
                 </div>
               ) : stage === "error" && (
@@ -1626,7 +1626,11 @@ export default function YumeDashboard() {
         </Reveal>
       </main>
 
-      {/* ================= 스크롤 스토리텔링 섹션 (마케팅 랜딩) ================= */}
+      {/* ================= 스크롤 스토리텔링 섹션 (마케팅 랜딩) =================
+          앱(스토어 빌드)에서는 통째로 빼둔다. 이 긴 설득 글은 "이 서비스를 쓸까" 고민하는
+          웹 방문자를 위한 것이고, 앱을 이미 깐 사람은 쓰러 들어온 사람이다. 열자마자
+          34화면짜리 소개가 깔리면 도구를 찾으러 스크롤을 내려야 한다. */}
+      {!IS_STORE_BUILD && (<>
 
       {/* 왜 유메인가 — 문제 제기 */}
       <section style={{ maxWidth: 900, margin: "180px auto 0", padding: "0 24px", textAlign: "center" }}>
@@ -1727,6 +1731,8 @@ export default function YumeDashboard() {
         </Reveal>
       </section>
 
+      </>)}
+
       {/* FOOTER */}
       <footer style={{ marginTop: 200, borderTop: `1px solid ${UI.hairline}`, background: "rgba(248,246,253,0.7)" }}>
         <div style={{ maxWidth: 1080, margin: "0 auto", padding: "40px 24px 32px", display: "flex", flexDirection: "column", gap: 24 }}>
@@ -1736,10 +1742,10 @@ export default function YumeDashboard() {
               <div style={{ fontSize: 13, color: UI.ink3, marginTop: 10, maxWidth: 280, lineHeight: 1.6 }}>{t("AI 답변, 확인하고 믿으세요.")}</div>
             </div>
             <div style={{ display: "flex", gap: 28, flexWrap: "wrap" }}>
-              <button onClick={() => setShowPricing(true)} className="yume-footer-link" style={{ border: "none", background: "transparent", color: UI.ink2, fontSize: 13, cursor: "pointer", padding: 0 }}>{t("요금제")}</button>
-              <button onClick={() => setShowBiz(true)} className="yume-footer-link" style={{ border: "none", background: "transparent", color: UI.ink2, fontSize: 13, cursor: "pointer", padding: 0 }}>{t("비즈니스 · API")}</button>
-              <a href="/docs/api" target="_blank" rel="noopener noreferrer" className="yume-footer-link" style={{ color: UI.ink2, fontSize: 13, textDecoration: "none" }}>{t("API 문서")}</a>
-              {!IS_NATIVE_APP && (
+              {!IS_STORE_BUILD && <button onClick={() => setShowPricing(true)} className="yume-footer-link" style={{ border: "none", background: "transparent", color: UI.ink2, fontSize: 13, cursor: "pointer", padding: 0 }}>{t("요금제")}</button>}
+              {!IS_STORE_BUILD && <button onClick={() => setShowBiz(true)} className="yume-footer-link" style={{ border: "none", background: "transparent", color: UI.ink2, fontSize: 13, cursor: "pointer", padding: 0 }}>{t("비즈니스 · API")}</button>}
+              {!IS_STORE_BUILD && <a href="/docs/api" target="_blank" rel="noopener noreferrer" className="yume-footer-link" style={{ color: UI.ink2, fontSize: 13, textDecoration: "none" }}>{t("API 문서")}</a>}
+              {!IS_NATIVE_APP && !IS_STORE_BUILD && (
                 <a href={BUSINESS_URL} className="yume-footer-link" style={{ color: UI.ink2, fontSize: 13, textDecoration: "none" }}>{t("기업용")}</a>
               )}
             </div>
@@ -1772,7 +1778,7 @@ export default function YumeDashboard() {
               <a href="/terms" target="_blank" rel="noopener noreferrer" className="yume-footer-link" style={{ color: UI.ink2, textDecoration: "none", paddingRight: 12, borderRight: `1px solid ${UI.hairline}` }}>{t("이용약관")}</a>
               <a href="/privacy" target="_blank" rel="noopener noreferrer" className="yume-footer-link" style={{ color: UI.ink, textDecoration: "none", fontWeight: 600, padding: "0 12px", borderRight: `1px solid ${UI.hairline}` }}>{t("개인정보처리방침")}</a>
               <a href="/refund" target="_blank" rel="noopener noreferrer" className="yume-footer-link" style={{ color: UI.ink2, textDecoration: "none", padding: "0 12px", borderRight: `1px solid ${UI.hairline}` }}>{t("환불정책")}</a>
-              <a href="/products" target="_blank" rel="noopener noreferrer" className="yume-footer-link" style={{ color: UI.ink2, textDecoration: "none", paddingLeft: 12 }}>{t("상품 안내")}</a>
+              {!IS_STORE_BUILD && <a href="/products" target="_blank" rel="noopener noreferrer" className="yume-footer-link" style={{ color: UI.ink2, textDecoration: "none", paddingLeft: 12 }}>{t("상품 안내")}</a>}
             </span>
           </div>
         </div>
