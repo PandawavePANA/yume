@@ -37,3 +37,4 @@ android/keystore.properties
 #  포장은 항상 슬래시로 다시 만든 것을 쓸 것.)
 extension*.zip
 .tmp-shots-profile/
+.tmp-brand/
