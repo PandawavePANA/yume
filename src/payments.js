@@ -11,6 +11,13 @@ import { apiJson } from "./components/yume/api.js";
 // SDK는 결제할 때만 필요하다. 첫 화면 번들에 넣지 않으려고 누를 때 가져온다.
 const sdk = () => import("@portone/browser-sdk/v2");
 
+// 인증·결제 창이 돌아올 자리. 웹은 "/", 앱(스토어 빌드)은 "/app/" 아래에 산다.
+// origin만 쓰면 앱에서 인증을 마친 사람이 웹 화면으로 튕긴다 — 앱에 없어야 할 결제 화면이 있는 곳이다.
+const returnTo = (param, value) => {
+  const base = new URL(".", window.location.href); // 현재 화면이 사는 폴더
+  base.search = `?${param}=${encodeURIComponent(value)}`;
+  return base.toString();
+};
 const CANCEL_CODES = new Set(["USER_CANCEL", "PAY_PROCESS_CANCELED", "IDENTITY_VERIFICATION_CANCELLED"]);
 
 function cancelled(message) {
@@ -67,7 +74,7 @@ export async function startCheckout(order, buyer) {
     payMethod: "CARD",
     customer: { ...(order.customer || {}), ...(buyer || {}) },
     // 모바일 결제창은 페이지를 떠났다가 돌아온다. 돌아올 곳을 지정하지 않으면 결과를 잃는다.
-    redirectUrl: `${window.location.origin}/?checkout=${encodeURIComponent(order.paymentId)}`,
+    redirectUrl: returnTo("checkout", order.paymentId),
   });
   if (res?.code != null) {
     if (CANCEL_CODES.has(res.code)) throw cancelled(res.message);
@@ -92,7 +99,7 @@ export async function payForPack(packKey) {
     // 이니시스 V2 일반결제는 구매자 이메일이 없으면 창을 열지 않는다. 서버가 계정에서 꺼내 준 값이다.
     customer: order.customer,
     // 모바일 결제창은 페이지를 떠났다가 돌아온다. 돌아올 곳을 지정하지 않으면 결과를 잃는다.
-    redirectUrl: `${window.location.origin}/?checkout=${encodeURIComponent(order.paymentId)}`,
+    redirectUrl: returnTo("checkout", order.paymentId),
   });
   if (res?.code != null) {
     if (CANCEL_CODES.has(res.code)) throw cancelled(res.message);
@@ -120,7 +127,7 @@ export async function verifyIdentity({ agree = false } = {}) {
     storeId: start.storeId,
     channelKey: start.channelKey,
     identityVerificationId: start.identityVerificationId,
-    redirectUrl: `${window.location.origin}/?identity=${encodeURIComponent(start.identityVerificationId)}`,
+    redirectUrl: returnTo("identity", start.identityVerificationId),
   });
   if (res?.code != null) {
     if (CANCEL_CODES.has(res.code)) throw cancelled(res.message);
@@ -144,7 +151,7 @@ export async function startIdentityReset() {
     storeId: start.storeId,
     channelKey: start.channelKey,
     identityVerificationId: start.identityVerificationId,
-    redirectUrl: `${window.location.origin}/?pwreset=${encodeURIComponent(start.identityVerificationId)}`,
+    redirectUrl: returnTo("pwreset", start.identityVerificationId),
   });
   if (res?.code != null) {
     if (CANCEL_CODES.has(res.code)) throw cancelled(res.message);
@@ -195,7 +202,7 @@ export async function payForPlan(plan) {
     currency: order.currency,
     payMethod: "CARD",
     customer: order.customer,
-    redirectUrl: `${window.location.origin}/?checkout=${encodeURIComponent(order.paymentId)}`,
+    redirectUrl: returnTo("checkout", order.paymentId),
   });
   if (res?.code != null) {
     if (CANCEL_CODES.has(res.code)) throw cancelled(res.message);
