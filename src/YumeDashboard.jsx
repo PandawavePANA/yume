@@ -1,8 +1,7 @@
 import React, { useRef, useState } from "react";
+// 누르기 전에는 그려지지 않는 화면들. 첫 화면 번들에서 빼 둔다(src/chunks.js).
+import { AccountModal, AuditModal, AuthModal, CatMouseGame, CheckoutPage, ReviewModal } from "./chunks.jsx";
 import { motion, AnimatePresence, useScroll, useTransform, useMotionValue, useSpring } from "framer-motion";
-import CatMouseGame from "@/components/yume/CatMouseGame";
-import AuthModal from "@/components/yume/AuthModal";
-import AccountModal from "@/components/yume/AccountModal";
 import NecPanel from "@/components/yume/NecPanel";
 import ContextRepairCard from "@/components/yume/ContextRepairCard";
 import { BountyPrompt } from "@/components/yume/BountyModal";
@@ -13,9 +12,7 @@ import BusinessInfo from "@/components/yume/BusinessInfo";
 import { IS_NATIVE_APP, onNativeBack, shareLink } from "./native.js";
 import { IS_STORE_BUILD } from "./storeBuild.js";
 import { orderPlan, resumeFromRedirect, verifyIdentity } from "./payments.js";
-import AuditModal from "./components/yume/AuditModal.jsx";
 import SidePanel, { PANEL_WIDTH } from "@/components/yume/SidePanel";
-import CheckoutPage from "@/components/yume/CheckoutPage";
 import { t, useLang } from "./i18n.js";
 import { useMediaQuery, useWideScreen } from "./useMedia.js";
 
@@ -662,6 +659,9 @@ export default function YumeDashboard() {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [showBiz, setShowBiz] = useState(false);
   const [showAudit, setShowAudit] = useState(false);
+  // 운영자 검토함. /admin이 ADMIN_PASSWORD로 한 번 더 잠겨 있어 열지 못하는 동안에도
+  // 접수된 제보·정정을 처리할 수 있어야 한다 — 보낸 사람은 기다리고 있다.
+  const [showReview, setShowReview] = useState(false);
   // 전체 채팅. 넓은 화면에서는 기본으로 열려 있다 — 늘 떠 있어야 등수가 눈에 들어온다.
   // 오른쪽 사이드바에 무엇이 열려 있나 — null · "chat" · "rank".
   //
@@ -1081,12 +1081,13 @@ export default function YumeDashboard() {
     if (accountTab) { setAccountTab(null); return true; }
     if (showPricing) { setShowPricing(false); return true; }
     if (panelTab && !wideScreen) { openPanel(null); return true; }
+    if (showReview) { setShowReview(false); return true; }
     if (showAudit) { setShowAudit(false); return true; }
     if (showBiz) { setShowBiz(false); return true; }
     if (sidebarOpen) { setSidebarOpen(false); return true; }
     if (stage === "done") { reset(); return true; }
     return false;
-  }), [userMenuOpen, authModal, accountTab, showPricing, showBiz, showAudit, panelTab, wideScreen, openPanel, sidebarOpen, stage]);
+  }), [userMenuOpen, authModal, accountTab, showPricing, showBiz, showAudit, showReview, panelTab, wideScreen, openPanel, sidebarOpen, stage]);
   const confirmedCount = result?.claims?.filter(c => c.verdict === "confirmed").length ?? 0;
   const totalCount = result?.claims?.length ?? 0;
   const allSources = (result?.claims || []).flatMap(c => (c.sources || []).map(s => ({ ...s, forClaim: c.text })));
@@ -1295,7 +1296,12 @@ export default function YumeDashboard() {
                         [t("계정 설정"), () => setAccountTab("profile")],
                         [t("API 키"), () => setAccountTab("api")],
                         [t("데이터 · 개인정보"), () => setAccountTab("data")],
-                        ...(user.role === "admin" ? [[t("운영 대시보드"), () => { window.open("/admin", "_blank", "noopener"); }]] : []),
+                        ...(user.role === "admin"
+                          ? [
+                              [t("검토 대기"), () => setShowReview(true)],
+                              [t("운영 대시보드"), () => { window.open("/admin", "_blank", "noopener"); }],
+                            ]
+                          : []),
                         [t("로그아웃"), logout],
                       ].map(([label, fn]) => (
                         <button key={label} role="menuitem" onClick={() => { setUserMenuOpen(false); fn(); }} style={{
@@ -2001,6 +2007,7 @@ export default function YumeDashboard() {
       )}
 
       {showAudit && <AuditModal onClose={() => setShowAudit(false)} />}
+      {showReview && user?.role === "admin" && <ReviewModal onClose={() => setShowReview(false)} />}
 
       {/* 오른쪽 사이드바 — 채팅과 랭킹이 탭으로 같이 산다.
           이름 옆 등수가 이 화면의 이유이고, 그 등수의 전체 판이 바로 옆 탭에 있다. */}

@@ -11,8 +11,8 @@ import { useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { t } from "../../i18n.js";
 import { useWideScreen } from "../../useMedia.js";
-import LobbyPanel from "./LobbyChat.jsx";
-import RankingPanel from "./RankingPanel.jsx";
+// 열 때 가져온다. 사이드바를 한 번도 안 여는 사람이 이 둘을 내려받을 이유가 없다.
+import { LobbyPanel, RankingPanel } from "../../chunks.jsx";
 
 export const PANEL_WIDTH = 320;
 const EASE = [0.22, 1, 0.36, 1];

@@ -1,7 +1,7 @@
 // Anthropic Messages API 호출 (서버 전용 — API 키는 절대 클라이언트로 내려가지 않음).
 import { RECORDEDNESS } from "./nec/searchSpace.js";
 import { classifyUpstream, noteUpstreamFailure, noteUpstreamSuccess } from "./upstream.js";
-import { record } from "./apiCost.js";
+import { record, searchesLeft } from "./apiCost.js";
 
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 // 작업마다 필요한 머리가 다르다. 전부 Sonnet으로 돌리면 "주어진 조문과 주장을 비교하라"
@@ -13,6 +13,20 @@ const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 // 웹 검색은 유메에서 가장 비싼 단일 항목이다. 건당 과금인 데다 결과가 대화에 누적돼
 // 이후 턴의 입력 토큰까지 함께 늘린다. 프롬프트로 부탁하지 말고 상한을 직접 건다.
 const webSearch = (maxUses) => ({ type: "web_search_20250305", name: "web_search", max_uses: maxUses });
+
+// 이 단계가 실제로 쓸 검색 횟수. 자기 상한과 "검증 한 건에 남은 총량" 중 작은 쪽이다.
+//
+// 단계마다 상한만 두면 한 검증이 쓰는 총량에 천장이 없다 — 결론이 안 난 주장마다 도는
+// 리서치가 특히 그렇다. 남은 양을 물어보고 쓰면, 앞 단계가 덜 썼을 때 뒤 단계가 더 쓸 수
+// 있어 단계별 상한보다 필요한 곳에 쓰인다. 남은 양이 0이면 검색 없이 부른다 —
+// 도구를 떼는 대신 0으로 두면 모델이 "검색을 못 하는 상태"를 알고 그에 맞게 답한다.
+const searchBudgetFor = (ledger, cap) => Math.max(0, Math.min(cap, searchesLeft(ledger)));
+
+// 검색을 아예 못 쓰는 호출에는 도구를 붙이지 않는다. max_uses 0은 API가 받지 않는다.
+const searchTools = (ledger, cap) => {
+  const n = searchBudgetFor(ledger, cap);
+  return n > 0 ? [webSearch(n)] : undefined;
+};
 
 const MODEL = process.env.CLAUDE_MODEL || "claude-sonnet-5";
 const FAST_MODEL = process.env.CLAUDE_FAST_MODEL || "claude-haiku-4-5-20251001";
@@ -281,13 +295,19 @@ export async function extractAndVerify(text, onProgress = () => {}, { ledger = n
     label: "extract",
     ledger,
     messages: [{ role: "user", content: `다음 내용을 검증해줘:\n\n${text}` }],
-    tools: [webSearch(6)],
+    tools: searchTools(ledger, 6),
     max_tokens: 8000,
     onProgress,
   });
   const parsed = extractJson(raw);
   if (!Array.isArray(parsed.claims) || parsed.claims.length === 0) {
-    // 한 번은 더 시도한다 — 주장 단위를 잘게 잡으라고 알려주면 건지는 경우가 많다.
+    // 모델이 "왜 없는지"까지 적어 보냈으면 그건 놓친 것이 아니라 판단한 것이다.
+    // 한 줄 질문을 열면서 이 경우가 흔해졌다 — "오늘 뭐 먹을까?"에는 정말로 확인할
+    // 주장이 없다. 그때마다 한 번 더 부르면 아무것도 못 건지는 호출에 매번 돈을 쓴다.
+    if (String(parsed.summary || "").trim().length >= 10) return { ...parsed, claims: [] };
+
+    // 설명 없이 빈손으로 왔으면 한 번은 더 시도한다 — 주장 단위를 잘게 잡으라고
+    // 알려주면 건지는 경우가 많다.
     // 그래도 없으면 오류로 끝내지 않는다. 사실 주장이 없는 글(인사말·의견·창작)일 수 있고,
     // 그때는 "검증할 게 없었다"고 알려주는 편이 검증 실패 화면보다 정확하다.
     const retry = await callClaudeStreaming({
@@ -301,7 +321,7 @@ ${text}` },
         { role: "assistant", content: raw.slice(0, 500) },
         { role: "user", content: "검증 가능한 사실 주장이 하나도 안 잡혔습니다. 숫자·연도·인물·기관·인과관계처럼 참/거짓을 가릴 수 있는 문장을 더 잘게 나눠 다시 추출해주세요. 짧은 질문이면 질문 형식('~라는데 사실이야?')을 벗기고 그 안의 주장을 뽑으면 됩니다. 정말로 사실 주장이 없으면 claims를 빈 배열로 두고 summary에 그 이유를 쓰세요." },
       ],
-      tools: [webSearch(3)],
+      tools: searchTools(ledger, 2),
       max_tokens: 8000,
       onProgress,
     });
@@ -364,7 +384,7 @@ export async function verifyLegalClaimViaWeb(claimText, onProgress = () => {}, {
     label: "legal_web",
     ledger,
     messages: [{ role: "user", content: `다음 법률 관련 주장을 검색해서 검증해줘:\n\n${claimText}${idLine}` }],
-    tools: [webSearch(4)],
+    tools: searchTools(ledger, 4),
     max_tokens: 2000,
     onProgress,
   });
@@ -452,7 +472,7 @@ export async function researchClaim(claimText, { domain = "일반", priorExplana
     label: "research",
     ledger,
     messages: [{ role: "user", content: `도메인: ${domain}\n주장: ${claimText}${prior}${seen}` }],
-    tools: [webSearch(3)],
+    tools: searchTools(ledger, 3),
     max_tokens: 3000,
     onProgress,
   });
@@ -516,7 +536,7 @@ export async function reviewAccusation({ claimText, explanation, sources = [], l
         content: [`주장: ${claimText}`, `지목 사유: ${explanation}`, "제시된 근거:", evidence].join(String.fromCharCode(10, 10)),
       },
     ],
-    tools: [webSearch(2)],
+    tools: searchTools(ledger, 2),
     max_tokens: 1500,
   });
   const parsed = extractJson(raw);

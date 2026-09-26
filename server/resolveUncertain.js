@@ -12,6 +12,7 @@
 // 반대로 비공개 정보나 개인 경험처럼 애초에 기록이 남지 않는 주장은 아무리 뒤져도
 // 커버리지가 낮아 부존재로 단정되지 않는다. 그건 정직하게 '확인되지 않음'으로 남는다.
 import { researchClaim as defaultResearch } from "./claude.js";
+import { searchesLeft } from "./apiCost.js";
 import { coverageFor } from "./nec/searchSpace.js";
 import { buildNecReport, NEC_WEIGHTS } from "./nec/nec.js";
 
@@ -45,6 +46,14 @@ async function inBatches(items, size, fn) {
 export async function resolveUncertainClaims(claims, { research = defaultResearch, onProgress = () => {}, ledger = null } = {}) {
   const targets = claims.map((c, i) => ({ c, i })).filter(({ c }) => needsResearch(c));
   if (targets.length === 0) return claims;
+
+  // 검색을 못 쓰는 상태면 부르지 않는다.
+  //
+  // 이 단계는 결론이 안 난 주장 **마다** 돌기 때문에, 검증 한 건이 쓰는 검색이 여기서
+  // 가장 많이 늘어난다. 검증 한 건의 검색 총량(apiCost.js의 SEARCH_BUDGET)을 다 쓰고
+  // 나면 검색 없이 부르게 되는데, 그건 배경지식으로 추측하라는 뜻이라 리서치가 아니다.
+  // 돈만 쓰고 근거는 못 대니 부르지 않고 '확인되지 않음'으로 남긴다 — 정직한 결과다.
+  if (searchesLeft(ledger) <= 0) return claims;
 
   onProgress(`결론이 안 난 주장 ${targets.length}개를 더 확인하는 중…`);
 

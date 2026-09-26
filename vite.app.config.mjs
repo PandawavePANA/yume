@@ -17,6 +17,10 @@ export default defineConfig({
   resolve: { alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) } },
   build: {
     outDir: "dist-app",
-    rollupOptions: { input: fileURLToPath(new URL("./app.html", import.meta.url)) },
+    rollupOptions: {
+      input: fileURLToPath(new URL("./app.html", import.meta.url)),
+      // 웹과 같은 이유. 앱은 네트워크가 더 느린 자리에서 열리는 일이 많아 더 중요하다.
+      output: { manualChunks: { vendor: ["react", "react-dom", "framer-motion"] } },
+    },
   },
 });

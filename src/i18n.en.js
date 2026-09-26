@@ -604,6 +604,36 @@ export default {
   "근거를 직접 확인한 뒤 판정을 고치고 공헌도를 드립니다. 결과는 랭킹 → 내 적립 내역에서 볼 수 있어요.":
     "We check the evidence ourselves, then fix the verdict and award the points. You can follow it under Ranking → My points.",
   "판정 정정 채택": "Correction accepted",
+
+  // ── 운영자 검토함 ──
+  "검토 대기": "Review queue",
+  "근거를 직접 확인하고 처리하세요. 승인하면 그 자리에서 공헌도가 지급됩니다.":
+    "Check the evidence yourself, then decide. Approving awards the points immediately.",
+  "검토할 것이 없어요.": "Nothing to review.",
+  "할루시네이션 제보": "Hallucination report",
+  "유메 판정 정정": "Correction to a YUME verdict",
+  "유메가 한 말": "What YUME said",
+  "{platform} 대화 열어보기": "Open the {platform} conversation",
+  "근거 링크 열어보기": "Open the evidence link",
+  "링크를 직접 열어 그 AI가 실제로 이 인용을 했는지 확인한 뒤 승인하세요. 자동 확인은 참고용입니다 — 공유 페이지 상당수가 본문을 자바스크립트로 그려서 못 찾을 수 있어요.":
+    "Open the link yourself and confirm that AI really produced this citation before approving. The automatic check is a hint only — many share pages render their text with JavaScript, so it can miss.",
+  "채택하면 그 주장의 캐시가 함께 지워집니다 — 같은 주장이 다음 검증에서 같은 판정으로 또 나가지 않도록.":
+    "Accepting also clears that claim from the cache, so the same claim will not come back with the same verdict.",
+  "승인": "Approve",
+  "채택": "Accept",
+  "반려": "Reject",
+  "반려하기": "Reject it",
+  "반려 사유 (보낸 분에게 표시됩니다)": "Reason for rejecting (shown to the sender)",
+  "승인 메모 (선택)": "Note (optional)",
+  "예: 공유 링크에서 해당 인용을 직접 확인했습니다.": "e.g. Confirmed the citation in the shared conversation.",
+  "예: 공유 링크에서 해당 인용을 확인하지 못했어요.": "e.g. Could not find that citation in the shared conversation.",
+  "예: 제시한 근거에서 다른 판정으로 볼 만한 내용을 확인하지 못했어요.":
+    "e.g. The evidence given does not support a different verdict.",
+  "승인했어요 — 공헌도 {n}점을 드렸습니다.": "Approved — {n} contribution points awarded.",
+  "반려했어요. 사유가 보낸 분에게 표시됩니다.": "Rejected. The sender will see your reason.",
+  "링크에서 확인됨": "Found in the link",
+  "링크에서 못 찾음": "Not found in the link",
+  "링크를 열지 못함": "Could not open the link",
   "내 판정 정정": "My corrections",
   "유메가 틀렸다고 알려주신 것들이에요. 채택되면 공헌도 {n}점이 쌓이고 그 판정도 함께 고칩니다.":
     "Times you told us YUME got it wrong. Accepted corrections earn {n} contribution points, and we fix the verdict too.",

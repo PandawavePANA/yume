@@ -25,9 +25,33 @@ export function costOf({ model, input = 0, output = 0, cachedInput = 0, cacheWri
   return input * p.in + cachedInput * p.cachedIn + cacheWrite * p.in * CACHE_WRITE_MULTIPLIER + output * p.out + searches * WEB_SEARCH_USD;
 }
 
+// 검증 한 건이 쓸 수 있는 웹검색 총량.
+//
+// 실측으로 검색 1회가 약 $0.054(75원)다. 검색 수수료 자체는 $0.01인데, 결과가 대화에
+// 그대로 쌓여 그다음 턴의 입력·캐시 토큰까지 함께 부풀리기 때문에 5배가 넘는다.
+// 그래서 "몇 번 검색했나"가 사실상 원가 그 자체다.
+//
+// 문제는 그 횟수에 천장이 없었다는 것이다. 단계마다 상한은 있었지만(추출 6, 리서치 3,
+// 지목 재확인 2) 리서치는 **결론이 안 난 주장마다** 도니까, 주장 7개짜리 답변에서
+// 6개가 미결이면 그 단계에서만 18회를 쓴다. 검증 한 건이 1달러를 넘을 수 있고,
+// 그 한 건이 스탠다드 한 달 요금의 15%다.
+//
+// 그래서 단계별 상한 대신 **검증 한 건이 쓸 총량**을 정한다. 실측한 13건이 0~8회를
+// 썼으니 12면 정상 검증은 건드리지 않고 꼬리만 자른다. 남은 양을 각 단계가 물어보고
+// 자기 몫을 정하므로, 앞에서 덜 썼으면 뒤에서 더 쓸 수 있다 — 단계별 상한보다
+// 필요한 곳에 쓰인다.
+export const SEARCH_BUDGET = 12;
+
 // 검증 한 건 동안의 호출을 모은다. 요청마다 새로 만들고, 끝나면 요약을 남긴다.
-export function newLedger() {
-  return { calls: [], startedAt: Date.now() };
+export function newLedger({ searchBudget = SEARCH_BUDGET } = {}) {
+  return { calls: [], startedAt: Date.now(), searchBudget };
+}
+
+/** 이 검증에서 아직 쓸 수 있는 검색 횟수. 장부가 없으면 제한하지 않는다(단위 테스트·단발 호출). */
+export function searchesLeft(ledger) {
+  if (!ledger) return Infinity;
+  const used = ledger.calls.reduce((n, c) => n + (c.searches || 0), 0);
+  return Math.max(0, (ledger.searchBudget ?? SEARCH_BUDGET) - used);
 }
 
 export function record(ledger, { label, model, usage }) {

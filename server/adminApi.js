@@ -327,6 +327,47 @@ router.get("/credits", async (req, res) => {
   });
 });
 
+// 검토 대기함 — 운영자가 유메 화면 안에서 바로 처리하기 위한 가벼운 목록.
+//
+// 검토 화면은 /admin에 이미 있는데, 그쪽은 ADMIN_PASSWORD로 한 번 더 잠겨 있다.
+// 그 값이 설정되기 전에는 문이 아예 열리지 않아서, 사용자가 실제로 제보를 보냈는데
+// 확인할 방법이 없는 상태가 됐다. 보상이 걸린 접수함을 아무도 못 여는 것은 그 자체로
+// 사고다 — 보낸 사람은 기다리고 있는데 우리는 보지도 못한다.
+//
+// 그래서 같은 일을 로그인한 관리자 세션(role=admin)으로도 할 수 있게 문을 하나 더 낸다.
+// 권한은 /api/admin/*와 똑같고(requireAdmin), 내려주는 것은 검토에 필요한 것만이다 —
+// 운영 통계나 사용자 IP 같은 건 이 문으로 나가지 않는다.
+router.get("/queue", async (req, res) => {
+  const [bounties, corrections] = await Promise.all([listBounties("pending", 50), listCorrections("pending", 50)]);
+  res.json({
+    reportPoints: POINTS.report,
+    correctionPoints: POINTS.correction,
+    bounties: bounties.map((b) => ({
+      id: b.id,
+      email: b.email,
+      platform: b.platform,
+      shareUrl: b.share_url,
+      identifier: b.identifier_value,
+      claimText: b.claim_text,
+      necScore: b.nec_score,
+      linkCheck: b.link_check,
+      linkCheckNote: b.link_check_note,
+      createdAt: b.created_at,
+    })),
+    corrections: corrections.map((c) => ({
+      id: c.id,
+      email: c.email,
+      claimText: c.claim_text,
+      yumeVerdict: c.yume_verdict,
+      yumeExplanation: c.yume_explanation,
+      correctVerdict: c.correct_verdict,
+      evidenceUrl: c.evidence_url,
+      note: c.note,
+      createdAt: c.created_at,
+    })),
+  });
+});
+
 router.post("/bounties/:id/review", async (req, res) => {
   const id = Number(req.params.id);
   const { decision, credits, note } = req.body || {};
