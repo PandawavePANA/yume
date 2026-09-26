@@ -72,7 +72,14 @@ async function processVerification({ id, text, source, onProgress = () => {} }) 
     const relatedProducts = await resolveProductLinks(extracted.related_products);
     // 추출 단계의 한 줄 요약은 공식 대조·부존재 판정 전에 쓰인 것이라, 뒤 단계에서 판정이
     // 바뀌었을 수 있는 경우엔 버리고 결정론적 총평만 보여준다.
-    const verdictsChanged = claims.some((c) => ["official", "nec", "research"].includes(c.verified_via));
+    //
+    // 경로 표시(verified_via)만 보면 놓치는 것이 있다. 근거 검사대(claimGuard)와 지목
+    // 재확인이 판정을 내릴 때는 경로가 "web" 그대로 남는다 — 그때도 요약은 이미 틀린
+    // 말이 된다("사실과 다른 내용이 있습니다"라고 써 놓고 화면에는 '확인되지 않음'만 있는 꼴).
+    // 그 두 경로는 각각 unbacked_verdict / withdrawn_verdict를 남기므로 그것으로 가린다.
+    const verdictsChanged = claims.some(
+      (c) => ["official", "nec", "research"].includes(c.verified_via) || c.unbacked_verdict || c.withdrawn_verdict,
+    );
     const result = {
       overall_domain: extracted.overall_domain || claims[0]?.domain || "일반",
       summary: verdictsChanged ? null : extracted.summary || null,

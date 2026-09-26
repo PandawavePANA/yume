@@ -533,3 +533,23 @@ test("크레딧과 골드바 사이에 교환 비율을 두지 않는다", () =>
     }
   }
 });
+
+test("아무것도 검증하지 않은 검증에는 공헌도를 주지 않는다", async () => {
+  // "안녕", "대한민국의 수도는 어디야?"처럼 대조할 내용이 없는 입력이다.
+  // 여기에 10점을 주면 아무 글이나 넣는 것이 점수를 올리는 가장 싼 방법이 된다.
+  const { c, id: userId } = await signedUpUser("empty@yume.test");
+  await seed("v-empty-1", userId, []);
+  const r = await contribution.awardForVerification(userId, "v-empty-1", []);
+  assert.equal(r.verify, false);
+  assert.equal(r.finding, false);
+  assert.equal((await c("GET", "/api/contribution")).data.points, 0);
+});
+
+test("주장이 하나라도 있으면 예전처럼 점수가 들어간다", async () => {
+  const { c, id: userId } = await signedUpUser("scored@yume.test");
+  await seed("v-scored-1", userId, [necClaim("2019다999993")]);
+  const r = await contribution.awardForVerification(userId, "v-scored-1", [necClaim("2019다999993")]);
+  assert.equal(r.verify, true);
+  assert.equal(r.finding, true, "사실과 다른 주장이 잡혔으니 발견 점수도 붙는다");
+  assert.equal((await c("GET", "/api/contribution")).data.points, contribution.POINTS.verify + contribution.POINTS.finding);
+});

@@ -201,9 +201,16 @@ export async function award(userId, reason, points, { ref = null, memo = null } 
 // 주장 수로 점수가 곱해지면 긴 글을 붙여넣는 게 최적 전략이 되어 버린다.
 export async function awardForVerification(userId, verificationId, claims = []) {
   if (!userId) return { verify: false, finding: false };
+  // 주장을 하나도 못 찾은 검증은 점수를 주지 않는다. 검증한 것이 없기 때문이다.
+  //
+  // 한 줄 질문을 열면서 이 경우가 흔해졌다 — "안녕", "대한민국의 수도는 어디야?"처럼
+  // 대조할 내용이 없는 입력이다. 그런 것에 10점을 주면 아무 글이나 넣는 것이
+  // 점수를 올리는 가장 싼 방법이 되고, 그 순간 랭킹은 공헌도를 재지 못한다.
+  const checked = Array.isArray(claims) ? claims : [];
+  if (checked.length === 0) return { verify: false, finding: false, foundCount: 0 };
   const ref = `verification:${verificationId}`;
   const verify = await award(userId, "verify", POINTS.verify, { ref });
-  const found = (Array.isArray(claims) ? claims : []).filter((c) => c?.verdict === "false");
+  const found = checked.filter((c) => c?.verdict === "false");
   let finding = false;
   if (found.length > 0) {
     finding = await award(userId, "finding", POINTS.finding, {

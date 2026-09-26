@@ -109,10 +109,14 @@ function buildFillerMessages(text) {
 // 그대로 넣으면 눌러 보고 나서야 413을 받는다 — 넣는 자리에서 잘라 준다.
 const MAX_INPUT_CHARS = 10_000;
 
-const PLACEHOLDER = `여기에 ChatGPT, 클로드, 제미나이 등 AI의 답변을 그대로 붙여넣으세요.
-법률, 의료, 금융, 역사, 과학 등 어떤 주제든 상관없습니다.
+// 두 가지 쓰는 법이 있는데, 그동안 한 가지만 적혀 있었다. "AI 답변을 붙여넣으세요"만
+// 보이면 확인하고 싶은 게 한 줄뿐인 사람은 쓸 자리가 없다고 느끼고 그냥 나간다.
+// 짧은 쪽을 먼저, 예시까지 적는다 — 문턱이 낮은 쪽이 앞에 와야 문턱이 낮아진다.
+const PLACEHOLDER = `궁금한 것 한 줄만 물어보셔도 돼요.
+예시: "로또 1등 당첨금이 평균 20억이라는데 사실이야?"
 
-예시: "비타민 C를 하루 10g 이상 섭취하면 감기를 완전히 예방할 수 있다는 연구가 2021년 하버드 의대에서 발표됐다..."`;
+ChatGPT·클로드·제미나이 답변을 통째로 붙여넣어도 됩니다.
+법률, 의료, 금융, 역사, 과학 — 어떤 주제든 상관없습니다.`;
 
 // 판정 색. 파스텔로 두면 셋 다 "부드러운 알림"으로 읽힌다 — 이 제품에서 판정은
 // 알림이 아니라 도장이다. 글자색을 진하게 내리고 배경은 거의 흰색으로 남겨,
@@ -1035,8 +1039,12 @@ export default function YumeDashboard() {
       // 결과도 오류도 없이 스트림이 끝났다면 중간에 연결이 끊긴 것이다. "주장을 못 찾았다"고
       // 하면 입력 탓으로 오해하므로 따로 안내한다.
       if (!finalResult) throw new Error(t("서버와 연결이 끊겼어요. 잠시 후 다시 시도해주세요."));
+      // 확인할 주장이 없는 입력. 한 줄 질문을 열면서 흔해진 경우라("대한민국의 수도는
+      // 어디야?"), "못 찾았습니다" 한 줄로 끝내면 처음 온 사람은 무엇을 고쳐야 할지
+      // 모른 채 막힌다. 무엇을 넣으면 되는지 예시로 말해 준다. 이때 확인 횟수는
+      // 서버가 돌려준다(server/app.js).
       if (!Array.isArray(finalResult.claims) || finalResult.claims.length === 0) {
-        throw new Error(t("검증 가능한 주장을 찾지 못했습니다."));
+        throw new Error(t("확인할 사실 주장이 없어요. 묻기만 하면 유메가 대조할 내용이 없습니다 — \"○○라던데 사실이야?\"처럼 확인하고 싶은 내용을 함께 적어주세요. 이번 확인 횟수는 돌려드렸어요."));
       }
       setElapsedSec(Math.floor((Date.now() - startTimeRef.current) / 1000));
       setResult(finalResult);
@@ -1336,7 +1344,7 @@ export default function YumeDashboard() {
                 <span>{t("로 확인하세요")}</span>
               </motion.div>
               <motion.p {...heroEnter(0.38)} style={{ ...UI.lead, maxWidth: 560, margin: "26px auto 0" }}>
-                {t("법률, 의료, 금융, 역사, 과학 — 어떤 주제든 괜찮아요. AI 답변 속 사실 주장을 유메가 하나하나 확인합니다.")}
+                {t("\"이렇다던데 사실이야?\" 한 줄이면 됩니다. AI 답변을 통째로 붙여넣어도 되고요. 법률·의료·금융·역사·과학 — 어떤 주제든 유메가 하나하나 확인합니다.")}
               </motion.p>
             </motion.div>
           </motion.header>
@@ -1366,7 +1374,7 @@ export default function YumeDashboard() {
           {(stage === "idle" || stage === "error") && (
             <div style={{ padding: "clamp(20px, 3.4vw, 32px)" }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
-                <div style={{ fontSize: 17, fontWeight: 700, letterSpacing: "-0.02em", color: UI.ink }}>{t("AI 답변 확인하기")}</div>
+                <div style={{ fontSize: 17, fontWeight: 700, letterSpacing: "-0.02em", color: UI.ink }}>{t("사실인지 확인하기")}</div>
                 {usage && (
                   <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, flexWrap: "wrap" }}>
                     <span style={{ color: UI.ink3, fontWeight: 500 }}>

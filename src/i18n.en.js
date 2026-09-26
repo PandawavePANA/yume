@@ -32,6 +32,9 @@ export default {
   "AI에게 질문하고": "Ask any AI —",
   "로 확인하세요": "then check it with",
   "AI 답변 확인하기": "Check an AI answer",
+  "사실인지 확인하기": "Check if it's true",
+  "\"이렇다던데 사실이야?\" 한 줄이면 됩니다. AI 답변을 통째로 붙여넣어도 되고요. 법률·의료·금융·역사·과학 — 어떤 주제든 유메가 하나하나 확인합니다.":
+    "One line is enough — \"I heard X, is that true?\" Or paste a whole AI answer. Law, medicine, finance, history, science: YUME checks every claim in it.",
   "유메로 확인하기": "Verify with Yume",
   "붙여넣기": "Paste",
   "복사한 내용 붙여넣기": "Paste from clipboard",
@@ -69,6 +72,8 @@ export default {
   "쿠팡에서 보기 ›": "View on Coupang ›",
   "결과 공유": "Share result",
   "검증 가능한 주장을 찾지 못했습니다.": "No checkable claims were found.",
+  "확인할 사실 주장이 없어요. 묻기만 하면 유메가 대조할 내용이 없습니다 — \"○○라던데 사실이야?\"처럼 확인하고 싶은 내용을 함께 적어주세요. 이번 확인 횟수는 돌려드렸어요.":
+    "There is no factual claim to check here. A question on its own gives YUME nothing to compare against — write what you want checked, as in \"I heard X, is that true?\" This check has been refunded.",
   "건": "",
 
   // ── 안내 · 오류 ────────────────────────────────────────────────

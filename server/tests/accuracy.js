@@ -71,6 +71,61 @@ const CASES = [
     why: "정의상 공개되지 않는 정보. 여기서 false로 단정하면 근거 없이 남을 거짓말쟁이로 만든다.",
     critical: true,
   },
+
+  // ── 검색에 안 걸리는 기록 (2026-09-26 오판정에서 나온 사례) ──
+  //
+  // 실제로 새어 나간 오류다. 어떤 와인이 Wine Enthusiast에서 88점을 받았다는 주장에
+  // 유메가 "사실과 다름"을 붙였는데, 그 점수는 실재했다. 평점이 구독자 전용
+  // 데이터베이스와 잡지 지면에 들어 있어 일반 웹검색에 안 걸렸을 뿐이었다.
+  //
+  // 못 찾은 것을 못 찾았다고 하는 건 정직한 결과지만, 맞는 사실을 거짓이라고 지목하면
+  // 사용자는 멀쩡한 정보를 버린다. 그래서 confirmed가 아니라 **"false만 아니면 통과"**로
+  // 본다 — 찾아내면 좋고, 못 찾으면 '확인되지 않음'이 정답이다.
+  {
+    id: "paywalled-rating",
+    text: "Hall Ranch Cabernet Sauvignon은 Wine Enthusiast에서 88점을 받았고 가격은 25달러입니다.",
+    expect: "not-false",
+    why: "잡지 평점은 사실이어도 검색에 안 걸린다. 못 찾은 것을 '사실과 다름'으로 부르면 안 된다.",
+    critical: true,
+  },
+  {
+    id: "unlisted-small-business",
+    text: "대구 달성군에 '리머'라는 1인 소프트웨어 개발 사업자가 있습니다.",
+    expect: "not-false",
+    why: "동네 1인 사업자는 검색에 안 나오는 게 정상이다. 없는 사람으로 만들면 안 된다.",
+    critical: true,
+  },
+
+  // ── 한 줄 질문 (2026-09-26에 연 입력 모양) ──
+  //
+  // "AI 답변을 붙여넣으세요"만 되던 것을 "~라는데 사실이야?" 한 줄로도 되게 열었다.
+  // 두 가지가 동시에 맞아야 한다 — 질문 껍데기를 벗기고 주장을 제대로 뽑는 것,
+  // 그리고 **개수를 채우려고 없는 주장을 만들어내지 않는 것**. 지어낸 주장에 판정이
+  // 붙으면 사용자가 하지도 않은 말에 틀렸다는 딱지가 붙는다.
+  {
+    id: "question-true",
+    text: "대한민국 2023년 합계출산율이 0.72명이라던데 사실이야?",
+    expect: "confirmed",
+    claimCount: 1,
+    why: "질문 형식을 벗기고 그 안의 주장 하나만 뽑아 검증해야 한다.",
+    critical: true,
+  },
+  {
+    id: "question-fake-statute",
+    text: "민법 9999조에 소멸시효 30년이라고 돼 있다는데 맞나요?",
+    expect: "false",
+    claimCount: 1,
+    why: "짧은 질문으로 물어도 법제처 대조·부존재 판정이 똑같이 돌아야 한다.",
+    critical: true,
+  },
+  {
+    id: "question-no-claim",
+    text: "대한민국의 수도는 어디야?",
+    expect: "none",
+    claimCount: 0,
+    why: "주장이 없는 순수한 질문이다. 억지로 주장을 만들어내면 안 된다.",
+    critical: true,
+  },
 ];
 
 const PRICE_NOTE = "* 원가는 [cost] 로그와 같은 기준으로 계산한 추정치입니다.";
@@ -78,11 +133,21 @@ const PRICE_NOTE = "* 원가는 [cost] 로그와 같은 기준으로 계산한 �
 function verdictOf(result) {
   // 한 입력에 주장이 여러 개 잡힐 수 있다. 사례마다 '이 입력의 결론'을 하나로 본다:
   // 사실과 다름이 하나라도 있으면 false, 아니면 확인됨이 하나라도 있으면 confirmed,
-  // 둘 다 없으면 uncertain.
+  // 둘 다 없으면 uncertain. 주장이 아예 안 잡히면 none이다.
   const vs = (result?.claims || []).map((c) => c.verdict);
+  if (vs.length === 0) return "none";
   if (vs.includes("false")) return "false";
   if (vs.includes("confirmed")) return "confirmed";
   return "uncertain";
+}
+
+// 기대값을 만족했는가.
+//   "not-false" — 무엇이 나오든 '사실과 다름'만 아니면 된다. 검색에 안 걸리는 기록을
+//                 거짓이라고 부르지 않는지 보는 사례에 쓴다.
+function meetsExpectation(c, got, claimCount) {
+  const verdictOk = c.expect === "not-false" ? got !== "false" : got === c.expect;
+  const countOk = c.claimCount === undefined || claimCount === c.claimCount;
+  return verdictOk && countOk;
 }
 
 async function runCase(c) {
@@ -91,10 +156,12 @@ async function runCase(c) {
   try {
     const { result } = await runVerification({ id, text: c.text, source: "accuracy", onProgress: () => {} });
     const got = verdictOf(result);
+    const claimCount = (result?.claims || []).length;
     return {
       ...c,
       got,
-      pass: got === c.expect,
+      claimCount,
+      pass: meetsExpectation(c, got, claimCount),
       elapsedMs: Date.now() - started,
       claims: (result?.claims || []).map((x) => ({ verdict: x.verdict, via: x.verified_via, text: x.text?.slice(0, 50) })),
     };
@@ -111,7 +178,8 @@ async function main() {
   for (const c of CASES) {
     const r = await runCase(c);
     results.push(r);
-    console.log(`${mark(r)} ${r.id.padEnd(22)} 기대 ${r.expect.padEnd(10)} 결과 ${String(r.got).padEnd(10)} ${(r.elapsedMs / 1000).toFixed(1)}s`);
+    const countNote = r.claimCount === undefined ? "" : ` 주장 ${r.claimCount}개${c.claimCount === undefined ? "" : `/기대 ${c.claimCount}개`}`;
+    console.log(`${mark(r)} ${r.id.padEnd(22)} 기대 ${r.expect.padEnd(10)} 결과 ${String(r.got).padEnd(10)} ${(r.elapsedMs / 1000).toFixed(1)}s${countNote}`);
     if (!r.pass) {
       console.log(`     ${r.why}`);
       if (r.error) console.log(`     오류: ${r.error}`);

@@ -60,7 +60,7 @@ const TOOLS = [
       properties: {
         text: {
           type: "string",
-          description: `확인할 AI 답변 전문. 최대 ${MAX_INPUT_CHARS}자.`,
+          description: `확인할 내용. AI 답변 전문을 통째로 넣어도 되고, "○○가 이렇다는데 사실인가?"처럼 확인하고 싶은 주장 한 줄만 넣어도 됩니다. 최대 ${MAX_INPUT_CHARS}자.`,
         },
       },
       required: ["text"],

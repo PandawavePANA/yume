@@ -167,6 +167,16 @@ app.post("/api/verify", limitMiddleware(verifyLimiter, (req) => `verify:${client
       dataConsent: !!user?.data_consent,
       onProgress: (message) => send("progress", { message }),
     });
+    // 확인할 주장을 하나도 못 찾았으면 사용자는 아무것도 받지 못했다. 횟수를 돌려준다.
+    //
+    // 한 줄 질문을 열면서 이 경우가 흔해졌다 — "대한민국의 수도는 어디야?"처럼 확인할
+    // 내용 없이 묻기만 하면 대조할 것이 없다. 처음 온 사람의 첫 시도가 그렇게 끝나는데
+    // 무료 1회까지 사라지면, 잘못한 것도 없이 손해만 보고 나가게 된다.
+    // 원가(추출 호출)는 우리가 떠안는다. 반복은 요청 제한이 막는다.
+    if (!result?.claims?.length) {
+      await refundOne({ user, ip, usedFree: usage.usedFree, creditsSpent: usage.creditsSpent }).catch((e) => logError("verify:refundEmpty", e));
+    }
+
     // 여기부터는 검증이 이미 끝나 저장된 뒤의 부수 작업이다. 여기서 던지면 아래 catch가
     // 크레딧을 환급하고 오류를 보내는데, 결과는 이미 기록에 남아 있어 공짜 검증이 된다.
     // 결과는 그대로 내보내고 실패는 기록만 남긴다.

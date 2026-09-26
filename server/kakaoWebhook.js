@@ -2,6 +2,8 @@ import { chatReply } from "./claude.js";
 import { getHistory, appendTurns } from "./chatHistory.js";
 import { checkAndConsume, refundOne, FREE_DAILY_LIMIT } from "./usageStore.js";
 import { startVerification, MAX_INPUT_CHARS } from "./verifyPipeline.js";
+// 말투를 가리는 판단은 따로 떼어 두었다 — DB 없이 빠르게 테스트할 수 있어야 한다.
+import { VERIFY_TRIGGER, asksIfTrue } from "./kakaoTriggers.js";
 import { getVerification, newVerificationId } from "./verificationStore.js";
 import { logError } from "./errorLog.js";
 
@@ -9,11 +11,13 @@ import { logError } from "./errorLog.js";
 // 실제로 쓸 수 없음을 테스트로 확인), 검증 요청이면 결과 페이지 링크(/r/:id)부터 바로
 // 돌려주고 검증은 백그라운드에서 끝낸다. 결과 페이지가 자동 새로고침으로 완료를 기다린다.
 //   - "검증"/"팩트체크"가 들어간 메시지 → 검증 + 결과 링크
+//   - "○○라는데 사실이야?"처럼 진위를 묻는 말 → 같은 경로(kakaoTriggers.js가 가린다)
 //   - 그 외 → 일반 대화(chatReply)
 // 카카오 사용자 ID 기준 하루 무료 한도가 있다. 카카오 채널 데이터는 데이터 활용 동의 절차가
 // 없으므로 데이터셋에서 항상 제외된다(data_consent = 0).
-const VERIFY_TRIGGER = /검증|팩트\s*체크/;
-const ONBOARDING_TEXT = `저는 AI 답변 팩트체크 서비스 유메예요 🌙 편하게 대화하다가, 소문이나 정보가 진짜인지 궁금하면 내용과 함께 "검증해줘"라고 말해주세요. 하루 ${FREE_DAILY_LIMIT}회까지 무료예요.\n\n`;
+const ONBOARDING_TEXT = `저는 팩트체크 서비스 유메예요 🌙 편하게 대화하다가, 들은 얘기가 진짜인지 궁금하면 "○○라는데 사실이야?"처럼 그냥 물어보세요. AI 답변을 통째로 붙여넣고 "검증해줘"라고 하셔도 됩니다. 하루 ${FREE_DAILY_LIMIT}회까지 무료예요.
+
+`;
 
 function baseUrl(req) {
   if (process.env.PUBLIC_BASE_URL) return process.env.PUBLIC_BASE_URL.replace(/\/$/, "");
@@ -82,8 +86,12 @@ export async function kakaoSkillHandler(req, res) {
 
   if (!utterance) return res.json(textReply(prefix + "확인하고 싶은 내용을 그대로 붙여넣어 보내주세요."));
 
-  if (VERIFY_TRIGGER.test(utterance)) {
-    const verifyText = stripVerifyTrigger(utterance).slice(0, MAX_INPUT_CHARS);
+  // 부탁하는 말투("검증해줘")와 그냥 묻는 말투("~라는데 사실이야?") 둘 다 검증으로 보낸다.
+  // 묻는 말투는 문장 자체가 확인할 내용이라 아무것도 떼지 않는다 — 추출 단계가 질문
+  // 껍데기를 벗기고 그 안의 주장을 뽑는다(claude.js의 추출 프롬프트).
+  const asking = asksIfTrue(utterance);
+  if (VERIFY_TRIGGER.test(utterance) || asking) {
+    const verifyText = (asking ? utterance : stripVerifyTrigger(utterance)).slice(0, MAX_INPUT_CHARS);
     if (!verifyText) {
       res.json(textReply(prefix + '검증하고 싶은 내용을 함께 붙여넣어 주세요. 예: "[뉴스 내용] 검증해줘"'));
       return remember([{ role: "user", content: utterance }]);
@@ -97,7 +105,10 @@ export async function kakaoSkillHandler(req, res) {
 
     const id = newVerificationId();
     const { done } = await startVerification({ id, text: verifyText, source: "kakao", clientKey, dataConsent: false });
-    done.catch(() => refundOne({ kakaoId, usedFree: usage.usedFree, creditsSpent: usage.creditsSpent }).catch(() => {}));
+    const refund = () => refundOne({ kakaoId, usedFree: usage.usedFree, creditsSpent: usage.creditsSpent }).catch(() => {});
+    // 실패했거나, 끝났는데 확인할 주장이 하나도 없었으면 횟수를 돌려준다.
+    // 뒤쪽은 "그냥 물어보세요"를 열면서 흔해졌다 — 대조할 내용이 없는 말이 그대로 들어온다.
+    done.then((r) => { if (!r?.result?.claims?.length) refund(); }, refund);
     const resultUrl = `${baseUrl(req)}/r/${id}`;
     // 같은 내용을 이미 검증했다면 캐시로 곧바로 끝나므로 아주 잠깐만 기다려 본다.
     await Promise.race([done.catch(() => null), new Promise((r) => setTimeout(r, 300))]);
