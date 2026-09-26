@@ -166,6 +166,9 @@ app.post("/api/verify", limitMiddleware(verifyLimiter, (req) => `verify:${client
       clientKey: user ? `user:${user.id}` : `ip:${ip}`,
       dataConsent: !!user?.data_consent,
       onProgress: (message) => send("progress", { message }),
+      // 단계가 끝날 때마다 지금까지의 주장을 내보낸다. 화면은 이걸로 결과를 미리 그린다 —
+      // 첫 판정이 5~8초에 보이고 나머지가 그 위에서 채워진다.
+      onClaims: (claims) => send("claims", { claims }),
     });
     // 확인할 주장을 하나도 못 찾았으면 사용자는 아무것도 받지 못했다. 횟수를 돌려준다.
     //

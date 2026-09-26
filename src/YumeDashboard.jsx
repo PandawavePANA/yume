@@ -626,6 +626,10 @@ export default function YumeDashboard() {
   const [revealed, setRevealed] = useState(0);
   const [errMsg, setErrMsg] = useState("");
   const [progressMsg, setProgressMsg] = useState("");
+  // 검증이 끝나기 전에 도착하는 중간 결과. 주장 목록은 첫 단계가 끝나면 이미 알 수 있어서,
+  // 끝까지 쥐고 있다가 한 번에 보여 줄 이유가 없다. 중앙값 15.6초, 꼬리 47초를 빈 화면으로
+  // 기다리게 하는 대신 하나씩 채워 나간다.
+  const [liveClaims, setLiveClaims] = useState([]);
   // 클로드처럼 "지금까지 몇 초 걸리고 있는지"를 실시간으로 보여주기 위한 타이머.
   // 서버 시계가 아니라 클라이언트에서 요청을 보낸 순간부터 직접 재서, 네트워크
   // 왕복 시간까지 포함한 사용자 체감 시간과 항상 일치하게 한다.
@@ -965,6 +969,7 @@ export default function YumeDashboard() {
     clearRevealTimers();
     setStage("loading"); setResult(null); setRevealed(0); setErrMsg(""); setLimitReached(null); setTab("result");
     setProgressMsg(t("사실 주장을 추출하고 실시간으로 검색 중…"));
+    setLiveClaims([]);
 
     startTimeRef.current = Date.now();
     setElapsedSec(0);
@@ -1030,6 +1035,7 @@ export default function YumeDashboard() {
           const event = eventLine.slice("event: ".length);
           const data = JSON.parse(dataLine.slice("data: ".length));
           if (event === "progress") { setProgressMsg(data.message); lastUpdateAt = Date.now(); }
+          else if (event === "claims") { setLiveClaims(data.claims || []); lastUpdateAt = Date.now(); }
           else if (event === "result") finalResult = data;
           else if (event === "error") serverError = data.error;
         }
@@ -1495,6 +1501,38 @@ export default function YumeDashboard() {
                 </AnimatePresence>
               </div>
               <div style={{ fontSize: 12.5, color: UI.ink3 }}>{t("내용이 길면 최대 30초 정도 걸릴 수 있어요")}</div>
+
+              {/* 먼저 끝난 것부터 보여준다. 기다리는 시간 자체는 같지만, 빈 화면을 보는 것과
+                  결과가 하나씩 쌓이는 것을 보는 것은 다른 일이다. 아직 판정이 안 난 주장은
+                  무엇을 확인하는 중인지 글로만 보여주고, 끝난 것은 최종 화면과 같은 모양으로 둔다. */}
+              {liveClaims.length > 0 && (
+                <div style={{ width: "100%", maxWidth: 560, padding: "0 20px", boxSizing: "border-box", display: "flex", flexDirection: "column", gap: 8, marginTop: 4 }}>
+                  {liveClaims.map((c, i) => {
+                    const settled = c.verdict === "confirmed" || c.verdict === "false" || c.verdict === "uncertain";
+                    const v = VERDICT[c.verdict] || VERDICT.uncertain;
+                    return (
+                      <motion.div key={i}
+                        initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: EASE_APPLE }}
+                        style={{
+                          display: "flex", gap: 10, alignItems: "flex-start", padding: "10px 13px", borderRadius: 12, textAlign: "left",
+                          background: settled ? (VBG[c.verdict] || VBG.uncertain) : "rgba(118,118,128,0.06)",
+                          border: `1px solid ${settled ? (VBORDER[c.verdict] || VBORDER.uncertain) : "transparent"}`,
+                        }}>
+                        <span aria-hidden style={{
+                          flexShrink: 0, width: 17, height: 17, borderRadius: 999, marginTop: 1, fontSize: 11, lineHeight: "17px", textAlign: "center", fontWeight: 700,
+                          color: settled ? v.color : UI.ink3,
+                          background: settled ? "rgba(255,255,255,0.75)" : "rgba(118,118,128,0.14)",
+                        }}>{settled ? v.glyph : "…"}</span>
+                        <span style={{ fontSize: 13, lineHeight: 1.55, color: settled ? UI.ink : UI.ink3, minWidth: 0 }}>
+                          {c.text}
+                          {settled && <b style={{ color: v.color, fontWeight: 700 }}>{" · "}{t(v.label)}</b>}
+                        </span>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              )}
+
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.35, ease: EASE_APPLE }}
                 style={{ width: "100%", display: "flex", justifyContent: "center", marginTop: 10 }}>
                 <CatMouseGame />
@@ -2055,21 +2093,34 @@ export default function YumeDashboard() {
 
       <YumeChatWidget shiftRight={panelTab ? PANEL_WIDTH + 8 : 0} />
 
-      {IS_STORE_BUILD && (
+      {IS_STORE_BUILD && (() => {
+        const activeTab = accountTab ? "settings" : sidebarOpen ? "history" : panelTab === "rank" ? "rank" : "check";
+        return (
         <AppTabBar
-          active={accountTab ? "settings" : sidebarOpen ? "history" : panelTab === "rank" ? "rank" : "check"}
+          active={activeTab}
           onTab={(k) => {
             // 어느 탭을 누르든 열려 있던 다른 것은 닫는다. 앱에서 겹쳐 뜨면 뒤로가기가 꼬인다.
             if (k !== "history") setSidebarOpen(false);
             if (k !== "rank" && panelTab) openPanel(null);
             if (k !== "settings") setAccountTab(null);
-            if (k === "check") { startNew(); window.scrollTo({ top: 0, behavior: "smooth" }); }
+            // '검증'은 **이미 검증 화면에 있을 때만** 새로 시작한다.
+            //
+            // 전에는 누르면 무조건 startNew()였다. 기록에서 지난 결과를 열어 본 뒤 이걸
+            // 누르면 그 결과가 사라졌다 — 탭을 옮긴 것뿐인데 보던 것이 없어진다.
+            // 탭 이동은 되돌릴 수 있어야지 하던 일을 지우면 안 된다.
+            // 이미 그 탭에 있을 때 다시 누르면 새로 시작하는 것은 앱에서 익숙한 동작이고,
+            // 그때는 놀랄 일도 없다(이미 그 화면을 보고 있다).
+            if (k === "check") {
+              if (activeTab === "check") startNew();
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }
             if (k === "history") setSidebarOpen((v) => !v);
             if (k === "rank") openPanel("rank");
             if (k === "settings") { if (user) setAccountTab("profile"); else setAuthModal("login"); }
           }}
         />
-      )}
+        );
+      })()}
     </div>
   );
 }

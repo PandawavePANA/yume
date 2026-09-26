@@ -23,7 +23,15 @@ export const MAX_INPUT_CHARS = 10_000;
 // 이미 만들어진 검증 행을 끝까지 처리한다.
 //   추출·웹검증(Claude) → 법률 주장 공식 대조 + 부존재 신뢰도(NEC) → 학술 식별자 실재 확인
 //   → 결정론적 총평 → 관련 상품 링크
-async function processVerification({ id, text, source, onProgress = () => {} }) {
+// 검증 한 건이 끝나기까지 중앙값 15.6초, 꼬리는 47초다(실측 13건). 그동안 화면에는
+// 진행 문구 한 줄뿐이었다 — 무엇을 확인하고 있는지도, 몇 개가 끝났는지도 안 보인다.
+//
+// 그런데 주장 목록은 **첫 단계가 끝나는 순간** 이미 알고 있고, 비법률 주장은 그때 판정까지
+// 나와 있다. 끝까지 쥐고 있다가 한 번에 보여 줄 이유가 없다. 단계가 끝날 때마다 지금까지의
+// 주장을 그대로 내보내면, 처음 것은 5~8초에 보이고 나머지가 그 위에서 채워진다.
+// 기다리는 시간 자체는 그대로지만 기다리는 경험이 달라진다 — 빈 화면을 보는 것과
+// 결과가 하나씩 쌓이는 것을 보는 것은 다른 일이다.
+async function processVerification({ id, text, source, onProgress = () => {}, onClaims = () => {} }) {
   const startedAt = Date.now();
   try {
     const cached = await findCached(text);
@@ -49,13 +57,20 @@ async function processVerification({ id, text, source, onProgress = () => {} }) 
     const reused = claims.filter((c) => c.from_claim_cache).length;
     if (reused > 0) onProgress(`전에 확인한 주장 ${reused}개는 그 결과를 그대로 씁니다…`);
 
+    // 중간 상태를 내보낸다. 내부 표시(from_claim_cache)는 떼고 보낸다 — 화면이 볼 것이 아니다.
+    const show = () => onClaims(claims.map(({ from_claim_cache: _c, ...rest }) => rest));
+    show();
+
     claims = await resolveLegalClaims(claims, { onProgress, ledger });
+    show();
     claims = await resolveIdentifierClaims(claims, { onProgress });
+    show();
     // 심층 재확인 '전에' 한 번 거른다. 출처 없이 confirmed로 온 주장을 여기서 내려놓아야
     // 아래 재확인 대상에 포함된다 — 거르는 순서가 반대면 근거를 찾아볼 기회 없이 강등만 된다.
     claims = claims.map(sanitizeClaim);
     // 결론이 안 난 주장을 도메인별로 한 번 더 판다. 근거를 찾으면 판정이 살아 돌아온다.
     claims = await resolveUncertainClaims(claims, { onProgress, ledger });
+    show();
     // 재확인이 만들어낸 판정도 같은 잣대로 다시 거른다(이미 강등된 건 건드리지 않는다).
     claims = claims.map(sanitizeClaim);
     // 마지막으로 "사실과 다름" 지목만 다시 본다. 맞는 정보를 거짓이라 부르는 게
