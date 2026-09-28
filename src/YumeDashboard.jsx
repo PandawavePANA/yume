@@ -1743,12 +1743,13 @@ export default function YumeDashboard() {
                               <div style={{ minWidth: 0, flex: 1 }}>
                                 <div style={{ fontSize: 12, color: UI.ink3, marginBottom: 3 }}>{p.reason}</div>
                                 <div style={{ fontSize: 14.5, fontWeight: 600, color: UI.ink, lineHeight: 1.45, letterSpacing: "-0.01em", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{p.product.name}</div>
-                                <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
+                                <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 8, marginTop: 4 }}>
                                   {p.product.price ? <span style={{ fontSize: 15, fontWeight: 700, color: UI.ink, fontVariantNumeric: "tabular-nums" }}>{p.product.price.toLocaleString("ko-KR")}{t("원")}</span> : null}
-                                  {p.product.rocket && <span style={{ fontSize: 11, fontWeight: 700, color: "#0073E9", background: "#EAF3FE", borderRadius: 4, padding: "2px 6px" }}>{t("로켓배송")}</span>}
+                                  {p.product.rocket && <span style={{ fontSize: 11, fontWeight: 700, color: "#0073E9", background: "#EAF3FE", borderRadius: 4, padding: "2px 6px", whiteSpace: "nowrap" }}>{t("로켓배송")}</span>}
+                                  {/* 폰에서 오른쪽에 따로 두면 상품 이름이 한 줄에 네 글자로 눌린다. 가격 줄 끝에 붙인다. */}
+                                  <span style={{ marginLeft: "auto", fontSize: 13, color: UI.accent, fontWeight: 600, whiteSpace: "nowrap" }}>{t("쿠팡에서 보기 ›")}</span>
                                 </div>
                               </div>
-                              <span style={{ fontSize: 13, color: UI.accent, fontWeight: 600, whiteSpace: "nowrap", marginLeft: 4 }}>{t("쿠팡에서 보기 ›")}</span>
                             </motion.a>
                             {p.moreUrl && (
                               <a href={safeUrl(p.moreUrl)} target="_blank" rel="noreferrer sponsored"
