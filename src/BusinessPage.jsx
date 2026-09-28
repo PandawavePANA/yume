@@ -111,13 +111,13 @@ const PRICE_CARDS = [
     cta: "가입하고 키 발급받기", href: YUME_URL,
   },
   {
-    key: "metered", label: API_RATES.metered.label, price: won(API_RATES.metered.unitKrw), period: " / 회",
+    key: "metered", label: API_RATES.metered.label, price: won(API_RATES.metered.unitKrw), period: " / 회 · VAT 별도",
     detail: "월 약정 없이 쓴 만큼 냅니다. 물량을 가늠하기 전에 붙여 보기 좋습니다.",
     unit: "기본료 없음",
     cta: "종량제 신청", href: mailto("종량제"),
   },
   ...API_RATES.tiers.map((t) => ({
-    key: t.key, label: t.label, price: won(t.monthlyKrw), period: " / 월",
+    key: t.key, label: t.label, price: won(t.monthlyKrw), period: " / 월 · VAT 별도",
     detail: `매달 ${t.calls.toLocaleString("ko-KR")}회 포함.`,
     unit: `건당 ${won(Math.round(t.monthlyKrw / t.calls))} · 종량제보다 ${Math.round((1 - t.monthlyKrw / t.calls / API_RATES.metered.unitKrw) * 100)}% 저렴`,
     cta: `${t.label} 신청`, href: mailto(t.label),
@@ -211,7 +211,7 @@ Authorization: Bearer <API_KEY>
         {/* 기업 담당자가 가장 먼저 찾는 건 “대략 얼마인가”다. 없으면 비싸겠거니 하고 문의조차
             하지 않는다. 값은 서버가 실제 한도에 쓰는 표(server/apiRates.js)에서 그대로 읽는다 —
             화면과 실제 청구가 어긋날 수 없다. API가 한도에 닿으면 429 응답이 이 자리(#pricing)를 가리킨다. */}
-        <Section id="pricing" eyebrow="요금" title="쓴 만큼, 또는 약정한 만큼" lede="검증 1건이 호출 1회입니다. 체험은 가입만 하면 매달 무료로 쓸 수 있고, 그 위는 종량제나 월 약정으로 씁니다.">
+        <Section id="pricing" eyebrow="요금" title="쓴 만큼, 또는 약정한 만큼" lede="검증 1건이 호출 1회입니다. 체험은 가입만 하면 매달 무료로 쓸 수 있고, 그 위는 종량제나 월 약정으로 씁니다. 표시된 금액은 모두 부가세 별도입니다.">
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12, marginTop: 22 }}>
             {PRICE_CARDS.map((c) => (
               <div key={c.key} style={{
@@ -230,7 +230,7 @@ Authorization: Bearer <API_KEY>
             ))}
           </div>
           <p style={{ fontSize: 13, color: UI.ink3, lineHeight: 1.7, margin: "14px 2px 0" }}>
-            처리하지 못하고 실패한 호출은 세지 않습니다. 더 큰 물량, 전용 한도, 계약서가 필요하시면{" "}
+            모든 금액은 부가세(10%) 별도입니다. 처리하지 못하고 실패한 호출은 세지 않습니다. 더 큰 물량, 전용 한도, 계약서가 필요하시면{" "}
             <a href={mailto("맞춤 견적")} style={{ color: UI.accent }}>맞춤 견적</a>을 요청해 주세요.
           </p>
         </Section>
