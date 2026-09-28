@@ -226,9 +226,63 @@ function InquiryForm() {
   );
 }
 
+// 폰에서는 작업물 카드의 "만든 것" 목록을 접는다.
+//
+// 카드 하나가 폰 화면 한 장을 넘었다 — 캡처·사연·제작 항목 네 줄·메모·기술 칩이 다 펼쳐져서,
+// 다섯 건만 4,500px이었다. 문의까지 가기 전에 스크롤에 지친다. 훑어보는 사람에게는
+// 캡처·이름·한 줄 소개·사연·기술이면 판단이 되고, 궁금한 사람은 펼치면 된다.
+// 넓은 화면에서는 옆으로 나란히 놓여 길지 않으므로 늘 펼쳐 둔다.
+const NARROW = "(max-width: 720px)";
+function useNarrow() {
+  const [narrow, setNarrow] = useState(() => typeof window !== "undefined" && window.matchMedia?.(NARROW).matches);
+  useEffect(() => {
+    const mq = window.matchMedia?.(NARROW);
+    if (!mq) return undefined;
+    const on = (e) => setNarrow(e.matches);
+    mq.addEventListener?.("change", on);
+    return () => mq.removeEventListener?.("change", on);
+  }, []);
+  return narrow;
+}
+
+// 자주 묻는 질문 한 건.
+//
+// 넓은 화면에서는 두 칸으로 나란히 놓여 짧고 훑기 좋으니 답까지 다 보인다. 폰에서는 한 칸으로
+// 쌓이는데, 일곱 개가 답까지 다 펼쳐지면 이 구역 하나가 2,000px을 넘었다. 폰에서는 질문만
+// 보여 주고 누르면 답이 열린다 — 사람은 자기 질문만 찾아 읽는다.
+//
+// 검색엔진용 문답은 빌드할 때 따로 새겨 넣으므로(scripts/rename-reamer-index.mjs), 여기서
+// 답을 접어도 검색 결과에는 그대로 나간다.
+function FaqItem({ f }) {
+  const narrow = useNarrow();
+  const [open, setOpen] = useState(false);
+  if (!narrow) {
+    return (
+      <div className="faq__item">
+        <dt className="faq__q">{f.q}</dt>
+        <dd className="faq__a">{f.a}</dd>
+      </div>
+    );
+  }
+  return (
+    <div className="faq__item">
+      <dt className="faq__q">
+        <button type="button" className="faq__toggle" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+          <span>{f.q}</span>
+          <span className="faq__mark" aria-hidden="true">{open ? "−" : "+"}</span>
+        </button>
+      </dt>
+      {open && <dd className="faq__a">{f.a}</dd>}
+    </div>
+  );
+}
+
 // 작업물 한 건. 화면 캡처가 먼저 오고 설명이 따라온다 — 글보다 만든 것이 빠르다.
 function WorkCase({ item, index }) {
   const [shot, setShot] = useState(0);
+  const narrow = useNarrow();
+  const [more, setMore] = useState(false);
+  const showBuilt = !narrow || more;
   const current = item.shots[shot];
   // 제품 색을 그 카드 안에서만 쓰도록 변수로 내려보낸다.
   return (
@@ -277,13 +331,26 @@ function WorkCase({ item, index }) {
         <p className="case__blurb">{item.blurb}</p>
         <p className="case__problem">{item.problem}</p>
 
-        <ul className="case__built">
-          {item.built.map((b) => (
-            <li key={b}>{b}</li>
-          ))}
-        </ul>
-
-        {item.note && <p className="case__note">{item.note}</p>}
+        {showBuilt && (
+          <ul className="case__built" id={`built-${index}`}>
+            {item.built.map((b) => (
+              <li key={b}>{b}</li>
+            ))}
+          </ul>
+        )}
+        {showBuilt && item.note && <p className="case__note">{item.note}</p>}
+        {narrow && (
+          <button
+            type="button"
+            className="case__more"
+            aria-expanded={more}
+            aria-controls={`built-${index}`}
+            onClick={() => setMore((v) => !v)}
+          >
+            {more ? "접기" : `만든 것 ${item.built.length}가지 보기`}
+            <span aria-hidden="true" className="case__more-mark">{more ? "−" : "+"}</span>
+          </button>
+        )}
 
         <ul className="case__stack">
           {item.stack.map((t) => (
@@ -519,10 +586,7 @@ const ReamerSite = () => {
 
               <dl className="faq" data-reveal>
                 {FAQ.map((f) => (
-                  <div className="faq__item" key={f.q}>
-                    <dt className="faq__q">{f.q}</dt>
-                    <dd className="faq__a">{f.a}</dd>
-                  </div>
+                  <FaqItem key={f.q} f={f} />
                 ))}
               </dl>
             </div>
