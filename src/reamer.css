@@ -1,5 +1,4 @@
-@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.css");
-@import url("https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@500;600&display=swap");
+/* 글꼴은 reamer.html 머리에서 불러온다 — 이유는 거기 적어 두었다. */
 
 *,
 *::before,

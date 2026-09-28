@@ -14,6 +14,28 @@
     <meta name="theme-color" content="#0a0a0a" />
     <link rel="icon" type="image/svg+xml" href="/favicon-reamer.svg" />
 
+    <!-- 글꼴.
+
+         예전에는 CSS 안의 @import로 불렀다. 그러면 브라우저는 JS를 받고 → CSS를 읽고 →
+         그제야 글꼴이 있다는 걸 안다. 줄을 서서 받는 셈이라 첫 화면이 그만큼 늦었다.
+         HTML 머리에 두면 문서를 읽자마자 나란히 받기 시작한다.
+
+         Pretendard는 **분할판(dynamic-subset)**을 쓴다. 예전의 전체판은 한글 11,172자를 다
+         담은 파일 하나(2,011KB)라서 이 페이지 무게의 88%가 글꼴이었다. 분할판은 글자를
+         구역별로 나눠 두고 화면에 실제로 나오는 구역만 받는다. 글꼴은 똑같고 모양도 같다.
+         유메는 처음부터 분할판을 썼다. -->
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@500;600&display=swap"
+    />
+
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="리머 REAMER" />
     <meta property="og:locale" content="ko_KR" />

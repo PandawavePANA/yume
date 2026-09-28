@@ -39,7 +39,12 @@
   --serif: "Instrument Serif", "Pretendard Variable", Pretendard, Georgia, serif;
   --sans: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont,
     "Inter Tight", Inter, sans-serif;
-  --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  /* 고정폭에도 --serif와 같은 규칙을 둔다 — 영문은 고정폭, 한글은 Pretendard.
+     JetBrains Mono에는 한글이 없다. 대체 글꼴을 안 적으면 한글이 운영체제의 한글 고정폭
+     (윈도우의 굴림체 계열)으로 떨어지는데, 그 글꼴은 글자마다 칸이 넓어서 영문용 자간과
+     겹치면 "실 시 간  스 트 리 밍"처럼 벌어진다. 이 사이트의 라벨 11종이 전부 그랬다.
+     Pretendard를 generic monospace보다 앞에 둬야 운영체제 글꼴로 떨어지기 전에 잡힌다. */
+  --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, "Pretendard Variable", Pretendard, monospace;
 
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
   --gutter: clamp(20px, 4vw, 56px);
@@ -1374,3 +1379,41 @@
   line-height: 1.7;
   color: var(--ink-faint);
 }
+
+/* 폰에서 작업물 카드의 "만든 것" 펼치기. 본문과 같은 크기로 두되 눈에 띄게 하지는 않는다 —
+   펼치지 않아도 카드가 온전히 읽혀야 한다. */
+.case__more {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0 18px;
+  padding: 9px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-dim);
+  font: 500 13px/1 var(--sans);
+  cursor: pointer;
+  transition: border-color 0.2s var(--ease), color 0.2s var(--ease);
+}
+.case__more:hover { border-color: var(--line-strong); color: var(--ink); }
+.case__more-mark { font: 500 15px/1 var(--mono); opacity: 0.7; }
+
+/* 폰의 자주 묻는 질문 — 질문 줄 전체가 누르는 자리다. 오른쪽 +/− 는 열렸는지만 알려 준다. */
+.faq__toggle {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
+  width: 100%;
+  padding: 2px 0 14px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.faq__mark { flex: none; font: 500 16px/1.4 var(--mono); color: var(--ink-faint); }
+.faq__toggle[aria-expanded="true"] .faq__mark { color: var(--ink); }
+.faq__toggle + * { margin-top: 0; }

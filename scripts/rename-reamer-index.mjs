@@ -88,4 +88,30 @@ await writeFile(
 `,
 );
 
-console.log(`dist-reamer 준비 완료 — index.html, 구조화 데이터(회사·FAQ ${FAQ.length}개), robots.txt, sitemap.xml (${ORIGIN})`);
+// ── 캐시 규칙 (serve.json) ───────────────────────────────────────────────
+// 리머는 `serve`가 정적으로 내보낸다. 지금까지 캐시 지시를 아무것도 안 보내서, 브라우저가
+// 파일 날짜를 보고 알아서 짐작했다. 그 짐작은 해시 붙은 파일에는 너무 짧고, index.html에는
+// 너무 길 수 있다. 서버가 미국 동부에 있어 다시 묻는 한 번이 태평양 왕복이다.
+//
+// serve는 내보내는 폴더 맨 위의 serve.json을 읽는다. 여기서만 쓰이므로 public/에 두지 않고
+// 빌드 결과에 직접 쓴다 — public/은 세 빌드가 같이 쓴다.
+await writeFile(
+  out("serve.json"),
+  JSON.stringify(
+    {
+      headers: [
+        // 내용 해시가 붙은 파일 — 이름이 곧 버전이다. 1년 동안 묻지 않는다.
+        { source: "assets/**", headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }] },
+        // 작업물 이미지는 이름이 고정이라 굳히면 바꿔도 안 바뀐다. 하루만 둔다.
+        { source: "work/**", headers: [{ key: "Cache-Control", value: "public, max-age=86400" }] },
+        // 진입 파일은 매번 확인한다. 옛 것을 쥐면 새 배포의 JS를 못 찾아 흰 화면이 된다.
+        { source: "**/*.html", headers: [{ key: "Cache-Control", value: "no-cache" }] },
+        { source: "/", headers: [{ key: "Cache-Control", value: "no-cache" }] },
+      ],
+    },
+    null,
+    2,
+  ) + "\n",
+);
+
+console.log(`dist-reamer 준비 완료 — index.html, 구조화 데이터(회사·FAQ ${FAQ.length}개), robots.txt, sitemap.xml, serve.json (${ORIGIN})`);
