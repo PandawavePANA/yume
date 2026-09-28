@@ -49,6 +49,26 @@ export async function monthlyUsage(keyId) {
   ).n;
 }
 
+// 체험 한도는 계정당이다. 체험 수준(한도 ≤ API_TRIAL_QUOTA)의 키들은 한 통을 같이 쓴다 —
+// 키마다 따로 세면 키 10개로 매달 200회가 무료였다. 운영자가 계약으로 한도를 올린 키는
+// 그 키 혼자 센다(체험 통에서 빠진다). 한도 0으로 멈춘 키는 체험 수준이라 계속 막힌다.
+export const isTrialKey = (k) => Number(k.monthly_quota) <= API_TRIAL_QUOTA;
+
+async function trialPoolUsage(userId) {
+  return (
+    await one(
+      `SELECT COUNT(*) AS n FROM api_usage u JOIN api_keys k ON k.id = u.api_key_id
+        WHERE k.user_id = :uid AND k.monthly_quota <= :trial AND u.billable = 1 AND u.created_at >= :since`,
+      { uid: userId, trial: API_TRIAL_QUOTA, since: kstMonthStart() },
+    )
+  ).n;
+}
+
+// 이 키의 한도에 대어 볼 이번 달 사용량.
+export function quotaUsage(k) {
+  return isTrialKey(k) ? trialPoolUsage(k.user_id) : monthlyUsage(k.id);
+}
+
 export async function recordApiUsage(keyId, { verificationId = null, endpoint, statusCode, billable = false, cached = false }) {
   const t = now();
   const r = await run(
@@ -76,7 +96,9 @@ async function shape(k) {
     label: k.label,
     maskedKey: `${k.prefix}…`,
     monthlyQuota: k.monthly_quota,
-    usedThisMonth: await monthlyUsage(k.id),
+    // 체험 키는 계정 전체 사용량을 보여 준다. 키마다 따로 보이면 한도가 남은 줄 안다.
+    usedThisMonth: Number(await quotaUsage(k)),
+    trialShared: isTrialKey(k),
     ratePerMin: k.rate_per_min,
     dataSharing: !!k.data_sharing,
     status: k.status,

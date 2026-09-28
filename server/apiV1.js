@@ -1,6 +1,6 @@
 import express from "express";
 import { patchAsync } from "./asyncExpress.js";
-import { authenticateApiKey, finishApiUsage, monthlyUsage, recordApiUsage } from "./apiKeys.js";
+import { authenticateApiKey, finishApiUsage, isTrialKey, quotaUsage, recordApiUsage } from "./apiKeys.js";
 import { getVerification, newVerificationId } from "./verificationStore.js";
 import { startVerification, MAX_INPUT_CHARS } from "./verifyPipeline.js";
 import { kstMonthStart, one } from "./db.js";
@@ -24,6 +24,8 @@ router.use((req, res, next) => {
   if (req.method === "OPTIONS") return res.sendStatus(204);
   next();
 });
+
+const UPGRADE_URL = `${(process.env.BUSINESS_URL || "https://business.yume-reamer.com").replace(/\/+$/, "")}/#pricing`;
 
 function fail(res, status, code, message, extra = {}) {
   return res.status(status).json({ error: { code, message, ...extra } });
@@ -100,7 +102,7 @@ function publicVerification(v) {
 }
 
 export async function usageInfo(key) {
-  const used = await monthlyUsage(key.id);
+  const used = Number(await quotaUsage(key));
   const d = new Date(kstMonthStart() + 9 * 3600 * 1000);
   const next = Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1) - 9 * 3600 * 1000;
   return { used, quota: key.monthly_quota, remaining: Math.max(0, key.monthly_quota - used), resets_at: iso(next) };
@@ -120,7 +122,16 @@ router.post("/verify", requireApiKey, async (req, res) => {
   const usage = await usageInfo(key);
   if (usage.remaining <= 0) {
     await recordApiUsage(key.id, { endpoint: "POST /v1/verify", statusCode: 429 });
-    return fail(res, 429, "quota_exceeded", "이번 달 호출 한도를 모두 사용했습니다. 한도 상향은 reamer@d-reamer.com으로 문의해주세요.", { usage });
+    // 이 응답을 받는 건 사람이 아니라 고객사의 서버다. 메일 주소 대신 요금표 주소를 준다 —
+    // 개발자가 로그에서 이걸 보고 담당자에게 그대로 넘길 수 있어야 한다.
+    const trial = isTrialKey(key);
+    return fail(
+      res, 429, "quota_exceeded",
+      trial
+        ? `이번 달 체험 호출 ${usage.quota}회(계정 전체)를 모두 사용했습니다. 요금제와 한도: ${UPGRADE_URL}`
+        : `이번 달 호출 한도(${usage.quota}회)를 모두 사용했습니다. 한도 올리기: ${UPGRADE_URL}`,
+      { usage, upgrade_url: UPGRADE_URL },
+    );
   }
 
   const id = newVerificationId();

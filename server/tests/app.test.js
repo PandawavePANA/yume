@@ -254,7 +254,24 @@ test("API 키 발급 → 캐시 경로로 검증 → 소유권·한도", async (
   assert.equal((await admin("PATCH", `/api/admin/api-keys/${keyId}`, { monthlyQuota: 1 })).status, 200);
   const over = await fetch(`${base}/v1/verify`, { method: "POST", headers: { ...auth, "Content-Type": "application/json" }, body: JSON.stringify({ text }) });
   assert.equal(over.status, 429);
-  assert.equal((await over.json()).error.code, "quota_exceeded");
+  const overBody = await over.json();
+  assert.equal(overBody.error.code, "quota_exceeded");
+  // 받는 쪽은 고객사 서버다. 메일 주소가 아니라 요금표 주소를 준다.
+  assert.match(overBody.error.upgrade_url, /^https:\/\/.+\/#pricing$/);
+  assert.ok(overBody.error.message.includes(overBody.error.upgrade_url));
+
+  // 체험 한도는 계정당이다 — 새 키를 만들어도 앞 키에서 쓴 1회가 이미 잡혀 있다.
+  // (예전에는 키마다 따로 세서 키 10개로 매달 200회가 무료였다.)
+  const secondKey = (await owner("POST", "/api/account/api-keys", { label: "둘째 키" })).data.key;
+  const second = await (await fetch(`${base}/v1/usage`, { headers: { Authorization: `Bearer ${secondKey}` } })).json();
+  assert.equal(second.month.used, 1, "계정의 체험 사용량을 같이 센다");
+  // 운영자가 계약으로 올린 키는 체험 통에서 빠져 혼자 센다.
+  const secondId = (await owner("GET", "/api/account/api-keys")).data.keys.find((k) => k.label === "둘째 키")?.id;
+  assert.ok(secondId, "둘째 키 id");
+  assert.equal((await admin("PATCH", `/api/admin/api-keys/${secondId}`, { monthlyQuota: 500 })).status, 200);
+  const raised = await (await fetch(`${base}/v1/usage`, { headers: { Authorization: `Bearer ${secondKey}` } })).json();
+  assert.equal(raised.month.used, 0, "계약 키는 자기 사용량만");
+  assert.equal(raised.month.quota, 500);
 
   // 폐기된 키는 즉시 거절
   await owner("DELETE", `/api/account/api-keys/${keyId}`);

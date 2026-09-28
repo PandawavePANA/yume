@@ -147,7 +147,7 @@ function ApiTab() {
               {k.status === "active" && <button onClick={() => revoke(k.id)} style={{ ...ghostBtn, color: "#C6402F", borderColor: "#F0BCB0" }}>{t("폐기")}</button>}
             </div>
             <div style={{ fontSize: 11.5, color: "#A99BC9", marginTop: 6 }}>
-              이번 달 {k.usedThisMonth.toLocaleString()} / {k.monthlyQuota.toLocaleString()}회 · 분당 {k.ratePerMin}회 · 발급 {fmt(k.createdAt)} · 최근 사용 {fmt(k.lastUsedAt)}
+              이번 달 {k.usedThisMonth.toLocaleString()} / {k.monthlyQuota.toLocaleString()}회{k.trialShared ? " (체험 · 계정 전체)" : ""} · 분당 {k.ratePerMin}회 · 발급 {fmt(k.createdAt)} · 최근 사용 {fmt(k.lastUsedAt)}
             </div>
           </div>
         ))

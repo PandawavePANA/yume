@@ -9,6 +9,7 @@ import AuditModal from "./components/yume/AuditModal.jsx";
 import { CONTACT_EMAIL } from "./components/yume/api.js";
 import { YUME_URL } from "./businessConfig.js";
 import { BUSINESS, telHref, COPYRIGHT, businessLine } from "./businessInfo.js";
+import { API_RATES } from "../server/apiRates.js";
 
 const UI = {
   ink: "#1D1A24",
@@ -85,9 +86,9 @@ const btnGhost = {
   ...btn, background: "rgba(139,111,216,0.12)", color: UI.accent,
 };
 
-function Section({ eyebrow, title, lede, children }) {
+function Section({ id, eyebrow, title, lede, children }) {
   return (
-    <section style={{ marginTop: "clamp(56px, 8vw, 92px)" }}>
+    <section id={id} style={{ marginTop: "clamp(56px, 8vw, 92px)", scrollMarginTop: 24 }}>
       <div style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: UI.ink3 }}>{eyebrow}</div>
       <h2 style={{ fontSize: "clamp(24px, 3.2vw, 34px)", fontWeight: 700, letterSpacing: "-0.03em", color: UI.ink, margin: "12px 0 0", lineHeight: 1.25, textWrap: "balance" }}>
         {title}
@@ -98,12 +99,38 @@ function Section({ eyebrow, title, lede, children }) {
   );
 }
 
+const won = (n) => `${n.toLocaleString("ko-KR")}원`;
+const mailto = (what) => `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(`[유메] ${what} 문의`)}`;
+
+// 요금 카드. 숫자는 전부 API_RATES에서 온다.
+const PRICE_CARDS = [
+  {
+    key: "trial", label: API_RATES.trial.label, price: "0원", period: "",
+    detail: `매달 ${API_RATES.trial.calls}회. 가입하면 바로 키를 받아 응답 형식을 확인할 수 있습니다.`,
+    unit: "계정당 한도 · 키는 여러 개 만들어도 함께 씁니다",
+    cta: "가입하고 키 발급받기", href: YUME_URL,
+  },
+  {
+    key: "metered", label: API_RATES.metered.label, price: won(API_RATES.metered.unitKrw), period: " / 회",
+    detail: "월 약정 없이 쓴 만큼 냅니다. 물량을 가늠하기 전에 붙여 보기 좋습니다.",
+    unit: "기본료 없음",
+    cta: "종량제 신청", href: mailto("종량제"),
+  },
+  ...API_RATES.tiers.map((t) => ({
+    key: t.key, label: t.label, price: won(t.monthlyKrw), period: " / 월",
+    detail: `매달 ${t.calls.toLocaleString("ko-KR")}회 포함.`,
+    unit: `건당 ${won(Math.round(t.monthlyKrw / t.calls))} · 종량제보다 ${Math.round((1 - t.monthlyKrw / t.calls / API_RATES.metered.unitKrw) * 100)}% 저렴`,
+    cta: `${t.label} 신청`, href: mailto(t.label),
+  })),
+];
+
 export default function BusinessPage() {
   const [showAudit, setShowAudit] = useState(false);
 
   return (
     <main style={{ background: "#F6F2FC", minHeight: "100dvh" }}>
-      <div style={{ width: "min(960px, 100%)", margin: "0 auto", padding: "calc(22px + var(--yume-safe-top)) 20px calc(80px + var(--yume-safe-bottom))" }}>
+      {/* border-box가 없으면 폭 100%에 좌우 여백 40px이 더해져, 폰에서 페이지가 화면보다 40px 넓어지고 옆으로 밀린다. */}
+      <div style={{ width: "min(960px, 100%)", boxSizing: "border-box", margin: "0 auto", padding: "calc(22px + var(--yume-safe-top)) 20px calc(80px + var(--yume-safe-bottom))" }}>
 
         <nav style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
           <a href={YUME_URL} style={{ textDecoration: "none", fontSize: 14, fontWeight: 700, letterSpacing: "0.22em", color: UI.accent }}>
@@ -178,6 +205,34 @@ Authorization: Bearer <API_KEY>
             <a href={`${YUME_URL}/docs/api`} style={btn}>API 문서 보기</a>
             <a href={YUME_URL} style={btnGhost}>가입하고 키 발급받기</a>
           </div>
+        </Section>
+
+        {/* ── 요금 ────────────────────────────────────────────────── */}
+        {/* 기업 담당자가 가장 먼저 찾는 건 “대략 얼마인가”다. 없으면 비싸겠거니 하고 문의조차
+            하지 않는다. 값은 서버가 실제 한도에 쓰는 표(server/apiRates.js)에서 그대로 읽는다 —
+            화면과 실제 청구가 어긋날 수 없다. API가 한도에 닿으면 429 응답이 이 자리(#pricing)를 가리킨다. */}
+        <Section id="pricing" eyebrow="요금" title="쓴 만큼, 또는 약정한 만큼" lede="검증 1건이 호출 1회입니다. 체험은 가입만 하면 매달 무료로 쓸 수 있고, 그 위는 종량제나 월 약정으로 씁니다.">
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12, marginTop: 22 }}>
+            {PRICE_CARDS.map((c) => (
+              <div key={c.key} style={{
+                padding: "22px 22px 20px", borderRadius: 20, display: "flex", flexDirection: "column",
+                background: c.key === "growth" ? "#fff" : "rgba(255,255,255,0.86)",
+                border: c.key === "growth" ? `1.5px solid ${UI.accent}` : `1px solid ${UI.hairline}`,
+              }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: UI.accent }}>{c.label}</div>
+                <div style={{ fontSize: 26, fontWeight: 700, letterSpacing: "-0.03em", color: UI.ink, marginTop: 8, fontVariantNumeric: "tabular-nums" }}>
+                  {c.price}<span style={{ fontSize: 13.5, fontWeight: 500, color: UI.ink3, letterSpacing: 0 }}>{c.period}</span>
+                </div>
+                <div style={{ fontSize: 13.5, color: UI.ink2, lineHeight: 1.6, marginTop: 6, flex: 1 }}>{c.detail}</div>
+                <div style={{ fontSize: 12.5, color: UI.ink3, marginTop: 12, paddingTop: 12, borderTop: `1px dashed ${UI.hairline}`, fontVariantNumeric: "tabular-nums" }}>{c.unit}</div>
+                <a href={c.href} style={{ ...(c.key === "trial" ? btn : btnGhost), marginTop: 14, padding: "10px 14px", fontSize: 13.5, textAlign: "center" }}>{c.cta}</a>
+              </div>
+            ))}
+          </div>
+          <p style={{ fontSize: 13, color: UI.ink3, lineHeight: 1.7, margin: "14px 2px 0" }}>
+            처리하지 못하고 실패한 호출은 세지 않습니다. 더 큰 물량, 전용 한도, 계약서가 필요하시면{" "}
+            <a href={mailto("맞춤 견적")} style={{ color: UI.accent }}>맞춤 견적</a>을 요청해 주세요.
+          </p>
         </Section>
 
         {/* ── 업종별 ──────────────────────────────────────────────── */}
