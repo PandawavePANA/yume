@@ -415,15 +415,39 @@ app.get("/datasets/download/:token", async (req, res) => {
 //
 // 같은 도메인에 두는 이유는 로그인이다 — 다른 도메인이면 세션 쿠키가 교차 출처가 되어
 // 앱에서 로그인이 풀린다. 이 경로는 웹 라우팅보다 먼저 붙어야 아래 catch-all에 먹히지 않는다.
+// 정적 파일 캐시.
+//
+// 빌드가 만든 /assets/ 아래 파일은 이름에 내용 해시가 붙는다(index-C2KefLTS.js). 내용이 바뀌면
+// 이름이 바뀌므로, 같은 이름의 파일은 영원히 같다. 그런데 1시간만 캐시하라고 보내고 있어서,
+// 다시 온 사람의 브라우저가 한 시간마다 서버에 "바뀌었냐"고 물었다. 서버는 미국 동부에 있어서
+// 그 한 번이 태평양 왕복이다. 해시 붙은 파일은 1년 동안 묻지도 말라고(immutable) 보낸다.
+//
+// 반대로 index.html은 절대 오래 들고 있으면 안 된다. 새 배포의 새 파일 이름이 거기 적혀
+// 있어서, 옛 index.html을 쥐고 있으면 사라진 옛 JS를 찾다가 흰 화면이 된다.
+// 파비콘·OG 이미지 같은 나머지는 이름이 고정이라 하루만 둔다.
+const HASHED = /\/assets\//;
+function staticFiles(dir) {
+  return express.static(dir, {
+    index: false,
+    setHeaders(res, filePath) {
+      const p = filePath.replace(/\\/g, "/");
+      if (HASHED.test(p)) res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+      else res.setHeader("Cache-Control", "public, max-age=86400");
+    },
+  });
+}
+// SPA 진입 파일 — 매번 새로 확인한다(no-cache는 "쓰지 말라"가 아니라 "쓰기 전에 물어보라"다).
+const sendShell = (res, file) => res.set("Cache-Control", "no-cache").sendFile(file);
+
 const appDir = path.join(__dirname, "..", "dist-app");
 if (fs.existsSync(appDir)) {
-  app.use("/app", express.static(appDir, { index: false, maxAge: "1h" }));
-  app.get(/^\/app(\/.*)?$/, (req, res) => res.sendFile(path.join(appDir, "index.html")));
+  app.use("/app", staticFiles(appDir));
+  app.get(/^\/app(\/.*)?$/, (req, res) => sendShell(res, path.join(appDir, "index.html")));
 }
 
 if (fs.existsSync(distDir)) {
-  app.use(express.static(distDir, { index: false, maxAge: "1h" }));
-  app.get(/^(?!\/(api|v1)\/).*/, (req, res) => res.sendFile(path.join(distDir, "index.html")));
+  app.use(staticFiles(distDir));
+  app.get(/^(?!\/(api|v1)\/).*/, (req, res) => sendShell(res, path.join(distDir, "index.html")));
 }
 
 // 잘못된 JSON 본문 등 — HTML 에러 페이지 대신 JSON으로.

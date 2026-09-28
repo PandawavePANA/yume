@@ -113,12 +113,18 @@ export async function peekUsage({ user = null, ip = null, kakaoId = null }) {
   const plan = effectivePlan(user);
   const limit = PLANS[plan].dailyLimit;
   const key = keyFor({ user, ip, kakaoId });
-  const used = await usedToday(key);
+  // 두 조회는 서로를 기다릴 이유가 없다. 예전에는 하나 끝나고 다음을 불렀는데, 앱 서버는
+  // 미국 동부에 있고 DB는 서울에 있어서 조회 한 번이 태평양 왕복(~200ms)이다. 모든 화면이
+  // 처음 뜰 때 부르는 자리라, 차례로 부르면 로그인한 사람만 그만큼 늦게 뜬다.
+  const [used, credits] = await Promise.all([
+    usedToday(key),
+    user ? creditBalance(user.id) : 0,
+  ]);
   return {
     plan,
     dailyLimit: limit,
     usedToday: used,
     remainingFree: Math.max(0, limit - used),
-    credits: user ? await creditBalance(user.id) : 0,
+    credits,
   };
 }
