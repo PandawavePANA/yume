@@ -393,6 +393,8 @@ app.get("/r/:id", async (req, res) => {
   const v = await getVerification(String(req.params.id));
   res.set("X-Robots-Tag", "noindex, nofollow"); // 이용자 원문이 담긴 페이지 — 검색 노출 금지
   if (!v) return res.status(404).send("결과를 찾을 수 없습니다. 링크가 올바른지 확인해주세요.");
+  // 검증 때 이미 풀어 둔 상품은 그대로 쓴다(resolveProductLinks가 isAffiliate 항목은 건너뛴다).
+  // 쿠팡 검색은 1시간 10회뿐이라 페이지를 열 때마다 다시 물을 수 없다.
   const result = v.result ? { ...v.result, related_products: await resolveProductLinks(v.result.related_products || []) } : null;
   html(res, renderResultPage({ id: v.id, input: v.input, status: v.status, result, createdAt: v.created_at }));
 });

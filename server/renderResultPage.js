@@ -230,8 +230,19 @@ export function renderResultPage({ id, input, status, result, createdAt }) {
     ? `<div class="section-label">관련 상품</div>
        <p style="font-size:12.5px;color:#9C8FC2;margin:0 0 10px;">쿠팡파트너스 활동을 통해 일정액의 수수료를 제공받을 수 있습니다.</p>` +
       products
-        .map(
-          (p) => `
+        .map((p) =>
+          p.product
+            ? `
+        <a href="${esc(safeUrl(p.product.url))}" rel="noopener sponsored" style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;background:#fff;border:1px solid #D9BFF0;margin-bottom:8px;text-decoration:none;">
+          ${p.product.image ? `<img src="${esc(safeUrl(p.product.image))}" alt="" width="64" height="64" loading="lazy" style="flex:none;width:64px;height:64px;object-fit:contain;border-radius:8px;border:1px solid #EEE8F7;background:#fff;">` : ""}
+          <div style="min-width:0;flex:1;">
+            <div style="font-size:11.5px;color:#9C8FC2;margin-bottom:2px;">${esc(p.reason || "")}</div>
+            <div style="font-size:13.5px;font-weight:600;color:#241F33;line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">${esc(p.product.name)}</div>
+            <div style="margin-top:3px;font-size:14px;font-weight:700;color:#241F33;">${p.product.price ? `${Number(p.product.price).toLocaleString("ko-KR")}원` : ""}${p.product.rocket ? ` <span style="font-size:10.5px;color:#0073E9;background:#EAF3FE;border-radius:4px;padding:2px 5px;margin-left:4px;">로켓배송</span>` : ""}</div>
+          </div>
+          <span style="font-size:12px;color:#7C5CD9;font-weight:600;white-space:nowrap;">쿠팡에서 보기 →</span>
+        </a>`
+            : `
         <a href="${esc(safeUrl(p.url || `https://www.coupang.com/np/search?q=${encodeURIComponent(p.keyword)}`))}" rel="noopener sponsored" style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:14px 16px;border-radius:12px;background:#F9FAFB;border:1px solid #D9BFF0;margin-bottom:8px;text-decoration:none;">
           <div>
             <div style="font-size:14px;font-weight:700;color:#241F33;margin-bottom:3px;">${esc(p.keyword)}</div>

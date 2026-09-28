@@ -1729,7 +1729,35 @@ export default function YumeDashboard() {
                       <div style={{ fontSize: 14, color: UI.ink3, padding: "36px 0", textAlign: "center" }}>{t("추천할 상품을 찾지 못했습니다.")}</div>
                     ) : (
                       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                        {result.related_products.map((p, i) => (
+                        {result.related_products.map((p, i) => p.product ? (
+                          // 쿠팡 검색 1위 상품. 파트너스 화면의 상품 카드처럼 사진·이름·가격을 보여 준다.
+                          // 키워드만 있을 때보다 무엇을 누르는지 알고 누르게 된다.
+                          <div key={i} style={{ borderRadius: 16, background: "#fff", border: `1px solid ${UI.hairline}`, overflow: "hidden" }}>
+                            <motion.a href={safeUrl(p.product.url)} target="_blank" rel="noreferrer sponsored"
+                              whileHover={{ backgroundColor: "#FAF8FD" }} transition={{ duration: 0.2 }}
+                              style={{ display: "flex", gap: 14, alignItems: "center", padding: "14px 16px", textDecoration: "none" }}>
+                              {p.product.image && (
+                                <img src={safeUrl(p.product.image)} alt="" loading="lazy" width={72} height={72}
+                                  style={{ flex: "none", width: 72, height: 72, objectFit: "contain", borderRadius: 10, background: "#fff", border: `1px solid ${UI.hairline}` }} />
+                              )}
+                              <div style={{ minWidth: 0, flex: 1 }}>
+                                <div style={{ fontSize: 12, color: UI.ink3, marginBottom: 3 }}>{p.reason}</div>
+                                <div style={{ fontSize: 14.5, fontWeight: 600, color: UI.ink, lineHeight: 1.45, letterSpacing: "-0.01em", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{p.product.name}</div>
+                                <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
+                                  {p.product.price ? <span style={{ fontSize: 15, fontWeight: 700, color: UI.ink, fontVariantNumeric: "tabular-nums" }}>{p.product.price.toLocaleString("ko-KR")}{t("원")}</span> : null}
+                                  {p.product.rocket && <span style={{ fontSize: 11, fontWeight: 700, color: "#0073E9", background: "#EAF3FE", borderRadius: 4, padding: "2px 6px" }}>{t("로켓배송")}</span>}
+                                </div>
+                              </div>
+                              <span style={{ fontSize: 13, color: UI.accent, fontWeight: 600, whiteSpace: "nowrap", marginLeft: 4 }}>{t("쿠팡에서 보기 ›")}</span>
+                            </motion.a>
+                            {p.moreUrl && (
+                              <a href={safeUrl(p.moreUrl)} target="_blank" rel="noreferrer sponsored"
+                                style={{ display: "block", padding: "9px 16px", borderTop: `1px solid ${UI.hairline}`, fontSize: 12.5, color: UI.ink2, textDecoration: "none" }}>
+                                {t("비슷한 상품 더 보기")} · {p.keyword} ›
+                              </a>
+                            )}
+                          </div>
+                        ) : (
                           <motion.a key={i} href={safeUrl(p.url) || `https://www.coupang.com/np/search?q=${encodeURIComponent(p.keyword)}`} target="_blank" rel="noreferrer sponsored"
                             whileHover={{ y: -2, boxShadow: UI.shadowSoft }} transition={{ duration: 0.25, ease: EASE_APPLE }}
                             style={{

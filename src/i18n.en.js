@@ -70,6 +70,9 @@ export default {
   "관련 상품": "Related products",
   "추천할 상품을 찾지 못했습니다.": "No related products found.",
   "쿠팡에서 보기 ›": "View on Coupang ›",
+  "로켓배송": "Rocket delivery",
+  "원": " KRW",
+  "비슷한 상품 더 보기": "More like this",
   "결과 공유": "Share result",
   "검증 가능한 주장을 찾지 못했습니다.": "No checkable claims were found.",
   "확인할 사실 주장이 없어요. 묻기만 하면 유메가 대조할 내용이 없습니다 — \"○○라던데 사실이야?\"처럼 확인하고 싶은 내용을 함께 적어주세요. 이번 확인 횟수는 돌려드렸어요.":

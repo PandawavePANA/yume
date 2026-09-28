@@ -872,6 +872,17 @@ const MIGRATIONS = [
   CREATE INDEX idx_correction_user ON verdict_corrections(user_id, id);
   ALTER TABLE verdict_corrections ENABLE ROW LEVEL SECURITY;
   `,
+
+  // 쿠팡파트너스 상품 검색 결과. 검색 API는 1시간 10회뿐이고 넘기면 24시간 막히므로,
+  // 같은 키워드는 하루 동안 여기서 꺼내 쓴다(server/coupang.js). 결과가 없던 키워드도 담는다.
+  `
+  CREATE TABLE coupang_products (
+    keyword TEXT PRIMARY KEY,
+    data_json TEXT NOT NULL,
+    fetched_at BIGINT NOT NULL
+  );
+  ALTER TABLE coupang_products ENABLE ROW LEVEL SECURITY;
+  `,
 ];
 
 async function migrate() {
