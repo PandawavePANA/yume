@@ -641,4 +641,7 @@ export default {
   "채택 · 점수 지급": "Accepted — points awarded",
   "앱에서는 크레딧 구매를 준비 중이에요. 요금제로 매달 받는 크레딧은 그대로 쓰실 수 있어요.":
     "Buying credits in the app is on the way. The credits your plan gives you each month work as usual.",
+  // 입력칸 안내 — 줄바꿈이 키에 그대로 들어간다.
+  "궁금한 것 한 줄만 물어보셔도 돼요.\n예시: \"로또 1등 당첨금이 평균 20억이라는데 사실이야?\"\n\nAI 답변을 통째로 붙여넣어도 됩니다.":
+    "Ask it in one line if you like.\ne.g. \"Is the average lottery jackpot really 2 billion won?\"\n\nOr paste a whole AI answer.",
 };

@@ -109,11 +109,16 @@ const MAX_INPUT_CHARS = 10_000;
 // 두 가지 쓰는 법이 있는데, 그동안 한 가지만 적혀 있었다. "AI 답변을 붙여넣으세요"만
 // 보이면 확인하고 싶은 게 한 줄뿐인 사람은 쓸 자리가 없다고 느끼고 그냥 나간다.
 // 짧은 쪽을 먼저, 예시까지 적는다 — 문턱이 낮은 쪽이 앞에 와야 문턱이 낮아진다.
+// 입력칸 안내. 예전에는 다섯 줄이었는데 폰에서 줄마다 두 줄로 접혀 입력칸(7줄)을 넘쳤고,
+// 마지막 줄이 잘린 채로 첫 화면에 떴다. 게다가 그 마지막 줄("법률, 의료, 금융… 어떤 주제든")은
+// 바로 위 부제목과 같은 말이었다. 부제목이 못 하는 말 — 구체적인 예시 — 만 남긴다.
+//
+// 상수로 빼 둔 탓에 t()를 안 거쳐서, 영어 화면에서도 한국어로 나오고 있었다.
+// 번역 점검(i18n:check)은 t("…") 안의 글자만 보므로 이런 자리를 못 잡는다. 쓰는 곳에서 감싼다.
 const PLACEHOLDER = `궁금한 것 한 줄만 물어보셔도 돼요.
 예시: "로또 1등 당첨금이 평균 20억이라는데 사실이야?"
 
-ChatGPT·클로드·제미나이 답변을 통째로 붙여넣어도 됩니다.
-법률, 의료, 금융, 역사, 과학 — 어떤 주제든 상관없습니다.`;
+AI 답변을 통째로 붙여넣어도 됩니다.`;
 
 // 판정 색. 파스텔로 두면 셋 다 "부드러운 알림"으로 읽힌다 — 이 제품에서 판정은
 // 알림이 아니라 도장이다. 글자색을 진하게 내리고 배경은 거의 흰색으로 남겨,
@@ -256,6 +261,40 @@ function YumeChatWidget({ shiftRight = 0 }) {
   const listRef = React.useRef(null);
   const containerRef = React.useRef(null);
 
+  // 입력칸 아래 버튼 줄과 겹치면 비킨다.
+  //
+  // 옅어지는 것만으로는 부족했다. 사파리처럼 주소창·툴바가 화면을 먹는 브라우저에서는 버튼
+  // 줄이 화면 맨 아래에 걸리고, 이 버튼이 그 위에 그대로 얹혀 「캡처 올리기」를 가렸다.
+  // 옅어진 채로도 클릭은 이 버튼이 가로채서 눌리지 않았다 — 안 보이는데 눌리는 쪽이 더 나쁘다.
+  //
+  // 위치는 움직이지 않고 투명도와 클릭만 끈다. 위치를 옮기면 옮긴 자리에서 겹침이 풀리고,
+  // 풀리면 제자리로 돌아와 다시 겹쳐서 깜빡인다. 판정은 스크롤 한 프레임에 한 번만 한다.
+  const [blocked, setBlocked] = useState(false);
+  React.useEffect(() => {
+    let raf = 0;
+    const check = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        const row = document.querySelector(".yume-actions");
+        const me = containerRef.current;
+        if (!row || !me) { setBlocked(false); return; }
+        const a = row.getBoundingClientRect();
+        const b = me.getBoundingClientRect();
+        // 딱 붙는 것도 가리는 것으로 친다 — 손가락 끝은 8px쯤 넘친다.
+        const pad = 8;
+        setBlocked(!(a.right < b.left - pad || a.left > b.right + pad || a.bottom < b.top - pad || a.top > b.bottom + pad));
+      });
+    };
+    check();
+    window.addEventListener("scroll", check, { passive: true });
+    window.addEventListener("resize", check);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("scroll", check);
+      window.removeEventListener("resize", check);
+    };
+  }, []);
+
   React.useEffect(() => {
     if (listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight;
   }, [messages, loading, open]);
@@ -303,8 +342,10 @@ function YumeChatWidget({ shiftRight = 0 }) {
       right: `calc(16px + var(--yume-safe-right) + ${shiftRight}px)`,
       bottom: `calc(${IS_STORE_BUILD ? APP_TABBAR_HEIGHT + 14 : 16}px + var(--yume-safe-bottom))`,
       zIndex: 60, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 12,
-      transition: "right 0.35s cubic-bezier(0.22,1,0.36,1)"
-    }}>
+      opacity: blocked && !open ? 0 : 1,
+      pointerEvents: blocked && !open ? "none" : "auto",
+      transition: "right 0.35s cubic-bezier(0.22,1,0.36,1), opacity 0.2s ease",
+    }} data-yume-float="">
       <AnimatePresence>
         {open && (
           <motion.div
@@ -599,7 +640,7 @@ function StepsSection() {
   const headerY = useTransform(progress, [0, 0.4], [28, 0]);
 
   return (
-    <section ref={ref} style={{ maxWidth: 1080, margin: "200px auto 0", padding: "0 24px" }}>
+    <section ref={ref} style={{ maxWidth: 1080, margin: "clamp(96px, 16vw, 200px) auto 0", padding: "0 24px" }}>
       <motion.div style={{ textAlign: "center", marginBottom: 64, opacity: headerOpacity, y: headerY }}>
         <Eyebrow>HOW IT WORKS</Eyebrow>
         <h2 style={UI.sectionTitle}>{t("세 단계로, 확실하게.")}</h2>
@@ -1400,7 +1441,7 @@ export default function YumeDashboard() {
                   </div>
                 )}
               </div>
-              <textarea ref={inputRef} className="yume-field" value={input} onChange={(e) => { setInput(e.target.value); if (pasteHint) setPasteHint(""); }} placeholder={PLACEHOLDER} rows={7}
+              <textarea ref={inputRef} className="yume-field" value={input} onChange={(e) => { setInput(e.target.value); if (pasteHint) setPasteHint(""); }} placeholder={t(PLACEHOLDER)} rows={7}
                 onPaste={(e) => {
                   // 캡처를 찍고 Ctrl+V 하는 것이 가장 자연스러운 동작이다. 글이면 그대로 두고,
                   // 이미지가 섞여 있을 때만 가로채서 읽는다.
@@ -1437,7 +1478,7 @@ export default function YumeDashboard() {
               )}
               {/* 좁은 화면에서는 주 버튼이 눌려 글자가 여러 줄로 깨진다. 그때는 줄을 나눠
                   주 버튼이 한 줄을 다 쓰게 하고, 보조 버튼 둘을 아래 줄에 나란히 둔다. */}
-              <div style={{ display: "flex", gap: 10, alignItems: "stretch", flexWrap: "wrap" }}>
+              <div className="yume-actions" style={{ display: "flex", gap: 10, alignItems: "stretch", flexWrap: "wrap" }}>
                 <motion.button whileHover={input.trim() ? { y: -1, boxShadow: "0 14px 32px rgba(107,79,168,0.36)" } : {}} whileTap={input.trim() ? { scale: 0.985 } : {}}
                   transition={{ duration: 0.25, ease: EASE_APPLE }}
                   onClick={runCheck} disabled={!input.trim()} style={{
@@ -1451,7 +1492,9 @@ export default function YumeDashboard() {
                 <motion.button whileHover={{ y: -1 }} whileTap={{ scale: 0.985 }}
                   transition={{ duration: 0.25, ease: EASE_APPLE }}
                   onClick={pasteFromClipboard} type="button" aria-label={t("복사한 내용 붙여넣기")} style={{
-                  flex: "none", height: 54, padding: "0 20px", borderRadius: 16,
+                  // 폰에서는 주 버튼이 첫 줄을 다 쓰고 이 둘이 둘째 줄로 내려간다. 그때 제 크기만
+                  // 차지하면 오른쪽이 비고 누를 자리가 작다 — 둘째 줄을 반씩 나눠 쓴다.
+                  flex: tightNav ? "1 1 0" : "none", height: 54, padding: "0 20px", borderRadius: 16,
                   border: `1px solid ${UI.hairline}`, background: "#fff", color: UI.accent,
                   fontSize: 15, fontWeight: 600, letterSpacing: "-0.01em", cursor: "pointer", whiteSpace: "nowrap",
                   transition: "border-color 0.2s ease, background-color 0.2s ease",
@@ -1462,7 +1505,7 @@ export default function YumeDashboard() {
                   whileHover={{ backgroundColor: "#FAF8FF" }} whileTap={{ scale: 0.98 }}
                   onClick={() => fileRef.current?.click()} type="button" disabled={shotBusy}
                   aria-label={t("캡처 이미지에서 읽어오기")} style={{
-                  flex: "none", height: 54, padding: "0 18px", borderRadius: 16,
+                  flex: tightNav ? "1 1 0" : "none", height: 54, padding: "0 18px", borderRadius: 16,
                   border: `1px solid ${UI.hairline}`, background: "#fff", color: shotBusy ? UI.ink3 : UI.accent,
                   fontSize: 15, fontWeight: 600, letterSpacing: "-0.01em", cursor: shotBusy ? "progress" : "pointer", whiteSpace: "nowrap",
                 }}>{shotBusy ? t("읽는 중…") : t("캡처 올리기")}</motion.button>
@@ -1745,7 +1788,7 @@ export default function YumeDashboard() {
       {!IS_STORE_BUILD && (<>
 
       {/* 왜 유메인가 — 문제 제기 */}
-      <section style={{ maxWidth: 900, margin: "180px auto 0", padding: "0 24px", textAlign: "center" }}>
+      <section style={{ maxWidth: 900, margin: "clamp(88px, 14vw, 180px) auto 0", padding: "0 24px", textAlign: "center" }}>
         <Reveal>
           <Eyebrow>{t("왜 유메인가")}</Eyebrow>
         </Reveal>
@@ -1768,7 +1811,7 @@ export default function YumeDashboard() {
       <StepsSection />
 
       {/* 무엇이 다른가 — 회전 쇼케이스 카드 */}
-      <section style={{ maxWidth: 1080, margin: "200px auto 0", padding: "0 24px" }}>
+      <section style={{ maxWidth: 1080, margin: "clamp(96px, 16vw, 200px) auto 0", padding: "0 24px" }}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 56, alignItems: "center" }}>
           <div>
             <Reveal>
@@ -1788,7 +1831,7 @@ export default function YumeDashboard() {
       </section>
 
       {/* 왜 AI는 틀릴까 — 할루시네이션 원인 5가지와 유메의 대응 */}
-      <section style={{ maxWidth: 1080, margin: "200px auto 0", padding: "0 24px", textAlign: "center" }}>
+      <section style={{ maxWidth: 1080, margin: "clamp(96px, 16vw, 200px) auto 0", padding: "0 24px", textAlign: "center" }}>
         <Reveal>
           <Eyebrow>{t("할루시네이션의 원인")}</Eyebrow>
         </Reveal>
@@ -1820,7 +1863,7 @@ export default function YumeDashboard() {
       </section>
 
       {/* 마무리 CTA */}
-      <section style={{ maxWidth: 760, margin: "200px auto 0", padding: "0 24px", textAlign: "center" }}>
+      <section style={{ maxWidth: 760, margin: "clamp(96px, 16vw, 200px) auto 0", padding: "0 24px", textAlign: "center" }}>
         <Reveal>
           <h2 style={{ ...UI.sectionTitle, margin: "0 0 18px" }}>
             {t("AI 답변, {x} 믿으세요.", { x: "\u0000" })
@@ -1847,7 +1890,7 @@ export default function YumeDashboard() {
 
       {/* FOOTER */}
       <footer style={{
-        marginTop: IS_STORE_BUILD ? 80 : 200,
+        marginTop: IS_STORE_BUILD ? 80 : "clamp(96px, 16vw, 200px)",
         borderTop: `1px solid ${UI.hairline}`, background: "rgba(248,246,253,0.7)",
         // 앱에서는 하단 탭바가 화면 맨 아래에 떠 있다. 그만큼 비워 두지 않으면 푸터 마지막 줄을 덮는다.
         paddingBottom: IS_STORE_BUILD ? APP_TABBAR_HEIGHT : 0,
