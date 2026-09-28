@@ -62,8 +62,14 @@ export default {
   "검증 중 오류가 발생했습니다.": "Something went wrong while checking.",
   "검증 기록을 찾을 수 없어요.": "That check couldn't be found.",
   "주장을 지정해주세요.": "Pick which claim you mean.",
-  "같은 네트워크에서 오늘 쓸 수 있는 무료 확인 횟수를 모두 사용했어요. 내일 다시 이용해주세요.":
-    "This network has used all of today's free checks. Please try again tomorrow.",
+  // 한도 문구(server/app.js limitMessage). 숫자가 상수에서 오므로 값이 바뀌면 여기도 같이 바꾼다 —
+  // 어긋나면 영어 화면에 한국어가 그대로 나갈 뿐 깨지지는 않는다.
+  "같은 네트워크에서 오늘 쓸 수 있는 무료 확인 횟수를 모두 사용했어요. 내일 0시(한국 시간)에 다시 이용하실 수 있어요.":
+    "This network has used all of today's free checks. They come back at midnight Korea time.",
+  "오늘 무료 확인 3회를 다 쓰셨어요. 내일 0시(한국 시간)에 다시 3회가 생겨요. 가입하면 매일 무료 3회는 그대로이고, 매달 5크레딧을 더 드려요. 기록도 저장돼요.":
+    "You've used today's 3 free checks. 3 more arrive at midnight Korea time. Sign up and you keep 3 free checks a day, plus 5 credits every month and a saved history.",
+  "오늘 무료 확인 3회를 다 쓰셨어요. 내일 0시(한국 시간)에 다시 3회가 생겨요. 지금 더 확인하려면 크레딧이 필요해요(20크레딧 12,000원부터).":
+    "You've used today's 3 free checks. 3 more arrive at midnight Korea time. To keep checking now you need credits (from 12,000 won for 20).",
   "오늘 남은 확인 횟수를 모두 사용했어요.": "You've used all of today's checks.",
 
   // ── 캡처 ──

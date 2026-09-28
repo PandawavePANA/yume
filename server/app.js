@@ -9,7 +9,8 @@ import { chatReply } from "./claude.js";
 import { kakaoSkillHandler } from "./kakaoWebhook.js";
 import { renderResultPage } from "./renderResultPage.js";
 import { resolveProductLinks } from "./coupang.js";
-import { checkAndConsume, refundOne, peekUsage, PLANS } from "./usageStore.js";
+import { checkAndConsume, refundOne, peekUsage, PLANS, FREE_DAILY_CHECKS } from "./usageStore.js";
+import { CREDIT_PACKS, PLAN_CREDITS } from "./credits.js";
 import { appendTurns } from "./chatHistory.js";
 import { logError } from "./errorLog.js";
 import { repairContext, MAX_TRANSCRIPT_CHARS, MIN_TRANSCRIPT_CHARS } from "./contextRepair.js";
@@ -106,19 +107,29 @@ const repairLimiter = createLimiter({ windowMs: 60_000, max: 3 });
 const chatLimiter = createLimiter({ windowMs: 60_000, max: 20 });
 const chatDailyLimiter = createLimiter({ windowMs: 24 * 3600 * 1000, max: 150 });
 
+// 한도에 걸린 사람은 방금 질문을 써 넣고 답을 못 받은 사람이다. 쓸 마음이 가장 큰 순간이라
+// 두 가지를 꼭 말한다 — 언제 다시 풀리는지, 지금 풀려면 얼마인지. 그리고 사실만 말한다.
+// 예전 문구는 "로그인하면 더 많이 확인할 수 있어요"였는데, 그때는 가입하면 오히려 줄었다.
+const RESET_AT = "내일 0시(한국 시간)";
+const cheapestPack = () => CREDIT_PACKS[0];
+const packLine = () => `${cheapestPack().credits}크레딧 ${cheapestPack().krw.toLocaleString("ko-KR")}원부터`;
+
 function limitMessage(usage, user) {
-  if (usage.reason === "ip_ceiling") return "같은 네트워크에서 오늘 쓸 수 있는 무료 확인 횟수를 모두 사용했어요. 내일 다시 이용해주세요.";
+  if (usage.reason === "ip_ceiling") return `같은 네트워크에서 오늘 쓸 수 있는 무료 확인 횟수를 모두 사용했어요. ${RESET_AT}에 다시 이용하실 수 있어요.`;
   // 크레딧 소진은 하루 한도와 다른 문제다 — 내일이 되어도 풀리지 않으니 그렇게 안내한다.
   if (usage.reason === "no_credits") {
     // 길이만큼 차감하므로, 잔액은 있는데 이번 입력에는 모자란 경우가 생긴다.
     // 그때 "모두 사용했다"고만 하면 화면의 잔액과 말이 어긋난다.
     return usage.credits > 0
       ? `이번 입력은 ${usage.needed}크레딧이 필요한데 ${usage.credits}크레딧이 남아 있어요. 더 짧게 나눠 넣거나 크레딧을 추가로 구매해주세요.`
-      : "이번 달 크레딧을 모두 사용했어요. 계정 설정 → 크레딧에서 추가로 구매하거나, 다음 달 지급을 기다려주세요.";
+      : `오늘 무료 확인 ${FREE_DAILY_CHECKS}회를 다 쓰셨어요. ${RESET_AT}에 다시 ${FREE_DAILY_CHECKS}회가 생겨요. 지금 더 확인하려면 크레딧이 필요해요(${packLine()}).`;
   }
-  if (usage.plan !== "free") return `오늘 공정 이용 한도(${usage.dailyLimit}회)에 도달했어요. 내일 다시 이용해주세요.`;
-  if (!user) return `오늘 무료 확인 ${usage.dailyLimit}회를 다 쓰셨어요. 로그인하면 기록이 저장되고, 요금제로 더 많이 확인할 수 있어요.`;
-  return `오늘 무료 확인 ${usage.dailyLimit}회를 다 쓰셨어요. 내일 다시 이용하거나 요금제를 확인해주세요.`;
+  // 로그인한 사람이 하루 상한(무료분 + 크레딧분)까지 다 쓴 경우. 크레딧이 남아 있어도 오늘은 끝이다.
+  if (user) return `오늘 이용 한도(${usage.dailyLimit}회)에 도달했어요. ${RESET_AT}에 다시 이용하실 수 있어요.`;
+  return (
+    `오늘 무료 확인 ${FREE_DAILY_CHECKS}회를 다 쓰셨어요. ${RESET_AT}에 다시 ${FREE_DAILY_CHECKS}회가 생겨요. ` +
+    `가입하면 매일 무료 ${FREE_DAILY_CHECKS}회는 그대로이고, 매달 ${PLAN_CREDITS.free}크레딧을 더 드려요. 기록도 저장돼요.`
+  );
 }
 
 app.post("/api/verify", limitMiddleware(verifyLimiter, (req) => `verify:${clientIp(req)}`), async (req, res) => {

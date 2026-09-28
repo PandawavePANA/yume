@@ -498,6 +498,12 @@ export default {
     "Your points history",
   "최근 검증":
     "Recent checks",
+  "오늘 무료 {n}회 남음":
+    "{n} free left today",
+  "매일 3회 무료 확인 (가입 없이도)":
+    "3 free checks every day (no sign-up needed)",
+  "가입하면 매달 5 크레딧 추가 (2,000자당 1크레딧)":
+    "Sign up for 5 extra credits a month (1 credit per 2,000 characters)",
   "오늘 {n}회 남음":
     "{n} left today",
   "법률, 의료, 금융, 역사, 과학 — 어떤 주제든 괜찮아요. AI 답변 속 사실 주장을 유메가 하나하나 확인합니다.":

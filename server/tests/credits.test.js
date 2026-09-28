@@ -231,6 +231,57 @@ test("크레딧이 모자라면 차감되지 않고, 동시에 써도 음수가 
   assert.equal(await credits.spendOne(userId, null), false, "잔액이 없으면 false");
 });
 
+// 오늘 무료 3회를 먼저 쓴다. 그 뒤부터 크레딧이 빠진다.
+async function useFreeChecks(usage, user, ip) {
+  for (let i = 0; i < usage.FREE_DAILY_CHECKS; i += 1) {
+    const r = await usage.checkAndConsume({ user, ip, chars: 10 });
+    assert.equal(r.usedFree, true, "첫 3회는 무료");
+  }
+}
+
+// 가입하면 덜 받는 구조였다 — 익명은 하루 3회, 가입하면 첫 회부터 크레딧(무료 플랜 한 달 5개).
+// 누구나 하루 첫 3회는 무료이고, 크레딧은 그 위로 더 쓸 때만 빠져야 한다.
+test("로그인해도 하루 첫 3회는 크레딧을 쓰지 않고, 그다음부터 쓴다", async () => {
+  const usage = await import("../usageStore.js");
+  const { id: userId } = await signedUpUser("daily3@yume.test");
+  const user = { id: userId, plan: "free" };
+  await credits.ensureMonthlyGrant(user);
+  const before = await credits.balance(userId);
+  assert.ok(before > 0);
+
+  const first = await usage.checkAndConsume({ user, ip: "10.9.1.1", chars: 10 });
+  assert.equal(first.usedFree, true);
+  assert.equal(first.remainingFree, usage.FREE_DAILY_CHECKS - 1);
+  // 실패해서 되돌려도 크레딧은 건드리지 않는다(쓰지 않았으니까).
+  await usage.refundOne({ user, ip: "10.9.1.1", usedFree: first.usedFree });
+  assert.equal(await credits.balance(userId), before);
+
+  await useFreeChecks(usage, user, "10.9.1.1");
+  assert.equal(await credits.balance(userId), before, "무료 3회 동안 잔액 그대로");
+  const peek = await usage.peekUsage({ user });
+  assert.equal(peek.remainingFree, 0);
+  assert.equal(peek.freeLimit, usage.FREE_DAILY_CHECKS);
+
+  const fourth = await usage.checkAndConsume({ user, ip: "10.9.1.1", chars: 10 });
+  assert.equal(fourth.allowed, true);
+  assert.equal(fourth.usedFree, false);
+  assert.equal(fourth.creditsSpent, 1);
+  assert.equal(await credits.balance(userId), before - 1);
+});
+
+test("크레딧이 있어도 하루 상한에서 멈춘다 (무료 플랜 15회, 유료는 플랜 한도)", async () => {
+  const usage = await import("../usageStore.js");
+  const { id: userId } = await signedUpUser("cap@yume.test");
+  const user = { id: userId, plan: "free" };
+  await credits.ensureMonthlyGrant(user);
+  assert.equal(usage.userDailyCap("free"), usage.PLANS.standard.dailyLimit);
+  assert.equal(usage.userDailyCap("expert"), usage.PLANS.expert.dailyLimit);
+  await db.run("INSERT INTO usage_daily (client_key, day, used) VALUES (:k, :d, :n)", { k: `user:${userId}`, d: db.kstDay(), n: usage.userDailyCap("free") });
+  const r = await usage.checkAndConsume({ user, ip: "10.9.1.2", chars: 10 });
+  assert.equal(r.allowed, false);
+  assert.equal(r.reason, "daily_limit");
+});
+
 // 길이 비례 차감 — 원가가 입력 길이에 따라 몇 배씩 달라지므로, 한 건을 무조건
 // 1크레딧으로 받으면 긴 문서를 넣는 쪽이 짧게 쓰는 쪽의 보조를 받는다.
 test("긴 입력은 길이만큼 크레딧을 더 쓰고, 실패하면 쓴 만큼 돌아온다", async () => {
@@ -243,6 +294,7 @@ test("긴 입력은 길이만큼 크레딧을 더 쓰고, 실패하면 쓴 만�
   assert.equal(credits.creditsFor(credits.CHARS_PER_CREDIT + 1), 2, "한 자만 넘어도 다음 칸");
 
   await credits.ensureMonthlyGrant(user);
+  await useFreeChecks(usage, user, "10.9.9.9");
   const before = await credits.balance(userId);
 
   const chars = credits.CHARS_PER_CREDIT * 3;
@@ -266,6 +318,7 @@ test("잔액이 이번 입력에 모자라면 한 개도 차감하지 않는다"
   await credits.ensureMonthlyGrant(user);
   const bal = await credits.balance(userId);
   assert.equal(await credits.spend(userId, bal - 2, "verify"), true, "2개만 남긴다");
+  await useFreeChecks(usage, user, "10.9.9.8");
 
   const r = await usage.checkAndConsume({ user, ip: "10.9.9.8", chars: credits.CHARS_PER_CREDIT * 3 });
   assert.equal(r.allowed, false);

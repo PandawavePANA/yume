@@ -28,36 +28,27 @@ export const PLANS = {
   business: { label: "비즈니스", dailyLimit: 120, historyLimit: null, monthlyKrw: null },
 };
 export const FREE_DAILY_LIMIT = PLANS.free.dailyLimit;
+
+// 누구나 매일 받는 무료 확인 횟수. 가입했든 안 했든, 어떤 요금제든 하루 첫 3회는 크레딧을
+// 쓰지 않는다. 크레딧은 그 위로 더 쓰고 싶을 때 쓰는 것이다.
+//
+// 예전에는 로그인하면 첫 회부터 크레딧을 썼다. 무료 플랜은 한 달 5크레딧이라, 가입 안 한
+// 사람(하루 3회, 한 달 ~90회)보다 가입한 사람이 94% 덜 썼다 — 한 걸음 더 들어온 사람이
+// 덜 받는 구조였고, 유료 플랜도 같은 식으로 무료 3회를 잃었다. 원가로 보면 로그인한 사람
+// 한 명이 무료로 쓸 수 있는 최대치가 익명과 같아질 뿐이라(하루 3회 × 약 210원), 이미 익명에게
+// 열어 둔 범위 안이다.
+export const FREE_DAILY_CHECKS = FREE_DAILY_LIMIT;
+
+// 로그인한 사람의 하루 상한(무료분 + 크레딧분). 무료 플랜도 크레딧을 사서 더 쓸 수 있으므로
+// 크레딧을 쓸 때의 상한은 스탠다드와 같은 선으로 둔다. 유료 플랜은 각자의 공정 이용 한도.
+export function userDailyCap(plan) {
+  return plan === "free" ? PLANS.standard.dailyLimit : (PLANS[plan] || PLANS.free).dailyLimit;
+}
 export const TOKEN_PRICE_KRW = 100;
 
-// API 호출 한도는 일반 크레딧과 완전히 다른 지갑이다.
-//
-// 개인 요금제(무료/스탠다드/전문가)는 웹·앱에서 직접 검증할 때 쓰는 크레딧을 준다.
-// API는 남의 서비스 안에서 돌아가는 것이라 트래픽 규모도 단가도 다른 별개의 상품이고,
-// 계약으로 한도를 정한다. 예전에는 개인 요금제에서 API 한도를 끌어다 썼는데, 그러면
-// 29,000원짜리 개인 구독이 월 5,000회 API를 딸려 보내게 된다 — B2B를 팔 수 없다.
-//
-// 그래서 키를 만들면 누구나 같은 체험 한도로 시작하고, 그 위는 운영자가 계약에 따라
-// 올린다(관리자 대시보드). 개인 크레딧이 줄어도 API 한도는 그대로이고, 반대도 같다.
-// 100회는 원가로 21,000원이다. 키를 만들기만 하면 그만큼을 그냥 주는 셈이었다.
-// 20회면 4,200원이고, 붙여서 응답 형식을 확인하는 데는 충분하다. 더 필요하면
-// 계약으로 올린다 — 그게 이 한도를 개인 요금제와 따로 둔 이유다.
-export const API_TRIAL_QUOTA = 20;
-
-// API 요율표. 개인 요금제와 단가가 다른 이유는 고객이 다르기 때문이다 — 개인은 자기
-// 답변을 확인하고, 기업은 자기 고객에게 나갈 답변을 거른다. 건당 원가는 같지만
-// 한 건이 막아 주는 손해의 크기가 다르다.
-//
-// 아래 단가는 전부 실측 원가(검증 1건 약 210원)를 기준으로 잡았다. 종량제가 가장
-// 비싸고 약정 물량이 클수록 싸지되, 가장 싼 구간도 원가율이 45%를 넘지 않게 두었다.
-export const API_RATES = {
-  trial: { label: "체험", calls: API_TRIAL_QUOTA, krw: 0 },
-  metered: { label: "종량제", unitKrw: 700 },
-  tiers: [
-    { key: "starter", label: "스타터", monthlyKrw: 290000, calls: 500 },
-    { key: "growth", label: "그로스", monthlyKrw: 900000, calls: 1800 },
-  ],
-};
+// API 체험 한도와 요율표는 server/apiRates.js에 있다. 기업용 화면(src/BusinessPage.jsx)이
+// 같은 값을 읽어 요금표를 그리는데, 이 파일은 db.js를 부르므로 브라우저 번들에 넣을 수 없다.
+export { API_TRIAL_QUOTA, API_RATES } from "./apiRates.js";
 
 export function effectivePlan(user) {
   if (!user) return "free";

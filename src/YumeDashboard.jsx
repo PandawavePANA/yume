@@ -132,7 +132,7 @@ const VERDICT = {
 const VBORDER = { confirmed: "#C6E2D2", false: "#EEC3B9", uncertain: "#EBCDBA" };
 const VBG = { confirmed: "#FCFDFC", false: "#FFFBFA", uncertain: "#FFFCFA" };
 const PLANS = {
-  free: { label: "무료", price: "0원", period: "", tagline: "일상적인 사실관계 확인", features: ["매달 5 크레딧 (2,000자당 1크레딧)", "법률 주장 법제처 공식 대조", "인용된 판례·법령·논문의 부존재 신뢰도", "로그인 시 검증 기록 최근 50건 저장"] },
+  free: { label: "무료", price: "0원", period: "", tagline: "일상적인 사실관계 확인", features: ["매일 3회 무료 확인 (가입 없이도)", "가입하면 매달 5 크레딧 추가 (2,000자당 1크레딧)", "법률 주장 법제처 공식 대조", "인용된 판례·법령·논문의 부존재 신뢰도", "로그인 시 검증 기록 최근 50건 저장"] },
   standard: { label: "스탠다드", price: "9,900원", period: "/월", tagline: "매일 AI 답변을 확인하는 분께", features: ["매달 20 크레딧 (정가 12,000원어치)", "무료 플랜 기능 전체 포함", "검증 기록 무제한 저장", "크레딧 소진 시 추가 구매 가능"] },
   expert: { label: "전문가", price: "29,000원", period: "/월", tagline: "업무에서 조문·판례를 자주 확인하는 분께", features: ["매달 60 크레딧 (정가 36,000원어치)", "스탠다드 전체 포함", "우선 지원", "크레딧 소진 시 추가 구매 가능"] },
 };
@@ -1337,7 +1337,7 @@ export default function YumeDashboard() {
                       }}>
                       <div style={{ padding: "10px 12px 12px", borderBottom: `1px solid ${UI.hairline}`, marginBottom: 4 }}>
                         <div style={{ fontSize: 13.5, fontWeight: 600, color: UI.ink, overflow: "hidden", textOverflow: "ellipsis" }}>{user.email}</div>
-                        <div style={{ fontSize: 12, color: UI.ink3, marginTop: 2 }}>{t("{plan} 플랜", { plan: t(user.planLabel) })}{usage ? ` · ${t("오늘 {n}회 남음", { n: usage.remainingFree })}` : ""}</div>
+                        <div style={{ fontSize: 12, color: UI.ink3, marginTop: 2 }}>{t("{plan} 플랜", { plan: t(user.planLabel) })}{usage ? ` · ${t("오늘 무료 {n}회 남음", { n: usage.remainingFree })}` : ""}</div>
                       </div>
                       {[
                         [t("계정 설정"), () => setAccountTab("profile")],
@@ -1431,7 +1431,7 @@ export default function YumeDashboard() {
                 {usage && (
                   <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, flexWrap: "wrap" }}>
                     <span style={{ color: UI.ink3, fontWeight: 500 }}>
-                      {t("오늘 {n}회 남음", { n: `${usage.remainingFree}/${usage.dailyLimit}` })}
+                      {t("오늘 무료 {n}회 남음", { n: `${usage.remainingFree}/${usage.freeLimit ?? usage.dailyLimit}` })}
                     </span>
                     {usage.credits > 0 && (
                       <span style={{ color: UI.ink3, fontWeight: 500 }}>
@@ -1463,9 +1463,16 @@ export default function YumeDashboard() {
                 <div style={{ fontSize: 14, color: "#7A5B00", background: "#FFF8E6", border: "1px solid #F3DFA2", borderRadius: 16, padding: "16px 18px", marginBottom: 16 }}>
                   <div style={{ marginBottom: 12, lineHeight: 1.6 }}>{limitReached.message}</div>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    {/* 가입이 “더 받는” 단계가 됐으니(매일 3회는 그대로 + 매달 크레딧) 가입을 앞에 둔다.
+                        이미 계정이 있는 사람은 가입 창에서 로그인으로 넘어갈 수 있다. */}
+                    {!limitReached.loggedIn && (
+                      <button onClick={() => setAuthModal("signup")} style={{
+                        ...pillBtn, border: "none", background: UI.ink, color: "#fff", fontWeight: 600,
+                      }}>{t("회원가입")}</button>
+                    )}
                     {!limitReached.loggedIn && (
                       <button onClick={() => setAuthModal("login")} style={{
-                        ...pillBtn, border: "none", background: UI.ink, color: "#fff", fontWeight: 600,
+                        ...pillBtn, border: `1px solid ${UI.hairline}`, background: "#fff", color: UI.ink2, fontWeight: 600,
                       }}>{t("로그인하기")}</button>
                     )}
                     {!IS_STORE_BUILD && <button onClick={() => setShowPricing(true)} style={{

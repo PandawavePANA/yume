@@ -1,7 +1,7 @@
 import { kstDay, now, one, run } from "./db.js";
 
-export { PLANS, FREE_DAILY_LIMIT, TOKEN_PRICE_KRW, effectivePlan } from "./plans.js";
-import { PLANS, effectivePlan } from "./plans.js";
+export { PLANS, FREE_DAILY_LIMIT, FREE_DAILY_CHECKS, TOKEN_PRICE_KRW, effectivePlan, userDailyCap } from "./plans.js";
+import { PLANS, FREE_DAILY_CHECKS, effectivePlan, userDailyCap } from "./plans.js";
 import { ensureMonthlyGrant, spendForVerification, creditsFor, balance as creditBalance, grant as grantCredits } from "./credits.js";
 
 // 무료 계정을 여러 개 만들어 한도를 우회하는 걸 막기 위한, 같은 IP 전체의 하루 상한.
@@ -36,18 +36,18 @@ export async function grantTokens(key, count) {
 
 // 검증 1건을 시작할 때 호출. identity는 { user, ip } 또는 { kakaoId }.
 //
-// 로그인한 사람은 크레딧으로 움직인다 — 요금제 월 지급분을 먼저 채우고, 1개를 쓴다.
-// 그 위에 하루 공정 이용 한도를 얹어서, 월 크레딧이 남아 있어도 하루에 몰아 쓰지는
-// 못하게 한다(클로드가 월 한도와 별개로 짧은 구간 한도를 두는 것과 같은 이유).
+// 누구나 하루 첫 3회(FREE_DAILY_CHECKS)는 무료다. 로그인한 사람은 그 위로 크레딧을 써서
+// 더 확인할 수 있고, 하루 상한(userDailyCap)이 몰아 쓰기를 막는다(클로드가 월 한도와 별개로
+// 짧은 구간 한도를 두는 것과 같은 이유).
 //
-// 로그인하지 않은 사람은 크레딧 원장을 가질 수 없으므로(계정이 없다) 예전처럼
-// 하루 무료 횟수만으로 움직인다.
+// 로그인하지 않은 사람은 크레딧 원장을 가질 수 없으므로(계정이 없다) 하루 무료 횟수만으로
+// 움직인다.
 export async function checkAndConsume({ user = null, ip = null, kakaoId = null, chars = 0 }) {
   const plan = effectivePlan(user);
-  const limit = PLANS[plan].dailyLimit;
+  // 익명·카카오는 무료분이 곧 하루 한도, 로그인한 사람은 무료분 + 크레딧분까지.
+  const limit = user ? userDailyCap(plan) : PLANS[plan].dailyLimit;
   const key = keyFor({ user, ip, kakaoId });
   const ipKey = ip ? `ipall:${ip}` : null;
-  const anonymous = key.startsWith("ip:");
 
   if (user && plan === "free" && ipKey && (await usedToday(ipKey)) >= IP_DAILY_CEILING) {
     return { allowed: false, plan, reason: "ip_ceiling", remainingFree: 0, dailyLimit: limit, credits: await creditBalance(user.id) };
@@ -79,6 +79,15 @@ export async function checkAndConsume({ user = null, ip = null, kakaoId = null, 
     return { allowed: true, plan, usedFree: true, remainingFree: limit - used, dailyLimit: limit, credits: 0 };
   }
 
+  // 오늘 첫 3회는 크레딧을 쓰지 않는다.
+  if (used <= FREE_DAILY_CHECKS) {
+    if (ipKey) await bump(ipKey);
+    return {
+      allowed: true, plan, usedFree: true, remainingFree: FREE_DAILY_CHECKS - used, dailyLimit: limit,
+      credits: await creditBalance(user.id),
+    };
+  }
+
   await ensureMonthlyGrant(user);
   // 길이에 비례해 차감한다. 긴 입력은 주장도 검색도 많아 원가가 그만큼 더 든다.
   const spent = await spendForVerification(user.id, chars, null);
@@ -86,12 +95,12 @@ export async function checkAndConsume({ user = null, ip = null, kakaoId = null, 
     // 크레딧이 없으면 방금 올린 하루 사용량을 되돌린다 — 쓰지도 못했는데 한도만 깎이면 안 된다.
     await run("UPDATE usage_daily SET used = GREATEST(0, used - 1) WHERE client_key = :key AND day = :day", { key, day: kstDay() });
     return {
-      allowed: false, plan, reason: "no_credits", remainingFree: limit - used, dailyLimit: limit,
+      allowed: false, plan, reason: "no_credits", remainingFree: 0, dailyLimit: limit,
       credits: await creditBalance(user.id), needed: creditsFor(chars),
     };
   }
   if (ipKey) await bump(ipKey);
-  return { allowed: true, plan, usedFree: false, creditsSpent: spent, remainingFree: limit - used, dailyLimit: limit, credits: await creditBalance(user.id) };
+  return { allowed: true, plan, usedFree: false, creditsSpent: spent, remainingFree: 0, dailyLimit: limit, credits: await creditBalance(user.id) };
 }
 
 // 검증이 서버 오류로 실패하면 사용자가 한 번을 날리지 않도록 되돌려준다.
@@ -111,7 +120,7 @@ export async function refundOne({ user = null, ip = null, kakaoId = null, usedFr
 
 export async function peekUsage({ user = null, ip = null, kakaoId = null }) {
   const plan = effectivePlan(user);
-  const limit = PLANS[plan].dailyLimit;
+  const limit = user ? userDailyCap(plan) : PLANS[plan].dailyLimit;
   const key = keyFor({ user, ip, kakaoId });
   // 두 조회는 서로를 기다릴 이유가 없다. 예전에는 하나 끝나고 다음을 불렀는데, 앱 서버는
   // 미국 동부에 있고 DB는 서울에 있어서 조회 한 번이 태평양 왕복(~200ms)이다. 모든 화면이
@@ -124,7 +133,9 @@ export async function peekUsage({ user = null, ip = null, kakaoId = null }) {
     plan,
     dailyLimit: limit,
     usedToday: used,
-    remainingFree: Math.max(0, limit - used),
+    // 화면의 "오늘 무료 n/3회 남음"은 무료분만 센다. 크레딧으로 더 쓸 수 있는 양은 잔액이 말한다.
+    freeLimit: FREE_DAILY_CHECKS,
+    remainingFree: Math.max(0, FREE_DAILY_CHECKS - used),
     credits,
   };
 }
