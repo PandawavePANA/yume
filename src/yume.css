@@ -141,3 +141,9 @@ a:focus-visible,
 @media (max-width: 1099px) {
   .yume-evidence { display: none; }
 }
+
+/* 가로 넘침 안전망. 장식이 화면 밖으로 나가도 페이지 폭은 그대로여야 한다(폰에서 옆으로 밀림 방지).
+   clip은 스크롤 상자를 만들지 않아 sticky가 깨지지 않는다. 지원하지 않는 옛 브라우저는 그냥 넘어간다. */
+@supports (overflow: clip) {
+  html, body { overflow-x: clip; }
+}

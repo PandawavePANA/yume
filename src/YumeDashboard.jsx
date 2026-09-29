@@ -1175,6 +1175,10 @@ export default function YumeDashboard() {
       // 바탕은 body가 같은 색으로 깐다. 여기서 칠하면 그 아래 괘선지 배경(z-index -1)이 가려진다 —
       // 예전 히어로 물빛이 한 번도 보이지 않았던 이유가 이것이었다.
       background: "transparent",
+      // 가로로 넘친 것은 잘라 낸다(clip — 스크롤 상자를 만들지 않아 sticky 상단 바가 그대로 붙는다).
+      // 히어로 둘째 줄이 스크롤에 따라 오른쪽으로 60px 비켜나는데, 그만큼 페이지 폭이 늘어나
+      // 폰에서 화면이 옆으로 밀렸다. 움직이는 장식이 페이지 폭을 바꾸지 못하게 한 번에 막는다.
+      overflowX: "clip",
       color: UI.ink,
       fontFamily: "var(--yume-font)",
       position: "relative"
@@ -1405,7 +1409,7 @@ export default function YumeDashboard() {
           <motion.header key="hero-full"
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, y: -12 }}
             transition={{ duration: 0.4, ease: EASE_APPLE }}
-            style={{ maxWidth: 820, margin: `${IS_STORE_BUILD ? "clamp(20px, 3vh, 36px)" : "clamp(40px, 8vh, 88px)"} auto 8px`, padding: "0 24px", textAlign: "center" }}>
+            style={{ overflowX: "clip", overflowClipMargin: 0, maxWidth: 820, margin: `${IS_STORE_BUILD ? "clamp(20px, 3vh, 36px)" : "clamp(40px, 8vh, 88px)"} auto 8px`, padding: "0 24px", textAlign: "center" }}>
             <motion.div style={{ opacity: heroFadeOpacity, scale: heroFadeScale, filter: heroFadeBlur }}>
               {/* "AI에게 질문하고 / 유메로 확인하세요" — 한 문장이다.
                   예전에는 로고를 104px로 키워 문장 한가운데 끼우고 뒤에 보라색 글로우를
