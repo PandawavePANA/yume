@@ -128,3 +128,16 @@ a:focus-visible,
 @media (max-width: 900px) {
   .yume-margin-rule { display: none; }
 }
+
+/* 히어로 뒤 증거 조각들의 둥실거림. 위치(스크롤·마우스)는 framer가, 이건 바로 안쪽 층이 맡는다. */
+.yume-float {
+  animation: yume-float 6s ease-in-out infinite;
+}
+@keyframes yume-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-7px); }
+}
+/* 히어로 뒤 증거 조각은 넓은 화면에서만 — 좁으면 제목과 겹친다. */
+@media (max-width: 1099px) {
+  .yume-evidence { display: none; }
+}

@@ -555,6 +555,13 @@ export default {
     "Mostly inaccurate",
   "3개 중 1개 확인":
     "1 of 3 confirmed",
+  "존재하지 않음": "Doesn't exist",
+  "민법 제750조": "Civil Act Art. 750",
+  "소멸시효 1년": "1-year limitation",
+  "2019다999999": "2019Da999999",
+  "PubMed 원문 대조": "Checked against PubMed",
+  "지어낸 통계": "Made-up statistic",
+  "시행일 기준 현행 조문": "Statute in force today",
   "오늘 무료 {n}회 남음":
     "{n} free left today",
   "매일 3회 무료 확인 (가입 없이도)":

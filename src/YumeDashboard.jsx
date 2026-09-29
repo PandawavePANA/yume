@@ -3,6 +3,7 @@ import { copyText } from "./clipboard.js";
 // 누르기 전에는 그려지지 않는 화면들. 첫 화면 번들에서 빼 둔다(src/chunks.js).
 import { AccountModal, AuditModal, AuthModal, CatMouseGame, CheckoutPage, ReviewModal } from "./chunks.jsx";
 import { motion, AnimatePresence, MotionConfig, useScroll, useTransform, useMotionValue, useSpring } from "framer-motion";
+import { CursorLoupe, EvidenceField, InkWordmark, SealRing, VerdictMarquee, WordReveal } from "@/components/yume/motion2";
 import { DocumentScan, DrawnMark, FactCheckScene, InkStamp, Magnetic, Marker, RollingNumber, ScrollAtmosphere, ScrollLine, ScrollRail, TiltCard, useHeroSplit } from "@/components/yume/motion";
 import NecPanel from "@/components/yume/NecPanel";
 import ContextRepairCard from "@/components/yume/ContextRepairCard";
@@ -415,39 +416,6 @@ function YumeChatWidget({ shiftRight = 0 }) {
   );
 }
 
-// 헤드라인을 단어 단위로 흩뿌렸다가 스크롤 진입 시 블러가 걷히며 한 단어씩
-// 순차적으로 제자리에 안착하는 연출 (애플 키노트 타이포 인트로 스타일).
-function WordReveal({ lines, delay = 0, style }) {
-  let wordCount = 0;
-  return (
-    <>
-      {lines.map((line, li) => (
-        <span key={li} style={{ display: "block" }}>
-          {/* 낱말마다 따로 나타나게 하되, 사이에 **진짜 공백**을 넣는다.
-              여백(marginRight)만으로 띄우면 눈에는 떨어져 보여도 글자로는 붙어 있어서,
-              복사하면 "AIspeakswithtotalconfidence"가 되고 화면 낭독기도 그렇게 읽는다.
-              한국어는 낱말이 짧아 티가 안 났는데 영어에서 바로 드러났다. */}
-          {line.split(" ").map((word, wi, arr) => {
-            const i = wordCount++;
-            return (
-              <React.Fragment key={wi}>
-                <motion.span
-                  initial={{ opacity: 0, y: 18, filter: "blur(6px)" }}
-                  whileInView={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-                  viewport={{ once: true, amount: 0.6 }}
-                  transition={{ duration: 0.8, ease: EASE_APPLE, delay: delay + i * 0.06 }}
-                  style={{ display: "inline-block", ...style }}
-                >{word}</motion.span>
-                {wi < arr.length - 1 ? " " : null}
-              </React.Fragment>
-            );
-          })}
-        </span>
-      ))}
-    </>
-  );
-}
-
 // 뷰포트에 들어오는 순간 0에서 목표값까지 이징을 타며 세는 카운터 (통계 카드용).
 function CountUp({ to, suffix = "", duration = 1.4 }) {
   const [value, setValue] = useState(0);
@@ -563,9 +531,12 @@ function RotatingShowcaseCard() {
 
   return (
     <div ref={ref} style={{ perspective: 1600, display: "flex", justifyContent: "center", padding: "20px 0" }}>
+      {/* 카드 모서리에 "법제처 공식 대조" 인장. 카드는 잘라내기(overflow)를 쓰므로 인장은 바깥 틀에 둔다. */}
+      <div style={{ position: "relative", width: "min(440px, 88vw)" }}>
+      <div style={{ position: "absolute", top: -48, right: -8, zIndex: 2 }}><SealRing size={104} /></div>
       <motion.div style={{
         rotateX, scale, opacity, transformStyle: "preserve-3d", transformOrigin: "50% 100%",
-        width: "min(440px, 88vw)", background: UI.surface, backdropFilter: UI.glass, WebkitBackdropFilter: UI.glass,
+        width: "100%", background: UI.surface, backdropFilter: UI.glass, WebkitBackdropFilter: UI.glass,
         borderRadius: 28, border: `1px solid ${UI.hairlineLight}`, boxShadow: UI.shadowCard, overflow: "hidden",
       }}>
         <div style={{ padding: "26px 28px" }}>
@@ -589,6 +560,7 @@ function RotatingShowcaseCard() {
           </div>
         </div>
       </motion.div>
+      </div>
     </div>
   );
 }
@@ -1214,6 +1186,7 @@ export default function YumeDashboard() {
           보이게 하는 정도이고, 스크롤하면 사라져 글에 자리를 내준다. */}
       <ScrollAtmosphere />
       <ScrollRail top="var(--yume-safe-top)" />
+      <CursorLoupe />
       {/* BACKDROP (오버레이용) */}
       <AnimatePresence>
         {sidebarOpen && (
@@ -1294,7 +1267,9 @@ export default function YumeDashboard() {
       </aside>
 
       {/* CONTENT — 오른쪽 채팅·랭킹 서랍은 왼쪽 기록 서랍처럼 위에 덮는다(밀지 않는다). */}
-      <div>
+      <div style={{ position: "relative" }}>
+      {/* 히어로 뒤로 떠 있는 증거 조각들(조문·사건번호·DOI). 입력 화면일 때만. */}
+      {(stage === "idle" || stage === "error") && <EvidenceField />}
       {/* 애플식 반투명 상단 바 — 스크롤하면 유리 질감과 가는 경계선이 나타난다 */}
       <div style={{
         position: "sticky", top: 0, zIndex: 45, paddingTop: "var(--yume-safe-top)",
@@ -1906,6 +1881,9 @@ export default function YumeDashboard() {
       {/* 앱에는 긴 소개를 싣지 않지만, 유메가 어떻게 판정하는지는 한 번 보여 준다(짧은 판). */}
       {IS_STORE_BUILD && <FactCheckScene t={t} compact />}
 
+      {/* 판정이 흘러가는 띠 — 스크롤 속도만큼 빨라지고 기운다. */}
+      <VerdictMarquee t={t} />
+
       {!IS_STORE_BUILD && (<>
 
       {/* 왜 유메인가 — 문제 제기 */}
@@ -2012,6 +1990,11 @@ export default function YumeDashboard() {
       </section>
 
       </>)}
+
+      {/* 끝까지 내려오면 큰 YUME가 잉크로 차오른다. */}
+      <div style={{ marginTop: "clamp(72px, 12vw, 160px)" }}>
+        <InkWordmark />
+      </div>
 
       {/* FOOTER */}
       <footer style={{
