@@ -562,6 +562,40 @@ export default {
   "PubMed 원문 대조": "Checked against PubMed",
   "지어낸 통계": "Made-up statistic",
   "시행일 기준 현행 조문": "Statute in force today",
+  "크레딧 충전":
+    "Buy credits",
+  "충전":
+    "Top up",
+  "크레딧 · 요금제":
+    "Credits · Plans",
+  "월 요금제":
+    "Monthly plans",
+  "앱에서는 무료 플랜을 이용할 수 있어요. 결제는 웹사이트에서 할 수 있어요.":
+    "The app runs on the free plan. Payments are made on the website.",
+  "매일 3회는 무료예요. 더 확인하려면 가입하고 크레딧을 충전하세요.":
+    "3 checks a day are free. To check more, sign up and add credits.",
+  "매일 무료 3회를 다 쓴 뒤에 크레딧이 쓰여요. 2,000자마다 1크레딧이에요.":
+    "Credits are used after your 3 free daily checks. 1 credit per 2,000 characters.",
+  "지금 남은 크레딧":
+    "Credits left",
+  "{n}% 저렴":
+    "{n}% off",
+  "짧은 질문 기준 약 {n}번 더 확인":
+    "About {n} more checks of a short question",
+  "크레딧당 {n}원":
+    "{n} won per credit",
+  "웹사이트에서 결제":
+    "Pay on the website",
+  "입금으로 신청하기":
+    "Request by bank transfer",
+  "{n}원 결제하기":
+    "Pay {n} won",
+  "가입하고 충전하기":
+    "Sign up and top up",
+  "크레딧은 유효기간이 없고, 서버 오류로 확인이 끝나지 않으면 자동으로 돌려드려요. 매달 크레딧을 받으려면":
+    "Credits never expire, and are refunded automatically if a check fails on our side. For credits every month, see",
+  "를 보세요.":
+    ".",
   "오늘 무료 {n}회 남음":
     "{n} free left today",
   "매일 3회 무료 확인 (가입 없이도)":

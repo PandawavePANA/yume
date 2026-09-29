@@ -1,9 +1,10 @@
 import React, { useRef, useState } from "react";
 import { copyText } from "./clipboard.js";
+import { sendVisit, trackingHeaders } from "./tracking.js";
 // 누르기 전에는 그려지지 않는 화면들. 첫 화면 번들에서 빼 둔다(src/chunks.js).
 import { AccountModal, AuditModal, AuthModal, CatMouseGame, CheckoutPage, ReviewModal } from "./chunks.jsx";
 import { motion, AnimatePresence, MotionConfig, useScroll, useTransform, useMotionValue, useSpring } from "framer-motion";
-import { CursorLoupe, EvidenceField, InkWordmark, SealRing, VerdictMarquee, WordReveal } from "@/components/yume/motion2";
+import { CreditCoin, CursorLoupe, EvidenceField, InkWordmark, SealRing, VerdictMarquee, WordReveal } from "@/components/yume/motion2";
 import { DocumentScan, DrawnMark, FactCheckScene, InkStamp, Magnetic, Marker, RollingNumber, ScrollAtmosphere, ScrollLine, ScrollRail, TiltCard, useHeroSplit } from "@/components/yume/motion";
 import NecPanel from "@/components/yume/NecPanel";
 import ContextRepairCard from "@/components/yume/ContextRepairCard";
@@ -14,7 +15,7 @@ import { BUSINESS, telHref, COPYRIGHT, businessLine } from "@/businessInfo";
 import BusinessInfo from "@/components/yume/BusinessInfo";
 import { IS_NATIVE_APP, onNativeBack, shareLink } from "./native.js";
 import { IS_STORE_BUILD } from "./storeBuild.js";
-import { orderPlan, resumeFromRedirect, verifyIdentity } from "./payments.js";
+import { orderPack, orderPlan, resumeFromRedirect, verifyIdentity } from "./payments.js";
 import SidePanel, { PANEL_WIDTH } from "@/components/yume/SidePanel";
 import { t, useLang } from "./i18n.js";
 import { useMediaQuery } from "./useMedia.js";
@@ -625,7 +626,12 @@ function StepsSection() {
 
 function Eyebrow({ children }) {
   return (
-    <div style={{ fontSize: 14, fontWeight: 600, letterSpacing: "0.04em", marginBottom: 14, color: UI.accentSoft }}>{children}</div>
+    <motion.div initial="off" whileInView="on" viewport={{ once: true, amount: 0.8 }}
+      style={{ display: "inline-flex", alignItems: "center", gap: 10, fontSize: 14, fontWeight: 600, letterSpacing: "0.04em", marginBottom: 14, color: UI.accentSoft }}>
+      <motion.span aria-hidden variants={{ off: { scaleX: 0 }, on: { scaleX: 1 } }} transition={{ duration: 0.6, ease: EASE_APPLE }}
+        style={{ width: 22, height: 1.5, background: "currentColor", transformOrigin: "0 50%", display: "inline-block" }} />
+      <motion.span variants={{ off: { opacity: 0, x: -6 }, on: { opacity: 1, x: 0 } }} transition={{ duration: 0.5, ease: EASE_APPLE, delay: 0.25 }}>{children}</motion.span>
+    </motion.div>
   );
 }
 
@@ -715,6 +721,14 @@ export default function YumeDashboard() {
     });
   }, []);
   const [showPricing, setShowPricing] = useState(false);
+  // 요금제 창의 탭. 크레딧 충전이 맨 앞이다 — "더 쓰고 싶다"는 사람 대부분이 찾는 것이 이쪽이다.
+  const [storeTab, setStoreTab] = useState("credits");
+  const openStore = (tab = "credits") => { setStoreTab(tab); setShowPricing(true); };
+  const [packs, setPacks] = useState([]);
+  React.useEffect(() => {
+    if (!showPricing || packs.length) return;
+    apiJson("/api/packs").then((r) => setPacks(r.packs || [])).catch(() => {});
+  }, [showPricing, packs.length]);
   const [toast, setToast] = useState("");
   // 로그인 세션과 오늘 남은 확인 횟수는 서버가 기준이다(요금제도 서버가 결정).
   const [user, setUser] = useState(null);
@@ -735,6 +749,8 @@ export default function YumeDashboard() {
     }
   }, []);
   React.useEffect(() => { refreshSession(); }, [refreshSession]);
+  // 유입 측정 — 이 탭의 방문 한 줄(출처별로 몇 명이 왔나).
+  React.useEffect(() => { sendVisit(); }, []);
 
   // 다른 곳에서 넘겨받은 부탁. 로그인 여부를 안 뒤에 한 번만 처리한다.
   //   ?ref=코드  — 공유된 결과·추천 링크로 들어왔다. 가입 창을 나중에 열어도 잃지 않게 기억한다.
@@ -777,6 +793,21 @@ export default function YumeDashboard() {
       const order = await orderPlan(key);
       setShowPricing(false);
       setCheckout({ ...order, kind: "plan", label });
+    } catch (e) {
+      if (!e.cancelled) setToast(e.message || t("결제하지 못했어요."));
+    } finally {
+      setPlanBusy("");
+    }
+  };
+
+  // 크레딧 팩 구매. 로그인 전이면 가입부터 — 가입이 끝나면 이 창(충전 탭)으로 돌아온다.
+  const buyPack = async (pack) => {
+    if (!user) { setShowPricing(false); afterAuth.current = "credits"; setAuthModal("signup"); return; }
+    setPlanBusy(pack.key);
+    try {
+      const order = await orderPack(pack.key);
+      setShowPricing(false);
+      setCheckout({ ...order, kind: "credits", label: pack.label });
     } catch (e) {
       if (!e.cancelled) setToast(e.message || t("결제하지 못했어요."));
     } finally {
@@ -829,6 +860,9 @@ export default function YumeDashboard() {
     if (afterAuth.current === "api") {
       afterAuth.current = null;
       setAccountTab("api");
+    } else if (afterAuth.current === "credits") {
+      afterAuth.current = null;
+      openStore("credits");
     }
   };
 
@@ -1029,7 +1063,7 @@ export default function YumeDashboard() {
     try {
       const response = await fetch("/api/verify", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...trackingHeaders() },
         body: JSON.stringify({ text: input })
       });
       if (!response.ok || !response.body) {
@@ -1317,10 +1351,17 @@ export default function YumeDashboard() {
           }}>{tightNav ? (lang === "ko" ? "EN" : "한") : (lang === "ko" ? "English" : "한국어")}</motion.button>
           {!IS_STORE_BUILD && <motion.button {...navEnter(0.12)}
             whileHover={{ backgroundColor: "#fff" }} whileTap={{ scale: 0.96 }}
-            onClick={() => setShowPricing(true)} className="yume-nav-pill" style={{
-            ...pillBtn, border: `1px solid ${UI.hairline}`,
-            background: plan === "free" ? "rgba(255,255,255,0.55)" : "#EFE7FC", color: UI.accent, fontWeight: 600,
-          }}>{t("{plan} 플랜", { plan: t(PLANS[plan]?.label || user?.planLabel || "무료") })}</motion.button>}
+            onClick={() => openStore("credits")} className="yume-nav-pill" aria-label={t("크레딧 충전")} style={{
+            ...pillBtn, border: `1px solid ${user ? "rgba(91,63,160,0.35)" : UI.hairline}`,
+            background: user ? "#F3EDFD" : "rgba(255,255,255,0.55)", color: UI.accent, fontWeight: 700,
+            display: "inline-flex", alignItems: "center", gap: 6, position: "relative",
+          }}>
+            {/* 잔액이 늘면(충전·지급) 알약이 한 번 튄다. */}
+            <CreditCoin value={usage?.credits ?? 0} />
+            {user
+              ? <><RollingNumber value={usage?.credits ?? 0} />{!tightNav && <span style={{ opacity: 0.55, fontWeight: 600 }}>·</span>}<span>{t("충전")}</span></>
+              : <span>{tightNav ? t("충전") : t("크레딧 · 요금제")}</span>}
+          </motion.button>}
           {user ? (
             <div style={{ position: "relative" }}>
               <motion.button {...navEnter(0.16)}
@@ -1347,6 +1388,7 @@ export default function YumeDashboard() {
                         <div style={{ fontSize: 12, color: UI.ink3, marginTop: 2 }}>{t("{plan} 플랜", { plan: t(user.planLabel) })}{usage ? ` · ${t("오늘 무료 {n}회 남음", { n: usage.remainingFree })}` : ""}</div>
                       </div>
                       {[
+                        ...(IS_STORE_BUILD ? [] : [[t("크레딧 충전"), () => openStore("credits")]]),
                         [t("계정 설정"), () => setAccountTab("profile")],
                         [t("API 키"), () => setAccountTab("api")],
                         [t("데이터 · 개인정보"), () => setAccountTab("data")],
@@ -1473,7 +1515,7 @@ export default function YumeDashboard() {
                         ? t("{plan} 이용권이 오늘 끝나요. 끝나면 무료 플랜으로 돌아가요.", { plan: t(user.planLabel) })
                         : t("{plan} 이용권이 {n}일 뒤 끝나요. 끝나면 무료 플랜으로 돌아가요.", { plan: t(user.planLabel), n: left })}
                     </span>
-                    <button onClick={() => setShowPricing(true)} style={{ ...pillBtn, border: "none", background: UI.ink, color: "#fff", fontWeight: 600 }}>{t("연장하기")}</button>
+                    <button onClick={() => openStore("plans")} style={{ ...pillBtn, border: "none", background: UI.ink, color: "#fff", fontWeight: 600 }}>{t("연장하기")}</button>
                   </div>
                 );
               })()}
@@ -1484,10 +1526,10 @@ export default function YumeDashboard() {
                     <span style={{ color: UI.ink3, fontWeight: 500 }}>
                       {t("오늘 무료 {n}회 남음", { n: `${usage.remainingFree}/${usage.freeLimit ?? usage.dailyLimit}` })}
                     </span>
-                    {usage.credits > 0 && (
-                      <span style={{ color: UI.ink3, fontWeight: 500 }}>
-                        크레딧 <span style={{ fontFamily: UI.mono, fontVariantNumeric: "tabular-nums", color: UI.ink2 }}>{usage.credits.toLocaleString()}</span>개
-                      </span>
+                    {user && !IS_STORE_BUILD && (
+                      <button onClick={() => openStore("credits")} className="yume-link" style={{ border: "none", background: "none", padding: 0, cursor: "pointer", fontSize: 12.5, fontWeight: 600, color: UI.accent, fontFamily: "inherit" }}>
+                        {t("크레딧")} <span style={{ fontFamily: UI.mono, fontVariantNumeric: "tabular-nums" }}>{(usage.credits || 0).toLocaleString()}</span> · {t("충전")}
+                      </button>
                     )}
                   </div>
                 )}
@@ -1526,9 +1568,13 @@ export default function YumeDashboard() {
                         ...pillBtn, border: `1px solid ${UI.hairline}`, background: "#fff", color: UI.ink2, fontWeight: 600,
                       }}>{t("로그인하기")}</button>
                     )}
-                    {!IS_STORE_BUILD && <button onClick={() => setShowPricing(true)} style={{
-                      ...pillBtn, border: `1px solid ${UI.hairline}`, background: "#fff", color: UI.accent, fontWeight: 600,
-                    }}>{t("요금제 보기")}</button>}
+                    {!IS_STORE_BUILD && <button onClick={() => openStore("credits")} style={{
+                      ...pillBtn, border: limitReached.loggedIn ? "none" : `1px solid ${UI.hairline}`,
+                      background: limitReached.loggedIn ? UI.button : "#fff", color: limitReached.loggedIn ? "#fff" : UI.accent, fontWeight: 700,
+                    }}>{t("크레딧 충전")}</button>}
+                    {!IS_STORE_BUILD && <button onClick={() => openStore("plans")} style={{
+                      ...pillBtn, border: `1px solid ${UI.hairline}`, background: "#fff", color: UI.ink2, fontWeight: 600,
+                    }}>{t("월 요금제")}</button>}
                   </div>
                 </div>
               ) : stage === "error" && (
@@ -1539,7 +1585,8 @@ export default function YumeDashboard() {
               <div className="yume-actions" style={{ display: "flex", gap: 10, alignItems: "stretch", flexWrap: "wrap" }}>
                 <motion.button whileHover={input.trim() ? { y: -1, boxShadow: "0 14px 32px rgba(107,79,168,0.36)" } : {}} whileTap={input.trim() ? { scale: 0.985 } : {}}
                   transition={{ duration: 0.25, ease: EASE_APPLE }}
-                  onClick={runCheck} disabled={!input.trim()} style={{
+                  onClick={runCheck} disabled={!input.trim()} className={input.trim() ? "yume-sheen" : undefined} style={{
+                  position: "relative", overflow: "hidden",
                   flex: tightNav ? "1 1 100%" : 1, minWidth: 0, height: 54, borderRadius: 16, border: "none", whiteSpace: "nowrap",
                   background: input.trim() ? UI.button : "rgba(118,118,128,0.14)",
                   boxShadow: input.trim() ? "0 8px 22px rgba(107,79,168,0.26)" : "none",
@@ -1702,10 +1749,11 @@ export default function YumeDashboard() {
                     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                       {(result.claims || []).map((c, i) => (
                         <motion.div key={i}
-                          initial={{ opacity: 0, y: 12 }}
-                          animate={i < revealed ? { opacity: 1, y: 0 } : { opacity: 0, y: 12 }}
-                          transition={{ duration: 0.55, ease: EASE_APPLE }}
+                          initial={{ opacity: 0, y: 18, rotateX: 14 }}
+                          animate={i < revealed ? { opacity: 1, y: 0, rotateX: 0 } : { opacity: 0, y: 18, rotateX: 14 }}
+                          transition={{ type: "spring", stiffness: 260, damping: 26 }}
                           style={{
+                            transformPerspective: 900, transformOrigin: "50% 0%",
                             display: "flex", gap: 14, padding: "18px 18px", borderRadius: 18,
                             background: VBG[c.verdict] || VBG.uncertain, border: `1px solid ${VBORDER[c.verdict] || VBORDER.uncertain}`
                           }}>
@@ -2014,7 +2062,7 @@ export default function YumeDashboard() {
               <div style={{ fontSize: 13, color: UI.ink3, marginTop: 10, maxWidth: 280, lineHeight: 1.6 }}>{t("AI 답변, 확인하고 믿으세요.")}</div>
             </div>
             <div style={{ display: "flex", gap: 28, flexWrap: "wrap" }}>
-              {!IS_STORE_BUILD && <button onClick={() => setShowPricing(true)} className="yume-footer-link" style={{ border: "none", background: "transparent", color: UI.ink2, fontSize: 13, cursor: "pointer", padding: 0 }}>{t("요금제")}</button>}
+              {!IS_STORE_BUILD && <button onClick={() => openStore("credits")} className="yume-footer-link" style={{ border: "none", background: "transparent", color: UI.ink2, fontSize: 13, cursor: "pointer", padding: 0 }}>{t("요금제")}</button>}
               {!IS_STORE_BUILD && <button onClick={() => setShowBiz(true)} className="yume-footer-link" style={{ border: "none", background: "transparent", color: UI.ink2, fontSize: 13, cursor: "pointer", padding: 0 }}>{t("비즈니스 · API")}</button>}
               {!IS_STORE_BUILD && <a href="/docs/api" target="_blank" rel="noopener noreferrer" className="yume-footer-link" style={{ color: UI.ink2, fontSize: 13, textDecoration: "none" }}>{t("API 문서")}</a>}
               {!IS_NATIVE_APP && !IS_STORE_BUILD && (
@@ -2070,75 +2118,172 @@ export default function YumeDashboard() {
       )}
 
       {/* PRICING MODAL — 결제 연동 전이라 유료 플랜은 문의로 개통한다(가짜 결제 버튼을 두지 않음). */}
+      {/* 요금제 창 — 크레딧 충전과 월 요금제를 한 창의 두 탭으로. 크레딧이 맨 앞이다.
+          예전에는 크레딧을 사는 곳이 계정 설정 → 크레딧 탭 안에 묻혀 있어서, 더 쓰고 싶은 사람이
+          찾지 못했다. 이제 상단 바의 "크레딧 · 충전", 한도 안내, 입력칸 옆 잔액이 모두 이 탭을 연다. */}
+      <AnimatePresence>
       {showPricing && (
-        <div onClick={() => setShowPricing(false)} style={{
+        <motion.div key="store" onClick={() => setShowPricing(false)}
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.22 }}
+          style={{
           position: "fixed", inset: 0, background: UI.backdrop, display: "flex",
           alignItems: "center", justifyContent: "center", zIndex: 50, backdropFilter: "blur(14px) saturate(140%)", WebkitBackdropFilter: "blur(14px) saturate(140%)",
           padding: "calc(20px + var(--yume-safe-top)) 20px calc(20px + var(--yume-safe-bottom))"
         }}>
-          <div onClick={(e) => e.stopPropagation()} style={{ width: "min(960px, 100%)", maxHeight: "90vh", overflowY: "auto", background: "#fff", borderRadius: 28, padding: "clamp(22px, 4vw, 40px)", boxShadow: "0 40px 100px rgba(24,16,44,0.28)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
-              <div>
-                <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: "-0.03em", color: UI.ink }}>{t("요금제")}</div>
-                <div style={{ fontSize: 14, color: UI.ink2, marginTop: 4 }}>{IS_NATIVE_APP || IS_STORE_BUILD
-                  ? t("앱에서는 무료 플랜을 이용할 수 있어요. 유료 플랜은 준비 중이에요.")
-                  : payCfg?.payment
-                    ? t("카드로 바로 결제하고 1개월 동안 이용하실 수 있어요. 자동 갱신되지 않습니다.")
-                    : t("온라인 결제는 준비 중이에요. 유료 플랜은 문의해주시면 바로 열어드려요.")}</div>
+          <motion.div onClick={(e) => e.stopPropagation()}
+            initial={{ opacity: 0, y: 28, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 16, scale: 0.98 }}
+            transition={{ type: "spring", stiffness: 380, damping: 32 }}
+            style={{ width: "min(960px, 100%)", maxHeight: "90vh", overflowY: "auto", background: "#fff", borderRadius: 28, padding: "clamp(22px, 4vw, 40px)", boxShadow: "0 40px 100px rgba(24,16,44,0.28)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 18 }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 28, fontWeight: 750, letterSpacing: "-0.03em", color: UI.ink }}>
+                  {storeTab === "credits" ? t("크레딧 충전") : t("월 요금제")}
+                </div>
+                <div style={{ fontSize: 14, color: UI.ink2, marginTop: 4, lineHeight: 1.6 }}>{IS_NATIVE_APP || IS_STORE_BUILD
+                  ? t("앱에서는 무료 플랜을 이용할 수 있어요. 결제는 웹사이트에서 할 수 있어요.")
+                  : !user
+                    ? t("매일 3회는 무료예요. 더 확인하려면 가입하고 크레딧을 충전하세요.")
+                    : storeTab === "credits"
+                      ? t("매일 무료 3회를 다 쓴 뒤에 크레딧이 쓰여요. 2,000자마다 1크레딧이에요.")
+                      : payCfg?.payment
+                        ? t("카드로 바로 결제하고 1개월 동안 이용하실 수 있어요. 자동 갱신되지 않습니다.")
+                        : t("온라인 결제는 준비 중이에요. 유료 플랜은 문의해주시면 바로 열어드려요.")}</div>
               </div>
               <button onClick={() => setShowPricing(false)} aria-label={t("닫기")} style={{ width: 32, height: 32, flexShrink: 0, borderRadius: 999, border: "none", background: "rgba(118,118,128,0.12)", color: UI.ink2, fontSize: 16, cursor: "pointer" }}>×</button>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 14, marginTop: 28 }}>
-              {Object.entries(PLANS).map(([key, p]) => (
-                <div key={key} style={{
-                  border: plan === key ? `2px solid ${UI.accentSoft}` : `1px solid ${UI.hairline}`, borderRadius: 20, padding: 22,
-                  background: key === "expert" ? "linear-gradient(180deg, #F7F2FF 0%, #fff 70%)" : "#FBFAFD", display: "flex", flexDirection: "column"
+
+            {/* 두 탭 — 흰 알약이 미끄러져 옮겨 간다. */}
+            <div role="tablist" style={{ display: "inline-flex", padding: 4, borderRadius: 14, background: "rgba(118,118,128,0.10)", marginBottom: 22 }}>
+              {[["credits", "크레딧 충전"], ["plans", "월 요금제"]].map(([k, label]) => (
+                <button key={k} role="tab" aria-selected={storeTab === k} onClick={() => setStoreTab(k)} style={{
+                  position: "relative", border: "none", background: "transparent", padding: "9px 18px", borderRadius: 10,
+                  fontSize: 14, fontWeight: storeTab === k ? 700 : 600, color: storeTab === k ? UI.ink : UI.ink2, cursor: "pointer", fontFamily: "inherit",
                 }}>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: UI.accent, marginBottom: 6 }}>{t(p.label)}</div>
-                  <div style={{ fontSize: 28, fontWeight: 700, marginBottom: 4, letterSpacing: "-0.03em", color: UI.ink }}>{t(p.price)}<span style={{ fontSize: 14, fontWeight: 500, color: UI.ink3, letterSpacing: 0 }}>{t(p.period)}</span></div>
-                  <div style={{ fontSize: 13.5, color: UI.ink2, marginBottom: 18, lineHeight: 1.5 }}>{t(p.tagline)}</div>
-                  <ul style={{ listStyle: "none", padding: "16px 0 0", margin: "0 0 22px", display: "flex", flexDirection: "column", gap: 9, flex: 1, borderTop: `1px solid ${UI.hairline}` }}>
-                    {p.features.map((f, i) => (
-                      <li key={i} style={{ fontSize: 13.5, color: UI.ink2, display: "flex", gap: 8, lineHeight: 1.5 }}>
-                        <span style={{ color: UI.accentSoft, fontWeight: 700 }}>✓</span>{t(f)}
-                      </li>
-                    ))}
-                  </ul>
-                  {plan === key ? (
-                    <div style={{ width: "100%", padding: "12px 0", borderRadius: 12, background: "rgba(118,118,128,0.10)", color: UI.ink3, fontSize: 14, fontWeight: 600, textAlign: "center" }}>{t("현재 플랜")}</div>
-                  ) : key === "free" ? (
-                    user ? null : (
-                      <button onClick={() => { setShowPricing(false); setAuthModal("signup"); }} style={{
-                        width: "100%", padding: "12px 0", borderRadius: 12, border: "none", background: "rgba(139,111,216,0.14)",
-                        color: UI.accent, fontSize: 14, fontWeight: 600, cursor: "pointer",
-                      }}>{t("무료로 가입하기")}</button>
-                    )
-                  ) : IS_NATIVE_APP || IS_STORE_BUILD ? (
-                    // 앱스토어·플레이스토어는 앱 안의 디지털 상품을 자체 결제로만 팔게 한다 — 외부 결제 안내를 두지 않는다.
-                    <div style={{ width: "100%", padding: "12px 0", borderRadius: 12, background: "rgba(118,118,128,0.10)", color: UI.ink3, fontSize: 14, fontWeight: 600, textAlign: "center" }}>{t("준비 중")}</div>
-                  ) : payCfg?.payment && PLAN_PRICE_KRW[key] ? (
-                    // 결제 연동이 켜져 있으면 바로 산다. 금액은 서버가 정하고, 크레딧·플랜은
-                    // 서버가 포트원에 결제를 확인한 뒤에만 열린다.
-                    <button onClick={() => buyPlan(key, p.label)} disabled={!!planBusy} style={{
-                      width: "100%", padding: "12px 0", borderRadius: 12, border: "none", cursor: planBusy ? "default" : "pointer",
-                      background: UI.button, color: "#fff", fontSize: 14, fontWeight: 600, opacity: planBusy ? 0.6 : 1, fontFamily: "inherit",
-                    }}>{planBusy === key ? "결제창 여는 중…" : `${PLAN_PRICE_KRW[key].toLocaleString()}원 결제하기`}</button>
-                  ) : (
-                    <a href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(`[유메] ${p.label} 플랜 이용 문의`)}&body=${encodeURIComponent(`가입 이메일: ${user?.email || ""}
-원하는 플랜: ${p.label}
-`)}`} style={{
-                      display: "block", width: "100%", padding: "12px 0", borderRadius: 12, textAlign: "center", textDecoration: "none",
-                      background: UI.button, color: "#fff", fontSize: 14, fontWeight: 600,
-                    }}>{PLAN_PRICE_KRW[key] ? "이용 문의하기" : "도입 문의하기"}</a>
-                  )}
-                </div>
+                  {storeTab === k && <motion.span layoutId="store-tab" transition={{ type: "spring", stiffness: 500, damping: 36 }}
+                    style={{ position: "absolute", inset: 0, borderRadius: 10, background: "#fff", boxShadow: "0 3px 10px rgba(20,17,24,0.08)" }} />}
+                  <span style={{ position: "relative" }}>{t(label)}</span>
+                </button>
               ))}
             </div>
+
+            <AnimatePresence mode="wait">
+            {storeTab === "credits" ? (
+              <motion.div key="credits" initial={{ opacity: 0, x: -14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 14 }} transition={{ duration: 0.22, ease: EASE_APPLE }}>
+                {user && (
+                  <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap", padding: "14px 18px", borderRadius: 16, marginBottom: 16,
+                    background: "linear-gradient(120deg, #F4EEFE, #EFE7FC 60%, #F7F3FF)" }}>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: UI.ink2 }}>{t("지금 남은 크레딧")}</span>
+                    <span style={{ fontSize: 30, fontWeight: 800, color: UI.accent, letterSpacing: "-0.03em" }}><RollingNumber value={usage?.credits ?? 0} /></span>
+                    <span style={{ fontSize: 13, color: UI.ink3 }}>{t("오늘 무료 {n}회 남음", { n: `${usage?.remainingFree ?? 0}/${usage?.freeLimit ?? 3}` })}</span>
+                  </div>
+                )}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 14 }}>
+                  {packs.map((pk, i) => {
+                    const unit = Math.round(pk.krw / pk.credits);
+                    const base = packs[0].krw / packs[0].credits;
+                    const save = Math.round((1 - unit / base) * 100);
+                    const best = i === packs.length - 1;
+                    return (
+                      <motion.div key={pk.key}
+                        initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ type: "spring", stiffness: 300, damping: 26, delay: 0.05 + i * 0.07 }}
+                        whileHover={{ y: -4 }}
+                        className="yume-sheen"
+                        style={{ position: "relative", overflow: "hidden", borderRadius: 20, padding: "22px 20px 18px", display: "flex", flexDirection: "column", gap: 4,
+                          border: best ? `1.5px solid ${UI.accent}` : `1px solid ${UI.hairline}`, background: best ? "linear-gradient(180deg, #F7F2FF 0%, #fff 72%)" : "#FBFAFD" }}>
+                        {save > 0 && (
+                          <span style={{ position: "absolute", top: 14, right: 14, fontSize: 11.5, fontWeight: 800, color: "#fff", background: best ? UI.accent : UI.ink, borderRadius: 999, padding: "3px 9px" }}>
+                            {t("{n}% 저렴", { n: save })}
+                          </span>
+                        )}
+                        <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+                          <span style={{ fontSize: 40, fontWeight: 850, letterSpacing: "-0.04em", color: UI.ink, fontVariantNumeric: "tabular-nums" }}>{pk.credits}</span>
+                          <span style={{ fontSize: 15, fontWeight: 700, color: UI.ink2 }}>{t("크레딧")}</span>
+                        </div>
+                        <div style={{ fontSize: 13, color: UI.ink3 }}>{t("짧은 질문 기준 약 {n}번 더 확인", { n: pk.credits })}</div>
+                        <div style={{ margin: "14px 0 12px", paddingTop: 12, borderTop: `1px solid ${UI.hairline}`, display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
+                          <span style={{ fontSize: 22, fontWeight: 800, letterSpacing: "-0.02em", color: UI.ink }}>{pk.krw.toLocaleString("ko-KR")}{t("원")}</span>
+                          <span style={{ fontSize: 12, color: UI.ink3, fontFamily: UI.mono }}>{t("크레딧당 {n}원", { n: unit })}</span>
+                        </div>
+                        {IS_NATIVE_APP || IS_STORE_BUILD ? (
+                          <div style={{ padding: "12px 0", borderRadius: 12, background: "rgba(118,118,128,0.10)", color: UI.ink3, fontSize: 14, fontWeight: 600, textAlign: "center" }}>{t("웹사이트에서 결제")}</div>
+                        ) : user && payCfg && !payCfg.payment ? (
+                          <button onClick={() => { setShowPricing(false); setAccountTab("credits"); }} style={{
+                            width: "100%", padding: "12px 0", borderRadius: 12, border: "none", background: UI.button, color: "#fff", fontSize: 14.5, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
+                          }}>{t("입금으로 신청하기")}</button>
+                        ) : (
+                          <motion.button whileTap={{ scale: 0.97 }} onClick={() => buyPack(pk)} disabled={!!planBusy} style={{
+                            width: "100%", padding: "12px 0", borderRadius: 12, border: "none", background: best ? UI.button : UI.ink, color: "#fff",
+                            fontSize: 14.5, fontWeight: 700, cursor: planBusy ? "default" : "pointer", opacity: planBusy && planBusy !== pk.key ? 0.5 : 1, fontFamily: "inherit",
+                          }}>{planBusy === pk.key ? t("결제창 여는 중…") : user ? t("{n}원 결제하기", { n: pk.krw.toLocaleString("ko-KR") }) : t("가입하고 충전하기")}</motion.button>
+                        )}
+                      </motion.div>
+                    );
+                  })}
+                  {!packs.length && <div style={{ fontSize: 14, color: UI.ink3, padding: "30px 0" }}>{t("불러오는 중…")}</div>}
+                </div>
+                <p style={{ fontSize: 12.5, color: UI.ink3, margin: "14px 2px 0", lineHeight: 1.7 }}>
+                  {t("크레딧은 유효기간이 없고, 서버 오류로 확인이 끝나지 않으면 자동으로 돌려드려요. 매달 크레딧을 받으려면")}{" "}
+                  <button onClick={() => setStoreTab("plans")} className="yume-link" style={{ border: "none", background: "none", padding: 0, font: "inherit", color: UI.accent, fontWeight: 600, cursor: "pointer" }}>{t("월 요금제")}</button>
+                  {t("를 보세요.")}
+                </p>
+              </motion.div>
+            ) : (
+              <motion.div key="plans" initial={{ opacity: 0, x: 14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -14 }} transition={{ duration: 0.22, ease: EASE_APPLE }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 14 }}>
+                {Object.entries(PLANS).map(([key, p]) => (
+                  <div key={key} style={{
+                    border: plan === key ? `2px solid ${UI.accentSoft}` : `1px solid ${UI.hairline}`, borderRadius: 20, padding: 22,
+                    background: key === "expert" ? "linear-gradient(180deg, #F7F2FF 0%, #fff 70%)" : "#FBFAFD", display: "flex", flexDirection: "column"
+                  }}>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: UI.accent, marginBottom: 6 }}>{t(p.label)}</div>
+                    <div style={{ fontSize: 28, fontWeight: 700, marginBottom: 4, letterSpacing: "-0.03em", color: UI.ink }}>{t(p.price)}<span style={{ fontSize: 14, fontWeight: 500, color: UI.ink3, letterSpacing: 0 }}>{t(p.period)}</span></div>
+                    <div style={{ fontSize: 13.5, color: UI.ink2, marginBottom: 18, lineHeight: 1.5 }}>{t(p.tagline)}</div>
+                    <ul style={{ listStyle: "none", padding: "16px 0 0", margin: "0 0 22px", display: "flex", flexDirection: "column", gap: 9, flex: 1, borderTop: `1px solid ${UI.hairline}` }}>
+                      {p.features.map((f, i) => (
+                        <li key={i} style={{ fontSize: 13.5, color: UI.ink2, display: "flex", gap: 8, lineHeight: 1.5 }}>
+                          <span style={{ color: UI.accentSoft, fontWeight: 700 }}>✓</span>{t(f)}
+                        </li>
+                      ))}
+                    </ul>
+                    {plan === key ? (
+                      <div style={{ width: "100%", padding: "12px 0", borderRadius: 12, background: "rgba(118,118,128,0.10)", color: UI.ink3, fontSize: 14, fontWeight: 600, textAlign: "center" }}>{t("현재 플랜")}</div>
+                    ) : key === "free" ? (
+                      user ? null : (
+                        <button onClick={() => { setShowPricing(false); setAuthModal("signup"); }} style={{
+                          width: "100%", padding: "12px 0", borderRadius: 12, border: "none", background: "rgba(139,111,216,0.14)",
+                          color: UI.accent, fontSize: 14, fontWeight: 600, cursor: "pointer",
+                        }}>{t("무료로 가입하기")}</button>
+                      )
+                    ) : IS_NATIVE_APP || IS_STORE_BUILD ? (
+                      // 앱스토어·플레이스토어는 앱 안의 디지털 상품을 자체 결제로만 팔게 한다 — 외부 결제 안내를 두지 않는다.
+                      <div style={{ width: "100%", padding: "12px 0", borderRadius: 12, background: "rgba(118,118,128,0.10)", color: UI.ink3, fontSize: 14, fontWeight: 600, textAlign: "center" }}>{t("준비 중")}</div>
+                    ) : payCfg?.payment && PLAN_PRICE_KRW[key] ? (
+                      // 결제 연동이 켜져 있으면 바로 산다. 금액은 서버가 정하고, 크레딧·플랜은
+                      // 서버가 포트원에 결제를 확인한 뒤에만 열린다.
+                      <button onClick={() => buyPlan(key, p.label)} disabled={!!planBusy} style={{
+                        width: "100%", padding: "12px 0", borderRadius: 12, border: "none", cursor: planBusy ? "default" : "pointer",
+                        background: UI.button, color: "#fff", fontSize: 14, fontWeight: 600, opacity: planBusy ? 0.6 : 1, fontFamily: "inherit",
+                      }}>{planBusy === key ? "결제창 여는 중…" : `${PLAN_PRICE_KRW[key].toLocaleString()}원 결제하기`}</button>
+                    ) : (
+                      <a href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(`[유메] ${p.label} 플랜 이용 문의`)}&body=${encodeURIComponent(`가입 이메일: ${user?.email || ""}
+  원하는 플랜: ${p.label}
+  `)}`} style={{
+                        display: "block", width: "100%", padding: "12px 0", borderRadius: 12, textAlign: "center", textDecoration: "none",
+                        background: UI.button, color: "#fff", fontSize: 14, fontWeight: 600,
+                      }}>{PLAN_PRICE_KRW[key] ? "이용 문의하기" : "도입 문의하기"}</a>
+                    )}
+                  </div>
+                ))}
+              </div>
+              </motion.div>
+            )}
+            </AnimatePresence>
             {/* 결제가 일어나는 화면이라 사업자 정보가 여기에도 있어야 한다(PG 심사 필수). */}
             <BusinessInfo />
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       )}
+      </AnimatePresence>
 
       {/* BUSINESS PANEL (설정 · 비즈니스 — API/데이터셋/B2B 라인업, 전부 데모용 정보 표시) */}
       {showBiz && (
@@ -2236,13 +2381,18 @@ export default function YumeDashboard() {
 
       <AnimatePresence>
         {toast && (
-          <motion.div role="status"
-            initial={{ opacity: 0, y: 16, x: "-50%" }} animate={{ opacity: 1, y: 0, x: "-50%" }} exit={{ opacity: 0, y: 16, x: "-50%" }}
+          <motion.div role="status" key={toast}
+            initial={{ opacity: 0, y: 28, x: "-50%", scale: 0.92 }} animate={{ opacity: 1, y: 0, x: "-50%", scale: 1 }} exit={{ opacity: 0, y: 14, x: "-50%", scale: 0.96 }}
+            transition={{ type: "spring", stiffness: 460, damping: 30 }}
             style={{
-              position: "fixed", bottom: `calc(${IS_STORE_BUILD ? APP_TABBAR_HEIGHT + 24 : 28}px + var(--yume-safe-bottom))`, left: "50%", zIndex: 70, background: "rgba(29,26,36,0.88)", color: "#fff",
-              backdropFilter: UI.glass, WebkitBackdropFilter: UI.glass,
+              position: "fixed", bottom: `calc(${IS_STORE_BUILD ? APP_TABBAR_HEIGHT + 24 : 28}px + var(--yume-safe-bottom))`, left: "50%", zIndex: 70, background: "rgba(29,26,36,0.9)", color: "#fff",
+              backdropFilter: UI.glass, WebkitBackdropFilter: UI.glass, overflow: "hidden",
               fontSize: 14, padding: "12px 20px", borderRadius: 999, boxShadow: "0 16px 40px rgba(24,16,44,0.28)", maxWidth: "90vw",
-            }}>{toast}</motion.div>
+            }}>
+            {toast}
+            <motion.span aria-hidden initial={{ scaleX: 1 }} animate={{ scaleX: 0 }} transition={{ duration: 4, ease: "linear" }}
+              style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 2, transformOrigin: "0 50%", background: "linear-gradient(90deg, #8A6BD4, #C9B8F2)" }} />
+          </motion.div>
         )}
       </AnimatePresence>
 

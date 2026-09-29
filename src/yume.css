@@ -147,3 +147,31 @@ a:focus-visible,
 @supports (overflow: clip) {
   html, body { overflow-x: clip; }
 }
+
+/* 동전에 가끔 빛이 지나간다. */
+.yume-coin::after {
+  content: "";
+  position: absolute;
+  inset: -40%;
+  background: linear-gradient(115deg, transparent 40%, rgba(255, 255, 255, 0.8) 50%, transparent 60%);
+  transform: translateX(-120%);
+  animation: yume-coin-glint 4.8s ease-in-out infinite 1.2s;
+}
+@keyframes yume-coin-glint {
+  0%, 70% { transform: translateX(-120%); }
+  85%, 100% { transform: translateX(120%); }
+}
+/* 크레딧 카드 — 올리면 유리 위로 빛이 한 번 지나간다. */
+.yume-sheen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(115deg, transparent 35%, rgba(255, 255, 255, 0.55) 50%, transparent 65%);
+  transform: translateX(-110%);
+  transition: transform 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+}
+.yume-sheen:hover::after { transform: translateX(110%); }
+@media (prefers-reduced-motion: reduce) {
+  .yume-coin::after, .yume-sheen::after { display: none; }
+}

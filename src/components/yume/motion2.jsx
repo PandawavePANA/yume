@@ -314,3 +314,28 @@ export function CursorLoupe() {
   );
 }
 
+
+// ── 크레딧 동전 ─────────────────────────────────────────────────────────────
+// 상단 바 "크레딧 · 충전" 알약의 표시. 가끔 빛이 한 번 지나가고, 잔액이 늘면(value가 커지면)
+// 한 번 튀어 오른다 — 충전이 들어왔다는 걸 숫자보다 먼저 몸짓으로 알린다.
+export function CreditCoin({ value = 0, size = 16 }) {
+  const reduce = useReducedMotion();
+  const prev = useRef(value);
+  const [bump, setBump] = useState(0);
+  useEffect(() => {
+    if (value > prev.current) setBump((b) => b + 1);
+    prev.current = value;
+  }, [value]);
+  return (
+    <motion.span key={bump} aria-hidden
+      initial={reduce || !bump ? false : { scale: 1.6, rotate: -25 }} animate={{ scale: 1, rotate: 0 }}
+      transition={{ type: "spring", stiffness: 520, damping: 14 }}
+      className="yume-coin"
+      style={{ display: "inline-flex", width: size, height: size, borderRadius: 99, position: "relative", overflow: "hidden", flex: "none",
+        background: "radial-gradient(circle at 35% 30%, #B79BF0, #7D5FC4 55%, #5B3FA0)", boxShadow: "inset 0 0 0 1.5px rgba(255,255,255,0.45)" }}>
+      <svg viewBox="0 0 16 16" width={size} height={size} style={{ position: "absolute", inset: 0 }}>
+        <path d="M10.4 5.6a3.3 3.3 0 1 0 0 4.8" fill="none" stroke="#fff" strokeWidth="1.7" strokeLinecap="round" />
+      </svg>
+    </motion.span>
+  );
+}
