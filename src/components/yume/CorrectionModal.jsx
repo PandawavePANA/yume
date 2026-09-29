@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { apiJson } from "./api";
+import { withIdentity } from "../../payments.js";
 import { t } from "../../i18n.js";
 
 // 유메가 틀렸다고 알려주는 창.
@@ -79,10 +80,10 @@ export default function CorrectionModal({ verificationId, claimIdx, claim, point
     if (!consent) return setErr("판정 개선에 활용하는 데 동의가 필요해요.");
     setBusy(true);
     try {
-      await apiJson("/api/corrections", {
+      await withIdentity(() => apiJson("/api/corrections", {
         method: "POST",
         body: { verificationId, claimIdx, correctVerdict, evidenceUrl: evidenceUrl.trim(), note: note.trim(), consent: true },
-      });
+      }));
       setDone(true);
       onDone?.();
     } catch (e) {

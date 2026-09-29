@@ -498,6 +498,17 @@ export default {
     "Your points history",
   "최근 검증":
     "Recent checks",
+  "틀린 부분을 AI에게 다시 물어보기 (복사)":
+    "Ask the AI again about what was wrong (copy)",
+  "복사했어요. AI 대화창에 그대로 붙여 넣으세요.":
+    "Copied. Paste it straight into your AI chat.",
+  "복사하지 못했어요. 브라우저 설정을 확인해주세요.":
+    "Couldn't copy. Please check your browser settings.",
+  "{plan} 이용권이 오늘 끝나요. 끝나면 무료 플랜으로 돌아가요.":
+    "Your {plan} pass ends today. After that you're back on the free plan.",
+  "{plan} 이용권이 {n}일 뒤 끝나요. 끝나면 무료 플랜으로 돌아가요.":
+    "Your {plan} pass ends in {n} days. After that you're back on the free plan.",
+  "연장하기": "Extend",
   "오늘 무료 {n}회 남음":
     "{n} free left today",
   "매일 3회 무료 확인 (가입 없이도)":

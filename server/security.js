@@ -120,13 +120,10 @@ export function isEmail(s) {
 // 보내지 않으니, 양식은 서버 로그에 아무것도 남기지 않고 조용히 실패한다.
 // envNames는 앞에서부터 처음 값이 있는 것을 쓴다.
 export function crossOriginGate(...envNames) {
-  const read = () => {
-    for (const name of envNames) {
-      const v = process.env[name];
-      if (v) return v;
-    }
-    return "";
-  };
+  // 여러 목록을 받으면 **합친다.** 예전에는 첫 번째로 값이 있는 목록만 썼는데, 그러면 문의 양식
+  // (INQUIRY_ALLOWED_ORIGINS = 리머 사이트)에 기업용 사이트(AUDIT_ALLOWED_ORIGINS)가 끼지 못해,
+  // 기업용 페이지의 도입 문의가 교차 출처에서 조용히 막혔다.
+  const read = () => envNames.map((name) => process.env[name] || "").filter(Boolean).join(",");
   // 목록은 호출 시점에 읽는다 — 모듈 로드 순서에 따라 환경변수가 아직 없을 수 있다.
   let cached = null;
   let cachedFrom = null;

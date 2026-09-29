@@ -66,11 +66,22 @@ export default {
   // 어긋나면 영어 화면에 한국어가 그대로 나갈 뿐 깨지지는 않는다.
   "같은 네트워크에서 오늘 쓸 수 있는 무료 확인 횟수를 모두 사용했어요. 내일 0시(한국 시간)에 다시 이용하실 수 있어요.":
     "This network has used all of today's free checks. They come back at midnight Korea time.",
-  "오늘 무료 확인 3회를 다 쓰셨어요. 내일 0시(한국 시간)에 다시 3회가 생겨요. 가입하면 매일 무료 3회는 그대로이고, 매달 5크레딧을 더 드려요. 기록도 저장돼요.":
-    "You've used today's 3 free checks. 3 more arrive at midnight Korea time. Sign up and you keep 3 free checks a day, plus 5 credits every month and a saved history.",
+  "오늘 무료 확인 3회를 다 쓰셨어요. 내일 0시(한국 시간)에 다시 3회가 생겨요. 가입하면 매일 무료 3회는 그대로이고 기록이 저장돼요. 휴대폰 본인확인까지 마치면 매달 5크레딧을 더 드려요.":
+    "You've used today's 3 free checks. 3 more arrive at midnight Korea time. Sign up and you keep 3 free checks a day with a saved history; verify your phone for 5 extra credits every month.",
+  "제보 보상을 받으려면 휴대폰 본인확인을 먼저 마쳐주세요.": "Verify your phone first to receive rewards for reports.",
+  "오늘 무료 3회를 다 쓰셨어요. 크레딧으로 더 확인하려면 휴대폰 본인확인이 한 번 필요해요.":
+    "You've used today's 3 free checks. To keep checking with credits, verify your phone once.",
   "오늘 무료 확인 3회를 다 쓰셨어요. 내일 0시(한국 시간)에 다시 3회가 생겨요. 지금 더 확인하려면 크레딧이 필요해요(20크레딧 12,000원부터).":
     "You've used today's 3 free checks. 3 more arrive at midnight Korea time. To keep checking now you need credits (from 12,000 won for 20).",
   "오늘 남은 확인 횟수를 모두 사용했어요.": "You've used all of today's checks.",
+
+  // ── 의뢰 대화 사진 ──
+  "사진을 찾을 수 없어요.": "That photo couldn't be found.",
+  "사진을 읽지 못했어요. 다시 골라주세요.": "Couldn't read that photo. Please choose it again.",
+  "JPG · PNG · WEBP 사진만 보낼 수 있어요.": "Only JPG, PNG and WEBP photos can be sent.",
+  "사진 파일이 아니거나 손상됐어요.": "That isn't a photo, or the file is damaged.",
+  "사진 한 장은 3MB까지 보낼 수 있어요.": "Each photo can be up to 3MB.",
+  "보낼 사진을 골라주세요.": "Choose the photos to send.",
 
   // ── 캡처 ──
   "PNG · JPG · WEBP 이미지만 올릴 수 있어요.": "Only PNG, JPG and WEBP images are accepted.",

@@ -1,4 +1,5 @@
 import React, { useRef, useState } from "react";
+import { copyText } from "./clipboard.js";
 // 누르기 전에는 그려지지 않는 화면들. 첫 화면 번들에서 빼 둔다(src/chunks.js).
 import { AccountModal, AuditModal, AuthModal, CatMouseGame, CheckoutPage, ReviewModal } from "./chunks.jsx";
 import { motion, AnimatePresence, useScroll, useTransform, useMotionValue, useSpring } from "framer-motion";
@@ -774,6 +775,29 @@ export default function YumeDashboard() {
   }, []);
   React.useEffect(() => { refreshSession(); }, [refreshSession]);
 
+  // 다른 곳에서 넘겨받은 부탁. 로그인 여부를 안 뒤에 한 번만 처리한다.
+  //   ?ref=코드  — 공유된 결과·추천 링크로 들어왔다. 가입 창을 나중에 열어도 잃지 않게 기억한다.
+  //   ?open=api  — 기업용 페이지·점검 보고서의 "체험 키 받기". 로그인했으면 바로 API 키 화면을,
+  //                아니면 가입 창을 열고 가입이 끝나는 대로 API 키 화면으로 잇는다.
+  const afterAuth = useRef(null);
+  const handledParams = useRef(false);
+  React.useEffect(() => {
+    if (!authChecked || handledParams.current) return;
+    handledParams.current = true;
+    const q = new URLSearchParams(window.location.search);
+    const ref = q.get("ref");
+    if (ref) {
+      try { localStorage.setItem("yume:ref", ref.slice(0, 20)); } catch { /* 저장이 막혀도 이번 방문 주소에는 남아 있다 */ }
+    }
+    if (q.get("open") === "api") {
+      if (user) setAccountTab("api");
+      else { afterAuth.current = "api"; setAuthModal("signup"); }
+      q.delete("open");
+      const clean = `${window.location.pathname}${q.toString() ? `?${q}` : ""}${window.location.hash}`;
+      window.history.replaceState({}, "", clean);
+    }
+  }, [authChecked, user]);
+
   // 결제 연동이 켜져 있는지. 켜져 있으면 요금제를 바로 결제하고, 아니면 예전처럼 문의로 받는다.
   const [payCfg, setPayCfg] = React.useState(null);
   React.useEffect(() => {
@@ -819,9 +843,8 @@ export default function YumeDashboard() {
     return () => clearTimeout(id);
   }, [toast]);
 
-  // 가입·로그인 직후 휴대폰 본인확인이 안 돼 있으면 그 자리에서 창을 연다.
-  // 나중으로 미루면 검증을 누른 순간 막히는데, 그때는 이미 쓸 마음으로 들어온 사람이라
-  // 흐름이 끊긴다. 취소해도 계정은 남으므로 다시 시도할 수 있다.
+  // 휴대폰 본인확인 창. 크레딧을 쓰기 시작하거나 결제·제보 보상을 받을 때 연다.
+  // 취소해도 계정과 무료 3회는 그대로다.
   const askIdentity = async () => {
     try {
       const r = await verifyIdentity({ agree: true });
@@ -834,12 +857,18 @@ export default function YumeDashboard() {
     return true;
   };
 
+  // 가입·로그인 직후에 본인확인 창을 띄우지 않는다. 무료 3회는 확인 없이 쓸 수 있고, 크레딧을
+  // 쓰기 시작하거나 결제할 때 서버가 IDENTITY_REQUIRED를 돌려주면 그때 창을 연다(runCheck 참고).
+  // 가입하자마자 창이 뜨면, 방금 한 걸음 들어온 사람에게 한 걸음을 더 요구하는 셈이 된다.
   const onAuthed = async (u) => {
     setAuthModal(null);
     setLimitReached(null);
     setToast(`${u.name || u.email}님, 반가워요.`);
     await refreshSession();
-    if (!u.identityVerified) await askIdentity();
+    if (afterAuth.current === "api") {
+      afterAuth.current = null;
+      setAccountTab("api");
+    }
   };
 
   const logout = async () => {
@@ -1110,12 +1139,39 @@ export default function YumeDashboard() {
   };
 
   const reset = () => { clearRevealTimers(); setStage("idle"); setResult(null); setRevealed(0); setTab("result"); setInput(""); };
+  // 결과를 본 사람이 원래 하려던 일은 AI에게 다시 묻는 것이다. 틀렸거나 근거가 없는 주장과 그 근거를
+  // 한 문단으로 묶어 복사해 두면, ChatGPT·클로드 대화창에 그대로 붙여 넣으면 된다.
+  const reaskText = () => {
+    const bad = (result?.claims || []).filter((c) => c.verdict === "false" || c.verdict === "uncertain");
+    if (!bad.length) return "";
+    const lines = bad.map((c, i) => {
+      const src = (c.sources || []).find((x) => x?.url);
+      const head = c.verdict === "false" ? "사실과 다름" : "근거를 확인할 수 없음";
+      return `${i + 1}. "${c.text}" — ${head}.${c.explanation ? ` ${c.explanation}` : ""}${src ? ` (근거: ${src.url})` : ""}`;
+    });
+    return [
+      "방금 네 답변을 사실 확인해 봤는데, 아래 부분이 틀렸거나 근거를 찾을 수 없었어.",
+      "",
+      ...lines,
+      "",
+      "이 근거를 참고해서 답변을 고쳐 줘. 확실하지 않은 부분은 모른다고 말해 주고, 출처가 있으면 같이 알려 줘.",
+    ].join("\n");
+  };
+  const copyReask = async () => {
+    const ok = await copyText(reaskText());
+    setToast(ok ? "복사했어요. AI 대화창에 그대로 붙여 넣으세요." : "복사하지 못했어요. 브라우저 설정을 확인해주세요.");
+  };
+
   const shareResult = async () => {
     if (!result?.id) return;
+    // 로그인한 사람이 공유하면 추천 코드를 싣는다. 받은 사람이 "직접 확인해보기"로 가입해 첫 확인을
+    // 마치면 공유한 사람에게 추천 크레딧이 간다(본인확인을 마친 계정끼리만).
+    let ref = "";
+    if (user) ref = await apiJson("/api/referral").then((r) => r?.code || "").catch(() => "");
     const outcome = await shareLink({
       title: "유메 검증 결과",
       text: result.overall?.label ? `유메 검증 결과: ${result.overall.label}` : "유메 검증 결과",
-      url: `${window.location.origin}/r/${result.id}`,
+      url: `${window.location.origin}/r/${result.id}${ref ? `?ref=${encodeURIComponent(ref)}` : ""}`,
     });
     if (outcome === "copied") setToast("결과 링크를 복사했어요");
     else if (outcome === "failed") setToast("공유하지 못했어요. 잠시 후 다시 시도해주세요.");
@@ -1426,6 +1482,24 @@ export default function YumeDashboard() {
         }}>
           {(stage === "idle" || stage === "error") && (
             <div style={{ padding: "clamp(20px, 3.4vw, 32px)" }}>
+              {/* 요금제는 1개월 이용권이라 자동으로 이어지지 않는다. 모르고 지나가면 어느 날 갑자기
+                  무료로 돌아가 있으니, 끝나기 3일 전부터 여기서 알린다. */}
+              {(() => {
+                const exp = Number(user?.planExpiresAt || 0);
+                const left = exp ? Math.ceil((exp - Date.now()) / 86400000) : null;
+                if (!user || user.plan === "free" || left == null || left > 3 || left < 0 || IS_STORE_BUILD) return null;
+                return (
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 14, padding: "10px 14px",
+                    borderRadius: 12, background: "#FFF8E6", border: "1px solid #F3DFA2", fontSize: 13.5, color: "#7A5B00" }}>
+                    <span style={{ flex: 1, minWidth: 200 }}>
+                      {left <= 0
+                        ? t("{plan} 이용권이 오늘 끝나요. 끝나면 무료 플랜으로 돌아가요.", { plan: t(user.planLabel) })
+                        : t("{plan} 이용권이 {n}일 뒤 끝나요. 끝나면 무료 플랜으로 돌아가요.", { plan: t(user.planLabel), n: left })}
+                    </span>
+                    <button onClick={() => setShowPricing(true)} style={{ ...pillBtn, border: "none", background: UI.ink, color: "#fff", fontWeight: 600 }}>{t("연장하기")}</button>
+                  </div>
+                );
+              })()}
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
                 <div style={{ fontSize: 17, fontWeight: 700, letterSpacing: "-0.02em", color: UI.ink }}>{t("사실인지 확인하기")}</div>
                 {usage && (
@@ -1787,6 +1861,13 @@ export default function YumeDashboard() {
               </motion.div>
               </AnimatePresence>
 
+                {reaskText() && (
+                  <motion.button whileHover={{ y: -1 }} whileTap={{ scale: 0.985 }} onClick={copyReask} style={{
+                    width: "100%", marginTop: 20, height: 52, borderRadius: 14, border: "none", cursor: "pointer",
+                    background: UI.button, color: "#fff", fontSize: 15.5, fontWeight: 600, letterSpacing: "-0.01em",
+                    boxShadow: "0 8px 22px rgba(107,79,168,0.22)",
+                  }}>{t("틀린 부분을 AI에게 다시 물어보기 (복사)")}</motion.button>
+                )}
                 <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
                   {result.id && (
                     <motion.button whileHover={{ backgroundColor: "#F5F2ED" }} whileTap={{ scale: 0.985 }} onClick={shareResult} style={{

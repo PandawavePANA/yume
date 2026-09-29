@@ -40,6 +40,8 @@ export const INQUIRY_KINDS = {
   automation: "업무 자동화 · 데이터",
   maintain: "기존 서비스 개선 · 유지보수",
   other: "그 외",
+  // 기업용 페이지(business.yume-reamer.com)의 도입 문의. 같은 데스크로 들어와 견적·결제가 이어진다.
+  yume_api: "유메 API 도입",
 };
 
 const BUDGETS = {
@@ -99,6 +101,7 @@ inquiryRouter.post("/inquiry", cors, limitMiddleware(limiter, (req) => `inquiry:
   const to = process.env.INQUIRY_TO || process.env.COMPANY_EMAIL || "reamer@d-reamer.com";
   const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
   sendMail({
+    brand: "REAMER",
     to,
     // 연락처가 이메일이면 그대로 답장할 수 있게 건다. 전화번호면 걸 것이 없다.
     replyTo: looksEmail(contact) ? contact : undefined,

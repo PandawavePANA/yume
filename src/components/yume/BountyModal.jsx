@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { apiJson } from "./api";
+import { withIdentity } from "../../payments.js";
 import { t } from "../../i18n.js";
 
 // 존재하지 않는 인용을 찾았을 때 제보하는 창.
@@ -76,7 +77,7 @@ export default function BountyModal({ verificationId, claimIdx, claim, reportPoi
     if (!consent) return setErr("데이터 활용 동의가 필요해요.");
     setBusy(true);
     try {
-      await apiJson("/api/bounty", { method: "POST", body: { verificationId, claimIdx, platform, shareUrl: shareUrl.trim(), consent: true } });
+      await withIdentity(() => apiJson("/api/bounty", { method: "POST", body: { verificationId, claimIdx, platform, shareUrl: shareUrl.trim(), consent: true } }));
       setDone(true);
       onDone?.();
     } catch (e) {

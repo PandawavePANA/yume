@@ -55,7 +55,11 @@ export default function AuthModal({ mode: initialMode = "login", onClose, onAuth
         if (password !== password2) throw new Error("두 비밀번호가 서로 달라요.");
         if (!terms || !privacy || !identity) throw new Error("필수 항목에 동의해주세요.");
         // 추천 링크(?ref=코드)로 들어왔다면 같이 보낸다 — 친구가 첫 검증을 마치면 추천한 사람에게 크레딧이 간다.
-        const referralCode = new URLSearchParams(window.location.search).get("ref") || undefined;
+        // 공유된 결과 페이지에서 넘어온 뒤 주소가 바뀌었어도 잃지 않도록, 첫 화면이 기억해 둔 값도 본다.
+        let referralCode = new URLSearchParams(window.location.search).get("ref") || undefined;
+        if (!referralCode) {
+          try { referralCode = localStorage.getItem("yume:ref") || undefined; } catch { /* 저장소가 막혀도 가입은 된다 */ }
+        }
         const r = await apiJson("/api/auth/signup", { method: "POST", body: { email, password, name, nickname, agreeTerms: terms, agreePrivacy: privacy, agreeIdentity: identity, dataConsent, referralCode } });
         onAuthed(r.user);
       } else {

@@ -6,6 +6,7 @@
 // 그다음에야 API, 업종별 쓰임, 기술이 온다.
 import { useState } from "react";
 import AuditModal from "./components/yume/AuditModal.jsx";
+import InquiryModal from "./components/business/InquiryModal.jsx";
 import { CONTACT_EMAIL } from "./components/yume/api.js";
 import { YUME_URL } from "./businessConfig.js";
 import { BUSINESS, telHref, COPYRIGHT, businessLine } from "./businessInfo.js";
@@ -79,7 +80,7 @@ const TECH = [
 
 const btn = {
   padding: "13px 24px", borderRadius: 999, border: "none", background: UI.accent,
-  color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer", textDecoration: "none",
+  color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer", textDecoration: "none", fontFamily: "inherit",
   display: "inline-block",
 };
 const btnGhost = {
@@ -100,7 +101,6 @@ function Section({ id, eyebrow, title, lede, children }) {
 }
 
 const won = (n) => `${n.toLocaleString("ko-KR")}원`;
-const mailto = (what) => `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(`[유메] ${what} 문의`)}`;
 
 // 요금 카드. 숫자는 전부 API_RATES에서 온다.
 const PRICE_CARDS = [
@@ -114,18 +114,31 @@ const PRICE_CARDS = [
     key: "metered", label: API_RATES.metered.label, price: won(API_RATES.metered.unitKrw), period: " / 회 · VAT 별도",
     detail: "월 약정 없이 쓴 만큼 냅니다. 물량을 가늠하기 전에 붙여 보기 좋습니다.",
     unit: "기본료 없음",
-    cta: "종량제 신청", href: mailto("종량제"),
+    cta: "종량제 신청", plan: "metered",
   },
   ...API_RATES.tiers.map((t) => ({
     key: t.key, label: t.label, price: won(t.monthlyKrw), period: " / 월 · VAT 별도",
     detail: `매달 ${t.calls.toLocaleString("ko-KR")}회 포함.`,
     unit: `건당 ${won(Math.round(t.monthlyKrw / t.calls))} · 종량제보다 ${Math.round((1 - t.monthlyKrw / t.calls / API_RATES.metered.unitKrw) * 100)}% 저렴`,
-    cta: `${t.label} 신청`, href: mailto(t.label),
+    cta: `${t.label} 신청`, plan: t.key,
   })),
 ];
 
+// 점검 보고서의 "견적 받기"가 ?inquiry=growth 처럼 붙여 보낸다. 들어오자마자 그 플랜으로 문의 창을 연다.
+function initialInquiry() {
+  try {
+    const p = new URLSearchParams(window.location.search).get("inquiry");
+    return p ? { plan: p, note: "" } : null;
+  } catch {
+    return null;
+  }
+}
+
 export default function BusinessPage() {
   const [showAudit, setShowAudit] = useState(false);
+  // 도입 문의 창. { plan, note } — 요금 카드의 "신청"은 그 플랜을 골라 둔 채로 연다.
+  const [inquiry, setInquiry] = useState(initialInquiry);
+  const ask = (plan = "unsure") => () => setInquiry({ plan, note: "" });
 
   return (
     <main style={{ background: "#F6F2FC", minHeight: "100dvh" }}>
@@ -158,7 +171,7 @@ export default function BusinessPage() {
 
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 26 }}>
             <button onClick={() => setShowAudit(true)} style={btn}>무료로 점검받기</button>
-            <a href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent("[유메] 도입 문의")}`} style={btnGhost}>도입 문의</a>
+            <button type="button" onClick={ask()} style={btnGhost}>도입 문의</button>
           </div>
 
           <div style={{ marginTop: 28, padding: "18px 20px", borderRadius: 18, background: "rgba(255,255,255,0.8)", border: `1px solid ${UI.hairline}` }}>
@@ -225,13 +238,17 @@ Authorization: Bearer <API_KEY>
                 </div>
                 <div style={{ fontSize: 13.5, color: UI.ink2, lineHeight: 1.6, marginTop: 6, flex: 1 }}>{c.detail}</div>
                 <div style={{ fontSize: 12.5, color: UI.ink3, marginTop: 12, paddingTop: 12, borderTop: `1px dashed ${UI.hairline}`, fontVariantNumeric: "tabular-nums" }}>{c.unit}</div>
-                <a href={c.href} style={{ ...(c.key === "trial" ? btn : btnGhost), marginTop: 14, padding: "10px 14px", fontSize: 13.5, textAlign: "center" }}>{c.cta}</a>
+                {c.plan ? (
+                  <button type="button" onClick={ask(c.plan)} style={{ ...btnGhost, marginTop: 14, padding: "10px 14px", fontSize: 13.5, textAlign: "center" }}>{c.cta}</button>
+                ) : (
+                  <a href={c.href} style={{ ...btn, marginTop: 14, padding: "10px 14px", fontSize: 13.5, textAlign: "center" }}>{c.cta}</a>
+                )}
               </div>
             ))}
           </div>
           <p style={{ fontSize: 13, color: UI.ink3, lineHeight: 1.7, margin: "14px 2px 0" }}>
             모든 금액은 부가세(10%) 별도입니다. 처리하지 못하고 실패한 호출은 세지 않습니다. 더 큰 물량, 전용 한도, 계약서가 필요하시면{" "}
-            <a href={mailto("맞춤 견적")} style={{ color: UI.accent }}>맞춤 견적</a>을 요청해 주세요.
+            <button type="button" onClick={ask("custom")} style={{ border: 0, background: "none", padding: 0, font: "inherit", color: UI.accent, textDecoration: "underline", cursor: "pointer" }}>맞춤 견적</button>을 요청해 주세요.
           </p>
         </Section>
 
@@ -272,7 +289,7 @@ Authorization: Bearer <API_KEY>
           </p>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 22 }}>
             <button onClick={() => setShowAudit(true)} style={btn}>무료로 점검받기</button>
-            <a href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent("[유메] 도입 문의")}`} style={{ ...btn, background: "rgba(255,255,255,0.14)" }}>도입 문의</a>
+            <button type="button" onClick={ask()} style={{ ...btn, background: "rgba(255,255,255,0.14)" }}>도입 문의</button>
           </div>
         </section>
 
@@ -304,6 +321,7 @@ Authorization: Bearer <API_KEY>
       </div>
 
       {showAudit && <AuditModal onClose={() => setShowAudit(false)} />}
+      {inquiry && <InquiryModal plan={inquiry.plan} note={inquiry.note} onClose={() => setInquiry(null)} />}
     </main>
   );
 }

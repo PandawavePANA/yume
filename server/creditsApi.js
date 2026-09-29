@@ -77,6 +77,11 @@ router.get("/contribution", async (req, res) => {
 });
 
 router.post("/bounty", limitMiddleware(bountyLimiter, (req) => `bounty:${req.user.id}`), async (req, res) => {
+  // 보상(크레딧·공헌도)이 걸린 제보다. 무료 확인은 본인확인 없이 쓸 수 있게 됐으므로
+  // 보상 쪽은 여기서 따로 막는다 — 계정을 여러 개 만들어 보상을 쌓지 못하게.
+  if (!req.user.identity_verified_at) {
+    return res.status(403).json({ error: "제보 보상을 받으려면 휴대폰 본인확인을 먼저 마쳐주세요.", code: "IDENTITY_REQUIRED" });
+  }
   const { verificationId, claimIdx, platform, shareUrl, consent } = req.body || {};
   // 보상은 사실상 데이터를 사는 것이라, 데이터셋 활용 동의 없이는 받지 않는다
   // (dataset.js가 동의한 데이터만 반출하므로 동의 없이 받으면 쓸 수가 없다).
@@ -100,6 +105,11 @@ router.post("/bounty", limitMiddleware(bountyLimiter, (req) => `bounty:${req.use
 // 넘겨주는 것이고, 이건 우리가 낸 판정이 틀렸다고 알려주는 것이다. 공유 링크는 받지
 // 않는다 — 대상이 이미 우리 검증 기록 안에 있고, 근거 링크는 있으면 받고 없으면 글로 받는다.
 router.post("/corrections", limitMiddleware(correctionLimiter, (req) => `correction:${req.user.id}`), async (req, res) => {
+  // 보상(크레딧·공헌도)이 걸린 제보다. 무료 확인은 본인확인 없이 쓸 수 있게 됐으므로
+  // 보상 쪽은 여기서 따로 막는다 — 계정을 여러 개 만들어 보상을 쌓지 못하게.
+  if (!req.user.identity_verified_at) {
+    return res.status(403).json({ error: "제보 보상을 받으려면 휴대폰 본인확인을 먼저 마쳐주세요.", code: "IDENTITY_REQUIRED" });
+  }
   const { verificationId, claimIdx, correctVerdict, evidenceUrl, note, consent } = req.body || {};
   if (!consent) return res.status(400).json({ error: "보내주신 내용을 유메가 판정 개선에 쓰는 데 동의해주세요." });
 

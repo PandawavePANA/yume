@@ -42,7 +42,11 @@ export async function grantTokens(key, count) {
 //
 // 로그인하지 않은 사람은 크레딧 원장을 가질 수 없으므로(계정이 없다) 하루 무료 횟수만으로
 // 움직인다.
-export async function checkAndConsume({ user = null, ip = null, kakaoId = null, chars = 0 }) {
+// canSpendCredits — 크레딧을 써도 되는 사람인지. 휴대폰 본인확인 전인 계정은 하루 무료 3회까지만
+// 쓰고, 그 위(크레딧)로 넘어가려는 순간 reason: "identity_required"로 멈춘다. 크레딧은 돈으로 바꿀 수
+// 있는 가치라 한 사람이 여러 계정으로 받지 못하게 하는 게 본인확인의 이유이고, 무료 3회는 익명에게도
+// 주는 것이라 확인할 이유가 없다.
+export async function checkAndConsume({ user = null, ip = null, kakaoId = null, chars = 0, canSpendCredits = true }) {
   const plan = effectivePlan(user);
   // 익명·카카오는 무료분이 곧 하루 한도, 로그인한 사람은 무료분 + 크레딧분까지.
   const limit = user ? userDailyCap(plan) : PLANS[plan].dailyLimit;
@@ -86,6 +90,11 @@ export async function checkAndConsume({ user = null, ip = null, kakaoId = null, 
       allowed: true, plan, usedFree: true, remainingFree: FREE_DAILY_CHECKS - used, dailyLimit: limit,
       credits: await creditBalance(user.id),
     };
+  }
+
+  if (!canSpendCredits) {
+    await run("UPDATE usage_daily SET used = GREATEST(0, used - 1) WHERE client_key = :key AND day = :day", { key, day: kstDay() });
+    return { allowed: false, plan, reason: "identity_required", remainingFree: 0, dailyLimit: limit, credits: 0 };
   }
 
   await ensureMonthlyGrant(user);

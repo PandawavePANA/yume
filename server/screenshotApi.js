@@ -65,11 +65,12 @@ router.post(
     // 검증과 같은 지갑을 쓴다. 캡처를 읽는 것도 우리 돈이 나가는 일이고,
     // 여기만 공짜로 두면 크레딧을 쓰지 않고 API를 돌리는 길이 생긴다.
     const user = req.user;
-    if (user && !user.identity_verified_at) {
-      return res.status(403).json({ error: "휴대폰 본인확인을 마치면 바로 이용하실 수 있어요.", code: "IDENTITY_REQUIRED" });
-    }
     // 캡처 한 장은 대략 2,000자 한 칸으로 친다 — 읽기 값이 그 정도다.
-    const usage = await checkAndConsume({ user, ip: clientIp(req), chars: images.length * 2000 });
+    // 본인확인 전인 계정은 무료 3회까지만(검증과 같은 규칙, app.js canSpend).
+    const usage = await checkAndConsume({ user, ip: clientIp(req), chars: images.length * 2000, canSpendCredits: !user || !!user.identity_verified_at });
+    if (usage.reason === "identity_required") {
+      return res.status(403).json({ error: "오늘 무료 3회를 다 쓰셨어요. 크레딧으로 더 확인하려면 휴대폰 본인확인이 한 번 필요해요.", code: "IDENTITY_REQUIRED" });
+    }
     if (!usage.allowed) {
       return res.status(402).json({ error: "오늘 남은 확인 횟수를 모두 사용했어요.", limitReached: true, loggedIn: !!user });
     }

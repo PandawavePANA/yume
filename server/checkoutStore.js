@@ -52,6 +52,7 @@ function sendReceipt(order, { method, planExpiresAt }) {
     ].filter(Boolean).join(" · ");
 
     await sendMail({
+      brand: "YUME",
       to: user.email,
       subject: `[유메] 결제가 완료되었습니다 · ${item}`,
       text: [

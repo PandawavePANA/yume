@@ -377,9 +377,20 @@ test("요금제 결제가 취소되면 늘려 준 기간을 도로 깎는다", a
 
 // 계정으로 검증하려면 휴대폰 본인확인을 마쳐야 한다. 크레딧과 공헌도가 걸려 있어
 // 계정을 여러 개 만드는 게 이득인 구조라, 이메일만으로는 열어 주지 않는다.
-test("본인확인 전에는 검증이 막히고, 마치면 열린다", async () => {
+// 본인확인은 크레딧을 쓰기 시작할 때만 묻는다. 가입하자마자 막으면 가입이 익명보다 불편한 단계가 된다.
+test("본인확인 전에는 무료 3회까지 쓰고, 크레딧으로 넘어갈 때 확인을 요구한다", async () => {
   const { call, userId } = await signedIn({ identity: false });
 
+  const free = await call("POST", "/api/verify", { text: "민법 제750조는 불법행위 책임을 규정한다." });
+  assert.notEqual(free.status, 403, "무료분은 본인확인 없이 쓴다");
+
+  // 오늘 무료 3회를 다 쓴 상태로 만든다.
+  const { kstDay } = await import("../db.js");
+  await db.run(
+    `INSERT INTO usage_daily (client_key, day, used) VALUES (:k, :d, 3)
+     ON CONFLICT (client_key, day) DO UPDATE SET used = 3`,
+    { k: `user:${userId}`, d: kstDay() },
+  );
   const blocked = await call("POST", "/api/verify", { text: "민법 제750조는 불법행위 책임을 규정한다." });
   assert.equal(blocked.status, 403);
   assert.equal(blocked.data.code, "IDENTITY_REQUIRED");

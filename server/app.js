@@ -77,9 +77,10 @@ app.use(localizeResponses);
 app.use("/api", portoneWebhookRouter);
 
 const jsonBody = express.json({ limit: "256kb" });
-// 캡처 업로드만 큰 본문을 받는다. 전역 상한을 올리면 모든 엔드포인트가 같이 열리므로
-// 이 경로만 비켜 가게 하고, 아래에서 자기 파서를 따로 붙인다.
-app.use((req, res, next) => (req.path === "/api/screenshot" ? next() : jsonBody(req, res, next)));
+// 캡처 업로드와 의뢰 대화 사진만 큰 본문을 받는다. 전역 상한을 올리면 모든 엔드포인트가
+// 같이 열리므로 이 경로들만 비켜 가게 하고, 각자 자기 파서를 따로 붙인다.
+const BIG_BODY = /^\/api\/(screenshot|thread\/photo|admin\/desk\/\d+\/photo)$/;
+app.use((req, res, next) => (BIG_BODY.test(req.path) ? next() : jsonBody(req, res, next)));
 
 // 외부 개발자용 공개 API — 자체 CORS·키 인증을 쓰므로 쿠키 세션 미들웨어보다 먼저 붙인다.
 app.use("/v1", apiV1Router);
@@ -114,6 +115,14 @@ const RESET_AT = "내일 0시(한국 시간)";
 const cheapestPack = () => CREDIT_PACKS[0];
 const packLine = () => `${cheapestPack().credits}크레딧 ${cheapestPack().krw.toLocaleString("ko-KR")}원부터`;
 
+// 본인확인은 크레딧을 쓰기 시작할 때만 묻는다(usageStore checkAndConsume의 canSpendCredits).
+// 화면은 이 코드를 받으면 인증 창을 띄우고, 마치면 방금 누른 확인을 그대로 이어서 한다.
+const canSpend = (user) => !user || !!user.identity_verified_at;
+const IDENTITY_FOR_CREDITS = {
+  error: "오늘 무료 3회를 다 쓰셨어요. 크레딧으로 더 확인하려면 휴대폰 본인확인이 한 번 필요해요.",
+  code: "IDENTITY_REQUIRED",
+};
+
 function limitMessage(usage, user) {
   if (usage.reason === "ip_ceiling") return `같은 네트워크에서 오늘 쓸 수 있는 무료 확인 횟수를 모두 사용했어요. ${RESET_AT}에 다시 이용하실 수 있어요.`;
   // 크레딧 소진은 하루 한도와 다른 문제다 — 내일이 되어도 풀리지 않으니 그렇게 안내한다.
@@ -128,7 +137,7 @@ function limitMessage(usage, user) {
   if (user) return `오늘 이용 한도(${usage.dailyLimit}회)에 도달했어요. ${RESET_AT}에 다시 이용하실 수 있어요.`;
   return (
     `오늘 무료 확인 ${FREE_DAILY_CHECKS}회를 다 쓰셨어요. ${RESET_AT}에 다시 ${FREE_DAILY_CHECKS}회가 생겨요. ` +
-    `가입하면 매일 무료 ${FREE_DAILY_CHECKS}회는 그대로이고, 매달 ${PLAN_CREDITS.free}크레딧을 더 드려요. 기록도 저장돼요.`
+    `가입하면 매일 무료 ${FREE_DAILY_CHECKS}회는 그대로이고 기록이 저장돼요. 휴대폰 본인확인까지 마치면 매달 ${PLAN_CREDITS.free}크레딧을 더 드려요.`
   );
 }
 
@@ -140,23 +149,15 @@ app.post("/api/verify", limitMiddleware(verifyLimiter, (req) => `verify:${client
   const user = req.user;
   const ip = clientIp(req);
 
-  // 계정으로 쓰려면 휴대폰 본인확인을 마쳐야 한다.
+  // 휴대폰 본인확인은 크레딧을 쓰기 시작할 때만 요구한다.
   //
-  // 크레딧·공헌도·분기 보상이 걸려 있어서, 계정을 여러 개 만드는 것이 이득이 되는 구조다.
-  // 이메일은 얼마든지 만들 수 있지만 휴대폰 본인확인은 그렇지 않다. 가입 자체를 막지 않고
-  // 여기서 막는 이유는, 인증 창이 계정과 세션이 있어야 열리기 때문이다 —
-  // 계정은 만들어지되 확인 전에는 아무것도 할 수 없다.
-  //
-  // 로그인하지 않은 사람은 예전처럼 하루 무료 횟수로 쓴다. 그쪽은 쌓이는 것이 없어
-  // 계정을 여러 개 만들 이유가 없다.
-  if (user && !user.identity_verified_at) {
-    return res.status(403).json({
-      error: "휴대폰 본인확인을 마치면 바로 이용하실 수 있어요.",
-      code: "IDENTITY_REQUIRED",
-    });
-  }
-
-  const usage = await checkAndConsume({ user, ip, chars: text.length });
+  // 크레딧·공헌도·분기 보상이 걸려 있어서 계정을 여러 개 만드는 것이 이득이 되는 구조이고,
+  // 이메일과 달리 휴대폰 본인확인은 여러 개 만들 수 없다. 예전에는 가입하자마자 확인을 요구해
+  // 확인 전에는 아무것도 못 했는데, 그러면 가입이 익명보다 불편한 단계가 된다. 하루 무료 3회는
+  // 익명에게도 주는 것이라 계정마다 확인할 이유가 없고, 보상은 아래에서 확인된 계정에만 준다.
+  // 같은 IP 하루 상한(usageStore IP_DAILY_CEILING)이 계정 여러 개로 무료분을 불리는 것을 막는다.
+  const usage = await checkAndConsume({ user, ip, chars: text.length, canSpendCredits: canSpend(user) });
+  if (usage.reason === "identity_required") return res.status(403).json(IDENTITY_FOR_CREDITS);
   if (!usage.allowed) return res.status(402).json({ error: limitMessage(usage, user), limitReached: true, loggedIn: !!user });
 
   res.writeHead(200, {
@@ -196,6 +197,10 @@ app.post("/api/verify", limitMiddleware(verifyLimiter, (req) => `verify:${client
     // 결과는 그대로 내보내고 실패는 기록만 남긴다.
     if (user) {
       await trimUserHistory(user.id, PLANS[usage.plan].historyLimit).catch((e) => logError("verify:trimHistory", e));
+    }
+    // 보상은 본인확인을 마친 계정에만 준다. 무료 3회는 확인 없이 쓸 수 있게 됐으므로, 여기서 막지
+    // 않으면 이메일만 바꿔 만든 계정들이 추천 크레딧과 공헌도(분기 보상)를 쌓는 길이 된다.
+    if (user?.identity_verified_at) {
       // 추천으로 가입한 사람이 첫 검증을 마치면 추천한 사람에게 크레딧이 지급된다.
       await creditReferralOnActivity(user.id);
       // 공헌도 — 검증 10점, 사실과 다른 주장이 실제로 잡혔으면 발견 50점을 더한다.
@@ -259,11 +264,8 @@ app.post("/api/context-repair", limitMiddleware(repairLimiter, (req) => `repair:
 
   const user = req.user;
   const ip = clientIp(req);
-  if (user && !user.identity_verified_at) {
-    return res.status(403).json({ error: "휴대폰 본인확인을 마치면 바로 이용하실 수 있어요.", code: "IDENTITY_REQUIRED" });
-  }
-
-  const usage = await checkAndConsume({ user, ip, chars: text.length });
+  const usage = await checkAndConsume({ user, ip, chars: text.length, canSpendCredits: canSpend(user) });
+  if (usage.reason === "identity_required") return res.status(403).json(IDENTITY_FOR_CREDITS);
   if (!usage.allowed) return res.status(402).json({ error: limitMessage(usage, user), limitReached: true, loggedIn: !!user });
 
   try {
@@ -407,7 +409,7 @@ app.get("/r/:id", async (req, res) => {
   // 검증 때 이미 풀어 둔 상품은 그대로 쓴다(resolveProductLinks가 isAffiliate 항목은 건너뛴다).
   // 쿠팡 검색은 1시간 10회뿐이라 페이지를 열 때마다 다시 물을 수 없다.
   const result = v.result ? { ...v.result, related_products: await resolveProductLinks(v.result.related_products || []) } : null;
-  html(res, renderResultPage({ id: v.id, input: v.input, status: v.status, result, createdAt: v.created_at }));
+  html(res, renderResultPage({ id: v.id, input: v.input, status: v.status, result, createdAt: v.created_at, ref: String(req.query.ref || "") }));
 });
 
 // 데이터셋 구매처가 받은 반출 링크.

@@ -3,6 +3,7 @@
 // 남아 있어야 한다. 지수만 큼직하게 박은 페이지는 마케팅물로 읽히고, 마케팅물은 회의에
 // 안 올라간다. 그래서 문항별 확인된 사실과 답변 인용을 그대로 싣는다.
 import { explainResult } from "./audit/explain.js";
+import { API_RATES } from "./apiRates.js";
 
 const BAND = {
   low: { fg: "#1F7A52", bg: "#E7F6EE", border: "#B7E4CC" },
@@ -72,13 +73,63 @@ export function renderAuditReport(report, { baseUrl = "" } = {}) {
     })
     .join("");
 
+  // 결제 의사는 "8개 중 3개가 틀렸다"를 본 이 자리에서 생긴다. 담당자에게 필요한 건 개발 문서가
+  // 아니라 "그래서 한 달에 얼마면 막히나"다. 월 답변 수 한 칸으로 새어 나가는 틀린 답과 맞는 플랜을
+  // 보여 주고, 다음 걸음(체험 키 · 견적 · 팀 공유)을 바로 옆에 둔다. 단가는 서버가 실제 한도에 쓰는
+  // 표(apiRates.js)에서 읽는다.
+  const totals = Object.values(s.byType || {}).reduce((a, v) => ({ f: a.f + (v.failed || 0), t: a.t + (v.total || 0) }), { f: 0, t: 0 });
+  const failRate = totals.t ? totals.f / totals.t : 0;
+  const bizUrl = (process.env.BUSINESS_URL || "https://business.yume-reamer.com").replace(/\/+$/, "");
+  const calcData = JSON.stringify({ rate: failRate, metered: API_RATES.metered.unitKrw, tiers: API_RATES.tiers, biz: bizUrl })
+    .replace(/</g, "\\u003c");
   const ctaHtml = rec.recommend
     ? `<div class="cta">
         <h3>이 결과를 두고 드리는 제안</h3>
         <p>${esc(rec.reason)}</p>
         <p style="margin-top:10px">${esc(rec.fit)}</p>
-        <a href="${esc(baseUrl)}/docs/api">유메 API 문서 보기 →</a>
-      </div>`
+        ${totals.t ? `<div class="calc">
+          <label for="calcN">한 달에 고객에게 나가는 AI 답변 수</label>
+          <div class="calcRow"><input id="calcN" type="number" min="1" step="100" value="1000" inputmode="numeric" /><span>건</span></div>
+          <p id="calcOut" class="calcOut"></p>
+        </div>` : ""}
+        <div class="ctaRow">
+          <a id="calcQuote" href="${esc(bizUrl)}/?inquiry=unsure">이 규모로 견적 받기 →</a>
+          <a class="ghost" href="${esc(baseUrl)}/?open=api">체험 키 받기 (매달 ${API_RATES.trial.calls}회 무료)</a>
+          <button type="button" class="ghost" id="copyReport">이 보고서 링크 복사</button>
+        </div>
+        <p class="fine">요금은 부가세 별도입니다. 개발팀용 문서: <a class="plain" href="${esc(baseUrl)}/docs/api">API 문서</a></p>
+      </div>
+      <script>
+      (function () {
+        var D = ${calcData};
+        var won = function (n) { return Math.round(n).toLocaleString("ko-KR") + "원"; };
+        var n = document.getElementById("calcN"), out = document.getElementById("calcOut"), q = document.getElementById("calcQuote");
+        function pick(calls) {
+          var best = { key: "metered", label: "종량제", cost: calls * D.metered };
+          D.tiers.forEach(function (t) { if (calls <= t.calls && t.monthlyKrw < best.cost) best = { key: t.key, label: t.label, cost: t.monthlyKrw }; });
+          var top = D.tiers[D.tiers.length - 1];
+          if (calls > top.calls) best = { key: "custom", label: "맞춤 견적", cost: null };
+          return best;
+        }
+        function draw() {
+          if (!n || !out) return;
+          var calls = Math.max(0, Math.floor(Number(n.value) || 0));
+          var wrong = Math.round(calls * D.rate);
+          var p = pick(calls);
+          out.innerHTML = "이 점검의 실패율(" + Math.round(D.rate * 100) + "%)이면 매달 약 <b>" + wrong.toLocaleString("ko-KR") +
+            "건</b>의 틀린 답이 고객에게 나갈 수 있습니다.<br>전부 유메로 거르면 <b>" + p.label + "</b>" +
+            (p.cost != null ? " · 월 약 <b>" + won(p.cost) + "</b>" : "") + "이 맞습니다.";
+          if (q) q.href = D.biz + "/?inquiry=" + encodeURIComponent(p.key);
+        }
+        if (n) { n.addEventListener("input", draw); draw(); }
+        var c = document.getElementById("copyReport");
+        if (c) c.addEventListener("click", function () {
+          var done = function () { c.textContent = "복사했습니다 — 결재권자는 가입 없이 열어볼 수 있어요"; };
+          if (navigator.clipboard) navigator.clipboard.writeText(location.href).then(done, function () { prompt("아래 주소를 복사하세요", location.href); });
+          else prompt("아래 주소를 복사하세요", location.href);
+        });
+      })();
+      </script>`
     : `<div class="noplug"><b>이번 점검에서는 유메를 권하지 않습니다.</b>
         <p style="margin:8px 0 0">${esc(rec.reason)}</p>
         ${rec.note ? `<p style="margin:8px 0 0">${esc(rec.note)}</p>` : ""}</div>`;
@@ -146,6 +197,17 @@ export function renderAuditReport(report, { baseUrl = "" } = {}) {
   .cta p{margin:0;color:#CFC9DE;font-size:14.5px}
   .cta a{display:inline-block;margin-top:16px;background:var(--accent);color:#fff;text-decoration:none;
          border-radius:999px;padding:11px 22px;font-weight:600;font-size:14.5px}
+  .cta a.ghost,.cta button.ghost{background:rgba(255,255,255,.12);color:#fff;border:0;border-radius:999px;padding:11px 18px;
+         font:inherit;font-weight:600;font-size:14px;cursor:pointer;margin-top:16px}
+  .ctaRow{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .calc{margin-top:18px;padding:14px 16px;border-radius:12px;background:rgba(255,255,255,.07)}
+  .calc label{display:block;font-size:13px;color:#CFC9DE;margin-bottom:6px}
+  .calcRow{display:flex;align-items:center;gap:8px}
+  .calcRow input{width:160px;padding:9px 11px;border-radius:9px;border:1px solid rgba(255,255,255,.2);background:rgba(0,0,0,.25);
+         color:#fff;font:inherit;font-size:15px}
+  .calcOut{margin-top:10px !important;color:#fff !important;font-size:14.5px}
+  .cta .fine{margin-top:12px;font-size:12.5px;color:#9C96AE}
+  .cta a.plain{display:inline;margin:0;padding:0;background:none;color:#CFC9DE;text-decoration:underline;font-weight:500;font-size:inherit}
   .noplug{margin-top:20px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px;color:var(--ink2)}
   footer{margin-top:44px;padding-top:18px;border-top:1px solid var(--line);color:var(--muted);font-size:12.5px}
 </style></head><body><div class="wrap">

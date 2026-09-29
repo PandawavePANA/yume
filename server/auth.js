@@ -254,6 +254,7 @@ router.post("/auth/forgot", limitMiddleware(resetLimiter, (req) => `reset:${clie
   const link = `${baseUrl(req)}/reset-password?token=${token}`;
   try {
     await sendMail({
+      brand: "YUME",
       to: user.email,
       subject: "[유메] 비밀번호 재설정 안내",
       text: `안녕하세요, 유메입니다.\n\n아래 링크에서 1시간 안에 새 비밀번호를 설정해주세요.\n${link}\n\n본인이 요청하지 않았다면 이 메일을 무시하셔도 됩니다.`,

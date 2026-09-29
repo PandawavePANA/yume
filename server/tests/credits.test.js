@@ -98,6 +98,8 @@ async function signedUpUser(email, extra = {}) {
   const c = client();
   const r = await c("POST", "/api/auth/signup", signupBody(email, extra));
   assert.equal(r.status, 201, JSON.stringify(r.data));
+  // 보상·크레딧이 걸린 요청은 본인확인을 마친 계정만 쓴다. 창 호출은 브라우저 몫이라 결과만 심는다.
+  await db.run("UPDATE users SET identity_verified_at = :t WHERE id = :id", { t: Date.now(), id: r.data.user.id });
   return { c, id: r.data.user.id };
 }
 
@@ -267,6 +269,25 @@ test("로그인해도 하루 첫 3회는 크레딧을 쓰지 않고, 그다음�
   assert.equal(fourth.usedFree, false);
   assert.equal(fourth.creditsSpent, 1);
   assert.equal(await credits.balance(userId), before - 1);
+});
+
+// 본인확인은 크레딧을 쓰기 시작할 때만 묻는다. 무료 3회는 익명에게도 주는 것이라 확인이 필요 없고,
+// 그 위로 넘어가려는 순간 멈춰서 화면이 인증 창을 띄우게 한다. 멈출 때 하루 사용량은 되돌린다.
+test("본인확인 전 계정은 무료 3회까지 쓰고, 크레딧으로 넘어가려는 순간 확인을 요구한다", async () => {
+  const usage = await import("../usageStore.js");
+  const { id: userId } = await signedUpUser("unverified@yume.test");
+  const user = { id: userId, plan: "free" };
+  for (let i = 0; i < usage.FREE_DAILY_CHECKS; i += 1) {
+    const r = await usage.checkAndConsume({ user, ip: "10.9.1.3", chars: 10, canSpendCredits: false });
+    assert.equal(r.allowed, true);
+    assert.equal(r.usedFree, true);
+  }
+  const blocked = await usage.checkAndConsume({ user, ip: "10.9.1.3", chars: 10, canSpendCredits: false });
+  assert.equal(blocked.allowed, false);
+  assert.equal(blocked.reason, "identity_required");
+  const peek = await usage.peekUsage({ user });
+  assert.equal(peek.usedToday, usage.FREE_DAILY_CHECKS, "막힌 한 번은 사용량에 남지 않는다");
+  assert.equal(await credits.balance(userId), 0, "확인 전에는 월 지급분도 들어오지 않는다");
 });
 
 test("크레딧이 있어도 하루 상한에서 멈춘다 (무료 플랜 15회, 유료는 플랜 한도)", async () => {

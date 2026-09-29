@@ -129,6 +129,9 @@ function cardHeader() {
     </div>`;
 }
 
+// 공유한 사람의 추천 코드. 결과 링크를 받아 들어온 사람이 "직접 확인해보기"로 가입하면 공유한
+// 사람에게 추천이 잡힌다 — 공유가 곧 추천이어야 공유 버튼을 누를 이유가 생긴다.
+let ctaHref = "/";
 function page({ head = "", cardBody, footer = "" }) {
   return `<!doctype html>
 <html lang="ko">
@@ -147,14 +150,15 @@ ${head}
       ${cardHeader()}
       <div class="card-body">${cardBody}</div>
     </div>
-    <a class="cta" href="/">유메로 직접 확인해보기 →</a>
+    <a class="cta" href="${esc(ctaHref)}">유메로 직접 확인해보기 →</a>
     ${footer}
   </div>
 </body>
 </html>`;
 }
 
-export function renderResultPage({ id, input, status, result, createdAt }) {
+export function renderResultPage({ id, input, status, result, createdAt, ref = null }) {
+  ctaHref = ref && /^[A-Z0-9]{8}$/.test(ref) ? `/?ref=${ref}` : "/";
   if (status === "pending") {
     const elapsedSec = Math.max(0, Math.round((Date.now() - (createdAt || Date.now())) / 1000));
     return page({

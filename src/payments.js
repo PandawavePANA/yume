@@ -35,12 +35,27 @@ function cancelled(message) {
  * 인증창을 먼저 띄우고, 끝나면 그 자리에서 결제창으로 넘어간다. 사용자가 "결제하기"를
  * 한 번 눌렀는데 인증만 하고 다시 눌러야 한다면 그건 중간에 끊긴 것이다.
  */
-async function ensureIdentity() {
+export async function ensureIdentity() {
   const cfg = await apiJson("/api/checkout/config");
   if (cfg?.identityVerified) return;
   if (!cfg?.identity) throw new Error("본인확인이 아직 준비되지 않았어요. 잠시 후 다시 시도해주세요.");
   // 동의 항목이 생기기 전에 가입한 회원은 이 자리에서 동의를 받는다.
   await verifyIdentity({ agree: !cfg.identityAgreed });
+}
+
+/**
+ * 보상이 걸린 요청(제보·정정)을 보낸다. 서버가 본인확인을 요구하면 인증 창을 열고, 마치면
+ * 같은 요청을 한 번 더 보낸다. 무료 확인은 본인확인 없이 쓸 수 있게 됐고 보상만 확인을 요구하므로,
+ * 보상 버튼을 누른 그 자리에서 확인을 끝낸다 — 오류 문구만 띄우면 어디서 하는지 찾아 헤맨다.
+ */
+export async function withIdentity(send) {
+  try {
+    return await send();
+  } catch (e) {
+    if (e?.data?.code !== "IDENTITY_REQUIRED") throw e;
+    await ensureIdentity();
+    return send();
+  }
 }
 
 /** 크레딧 팩 주문을 만든다. 결제창은 결제 화면(CheckoutPage)에서 연다. */

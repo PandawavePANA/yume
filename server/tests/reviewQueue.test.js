@@ -76,6 +76,8 @@ async function signedUp(email) {
   const c = client();
   const r = await c("POST", "/api/auth/signup", signupBody(email));
   assert.equal(r.status, 201, JSON.stringify(r.data));
+  // 제보·정정은 보상이 걸려 있어 본인확인을 마친 계정만 보낸다. 창 호출은 브라우저 몫이라 결과만 심는다.
+  await db.run("UPDATE users SET identity_verified_at = :t WHERE id = :id", { t: Date.now(), id: r.data.user.id });
   return { c, id: r.data.user.id };
 }
 
