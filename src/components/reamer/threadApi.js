@@ -26,6 +26,16 @@ export function readToken() {
   }
 }
 
+/** 문의를 보낸 그 자리에서 열쇠를 기억해 둔다. 대화를 한 번도 안 열고 떠나도 "내 의뢰"로 돌아온다. */
+export function rememberToken(token) {
+  if (!token || token.length < 20) return;
+  try {
+    localStorage.setItem(STORE_KEY, token);
+  } catch {
+    /* 저장이 막혀도 링크는 화면과 메일에 있다 */
+  }
+}
+
 export function forgetToken() {
   try {
     localStorage.removeItem(STORE_KEY);

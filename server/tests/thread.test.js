@@ -408,3 +408,55 @@ test("완료로 표시해도 의뢰인은 계속 대화할 수 있다", async ()
   const said = await client("/thread/message", { method: "POST", token, body: { body: "버튼 하나만 수정 부탁드립니다." } });
   assert.equal(said.status, 201, "인수 후 문의가 막히면 안 된다");
 });
+
+// ── 사진 ─────────────────────────────────────────────────────────────────
+// 시안·참고 화면·오류 캡처를 양쪽이 주고받는다. 지키는 것은 대화와 같다 — 그 대화의 열쇠가
+// 있어야 열리고, 사진이 아닌 것은 받지 않는다.
+const PNG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
+
+async function rawFile(path, headers) {
+  const res = await fetch(`${base}/api${path}`, { headers: { Origin: ORIGIN, "X-Forwarded-For": `10.7.2.${(ipSeq += 1)}`, ...headers } });
+  return { status: res.status, type: res.headers.get("content-type"), bytes: Buffer.from(await res.arrayBuffer()) };
+}
+
+test("사진: 의뢰인과 운영자가 주고받고, 그 대화의 열쇠로만 열린다", async () => {
+  const token = await openThread({ contact: "photo@example.com" });
+  const other = await openThread({ contact: "other-photo@example.com" });
+
+  const sent = await client("/thread/photo", { method: "POST", token, body: { images: [PNG, PNG], caption: "이런 느낌이면 좋겠어요" } });
+  assert.equal(sent.status, 201, JSON.stringify(sent.body));
+
+  const seen = await client("/thread", { token });
+  const msg = seen.body.messages.find((m) => m.kind === "photo");
+  assert.ok(msg, "사진 메시지가 대화에 남는다");
+  assert.equal(msg.body, "이런 느낌이면 좋겠어요");
+  assert.equal(msg.files.length, 2);
+
+  const fileId = msg.files[0].id;
+  const mine = await rawFile(`/thread/file/${fileId}`, { "X-Thread-Token": token });
+  assert.equal(mine.status, 200);
+  assert.equal(mine.type, "image/png");
+  assert.equal(mine.bytes[0], 0x89, "올린 파일 그대로");
+
+  assert.equal((await rawFile(`/thread/file/${fileId}`, { "X-Thread-Token": other })).status, 404, "남의 대화 열쇠로는 안 열린다");
+  assert.equal((await rawFile(`/thread/file/${fileId}`, {})).status, 404, "열쇠 없이는 안 열린다");
+
+  // 사진인 척하는 다른 파일은 받지 않는다(파일 머리를 본다).
+  const fake = "data:image/png;base64," + Buffer.from("<script>alert(1)</script>").toString("base64");
+  assert.equal((await client("/thread/photo", { method: "POST", token, body: { images: [fake] } })).status, 400);
+  assert.equal((await client("/thread/photo", { method: "POST", token, body: { images: [] } })).status, 400);
+
+  // 운영자 쪽: 데스크에서 보이고, 사진을 보낼 수 있고, 쿠키로 바로 열린다.
+  const list = await admin("/desk");
+  const row = list.body.threads.find((t) => t.contact === "photo@example.com");
+  const detail = await admin(`/desk/${row.id}`);
+  assert.equal(detail.body.messages.find((m) => m.kind === "photo").files.length, 2);
+  const back = await admin(`/desk/${row.id}/photo`, { method: "POST", body: { images: [PNG] } });
+  assert.equal(back.status, 201, JSON.stringify(back.body));
+  const again = await client("/thread", { token });
+  const fromUs = again.body.messages.filter((m) => m.kind === "photo").at(-1);
+  assert.equal(fromUs.sender, "reamer");
+  assert.equal(fromUs.body, "사진 1장", "설명이 없으면 장수로");
+  const adminFile = await fetch(`${base}/api/admin/desk/file/${fromUs.files[0].id}`, { headers: { Cookie: cookie } });
+  assert.equal(adminFile.status, 200);
+});

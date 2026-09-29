@@ -140,7 +140,9 @@ export async function openThreadForInquiry(inquiry) {
     name: inquiry.name,
     contact: inquiry.contact,
     // 목록에서 한 줄로 알아볼 수 있으면 된다. 회사명은 이제 묻지 않으므로 보내오면만 쓴다.
-    title: [inquiry.company || `${inquiry.name}님`, inquiry.budget].filter(Boolean).join(" · ").slice(0, 120),
+    // "아직 미정"은 제목에 붙여도 알아볼 거리가 안 된다.
+    title: [inquiry.company || `${inquiry.name}님`, inquiry.budget === "아직 미정" ? null : inquiry.budget]
+      .filter(Boolean).join(" · ").slice(0, 120),
   });
   await addMessage(t.id, "client", inquiry.message, { kind: "inquiry" });
   return t;
@@ -212,6 +214,7 @@ export function mailThreadOpened(thread, token) {
   if (!thread.client_email || !mailConfigured()) return;
   const url = threadUrl(token);
   fire("thread:mail-open", sendMail({
+    brand: "REAMER",
     to: thread.client_email,
     replyTo: COMPANY.email,
     subject: "[리머] 문의가 접수됐습니다 · 진행 상황은 이 링크에서",
@@ -237,6 +240,7 @@ export function mailThreadOpened(thread, token) {
 export function mailThreadLink(thread, token) {
   if (!thread.client_email || !mailConfigured()) return;
   fire("thread:mail-relink", sendMail({
+    brand: "REAMER",
     to: thread.client_email,
     replyTo: COMPANY.email,
     subject: "[리머] 요청하신 대화 링크입니다",
@@ -255,6 +259,7 @@ export async function mailOwnerNewClientMessage(thread, body) {
   if (Number(thread.notified_at || 0) > now() - NOTIFY_GAP_MS) return;
   await run("UPDATE threads SET notified_at = :t WHERE id = :id", { t: now(), id: thread.id });
   fire("thread:mail-owner", sendMail({
+    brand: "REAMER",
     to: OWNER(),
     replyTo: thread.client_email || undefined,
     subject: `[리머 대화] ${thread.client_name || "의뢰인"} · ${String(body).slice(0, 40)}`,
@@ -277,6 +282,7 @@ export function mailOwnerQuoteAccepted(thread, quote, { undo = false } = {}) {
   if (!mailConfigured()) return;
   const who = thread.client_name || "의뢰인";
   fire("thread:mail-accepted", sendMail({
+    brand: "REAMER",
     to: OWNER(),
     replyTo: thread.client_email || undefined,
     subject: undo
@@ -297,6 +303,7 @@ export function mailClientNewMessage(thread, body) {
   if (!thread.client_email || !mailConfigured()) return;
   const token = openToken(thread.link_enc);
   fire("thread:mail-client", sendMail({
+    brand: "REAMER",
     to: thread.client_email,
     replyTo: COMPANY.email,
     subject: "[리머] 답변이 도착했습니다",
@@ -314,6 +321,7 @@ export function mailClientQuote(thread, quote) {
   if (!thread.client_email || !mailConfigured()) return;
   const token = openToken(thread.link_enc);
   fire("thread:mail-quote", sendMail({
+    brand: "REAMER",
     to: thread.client_email,
     replyTo: COMPANY.email,
     subject: `[리머] 견적을 보내드렸습니다 · ${won(quote.amount_krw)}`,
@@ -367,6 +375,7 @@ export function mailQuoteReceipt(thread, quote) {
 
   if (to) {
     fire("thread:mail-receipt", sendMail({
+    brand: "REAMER",
       to,
       replyTo: COMPANY.email,
       subject: `[리머] 결제가 완료되었습니다 · ${quote.title}`,
@@ -385,6 +394,7 @@ export function mailQuoteReceipt(thread, quote) {
     }));
   }
   fire("thread:mail-paid-owner", sendMail({
+    brand: "REAMER",
     to: OWNER(),
     subject: `[리머 입금] ${won(quote.amount_krw)} · ${thread.client_name || "의뢰인"}`,
     text: `${thread.client_name || "의뢰인"} / ${quote.title} / ${won(quote.amount_krw)} / ${quote.method || "카드"}\n주문번호 ${quote.payment_id}`,

@@ -883,6 +883,22 @@ const MIGRATIONS = [
   );
   ALTER TABLE coupang_products ENABLE ROW LEVEL SECURITY;
   `,
+
+  // 의뢰 대화의 사진(server/threadFiles.js). 서버에 디스크가 없어 재배포하면 파일이 사라지므로
+  // DB에 담는다. 브라우저가 줄여서 보내 한 장이 보통 수백 KB다.
+  `
+  CREATE TABLE thread_files (
+    id SERIAL PRIMARY KEY,
+    thread_id INTEGER NOT NULL,
+    message_id INTEGER NOT NULL,
+    mime TEXT NOT NULL,
+    size INTEGER NOT NULL,
+    data TEXT NOT NULL,
+    created_at BIGINT NOT NULL
+  );
+  CREATE INDEX idx_thread_files_msg ON thread_files(message_id);
+  ALTER TABLE thread_files ENABLE ROW LEVEL SECURITY;
+  `,
 ];
 
 async function migrate() {

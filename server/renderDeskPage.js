@@ -143,6 +143,17 @@ export function renderDeskPage() {
   .err { display:none; margin-bottom:12px; padding:11px 13px; border-radius:11px; font-size:12.5px;
          background:rgba(224,116,92,.12); border:1px solid rgba(224,116,92,.3); color:#f0a08c; }
   .note { font-size:11.5px; color:var(--faint); line-height:1.7; }
+  /* 사진 — 대화 속 사진은 누르면 새 탭에 원본으로 열린다 */
+  .pics { display:grid; grid-template-columns:repeat(auto-fill,minmax(110px,1fr)); gap:6px; margin:2px 0 6px; min-width:min(240px,60vw); }
+  .pics a { display:block; aspect-ratio:1; border-radius:9px; overflow:hidden; background:rgba(0,0,0,.3); }
+  .pics img { width:100%; height:100%; object-fit:cover; display:block; }
+  .picked { display:flex; flex-wrap:wrap; gap:7px; margin-top:9px; }
+  .picked:empty { display:none; }
+  .picked span { position:relative; width:58px; height:58px; border-radius:9px; overflow:hidden; border:1px solid var(--line2); }
+  .picked img { width:100%; height:100%; object-fit:cover; display:block; }
+  .picked button { position:absolute; top:2px; right:2px; width:20px; height:20px; border-radius:50%; border:0; padding:0;
+                   background:rgba(0,0,0,.7); color:#fff; font-size:13px; line-height:20px; cursor:pointer; }
+  .amt { font-size:11.5px; color:#9fe0c0; min-height:1em; }
   .linkbox { margin:10px 16px 0; padding:10px 12px; border-radius:11px; font:12px/1.6 var(--mono);
              background:rgba(70,192,138,.1); border:1px solid rgba(70,192,138,.3); color:#9fe0c0;
              overflow-wrap:anywhere; display:none; }
@@ -194,7 +205,64 @@ export function renderDeskPage() {
       : d.toLocaleDateString("ko-KR", { month: "numeric", day: "numeric" });
   };
 
-  var state = { threads: [], picked: null, detail: null, busy: false };
+  var state = { threads: [], picked: null, detail: null, busy: false, sig: "", photos: [] };
+
+  // ── 사진 ──
+  // 휴대폰 사진은 한 장이 수 MB다. 긴 변 1920px JPEG로 줄여 보낸다(의뢰인 화면과 같은 규칙).
+  function shrink(file) {
+    return new Promise(function (resolve, reject) {
+      if (!file || file.type.indexOf("image/") !== 0) return reject(new Error("사진 파일만 보낼 수 있어요."));
+      var url = URL.createObjectURL(file);
+      var img = new Image();
+      img.onload = function () {
+        var s = Math.min(1, 1920 / Math.max(img.naturalWidth, img.naturalHeight));
+        var c = document.createElement("canvas");
+        c.width = Math.round(img.naturalWidth * s);
+        c.height = Math.round(img.naturalHeight * s);
+        var x = c.getContext("2d");
+        x.fillStyle = "#fff";
+        x.fillRect(0, 0, c.width, c.height);
+        x.drawImage(img, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(url);
+        resolve(c.toDataURL("image/jpeg", 0.86));
+      };
+      img.onerror = function () { URL.revokeObjectURL(url); reject(new Error("사진을 읽지 못했어요.")); };
+      img.src = url;
+    });
+  }
+
+  function renderPicked() {
+    var box = document.getElementById("picked");
+    if (!box) return;
+    box.innerHTML = state.photos.map(function (src, i) {
+      return '<span><img src="' + src + '" alt="" /><button data-unpick="' + i + '" title="빼기">&times;</button></span>';
+    }).join("");
+    var btn = document.querySelector("[data-send]");
+    if (btn) btn.textContent = state.photos.length ? "사진 " + state.photos.length + "장 보내기" : "보내기";
+  }
+
+  // 금액 칸 옆에 읽기 쉬운 숫자를 띄운다. 0을 하나 더 치거나 빼먹는 실수는 견적에서 가장 비싸다.
+  function readAmount() {
+    var el = document.getElementById("qAmount");
+    var out = document.getElementById("qAmountRead");
+    if (!el || !out) return;
+    var n = Number(el.value || 0);
+    out.textContent = n > 0 ? won(n) + " (부가세 포함) \\u00B7 의뢰인 화면에 이 금액 그대로 나갑니다" : "";
+  }
+  document.addEventListener("input", function (ev) { if (ev.target.id === "qAmount") readAmount(); });
+
+  document.addEventListener("change", async function (ev) {
+    if (ev.target.id !== "deskPhoto") return;
+    var files = [].slice.call(ev.target.files || []);
+    ev.target.value = "";
+    try {
+      var room = 6 - state.photos.length;
+      if (files.length > room) fail("사진은 한 번에 6장까지 보낼 수 있어요.");
+      var out = await Promise.all(files.slice(0, Math.max(0, room)).map(shrink));
+      state.photos = state.photos.concat(out).slice(0, 6);
+      renderPicked();
+    } catch (e) { fail(e.message); }
+  });
 
   function fail(m) { var e = document.getElementById("err"); e.textContent = m; e.style.display = m ? "block" : "none"; }
 
@@ -257,7 +325,13 @@ export function renderDeskPage() {
       return '<div class="sys' + tone + '">' + E(m.body) + "</div>";
     }
     var side = m.sender === "reamer" ? "reamer" : "client";
-    return '<div class="msg ' + side + '">' + E(m.body) +
+    var pics = (m.files || []).map(function (f) {
+      var u = "/api/admin/desk/file/" + Number(f.id);
+      return '<a href="' + u + '" target="_blank" rel="noreferrer"><img src="' + u + '" alt="첨부 사진" loading="lazy" /></a>';
+    }).join("");
+    return '<div class="msg ' + side + '">' +
+           (pics ? '<div class="pics">' + pics + "</div>" : "") +
+           (m.photoOnly ? "" : E(m.body)) +
            '<span class="st">' + E(when(m.created_at)) + "</span></div>";
   }
 
@@ -347,9 +421,21 @@ export function renderDeskPage() {
   }
 
   async function openThread(id, opts) {
+    var switching = state.picked !== id;
     state.picked = id;
     document.getElementById("split").classList.add("picked");
     var d = await api("/desk/" + id);
+    // 8초마다 부르는 자리다. 바뀐 게 없으면 다시 그리지 않는다 — 다시 그리면 쓰던 견적 칸이
+    // 지워지고, 위로 올려 읽던 대화가 맨 아래로 끌려 내려간다.
+    var sig = JSON.stringify([d.thread, d.messages, d.quotes, d.project, d.tasks]);
+    if (opts && opts.quiet && !switching && sig === state.sig) { await loadList(); return; }
+    // 뭔가 쓰는 중이면(칸에 글이 있고 커서가 거기 있으면) 이번엔 넘긴다. 다시 그리면 커서 자리가
+    // 흔들린다. 새 말이 왔다는 건 목록의 배지가 알려 주고, 손을 떼면 다음 차례에 그려진다.
+    var act = document.activeElement;
+    if (opts && opts.quiet && !switching && act && act.closest && act.closest("#pane") &&
+        /^(INPUT|TEXTAREA)$/.test(act.tagName) && act.value) { await loadList(); return; }
+    state.sig = sig;
+    if (switching) state.photos = [];
     state.detail = d;
     var t = d.thread;
 
@@ -373,8 +459,11 @@ export function renderDeskPage() {
     var composer = t.status === "closed"
       ? '<div class="compose"><p class="note">종료된 대화입니다. 다시 열면 이어서 이야기할 수 있습니다.</p></div>'
       : '<div class="compose">' +
-          '<textarea id="say" rows="3" placeholder="답장을 적으세요. Ctrl+Enter로 보냅니다."></textarea>' +
+          '<textarea id="say" rows="3" placeholder="답장을 적으세요. Ctrl+Enter로 보냅니다. 사진을 붙이면 이 글이 사진 설명이 됩니다."></textarea>' +
+          '<div class="picked" id="picked"></div>' +
           '<div class="act"><button class="ghost on" data-send>보내기</button>' +
+          '<button class="ghost" data-attach>사진 첨부</button>' +
+          '<input type="file" id="deskPhoto" accept="image/*" multiple hidden />' +
           '<span class="hint">' + (t.linkable ? "보내면 의뢰인에게 메일로 알립니다." : "메일 링크를 만들 수 없는 상태입니다(THREAD_LINK_KEY 미설정).") + "</span></div>" +
         "</div>";
 
@@ -383,7 +472,7 @@ export function renderDeskPage() {
       '<form class="newq" id="qform">' +
         "<label>항목<input type=\\"text\\" name=\\"title\\" maxlength=\\"120\\" required placeholder=\\"예: 예매 알림 서비스 개발 (1차)\\" /></label>" +
         '<div class="two">' +
-          "<label>금액(원)<input type=\\"number\\" name=\\"amount\\" min=\\"1000\\" step=\\"1000\\" required placeholder=\\"1500000\\" /></label>" +
+          "<label>금액(원, 부가세 포함)<input type=\\"number\\" name=\\"amount\\" id=\\"qAmount\\" min=\\"1000\\" step=\\"1000\\" required placeholder=\\"1500000\\" /><span class=\\"amt\\" id=\\"qAmountRead\\"></span></label>" +
           "<label>기간<input type=\\"text\\" name=\\"weeks\\" maxlength=\\"40\\" placeholder=\\"2~3주\\" /></label>" +
         "</div>" +
         "<label>포함 내용<textarea name=\\"detail\\" rows=\\"3\\" maxlength=\\"4000\\" placeholder=\\"무엇까지 해 드리는지 적어두면 나중에 서로 다른 말을 하지 않습니다.\\"></textarea></label>" +
@@ -394,25 +483,54 @@ export function renderDeskPage() {
 
     // 8초마다 다시 그리는 화면이다. 쓰던 답장을 날리지 않도록 입력칸은 옮겨 담는다 —
     // 긴 답장을 쓰는 도중에 글이 사라지는 것만큼 이 화면을 안 쓰게 만드는 일도 없다.
-    var prev = document.getElementById("say");
-    var draft = prev ? prev.value : "";
-    var openFolds = [].slice.call(document.querySelectorAll("details.fold")).map(function (f) { return f.open; });
+    // 같은 대화를 다시 그릴 때는 쓰던 것을 전부 옮겨 담는다 — 답장, 견적 칸, 할 일 칸, 진행률.
+    // 긴 견적을 쓰는 도중에 글이 사라지는 것만큼 이 화면을 안 쓰게 만드는 일도 없다.
+    var kept = {};
+    var focusedId = null;
+    var openFolds = [];
+    var oldTalk = document.getElementById("talk");
+    var atBottom = !oldTalk || oldTalk.scrollHeight - oldTalk.scrollTop - oldTalk.clientHeight < 60;
+    var oldScroll = oldTalk ? oldTalk.scrollTop : 0;
+    if (!switching) {
+      [].slice.call(document.querySelectorAll("#pane input, #pane textarea")).forEach(function (el) {
+        var k = el.id || (el.form && el.form.id ? el.form.id + ":" + el.name : "");
+        if (k && el.type !== "file") kept[k] = el.value;
+        if (el === document.activeElement) focusedId = k;
+      });
+      openFolds = [].slice.call(document.querySelectorAll("details.fold")).map(function (f) { return f.open; });
+    }
 
     document.getElementById("pane").innerHTML = head + progressBlock(d) + '<div class="talk" id="talk">' + body + "</div>" + quotes + composer + newQuote;
 
-    var box = document.getElementById("say");
-    if (box && draft) box.value = draft;
+    [].slice.call(document.querySelectorAll("#pane input, #pane textarea")).forEach(function (el) {
+      var k = el.id || (el.form && el.form.id ? el.form.id + ":" + el.name : "");
+      if (k && kept[k] !== undefined && el.type !== "file") el.value = kept[k];
+      if (k && k === focusedId) el.focus();
+    });
     [].slice.call(document.querySelectorAll("details.fold")).forEach(function (f, i) { if (openFolds[i] !== undefined) f.open = openFolds[i]; });
+    renderPicked();
+    readAmount();
+    var box = document.getElementById("say");
     var talk = document.getElementById("talk");
-    if (talk) talk.scrollTop = talk.scrollHeight;
+    // 맨 아래를 보고 있었으면 새 말을 따라 내려가고, 위를 읽고 있었으면 그 자리에 둔다.
+    if (talk) talk.scrollTop = switching || atBottom ? talk.scrollHeight : oldScroll;
+    if (focusedId) { await loadList(); return; }
     if ((!opts || !opts.quiet) && box) box.focus();
     await loadList();
   }
 
   // ── 조작 ──
   document.addEventListener("click", async function (ev) {
-    var el = ev.target.closest("[data-open],[data-send],[data-back],[data-link],[data-close],[data-pull],[data-mkproj],[data-pgsave],[data-tadd],[data-tdone],[data-tshare],[data-tdel],[data-deliver],#newThread");
+    var el = ev.target.closest("[data-open],[data-send],[data-back],[data-link],[data-close],[data-pull],[data-mkproj],[data-pgsave],[data-tadd],[data-tdone],[data-tshare],[data-tdel],[data-deliver],[data-attach],[data-unpick],#newThread");
     if (!el || state.busy) return;
+    // 사진 고르기와 빼기는 서버를 부르지 않는다. 바쁨 표시 없이 바로 처리한다.
+    if (el.hasAttribute("data-attach")) { ev.preventDefault(); document.getElementById("deskPhoto").click(); return; }
+    if (el.dataset.unpick !== undefined) {
+      ev.preventDefault();
+      state.photos.splice(Number(el.dataset.unpick), 1);
+      renderPicked();
+      return;
+    }
     ev.preventDefault();
     state.busy = true;
     fail("");
@@ -506,9 +624,14 @@ export function renderDeskPage() {
   async function send() {
     var box = document.getElementById("say");
     var body = (box.value || "").trim();
-    if (!body) return;
+    if (!body && !state.photos.length) return;
+    if (state.photos.length) {
+      await api("/desk/" + state.picked + "/photo", { method: "POST", body: { images: state.photos, caption: body } });
+      state.photos = [];
+    } else {
+      await api("/desk/" + state.picked + "/message", { method: "POST", body: { body: body } });
+    }
     box.value = "";
-    await api("/desk/" + state.picked + "/message", { method: "POST", body: { body: body } });
     await openThread(state.picked, { quiet: true });
   }
 
@@ -538,6 +661,8 @@ export function renderDeskPage() {
           valid_days: f.elements.valid.value,
         },
       });
+      // 보낸 견적 칸은 비운다. 다시 그릴 때 쓰던 값을 옮겨 담는 규칙이 이것까지 되살리지 않게.
+      f.reset();
       await openThread(state.picked);
     } catch (e) {
       fail(e.message);

@@ -18,6 +18,8 @@ import { COMPANY } from "./renderPages.js";
 import { STORE_ID, CHANNEL_KEY, paymentConfigured } from "./portone.js";
 import { newPaymentId, settleQuote } from "./quoteCheckout.js";
 import { progressFor } from "./threadProgress.js";
+import express from "express";
+import { postPhotos, readFile, sendFile, withFiles } from "./threadFiles.js";
 import {
   addMessage,
   listMessages,
@@ -70,6 +72,7 @@ const publicMessage = (m) => ({
   body: m.body,
   quoteId: m.quote_id,
   at: Number(m.created_at),
+  ...(m.files ? { files: m.files, photoOnly: !!m.photoOnly } : {}),
 });
 
 // 결제 수단·주문번호까지 의뢰인에게 보인다. 자기가 낸 돈의 기록이라 감출 이유가 없다.
@@ -95,7 +98,7 @@ threadRouter.get("/thread", cors, limitMiddleware(readLimiter, (req) => `thread-
   const { thread } = found;
   const after = Math.max(0, Math.floor(Number(req.query.after) || 0));
   const [messages, quotes, progress] = await Promise.all([
-    listMessages(thread.id, after),
+    listMessages(thread.id, after).then(withFiles),
     listQuotes(thread.id),
     progressFor(thread),
   ]);
@@ -144,6 +147,38 @@ threadRouter.post(
     await mailOwnerNewClientMessage(thread, body).catch((e) => logError("thread:notify-owner", e));
   },
 );
+
+// ── 사진 ───────────────────────────────────────────────────────────────
+//
+// 참고 화면, 손그림, 오류 캡처. 말로 설명하면 열 줄인 것이 사진 한 장이다.
+// 본문이 커서 전역 파서(256KB)를 비켜 오고 여기서 자기 파서를 단다(app.js BIG_BODY).
+threadRouter.options("/thread/photo", cors);
+threadRouter.post(
+  "/thread/photo",
+  cors,
+  express.json({ limit: "25mb" }),
+  limitMiddleware(writeLimiter, (req) => `thread-write:${clientIp(req)}`),
+  async (req, res) => {
+    const found = await load(req, res);
+    if (!found) return;
+    const { thread } = found;
+    if (thread.status === "closed") return res.status(409).json({ error: "종료된 대화예요. 새로 문의해주세요." });
+    const r = await postPhotos(thread.id, "client", req.body?.images, clean(req.body?.caption, 5000));
+    if (r.error) return res.status(400).json({ error: r.error });
+    res.status(201).json({ ok: true, id: r.id });
+    await mailOwnerNewClientMessage(thread, `[사진 ${r.count}장] ${r.body}`).catch((e) => logError("thread:notify-owner", e));
+  },
+);
+
+// 사진 보기. 이미지 태그는 헤더를 못 싣으므로 화면이 토큰 헤더로 받아 blob으로 띄운다.
+threadRouter.options("/thread/file/:id", cors);
+threadRouter.get("/thread/file/:id", cors, limitMiddleware(readLimiter, (req) => `thread-read:${clientIp(req)}`), async (req, res) => {
+  const found = await load(req, res);
+  if (!found) return;
+  const file = await readFile(req.params.id, found.thread.id);
+  if (!file) return res.status(404).json({ error: "사진을 찾을 수 없어요." });
+  sendFile(res, file);
+});
 
 // ── 견적 확정 ──────────────────────────────────────────────────────────
 //

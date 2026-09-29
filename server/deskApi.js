@@ -23,6 +23,7 @@ import {
   won,
 } from "./threads.js";
 import { taskKey } from "./threadProgress.js";
+import { postPhotos, readFile, sendFile, withFiles } from "./threadFiles.js";
 
 export const deskRouter = patchAsync(express.Router());
 deskRouter.use(requireAdmin);
@@ -121,7 +122,7 @@ deskRouter.get("/desk/:id", async (req, res) => {
   const t = await threadById(int(req.params.id));
   if (!t) return res.status(404).json({ error: "대화를 찾을 수 없어요." });
   const [messages, quotes, project, inquiry, tasks] = await Promise.all([
-    listMessages(t.id, Math.max(0, int(req.query.after))),
+    listMessages(t.id, Math.max(0, int(req.query.after))).then(withFiles),
     listQuotes(t.id),
     t.project_id ? one("SELECT * FROM projects WHERE id = :id", { id: t.project_id }) : null,
     t.inquiry_id ? one("SELECT * FROM inquiries WHERE id = :id", { id: t.inquiry_id }) : null,
@@ -160,6 +161,23 @@ deskRouter.post("/desk/:id/message", async (req, res) => {
   const msg = await addMessage(t.id, "reamer", body);
   res.status(201).json({ ok: true, id: msg.id });
   mailClientNewMessage(t, body);
+});
+
+// 사진 — 시안이나 진행 화면을 보여 줄 때. 본문이 커서 전역 파서를 비켜 온다(app.js BIG_BODY).
+deskRouter.post("/desk/:id/photo", express.json({ limit: "25mb" }), async (req, res) => {
+  const t = await threadById(int(req.params.id));
+  if (!t) return res.status(404).json({ error: "대화를 찾을 수 없어요." });
+  const r = await postPhotos(t.id, "reamer", req.body?.images, str(req.body?.caption, 5000) || "");
+  if (r.error) return res.status(400).json({ error: r.error });
+  res.status(201).json({ ok: true, id: r.id });
+  mailClientNewMessage(t, `${r.body}\n\n(사진 ${r.count}장은 대화 화면에서 보실 수 있습니다.)`);
+});
+
+// 운영자는 관리자 쿠키로 연다. 이미지 태그가 그대로 쓸 수 있다.
+deskRouter.get("/desk/file/:id", async (req, res) => {
+  const file = await readFile(req.params.id, null);
+  if (!file) return res.status(404).json({ error: "사진을 찾을 수 없어요." });
+  sendFile(res, file);
 });
 
 // ── 견적(결제 요청) ────────────────────────────────────────────────────

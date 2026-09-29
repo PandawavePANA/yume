@@ -4,6 +4,7 @@ import "@/components/reamer/site.css";
 import SiteBackdrop from "@/components/reamer/SiteBackdrop";
 import Logo from "@/components/reamer/Logo";
 import { BUSINESS, telHref, COPYRIGHT, businessLine } from "@/businessInfo";
+import { rememberToken } from "@/components/reamer/threadApi";
 import { NAV, HERO_NOTE, WHY, GUARANTEES, SERVICES, PROCESS, WORK, ALSO, CREDENTIALS, TIMELINE, FAQ, AFTER_SEND } from "@/reamerContent";
 
 // Characters are split into spans so the global cursor-tile trail can flip
@@ -126,6 +127,23 @@ const BUDGETS = [
   ["over-3000", "3,000만원 이상"],
 ];
 
+function CopyLink({ url }) {
+  const [done, setDone] = useState(false);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(url);
+      setDone(true);
+    } catch {
+      window.prompt("아래 링크를 복사해 두세요.", url);
+    }
+  };
+  return (
+    <button type="button" className="btn btn--ghost inquiry__copy" onClick={copy}>
+      {done ? "복사했습니다 — 메모장이나 카톡 나에게 보내기에 붙여 두세요" : "대화 링크 복사"}
+    </button>
+  );
+}
+
 function InquiryForm() {
   const [form, setForm] = useState({ name: "", contact: "", budget: "undecided", message: "", website: "" });
   const [state, setState] = useState("idle");
@@ -147,6 +165,7 @@ function InquiryForm() {
       const data = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(data.error || "보내지 못했어요. 잠시 후 다시 시도해주세요.");
       setThreadUrl(data.threadUrl || "");
+      rememberToken(String(data.threadUrl || "").split("#")[1]);
       setState("done");
     } catch (err) {
       // 네트워크가 막혀도 메일이라는 길이 남아 있다는 걸 알려 준다.
@@ -168,10 +187,23 @@ function InquiryForm() {
             <a className="btn btn--solid inquiry__submit" href={threadUrl}>
               대화 열기 <span className="btn__arrow">→</span>
             </a>
-            <p className="inquiry__note">
-              같은 링크를 <b>{form.contact}</b>로도 보내드렸습니다. 이 주소를 아는 사람은 대화를 볼 수 있으니
-              공유에 주의해주세요.
-            </p>
+            {/* 링크 메일은 연락처가 이메일일 때만 나간다(threads.js mailThreadOpened). 전화번호를
+                남긴 사람에게 "보내드렸다"고 하면 없는 메일을 기다리다 링크를 잃는다 — 이 링크가 대화의
+                유일한 열쇠라, 그때는 지금 저장하게 한다. */}
+            {/.+@.+\..+/.test(form.contact) ? (
+              <p className="inquiry__note">
+                같은 링크를 <b>{form.contact}</b>로도 보내드렸습니다. 이 주소를 아는 사람은 대화를 볼 수 있으니
+                공유에 주의해주세요.
+              </p>
+            ) : (
+              <>
+                <p className="inquiry__note">
+                  <b>이 링크를 꼭 저장해 두세요.</b> 전화번호로 문의하셔서 메일로는 보내드리지 못했습니다.
+                  이 브라우저에서는 사이트 맨 위 「내 의뢰」로 다시 열 수 있지만, 다른 기기에서는 이 링크가 있어야 열립니다.
+                </p>
+                <CopyLink url={threadUrl} />
+              </>
+            )}
           </>
         ) : (
           <p className="inquiry__done-desc">

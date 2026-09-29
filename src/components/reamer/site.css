@@ -1417,3 +1417,4 @@
 .faq__mark { flex: none; font: 500 16px/1.4 var(--mono); color: var(--ink-faint); }
 .faq__toggle[aria-expanded="true"] .faq__mark { color: var(--ink); }
 .faq__toggle + * { margin-top: 0; }
+.inquiry__copy { align-self: flex-start; margin-top: 4px; }

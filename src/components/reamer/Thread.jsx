@@ -7,7 +7,9 @@
 // 로그인은 없다. 링크가 곧 열쇠다.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { BUSINESS, telHref } from "@/businessInfo";
-import { call, forgetToken, readToken } from "./threadApi.js";
+import { API, call, forgetToken, readToken } from "./threadApi.js";
+import { MAX_PHOTOS, shrinkPhoto } from "./photos.js";
+import { openQuoteDoc } from "./quoteDoc.js";
 import "./thread.css";
 
 const sdk = () => import("@portone/browser-sdk/v2");
@@ -34,6 +36,9 @@ export default function Thread() {
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [payFor, setPayFor] = useState(null);
+  // 보내기 전에 고른 사진(줄인 data URL). 글과 같이 한 번에 나간다.
+  const [photos, setPhotos] = useState([]);
+  const pickRef = useRef(null);
   const talkRef = useRef(null);
   const stick = useRef(true);
 
@@ -100,13 +105,33 @@ export default function Thread() {
       .catch((e) => setError(e.message));
   }, [token, load]);
 
+  const pick = async (e) => {
+    const files = [...(e.target.files || [])];
+    e.target.value = "";
+    if (!files.length) return;
+    setError("");
+    const room = MAX_PHOTOS - photos.length;
+    if (files.length > room) setError(`사진은 한 번에 ${MAX_PHOTOS}장까지 보낼 수 있어요.`);
+    try {
+      const shrunk = await Promise.all(files.slice(0, Math.max(0, room)).map(shrinkPhoto));
+      setPhotos((p) => [...p, ...shrunk].slice(0, MAX_PHOTOS));
+    } catch (err) {
+      setError(err.message || "사진을 읽지 못했어요.");
+    }
+  };
+
   const send = async () => {
     const body = draft.trim();
-    if (!body || sending) return;
+    if ((!body && !photos.length) || sending) return;
     setSending(true);
     setError("");
     try {
-      await call("/thread/message", { method: "POST", token, body: { body } });
+      if (photos.length) {
+        await call("/thread/photo", { method: "POST", token, body: { images: photos, caption: body } });
+        setPhotos([]);
+      } else {
+        await call("/thread/message", { method: "POST", token, body: { body } });
+      }
       setDraft("");
       stick.current = true;
       await load();
@@ -142,6 +167,7 @@ export default function Thread() {
         <QuoteCard
           key={q.id}
           quote={q}
+          thread={data.thread}
           payable={data.payable}
           onPay={() => setPayFor(q)}
           onAccept={async (accept) => {
@@ -158,7 +184,7 @@ export default function Thread() {
 
       <section className="th__talk" ref={talkRef} onScroll={onScroll}>
         {data.messages.map((m) => (
-          <Bubble key={m.id} m={m} quotes={data.quotes} />
+          <Bubble key={m.id} m={m} quotes={data.quotes} token={token} />
         ))}
       </section>
 
@@ -182,10 +208,25 @@ export default function Thread() {
               }
             }}
           />
+          {photos.length > 0 && (
+            <div className="th__picked">
+              {photos.map((src, i) => (
+                <span className="th__pickedItem" key={i}>
+                  <img src={src} alt="" />
+                  <button type="button" aria-label="이 사진 빼기" onClick={() => setPhotos((p) => p.filter((_, j) => j !== i))}>×</button>
+                </span>
+              ))}
+            </div>
+          )}
           <div className="th__composeRow">
-            <button className="th__send" type="button" onClick={send} disabled={sending || !draft.trim()}>
-              {sending ? "보내는 중…" : "보내기"}
+            <button className="th__send" type="button" onClick={send} disabled={sending || (!draft.trim() && !photos.length)}>
+              {sending ? "보내는 중…" : photos.length ? `사진 ${photos.length}장 보내기` : "보내기"}
             </button>
+            {/* 참고 화면·손그림·오류 캡처. 말로 열 줄인 것이 사진 한 장이다. */}
+            <button className="th__attach" type="button" onClick={() => pickRef.current?.click()} disabled={sending || photos.length >= MAX_PHOTOS}>
+              사진 첨부
+            </button>
+            <input ref={pickRef} id="th-photo" type="file" accept="image/*" multiple hidden onChange={pick} />
             <span className="th__hint">Ctrl+Enter로도 보낼 수 있어요</span>
           </div>
         </div>
@@ -252,7 +293,39 @@ function ThreadFoot({ company }) {
   );
 }
 
-function Bubble({ m, quotes }) {
+/**
+ * 대화 속 사진. 이미지 태그는 헤더를 못 싣는데 사진은 토큰이 있어야 열리므로, 토큰 헤더로
+ * 받아 blob 주소로 띄운다. 7초마다 대화를 다시 불러도 같은 사진은 다시 받지 않는다.
+ */
+const photoCache = new Map();
+function Photo({ id, token }) {
+  const [src, setSrc] = useState(() => photoCache.get(id) || "");
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    if (src) return undefined;
+    let alive = true;
+    fetch(`${API}/api/thread/file/${id}`, { headers: { "X-Thread-Token": token } })
+      .then((r) => (r.ok ? r.blob() : Promise.reject(new Error(String(r.status)))))
+      .then((b) => {
+        const url = URL.createObjectURL(b);
+        photoCache.set(id, url);
+        if (alive) setSrc(url);
+      })
+      .catch(() => alive && setFailed(true));
+    return () => {
+      alive = false;
+    };
+  }, [id, token, src]);
+  if (failed) return <span className="th__photo th__photo--gone">사진을 불러오지 못했어요</span>;
+  if (!src) return <span className="th__photo th__photo--wait" />;
+  return (
+    <a className="th__photo" href={src} target="_blank" rel="noreferrer">
+      <img src={src} alt="첨부 사진" loading="lazy" />
+    </a>
+  );
+}
+
+function Bubble({ m, quotes, token }) {
   if (m.sender === "system") {
     const q = quotes.find((x) => x.id === m.quoteId);
     return (
@@ -266,7 +339,15 @@ function Bubble({ m, quotes }) {
   return (
     <div className={`th__msg ${mine ? "th__msg--mine" : "th__msg--them"}`}>
       {!mine && <span className="th__from">리머</span>}
-      <p>{m.body}</p>
+      {m.files?.length > 0 && (
+        <div className={m.files.length === 1 ? "th__photos th__photos--one" : "th__photos"}>
+          {m.files.map((f) => (
+            <Photo key={f.id} id={f.id} token={token} />
+          ))}
+        </div>
+      )}
+      {/* 설명 없이 보낸 사진은 본문이 "사진 N장"이다. 사진이 이미 보이니 그 줄은 생략한다. */}
+      {!m.photoOnly && <p>{m.body}</p>}
       <time>{clock(m.at)}</time>
     </div>
   );
@@ -279,7 +360,7 @@ function Bubble({ m, quotes }) {
  * 포함되는지를 읽지 않게 만들기 때문이다. 확정을 먼저 누르게 하면 범위를 읽고
  * 결정할 자리가 생기고, 결제는 그다음에 하는 일이 된다.
  */
-function QuoteCard({ quote, payable, onPay, onAccept }) {
+function QuoteCard({ quote, thread, payable, onPay, onAccept }) {
   const [busy, setBusy] = useState(false);
   const expired = quote.expiresAt && quote.expiresAt < Date.now();
   const accepted = quote.status === "accepted";
@@ -299,6 +380,10 @@ function QuoteCard({ quote, payable, onPay, onAccept }) {
       </p>
       {quote.weeks && <p className="th__quoteMeta">작업 기간 {quote.weeks}</p>}
       {quote.detail && <p className="th__quoteDetail">{quote.detail}</p>}
+      {/* 기업 의뢰인은 사내 결재에 "견적서"라는 문서가 필요하다. */}
+      <button className="th__doc" type="button" onClick={() => openQuoteDoc(quote, thread)}>
+        견적서 보기 · PDF 저장
+      </button>
 
       {expired && !accepted ? (
         <p className="th__quoteNote">유효기간이 지난 견적입니다. 대화로 말씀해주시면 다시 보내드리겠습니다.</p>
