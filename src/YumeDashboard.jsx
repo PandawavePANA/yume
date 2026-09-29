@@ -16,7 +16,7 @@ import { IS_STORE_BUILD } from "./storeBuild.js";
 import { orderPlan, resumeFromRedirect, verifyIdentity } from "./payments.js";
 import SidePanel, { PANEL_WIDTH } from "@/components/yume/SidePanel";
 import { t, useLang } from "./i18n.js";
-import { useMediaQuery, useWideScreen } from "./useMedia.js";
+import { useMediaQuery } from "./useMedia.js";
 
 // 기업용 사이트 주소. 별도 도메인에 따로 배포되므로 코드에 박지 않고 빌드 환경변수로 받는다.
 const BUSINESS_URL = (import.meta.env?.VITE_BUSINESS_URL || "https://business.yume-reamer.com").replace(/\/+$/, "");
@@ -710,30 +710,21 @@ export default function YumeDashboard() {
   // 예전에는 채팅은 사이드바, 랭킹은 화면 한가운데 모달이라 여는 방식이 달랐다. 둘 다
   // "누가 얼마나 보탰나"를 말하는데, 랭킹을 보려면 화면 전체가 덮이고 하던 일이 멈췄다.
   //
-  // 넓은 화면에서는 채팅을 기본으로 열어 둔다 — 이름 옆 등수가 보이는 것이 이 화면의
-  // 이유라, 닫혀 있으면 아무도 순위를 신경 쓰지 않는다. 대신 본문을 덮지 않고 밀어내므로
-  // 열려 있어도 잘리는 것이 없다. 한 번 닫으면 그 선택을 기억한다.
-  const [panelTab, setPanelTab] = useState(() => {
-    if (typeof window === "undefined") return null;
+  // 왼쪽 기록 서랍과 같은 방식이다 — 오른쪽 위 버튼으로 열고, 본문을 밀지 않고 위에 덮으며,
+  // 처음에는 닫혀 있다. 예전에는 넓은 화면에서 기본으로 열려 본문을 밀어냈는데, 양쪽 서랍이
+  // 서로 다르게 움직여 헷갈렸고 첫 화면의 오른쪽 3분의 1을 늘 차지했다.
+  const [panelTab, setPanelTab] = useState(null);
+  // 마지막으로 보던 탭(채팅/랭킹)만 기억해 다음에 그 탭으로 연다.
+  const lastTabRef = useRef((() => {
     try {
-      const saved = localStorage.getItem("yume:panel");
-      if (saved === "0") return null;
-      if (saved === "chat" || saved === "rank") return saved;
-      // 예전 이름으로 저장해 둔 선택을 이어받는다.
-      const old = localStorage.getItem("yume:lobby");
-      if (old === "0") return null;
-      if (old === "1") return "chat";
+      const saved = localStorage.getItem("yume:panel-tab");
+      return saved === "rank" ? "rank" : "chat";
     } catch {
-      // 저장소가 막혀 있으면 화면 폭으로만 정한다.
+      return "chat";
     }
-    return window.innerWidth >= 1180 ? "chat" : null;
-  });
-  // 넓은 화면에서만 본문을 민다. 좁으면 채팅이 서랍으로 덮으므로 밀 자리가 없다.
-  const lastTabRef = useRef("chat");
-  const wideScreen = useWideScreen();
+  })());
   // 상단 바가 한 줄에 안 들어가기 시작하는 폭. 여기서부터 알약의 글자를 줄인다.
   const tightNav = useMediaQuery("(max-width: 480px)", false);
-  const lobbyPushes = !!panelTab && wideScreen;
   const { lang, setLang } = useLang();
 
   // 버튼이 하나이므로 "무엇을 열지"를 기억해 둔다. 랭킹을 보던 사람이 누를 때마다
@@ -744,8 +735,10 @@ export default function YumeDashboard() {
   const openPanel = React.useCallback((next) => {
     setPanelTab((prev) => {
       const v = prev === next ? null : next;
-      if (v) lastTabRef.current = v;
-      try { localStorage.setItem("yume:panel", v || "0"); } catch { /* 저장 못 해도 이번 방문에는 적용된다 */ }
+      if (v) {
+        lastTabRef.current = v;
+        try { localStorage.setItem("yume:panel-tab", v); } catch { /* 저장 못 해도 이번 방문에는 적용된다 */ }
+      }
       return v;
     });
   }, []);
@@ -1179,14 +1172,14 @@ export default function YumeDashboard() {
     if (authModal) { setAuthModal(null); return true; }
     if (accountTab) { setAccountTab(null); return true; }
     if (showPricing) { setShowPricing(false); return true; }
-    if (panelTab && !wideScreen) { openPanel(null); return true; }
+    if (panelTab) { openPanel(null); return true; }
     if (showReview) { setShowReview(false); return true; }
     if (showAudit) { setShowAudit(false); return true; }
     if (showBiz) { setShowBiz(false); return true; }
     if (sidebarOpen) { setSidebarOpen(false); return true; }
     if (stage === "done") { reset(); return true; }
     return false;
-  }), [userMenuOpen, authModal, accountTab, showPricing, showBiz, showAudit, showReview, panelTab, wideScreen, openPanel, sidebarOpen, stage]);
+  }), [userMenuOpen, authModal, accountTab, showPricing, showBiz, showAudit, showReview, panelTab, openPanel, sidebarOpen, stage]);
   const confirmedCount = result?.claims?.filter(c => c.verdict === "confirmed").length ?? 0;
   const totalCount = result?.claims?.length ?? 0;
   const allSources = (result?.claims || []).flatMap(c => (c.sources || []).map(s => ({ ...s, forClaim: c.text })));
@@ -1300,13 +1293,8 @@ export default function YumeDashboard() {
         </div>
       </aside>
 
-      {/* CONTENT — 채팅이 열려 있고 화면이 넓으면 그만큼 밀어낸다.
-          예전에는 채팅이 본문 위를 덮어서, 1440px 화면에서 카드의 마지막 칸과 문단
-          오른쪽이 잘린 채로 보였다. 좁은 화면에서는 채팅이 서랍으로 덮으므로 밀지 않는다. */}
-      <div style={{
-        paddingRight: lobbyPushes ? PANEL_WIDTH : 0,
-        transition: "padding-right 0.32s cubic-bezier(0.22,1,0.36,1)",
-      }}>
+      {/* CONTENT — 오른쪽 채팅·랭킹 서랍은 왼쪽 기록 서랍처럼 위에 덮는다(밀지 않는다). */}
+      <div>
       {/* 애플식 반투명 상단 바 — 스크롤하면 유리 질감과 가는 경계선이 나타난다 */}
       <div style={{
         position: "sticky", top: 0, zIndex: 45, paddingTop: "var(--yume-safe-top)",
@@ -1337,18 +1325,6 @@ export default function YumeDashboard() {
         <div className="yume-nav-right" style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end", alignItems: "center" }}>
           {/* 기업용 사이트는 별도 도메인이라 내부 이동이 아니라 바깥 링크다.
               앱에서는 숨긴다 — 도입 상담을 하려고 앱을 깔지는 않는다. */}
-          {/* 랭킹과 채팅은 같은 사이드바를 여니 버튼도 하나다. 어느 쪽을 볼지는 그 안에서
-              고르고, 마지막으로 보던 탭이 다시 열린다. 버튼이 둘이면 상단 바만 좁아졌다.
-              앱에서는 아래 탭바에 같은 문이 있으므로 위에는 두지 않는다. */}
-          {!IS_STORE_BUILD && <motion.button {...navEnter(0.06)}
-            whileHover={{ backgroundColor: "#fff" }} whileTap={{ scale: 0.96 }}
-            onClick={() => openPanel(lastPanelTab)}
-            aria-label={t("랭킹 · 채팅")}
-            className="yume-nav-pill" style={{
-            ...pillBtn, border: `1px solid ${panelTab ? UI.accent : UI.hairline}`,
-            background: panelTab ? "rgba(91,63,160,0.08)" : "rgba(255,255,255,0.55)",
-            color: panelTab ? UI.accent : UI.ink2, fontWeight: 600,
-          }}>{tightNav ? t("랭킹") : t("랭킹 · 채팅")}</motion.button>}
           {/* 언어. 바꿔 갈 언어를 그 언어로 적는다 — "English"라고 적혀 있으면
               한국어를 못 읽는 사람도 무슨 버튼인지 안다. "EN/KO" 같은 약자는
               눌러 보기 전에는 지금이 어느 쪽인지 알 수 없다. */}
@@ -1422,6 +1398,27 @@ export default function YumeDashboard() {
               onClick={() => setAuthModal("login")} className="yume-nav-pill" style={{
               ...pillBtn, border: "none", background: UI.button, color: "#fff", fontWeight: 600,
             }}>{t("로그인 / 회원가입")}</motion.button>
+          )}
+          {/* 랭킹 · 채팅 — 왼쪽 위 기록 버튼(☰)과 짝을 이루는 오른쪽 위 버튼. 모양도 크기도 같다.
+              어느 탭을 볼지는 서랍 안에서 고르고, 마지막으로 보던 탭이 다시 열린다.
+              앱에서는 아래 탭바에 같은 문이 있으므로 위에는 두지 않는다. */}
+          {!IS_STORE_BUILD && (
+            <motion.button {...navEnter(0.22)}
+              whileHover={{ backgroundColor: "#fff" }} whileTap={{ scale: 0.94 }}
+              onClick={() => openPanel(lastPanelTab)}
+              aria-label={t("랭킹 · 채팅")} aria-expanded={!!panelTab} title={t("랭킹 · 채팅")}
+              style={{
+                width: 36, height: 36, borderRadius: 10, flex: "none", padding: 0, cursor: "pointer",
+                border: `1px solid ${panelTab ? UI.accent : UI.hairline}`,
+                background: panelTab ? "rgba(91,63,160,0.08)" : "rgba(255,255,255,0.6)",
+                color: panelTab ? UI.accent : UI.ink2,
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M4 5.5h16v10H9l-5 4v-14z" />
+                <path d="M8.5 9.5h7M8.5 12.5h4.5" />
+              </svg>
+            </motion.button>
           )}
         </div>
       </nav>

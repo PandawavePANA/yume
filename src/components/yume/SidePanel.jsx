@@ -4,13 +4,13 @@
 // (누가 얼마나 보탰나) 여는 방식이 달라서, 랭킹을 보려면 화면 전체가 덮이고 하던 일이
 // 멈췄다. 한 자리에 두면 검증을 돌려 놓고 순위를 보다가 채팅으로 넘어갈 수 있다.
 //
-// ── 넓은 화면과 좁은 화면이 다르게 동작한다 ──
-// 넓으면 본문을 **밀고**(부모가 paddingRight를 준다), 좁으면 덮는 서랍이 된다.
-// 덮을 때는 뒤를 어둡게 하고 Esc와 바깥 클릭으로 닫힌다 — 덮은 것은 닫을 수 있어야 한다.
+// ── 왼쪽 기록 서랍과 같은 방식 ──
+// 오른쪽 위 버튼으로 열고, 본문을 밀지 않고 위에 덮는다. 뒤를 어둡게 하고 Esc와 바깥 클릭으로
+// 닫힌다 — 덮은 것은 닫을 수 있어야 한다. 예전에는 넓은 화면에서 본문을 밀어냈는데, 양쪽
+// 서랍이 서로 다르게 움직여 헷갈렸다.
 import { useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { t } from "../../i18n.js";
-import { useWideScreen } from "../../useMedia.js";
 // 열 때 가져온다. 사이드바를 한 번도 안 여는 사람이 이 둘을 내려받을 이유가 없다.
 import { LobbyPanel, RankingPanel } from "../../chunks.jsx";
 
@@ -23,36 +23,32 @@ const TABS = [
 ];
 
 export default function SidePanel({ tab, onTab, onClose, loggedIn, onNeedLogin }) {
-  const wide = useWideScreen();
   const open = !!tab;
 
-  // 덮고 있을 때만 Esc로 닫는다. 밀어내는 중에는 본문이 멀쩡히 보이므로,
-  // Esc가 이걸 닫아 버리면 다른 것을 닫으려던 사람이 놀란다.
   useEffect(() => {
-    if (!open || wide) return undefined;
+    if (!open) return undefined;
     const onKey = (e) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, wide, onClose]);
+  }, [open, onClose]);
 
   return (
     <AnimatePresence>
       {open && (
         <>
-          {!wide && (
-            <motion.div
-              key="panel-scrim"
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              onClick={onClose}
-              style={{ position: "fixed", inset: 0, zIndex: 47, background: "rgba(18,14,26,0.34)", backdropFilter: "blur(2px)" }}
-            />
-          )}
+          {/* 왼쪽 기록 서랍과 같은 뒤 가림막. */}
+          <motion.div
+            key="panel-scrim"
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            transition={{ duration: 0.25 }}
+            onClick={onClose}
+            style={{ position: "fixed", inset: 0, zIndex: 47, background: "rgba(24,16,44,0.18)", backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)" }}
+          />
 
           <motion.aside
             key="panel"
-            role={wide ? "complementary" : "dialog"}
-            aria-modal={wide ? undefined : "true"}
+            role="dialog"
+            aria-modal="true"
             aria-label={t(TABS.find((x) => x.key === tab)?.label || "채팅")}
             initial={{ x: PANEL_WIDTH }} animate={{ x: 0 }} exit={{ x: PANEL_WIDTH }}
             transition={{ duration: 0.32, ease: EASE }}
@@ -63,7 +59,7 @@ export default function SidePanel({ tab, onTab, onClose, loggedIn, onNeedLogin }
               background: "rgba(250,248,254,0.94)",
               backdropFilter: "saturate(140%) blur(18px)", WebkitBackdropFilter: "saturate(140%) blur(18px)",
               borderLeft: "1px solid rgba(20,17,24,0.10)",
-              boxShadow: wide ? "none" : "-12px 0 48px rgba(60,35,120,0.18)",
+              boxShadow: "-12px 0 48px rgba(60,35,120,0.18)",
               paddingTop: "var(--yume-safe-top)", paddingBottom: "var(--yume-safe-bottom)",
             }}
           >
