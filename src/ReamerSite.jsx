@@ -6,6 +6,8 @@ import Logo from "@/components/reamer/Logo";
 import { BUSINESS, telHref, COPYRIGHT, businessLine } from "@/businessInfo";
 import { rememberToken } from "@/components/reamer/threadApi";
 import { NAV, HERO_NOTE, WHY, GUARANTEES, SERVICES, PROCESS, WORK, ALSO, CREDENTIALS, TIMELINE, FAQ, AFTER_SEND } from "@/reamerContent";
+import "@/components/reamer/motion.css";
+import { useFloatingCta, usePointerFx, useScrollSpy, useScrub } from "@/components/reamer/useMotion";
 
 // Characters are split into spans so the global cursor-tile trail can flip
 // them dark as a tile passes underneath.
@@ -17,6 +19,73 @@ const Chars = ({ text }) =>
       </span>
     ),
   );
+
+// 섹션 제목용. 낱말마다 한 덩어리(줄바꿈이 낱말 가운데서 일어나지 않게)로 묶고, 글자마다 순번(--i)을
+// 붙여 화면에 들어올 때 한 자씩 차례로 떠오르게 한다(motion.css). 글자 span은 커서 꼬리도 그대로 쓴다.
+const TitleChars = ({ text }) => {
+  let i = 0;
+  return text.split(" ").map((word, wi, arr) => (
+    <span key={wi}>
+      <span className="tw">
+        {Array.from(word).map((ch) => (
+          <span className="trail-ch" key={i} style={{ "--i": i++ }}>{ch}</span>
+        ))}
+      </span>
+      {wi < arr.length - 1 ? " " : null}
+    </span>
+  ));
+};
+
+// 선언 문장. 스크롤한 만큼 앞에서부터 단어에 불이 켜지고(--k: 단어의 자리), 외주에서 흔한 사고 넷에는
+// 켜진 뒤 빨간 줄이 그어진다. 마지막 약속 부분은 스펙트럼으로 켜진다.
+const MANIFESTO = [
+  ["하다"], ["보면"], ["말이"], ["바뀌고,", "strike"], ["담당자가"], ["바뀌고,", "strike"], ["다"], ["만든"], ["뒤에"],
+  ["심사에서"], ["막히고,", "strike"], ["끝나면"], ["코드조차"], ["받지"], ["못합니다.", "strike"],
+  ["리머는", "key"], ["이"], ["네"], ["가지를"], ["시작하기", "key"], ["전에", "key"], ["막아", "key"], ["둡니다.", "key"],
+];
+function Manifesto() {
+  const n = MANIFESTO.length;
+  return (
+    <section className="manifesto" data-scrub aria-label="리머가 막아 두는 것">
+      <div className="wrap">
+        <p className="label manifesto__label">왜 리머인가</p>
+        <p className="manifesto__text">
+          {MANIFESTO.map(([w, kind], i) => (
+            <span key={i}>
+              <span className={`mw${kind ? ` mw--${kind}` : ""}`} style={{ "--k": (i / n).toFixed(3) }}>{w}</span>
+              {i < n - 1 ? " " : null}
+            </span>
+          ))}
+        </p>
+      </div>
+    </section>
+  );
+}
+
+// 하는 일 키워드가 흐르는 띠. 스크롤을 빨리 하면 그만큼 기운다(--vel, useMotion.js).
+const TICKER_BIG = ["웹사이트", "앱", "결제 연동", "본인인증", "AI 기능", "업무 자동화", "관리자 화면", "API 연동"];
+const TICKER_SMALL = ["기획서 없어도 괜찮습니다", "상담·견적 무료", "대표가 직접 개발", "매주 진행 공유", "코드·계정 모두 이관", "정한 금액 그대로"];
+function Ticker() {
+  const row = (items, rev) => (
+    <div className={`ticker__row${rev ? " ticker__row--rev" : ""}`}>
+      {[0, 1].map((k) => (
+        <span key={k} style={{ display: "inline-flex" }} aria-hidden={k === 1 || undefined}>
+          {items.map((t) => (
+            <span className="ticker__item" key={t}>{t}<span className="ticker__star" aria-hidden /></span>
+          ))}
+        </span>
+      ))}
+    </div>
+  );
+  return (
+    <div className="ticker" aria-label="리머가 만드는 것">
+      <div className="ticker__skew">
+        {row(TICKER_BIG, false)}
+        {row(TICKER_SMALL, true)}
+      </div>
+    </div>
+  );
+}
 
 // 스크롤에 맞춰 나타나는 연출.
 //
@@ -139,7 +208,7 @@ function CopyLink({ url }) {
   };
   return (
     <button type="button" className="btn btn--ghost inquiry__copy" onClick={copy}>
-      {done ? "복사했습니다 — 메모장이나 카톡 나에게 보내기에 붙여 두세요" : "대화 링크 복사"}
+      {done ? "복사했어요. 메모장이나 카톡 ‘나와의 채팅’에 붙여 두세요" : "대화 링크 복사하기"}
     </button>
   );
 }
@@ -163,7 +232,7 @@ function InquiryForm() {
         body: JSON.stringify(form),
       });
       const data = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(data.error || "보내지 못했어요. 잠시 후 다시 시도해주세요.");
+      if (!r.ok) throw new Error(data.error || "보내지 못했어요. 잠시 후 다시 시도해 주세요.");
       setThreadUrl(data.threadUrl || "");
       rememberToken(String(data.threadUrl || "").split("#")[1]);
       setState("done");
@@ -177,12 +246,16 @@ function InquiryForm() {
   if (state === "done") {
     return (
       <div className="inquiry inquiry--done">
-        <p className="inquiry__done-title">문의가 접수됐습니다.</p>
+        <svg className="inquiry__check" viewBox="0 0 48 48" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <circle cx="24" cy="24" r="22" />
+          <path d="M14.5 24.5l6.5 6.5 13-14" />
+        </svg>
+        <p className="inquiry__done-title">문의가 접수됐습니다</p>
         {threadUrl ? (
           <>
             <p className="inquiry__done-desc">
-              바로 이야기하실 수 있는 자리를 열어뒀습니다. 여기서 상담하고, 견적을 받고, 결제까지 하실 수 있습니다.
-              영업일 기준 하루 안에 첫 답변을 드립니다.
+              바로 대화하실 수 있는 공간을 열어 두었습니다. 상담부터 견적, 결제까지 이곳에서 모두 하실 수 있고,
+              영업일 기준 하루 안에 첫 답장을 드립니다.
             </p>
             <a className="btn btn--solid inquiry__submit" href={threadUrl}>
               대화 열기 <span className="btn__arrow">→</span>
@@ -192,14 +265,14 @@ function InquiryForm() {
                 유일한 열쇠라, 그때는 지금 저장하게 한다. */}
             {/.+@.+\..+/.test(form.contact) ? (
               <p className="inquiry__note">
-                같은 링크를 <b>{form.contact}</b>로도 보내드렸습니다. 이 주소를 아는 사람은 대화를 볼 수 있으니
-                공유에 주의해주세요.
+                같은 링크를 <b>{form.contact}</b>로도 보내드렸습니다. 링크를 아는 사람은 누구나 대화를 볼 수 있으니
+                다른 사람과 공유하지 마세요.
               </p>
             ) : (
               <>
                 <p className="inquiry__note">
                   <b>이 링크를 꼭 저장해 두세요.</b> 전화번호로 문의하셔서 메일로는 보내드리지 못했습니다.
-                  이 브라우저에서는 사이트 맨 위 「내 의뢰」로 다시 열 수 있지만, 다른 기기에서는 이 링크가 있어야 열립니다.
+                  이 브라우저에서는 사이트 맨 위 ‘내 의뢰’로 다시 열 수 있지만, 다른 기기에서는 이 링크가 있어야 열립니다.
                 </p>
                 <CopyLink url={threadUrl} />
               </>
@@ -207,7 +280,7 @@ function InquiryForm() {
           </>
         ) : (
           <p className="inquiry__done-desc">
-            영업일 기준 하루 안에 <b>{form.contact}</b>로 회신드리겠습니다.
+            영업일 기준 하루 안에 <b>{form.contact}</b>로 답장드리겠습니다.
             급하시면 <a href={`mailto:${BUSINESS.email}`}>{BUSINESS.email}</a>로 바로 연락 주셔도 됩니다.
           </p>
         )}
@@ -239,20 +312,20 @@ function InquiryForm() {
       <label className="inquiry__field">
         <span>문의 내용 *</span>
         <textarea id="iq-message" value={form.message} onChange={set("message")} required rows={5}
-          placeholder="만들고 싶은 것, 참고할 만한 서비스, 원하시는 일정 — 아는 만큼만 적어주셔도 됩니다. 아직 막연해도 괜찮습니다." />
+          placeholder="만들고 싶은 것, 참고하는 서비스, 원하시는 일정 등 아는 만큼만 적어 주세요. 아직 막연해도 괜찮습니다." />
       </label>
 
       {/* 봇 함정. 사람에게는 보이지 않는다. */}
       <input className="inquiry__trap" tabIndex={-1} autoComplete="off" aria-hidden
         value={form.website} onChange={set("website")} />
 
-      {error && <p className="inquiry__error">{error} 메일로는 <a href={`mailto:${BUSINESS.email}`}>{BUSINESS.email}</a>.</p>}
+      {error && <p className="inquiry__error">{error} 메일로 보내셔도 됩니다: <a href={`mailto:${BUSINESS.email}`}>{BUSINESS.email}</a></p>}
 
-      <button className="btn btn--solid inquiry__submit" type="submit" disabled={state === "sending"}>
+      <button className="btn btn--solid inquiry__submit" data-magnet type="submit" disabled={state === "sending"}>
         {state === "sending" ? "보내는 중…" : "문의 보내기"} <span className="btn__arrow">→</span>
       </button>
       <p className="inquiry__note">
-        보내주신 내용은 회신에만 씁니다. 영업일 기준 하루 안에 답장드립니다.
+        보내 주신 내용은 답장에만 사용합니다. 영업일 기준 하루 안에 답장드립니다.
       </p>
     </form>
   );
@@ -320,7 +393,8 @@ function WorkCase({ item, index }) {
   return (
     <article className="case" data-reveal style={item.accent ? { "--accent": item.accent } : undefined}>
       <div className="case__media" data-parallax>
-        <a className="case__frame" href={item.href} target="_blank" rel="noreferrer" aria-label={`${item.name} 사이트 열기`}>
+        <a className="case__frame" data-tilt href={item.href} target="_blank" rel="noreferrer" aria-label={`${item.name} 사이트 열기`}>
+          <span className="case__glare" aria-hidden />
           <img
             className="case__img"
             src={current.src}
@@ -399,10 +473,16 @@ function WorkCase({ item, index }) {
   );
 }
 
+const SPY_IDS = ["work", "why", "services", "process", "guarantee"];
+
 const ReamerSite = () => {
   const navRef = useRef(null);
   useReveal();
   useScrollChrome(navRef);
+  useScrub();
+  usePointerFx();
+  const active = useScrollSpy(SPY_IDS);
+  const floatCta = useFloatingCta();
 
   return (
     <>
@@ -422,7 +502,8 @@ const ReamerSite = () => {
           <ul className="nav__links">
             {NAV.map((item) => (
               <li key={item.href}>
-                <a className="nav__link" href={item.href}>
+                <a className={`nav__link${active && item.href === `#${active}` ? " is-active" : ""}`} href={item.href}
+                  aria-current={active && item.href === `#${active}` ? "true" : undefined}>
                   {item.label}
                 </a>
               </li>
@@ -433,7 +514,7 @@ const ReamerSite = () => {
             <a className="nav__link" href="/t">
               내 의뢰
             </a>
-            <a className="nav__cta" href="#contact">
+            <a className="nav__cta" data-magnet href="#contact">
               개발 문의
             </a>
           </div>
@@ -463,14 +544,14 @@ const ReamerSite = () => {
                   </em>
                 </h1>
                 <p className="lede">
-                  웹사이트, 앱, 결제·인증 연동, AI 기능, 업무 자동화. 기획서가 없어도, 기획 자체가 아직
-                  없어도 됩니다. <b>무엇을 만들지부터 같이 정합니다.</b>
+                  웹사이트, 앱, 결제·본인인증 연동, AI 기능, 업무 자동화까지. 기획서가 없어도, 아직 무엇을
+                  만들지 몰라도 괜찮습니다. <b>무엇을 만들지부터 함께 정합니다.</b>
                 </p>
                 <div className="actions">
-                  <a className="btn btn--solid" href="#contact">
+                  <a className="btn btn--solid" data-magnet href="#contact">
                     무료로 견적 받기 <span className="btn__arrow">→</span>
                   </a>
-                  <a className="btn btn--ghost" href="#work">
+                  <a className="btn btn--ghost" data-magnet href="#work">
                     작업물 보기
                   </a>
                 </div>
@@ -479,6 +560,8 @@ const ReamerSite = () => {
             </div>
           </section>
 
+          <Ticker />
+
           {/* 작업물을 맨 앞에 둔다. 외주를 맡기려는 사람이 가장 먼저 확인하는 건
               소개 글이 아니라 "이 사람이 만든 게 뭔가"다. */}
           <section className="section" id="work">
@@ -486,11 +569,11 @@ const ReamerSite = () => {
               <header className="head" data-reveal>
                 <p className="label">작업물</p>
                 <h2 className="title">
-                  <Chars text="만들어서, 실제로 돌리고 있습니다." />
+                  <TitleChars text="직접 만들어 지금도 운영하고 있습니다." />
                 </h2>
                 <p className="lede">
                   {/* 개수를 글에 박아두면 작업물을 추가할 때마다 한쪽만 고치게 된다. */}
-                  아래 {WORK.length}개는 지금 주소를 열면 그대로 동작합니다. 화면은 직접 찍은 것입니다.
+                  아래 {WORK.length}개 서비스는 지금 주소를 열면 그대로 쓸 수 있습니다. 화면도 직접 캡처했습니다.
                 </p>
               </header>
 
@@ -520,14 +603,16 @@ const ReamerSite = () => {
               {/* 작업물을 다 훑고 마음이 움직이는 지점이 여기다. 여기서 문의하려면
                   맨 아래 양식까지 다시 스크롤을 내려야 했다 — 그 사이에 대부분 닫는다. */}
               <div className="cta" data-reveal>
-                <p className="cta__line">비슷한 걸 만들고 싶으신가요?</p>
-                <a className="btn btn--solid" href="#contact">
+                <p className="cta__line">비슷한 것을 만들고 싶으신가요?</p>
+                <a className="btn btn--solid" data-magnet href="#contact">
                   무료로 문의하기 <span className="btn__arrow">→</span>
                 </a>
-                <p className="cta__note">범위가 정해지기 전까지 비용이 없습니다. 견적만 받아보고 그만두셔도 됩니다.</p>
+                <p className="cta__note">범위가 정해지기 전까지는 비용이 없습니다. 견적만 받아 보셔도 괜찮습니다.</p>
               </div>
             </div>
           </section>
+
+          <Manifesto />
 
           {/* 작업물이 "만들 수 있는가"에 답했다면, 여기는 "맡겨도 되는가"에 답한다.
               개발 외주에서 사고가 나는 지점은 거의 정해져 있어서 그 지점을 먼저 짚는다. */}
@@ -536,17 +621,13 @@ const ReamerSite = () => {
               <header className="head" data-reveal>
                 <p className="label">맡기는 이유</p>
                 <h2 className="title">
-                  <Chars text="외주가 틀어지는 지점은 정해져 있습니다." />
+                  <TitleChars text="외주가 어긋나는 지점은 늘 비슷합니다." />
                 </h2>
-                <p className="lede">
-                  말이 바뀌고, 담당자가 바뀌고, 다 만들고 나서 심사에서 막히고, 끝나고 나면
-                  코드를 못 받습니다. 그 넷을 먼저 막아두고 시작합니다.
-                </p>
               </header>
 
               <ul className="why">
                 {WHY.map((w) => (
-                  <li className="why__item" key={w.head} data-reveal>
+                  <li className="why__item" key={w.head} data-reveal data-spot>
                     <h3 className="why__head">{w.head}</h3>
                     <p className="why__body">{w.body}</p>
                   </li>
@@ -560,17 +641,17 @@ const ReamerSite = () => {
               <header className="head" data-reveal>
                 <p className="label">하는 일</p>
                 <h2 className="title">
-                  <Chars text="무엇을 맡길 수 있나." />
+                  <TitleChars text="이런 일을 맡길 수 있습니다." />
                 </h2>
                 <p className="lede">
-                  문서가 다 나와 있지 않아도 됩니다. 필요한 것을 이야기하면서 범위를 좁히고,
-                  만들어서, 실제로 돌아가는 상태로 넘겨드립니다.
+                  기획서가 다 없어도 됩니다. 이야기를 나누며 범위를 좁히고, 직접 만들어서,
+                  실제로 돌아가는 상태로 넘겨드립니다.
                 </p>
               </header>
 
               <div className="svc">
                 {SERVICES.map((sv) => (
-                  <div className="svc__item" key={sv.name} data-reveal>
+                  <div className="svc__item" key={sv.name} data-reveal data-spot>
                     <h3 className="svc__name">
                       {sv.name}
                       <span className="svc__when">{sv.when}</span>
@@ -594,16 +675,16 @@ const ReamerSite = () => {
               <header className="head" data-reveal>
                 <p className="label">진행 방식</p>
                 <h2 className="title">
-                  <Chars text="맡기면 이렇게 진행됩니다." />
+                  <TitleChars text="맡기시면 이렇게 진행됩니다." />
                 </h2>
                 <p className="lede">
-                  첫 두 단계에는 비용이 들지 않습니다. 범위와 금액을 확정한 뒤에 시작합니다.
+                  처음 두 단계는 비용이 들지 않습니다. 범위와 금액을 정한 뒤에 시작합니다.
                 </p>
               </header>
 
-              <ol className="steps">
-                {PROCESS.map((p) => (
-                  <li className="step" key={p.no} data-reveal>
+              <ol className="steps" data-scrub>
+                {PROCESS.map((p, i) => (
+                  <li className="step" key={p.no} data-reveal style={{ "--k": (i / PROCESS.length).toFixed(3), "--d": `${i * 0.07}s` }}>
                     <span className="step__no">{p.no}</span>
                     <div className="step__body">
                       <h3 className="step__name">
@@ -630,12 +711,12 @@ const ReamerSite = () => {
               <header className="head" data-reveal>
                 <p className="label">약속</p>
                 <h2 className="title">
-                  <Chars text="여섯 가지를 보장합니다." />
+                  <TitleChars text="여섯 가지를 약속합니다." />
                 </h2>
               </header>
               <ul className="vow">
-                {GUARANTEES.map((g) => (
-                  <li className="vow__item" key={g.head} data-reveal>
+                {GUARANTEES.map((g, i) => (
+                  <li className="vow__item" key={g.head} data-reveal style={{ "--d": `${(i % 3) * 0.08 + Math.floor(i / 3) * 0.12}s` }}>
                     <span className="vow__mark" aria-hidden />
                     <div>
                       <h3 className="vow__head">{g.head}</h3>
@@ -652,15 +733,15 @@ const ReamerSite = () => {
               <div className="about__intro" data-reveal>
                 <p className="label">소개</p>
                 <h2 className="title">
-                  <Chars text="정원영" />
+                  <TitleChars text="정원영" />
                 </h2>
                 <p className="lede">
-                  리머 대표. 한국디지털미디어고 해킹방어과를 거쳐 중앙대학교 전자전기공학부에
-                  재학 중이며, 여러 번의 창업과 스스로 겪은 AI 오답의 피해를 계기로 리머를
+                  리머 대표. 한국디지털미디어고등학교 해킹방어과를 졸업하고 중앙대학교 전자전기공학부에
+                  재학 중입니다. 여러 번의 창업, 그리고 AI 오답으로 직접 손해를 본 경험을 계기로 리머를
                   시작했습니다. 맡은 일은 대표가 직접 만듭니다.
                 </p>
                 <blockquote className="quote">
-                  “대충 뚫린 구멍은, 결국 누군가 대가를 치른다는 걸 직접 겪었습니다.”
+                  “허술하게 남겨 둔 구멍은 결국 누군가 대가를 치르게 된다는 걸 직접 겪었습니다.”
                 </blockquote>
 
                 {/* 연혁을 다 읽지 않아도 보이도록 앞에 둔다. 맡기기 전에 확인하는 건 대개 이 넷이다. */}
@@ -677,9 +758,9 @@ const ReamerSite = () => {
                 </dl>
               </div>
 
-              <ol className="tl">
-                {TIMELINE.map((item) => (
-                  <li className={`tl__item${item.now ? " tl__item--now" : ""}`} key={item.title} data-reveal>
+              <ol className="tl" data-scrub>
+                {TIMELINE.map((item, i) => (
+                  <li className={`tl__item${item.now ? " tl__item--now" : ""}`} key={item.title} data-reveal style={{ "--k": (i / TIMELINE.length).toFixed(3) }}>
                     <span className="tl__year">{item.year}</span>
                     <div className="tl__body">
                       <h3 className="tl__title">{item.title}</h3>
@@ -696,11 +777,11 @@ const ReamerSite = () => {
               <div className="contact__copy" data-reveal>
                 <p className="label">문의</p>
                 <h2 className="title">
-                  <Chars text="무엇을 만들어 드릴까요." />
+                  <TitleChars text="무엇을 만들어 드릴까요?" />
                 </h2>
                 <p className="lede">
-                  기획이 반쯤 잡혀 있어도 괜찮습니다. 무엇을 만들어야 하는지부터 같이 정리합니다.
-                  영업일 기준 하루 안에 회신드립니다.
+                  기획이 절반만 잡혀 있어도 괜찮습니다. 무엇을 만들지부터 함께 정리합니다.
+                  영업일 기준 하루 안에 답장드립니다.
                 </p>
                 <ul className="contact__direct">
                   <li>
@@ -771,6 +852,14 @@ const ReamerSite = () => {
             <p className="footer__copy">{COPYRIGHT}</p>
           </address>
         </footer>
+      </div>
+
+      {/* 폰에서 스크롤하는 동안 아래에 따라다니는 문의 버튼. 히어로를 지나면 나오고, 문의 구역이 보이면 비킨다. */}
+      <div className={`float-cta${floatCta ? " is-on" : ""}`} aria-hidden={!floatCta}>
+        <span className="float-cta__text"><b>상담·견적 무료</b><br />하루 안에 답장드립니다</span>
+        <a className="btn btn--solid" href="#contact" tabIndex={floatCta ? 0 : -1}>
+          문의하기 <span className="btn__arrow">→</span>
+        </a>
       </div>
     </>
   );
