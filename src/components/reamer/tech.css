@@ -1,0 +1,257 @@
+/* tech.jsx의 부품들과, 작업물 화면에 붙는 제도(製圖) 표시.
+   색은 사이트의 스펙트럼(파랑 → 보라)만 쓴다. */
+
+/* ---------- 히어로 터미널 ---------- */
+/* 넓은 화면에서는 오른쪽 아래, 배경 원반의 꼬리 위에 반투명 창으로 뜬다.
+   좁은 화면에서는 글 아래로 내려와 폭을 다 쓴다. */
+.hero__grid { position: relative; }
+.term {
+  position: absolute;
+  right: calc(var(--gutter) + var(--wrap-inset));
+  bottom: -8px;
+  width: min(390px, 34%);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(10, 10, 16, 0.62);
+  -webkit-backdrop-filter: blur(10px) saturate(1.2);
+  backdrop-filter: blur(10px) saturate(1.2);
+  box-shadow: 0 24px 60px -20px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(109, 90, 224, 0.08);
+  font: 400 11.5px/1.65 var(--mono);
+  color: var(--ink-dim);
+  overflow: hidden;
+}
+.term__bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--line);
+}
+.term__dot { width: 7px; height: 7px; border-radius: 50%; background: var(--line-strong); }
+.term__title { margin-left: 8px; font-size: 10.5px; letter-spacing: 0.06em; color: var(--ink-faint); }
+.term__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: calc(6 * 1.65em + 5 * 2px);
+  padding: 12px 14px 14px;
+}
+.term__line {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  animation: termLine 0.28s var(--ease) both;
+}
+@keyframes termLine { from { opacity: 0; transform: translateY(3px); } }
+.term__ps { color: var(--beam-blue); }
+.term__stage {
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1fr) 64px 4ch;
+  align-items: center;
+  gap: 8px;
+}
+.term__stage-name { overflow: hidden; text-overflow: ellipsis; }
+.term__ok { color: #7dd3a8; }
+.term__spin { display: inline-block; color: var(--beam-violet); animation: termSpin 0.7s linear infinite; }
+@keyframes termSpin { to { transform: rotate(360deg); } }
+.term__bar-track { height: 3px; border-radius: 2px; background: var(--line); overflow: hidden; }
+.term__bar-fill {
+  display: block;
+  height: 100%;
+  background: var(--beam);
+  transform-origin: left;
+  transition: transform 0.12s linear;
+}
+.term__pct { text-align: right; font-variant-numeric: tabular-nums; color: var(--ink-faint); white-space: pre; }
+.term__done { color: var(--ink); }
+.term__url {
+  background: var(--beam);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.term__live {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 2px;
+  border-radius: 50%;
+  background: #7dd3a8;
+  box-shadow: 0 0 0 0 rgba(125, 211, 168, 0.6);
+  animation: livePulse 1.6s ease-out infinite;
+  vertical-align: 1px;
+}
+@keyframes livePulse { to { box-shadow: 0 0 0 7px rgba(125, 211, 168, 0); } }
+.term__caret {
+  display: inline-block;
+  width: 7px;
+  height: 1.1em;
+  margin-left: 1px;
+  vertical-align: -0.2em;
+  background: var(--ink);
+  animation: caret 1s steps(1) infinite;
+}
+@keyframes caret { 50% { opacity: 0; } }
+
+@media (max-width: 900px) {
+  .term {
+    position: relative;
+    right: auto;
+    bottom: auto;
+    width: 100%;
+    margin-top: 32px;
+  }
+}
+
+/* ---------- 실시간 응답 시간 ---------- */
+.ping {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-left: auto;
+  color: var(--ink-faint);
+  font-variant-numeric: tabular-nums;
+  text-transform: none;
+  letter-spacing: 0.04em;
+}
+.ping__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #7dd3a8;
+  animation: livePulse 1.6s ease-out infinite;
+}
+.ping__dot--off { background: var(--line-strong); animation: none; }
+.ping__spark { color: var(--accent); overflow: visible; }
+.ping__spark polyline {
+  stroke-dasharray: 120;
+  stroke-dashoffset: 120;
+  animation: sparkDraw 0.9s var(--ease) forwards;
+}
+@keyframes sparkDraw { to { stroke-dashoffset: 0; } }
+
+/* ---------- 작업물 화면의 제도 표시 ---------- */
+/* 화면 위에 치수선(1440 × 900)이 가운데에서 양쪽으로 그어지고, 네 모서리에 재단 표시가
+   모여든다. 마우스를 올리면 스캔 빛이 위에서 아래로 한 번 훑는다. */
+.case__dim {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -18px;
+  height: 9px;
+  pointer-events: none;
+  font: 500 9.5px/1 var(--mono);
+  letter-spacing: 0.08em;
+  color: var(--ink-faint);
+}
+.case__dim::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 4px;
+  height: 1px;
+  background: var(--line-strong);
+  transform: scaleX(0);
+  transition: transform 1s var(--ease) 0.25s;
+}
+.case__dim::after {
+  /* 양 끝의 짧은 세로 눈금 */
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-left: 1px solid var(--line-strong);
+  border-right: 1px solid var(--line-strong);
+  opacity: 0;
+  transition: opacity 0.3s var(--ease) 1.05s;
+}
+.case__dim-label {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  padding: 0 8px;
+  background: var(--bg);
+  transform: translateX(-50%);
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.4s var(--ease) 0.9s;
+}
+.case.is-in .case__dim::before { transform: scaleX(1); }
+.case.is-in .case__dim::after,
+.case.is-in .case__dim-label { opacity: 1; }
+.reveal-on .case:not(.is-in) .case__dim-label { opacity: 0; }
+html:not(.reveal-on) .case__dim::before { transform: scaleX(1); }
+html:not(.reveal-on) .case__dim::after,
+html:not(.reveal-on) .case__dim-label { opacity: 1; }
+
+.case__crop {
+  --c: rgba(236, 234, 228, 0.85);
+  --l: 14px;
+  position: absolute;
+  inset: 22px;
+  z-index: 2;
+  pointer-events: none;
+  opacity: 0;
+  background:
+    linear-gradient(var(--c), var(--c)) top left / var(--l) 1px no-repeat,
+    linear-gradient(var(--c), var(--c)) top left / 1px var(--l) no-repeat,
+    linear-gradient(var(--c), var(--c)) top right / var(--l) 1px no-repeat,
+    linear-gradient(var(--c), var(--c)) top right / 1px var(--l) no-repeat,
+    linear-gradient(var(--c), var(--c)) bottom left / var(--l) 1px no-repeat,
+    linear-gradient(var(--c), var(--c)) bottom left / 1px var(--l) no-repeat,
+    linear-gradient(var(--c), var(--c)) bottom right / var(--l) 1px no-repeat,
+    linear-gradient(var(--c), var(--c)) bottom right / 1px var(--l) no-repeat;
+  mix-blend-mode: difference;
+  transition: inset 0.5s var(--ease), opacity 0.3s var(--ease);
+}
+.case__frame:hover .case__crop,
+.case__frame:focus-visible .case__crop { inset: 10px; opacity: 1; }
+
+.case__scan {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(to bottom,
+    transparent 0, transparent 44%,
+    rgba(109, 90, 224, 0.14) 49.4%,
+    rgba(170, 190, 255, 0.75) 50%,
+    transparent 50.3%, transparent 100%);
+  background-size: 100% 200%;
+  background-position: 0 100%;
+}
+.case__frame:hover .case__scan { animation: scanDown 1.2s var(--ease) both; }
+@keyframes scanDown {
+  0% { opacity: 1; background-position: 0 100%; }
+  85% { opacity: 1; }
+  100% { opacity: 0; background-position: 0 0; }
+}
+
+/* ---------- 스크롤 속도만큼 갈라지는 색 ---------- */
+/* 빨리 스크롤하면 큰 글씨의 파랑·보라 성분이 반대로 밀려 나간다. 멈추면 --vel이 0으로
+   가라앉으며 다시 한 겹이 된다. 투명 글자(스펙트럼 줄)는 그림자가 비쳐 보이므로 뺀다. */
+.display > .trail-ch,
+.title .trail-ch {
+  --ab: max(var(--vel, 0), calc(var(--vel, 0) * -1));
+  text-shadow:
+    calc(var(--vel, 0) * 7px) 0 rgba(59, 130, 246, calc(var(--ab) * 2.2)),
+    calc(var(--vel, 0) * -7px) 0 rgba(139, 92, 246, calc(var(--ab) * 2.2));
+}
+
+/* ---------- 입자 워드마크 ---------- */
+.pword {
+  margin: 0 0 36px;
+  line-height: 0;
+}
+.pword canvas { display: block; max-width: 100%; touch-action: pan-y; }
+
+@media (prefers-reduced-motion: reduce) {
+  .term__line, .term__spin, .term__live, .ping__dot, .term__caret { animation: none; }
+  .ping__spark polyline { animation: none; stroke-dashoffset: 0; }
+  .case__dim::before { transform: scaleX(1); transition: none; }
+  .case__dim::after, .case__dim-label { opacity: 1; transition: none; }
+  .case__crop { transition: none; }
+  .case__frame:hover .case__scan { animation: none; }
+  .display .trail-ch, .title .trail-ch { text-shadow: none; }
+}

@@ -8,6 +8,8 @@ import { rememberToken } from "@/components/reamer/threadApi";
 import { NAV, HERO_NOTE, WHY, GUARANTEES, SERVICES, PROCESS, WORK, ALSO, CREDENTIALS, TIMELINE, FAQ, AFTER_SEND } from "@/reamerContent";
 import "@/components/reamer/motion.css";
 import { useFloatingCta, usePointerFx, useScrollSpy, useScrub } from "@/components/reamer/useMotion";
+import "@/components/reamer/tech.css";
+import { BuildTerminal, LivePing, ParticleWord, useScrambleLabels } from "@/components/reamer/tech";
 
 // Characters are split into spans so the global cursor-tile trail can flip
 // them dark as a tile passes underneath.
@@ -393,8 +395,14 @@ function WorkCase({ item, index }) {
   return (
     <article className="case" data-reveal style={item.accent ? { "--accent": item.accent } : undefined}>
       <div className="case__media" data-parallax>
+        {/* 제도 치수선 — 캡처의 실제 크기와 형식 */}
+        <span className="case__dim" aria-hidden>
+          <span className="case__dim-label">1440 × 900 · WEBP</span>
+        </span>
         <a className="case__frame" data-tilt href={item.href} target="_blank" rel="noreferrer" aria-label={`${item.name} 사이트 열기`}>
           <span className="case__glare" aria-hidden />
+          <span className="case__crop" aria-hidden />
+          <span className="case__scan" aria-hidden />
           <img
             className="case__img"
             src={current.src}
@@ -425,6 +433,7 @@ function WorkCase({ item, index }) {
         <p className="case__meta">
           <span className={`case__kind${item.live ? " case__kind--live" : ""}`}>{item.kind}</span>
           <span className="case__year">{item.year}</span>
+          {item.live && <LivePing url={item.href} />}
         </p>
         <h3 className="case__name">
           {/* 글자별 span을 flex 항목으로 두면 낱자 사이마다 gap이 들어가 "유메"가
@@ -483,6 +492,7 @@ const ReamerSite = () => {
   usePointerFx();
   const active = useScrollSpy(SPY_IDS);
   const floatCta = useFloatingCta();
+  useScrambleLabels();
 
   return (
     <>
@@ -557,6 +567,7 @@ const ReamerSite = () => {
                 </div>
                 <p className="hero__note">{HERO_NOTE}</p>
               </div>
+              <BuildTerminal projects={WORK} />
             </div>
           </section>
 
@@ -813,6 +824,10 @@ const ReamerSite = () => {
         </main>
 
         <footer className="footer">
+          {/* 입자로 모이는 이름. 커서가 지나가면 흩어졌다가 제자리로 돌아온다. */}
+          <div className="wrap">
+            <ParticleWord />
+          </div>
           <div className="wrap footer__row">
             <a className="nav__brand" href="#top">
               <Logo size={30} full />
