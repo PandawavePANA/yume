@@ -9,8 +9,7 @@ import "dotenv/config";
 // 놓친 것과 든 돈을 같이 본다.
 //
 // 기준선(catch rate)이 떨어지면 그 변경은 되돌려야 한다. 돈을 아꼈는지와 무관하게.
-import { runVerification } from "../verifyPipeline.js";
-import { newVerificationId } from "../verificationStore.js";
+// 검증 파이프라인은 main()에서 불러온다 — 그 전에 DB를 빈 메모리로 바꿔 둬야 한다.
 
 // 정답을 아는 사례. 지어낸 것은 반드시 잡아야 하고(놓치면 제품이 거짓말한 것),
 // 맞는 것은 맞다고 해야 한다(틀리면 사용자가 멀쩡한 정보를 버린다).
@@ -126,9 +125,64 @@ const CASES = [
     why: "주장이 없는 순수한 질문이다. 억지로 주장을 만들어내면 안 된다.",
     critical: true,
   },
+  // ── 실제로 가장 많이 들어오는 모양: 긴 AI 답변 한 덩어리 (2026-09-29) ──
+  //
+  // 운영 원가를 재 보니 짧은 질문은 약 210원, 300~2,000자 답변은 약 1,330원이었다. 비용을
+  // 줄이는 변경은 여기서 가장 크게 드러나고, 정확도가 무너지는 것도 여기서 먼저 드러난다.
+  // 주장마다 기대값을 따로 두어 "몇 개를 맞혔나"까지 센다.
+  {
+    id: "long-labor-answer",
+    text:
+      "퇴직금은 같은 사업장에서 1년 이상 일하고 4주 평균 주 15시간 이상 근무한 근로자에게 지급됩니다. " +
+      "2025년 최저임금은 시간당 10,030원입니다. 연차휴가는 1년간 80% 이상 출근한 근로자에게 15일이 주어집니다. " +
+      "또한 근로계약서를 서면으로 쓰지 않으면 근로자에게 500만원 이하의 벌금이 부과됩니다.",
+    expect: "false",
+    claims: [
+      { match: "퇴직금", expect: "confirmed" },
+      { match: "최저임금", expect: "confirmed" },
+      { match: "연차", expect: "confirmed" },
+      { match: "근로계약서", expect: "false" },
+    ],
+    why: "벌금은 근로계약서를 쓰지 않은 사용자(사업주)에게 부과된다(근로기준법 제114조). 나머지 셋은 맞다.",
+    critical: true,
+  },
+  // ── 흔한 함정: 시점이 어긋난 값, 한 자리 바뀐 숫자, 교과서 사실 ──
+  {
+    id: "wrong-year-wage",
+    text: "2024년 최저임금은 시간당 10,030원입니다.",
+    expect: "false",
+    why: "10,030원은 2025년 값이다. 2024년은 9,860원. 다른 해의 값을 맞다고 하면 시점 붕괴를 놓친 것이다.",
+    critical: true,
+  },
+  {
+    id: "digit-swap",
+    text: "에베레스트산의 높이는 해발 9,848m입니다.",
+    expect: "false",
+    why: "8,848m(2020년 재측정 8,848.86m). 한 자리 바뀐 숫자를 잡아야 한다.",
+    critical: true,
+  },
+  {
+    id: "textbook-history",
+    text: "훈민정음은 1446년에 반포되었다.",
+    expect: "confirmed",
+    why: "세종 28년(1446) 반포. 교과서 사실을 확인됨으로 내야 한다.",
+    critical: true,
+  },
+  {
+    id: "drug-max-dose",
+    text: "성인의 아세트아미노펜 하루 최대 복용량은 4,000mg입니다.",
+    expect: "not-false",
+    why: "식약처·제품 설명서 기준 성인 1일 최대 4g. 보수적 권고(3g)가 있다고 틀렸다고 하면 안 된다.",
+    critical: true,
+  },
+  {
+    id: "health-myth",
+    text: "비타민C를 하루 1000mg씩 먹으면 감기에 거의 걸리지 않는다.",
+    expect: "false",
+    why: "코크런 체계적 문헌고찰 — 일반인에게서 감기 발생률을 낮추지 못했다(지속기간만 소폭 단축).",
+    critical: false,
+  },
 ];
-
-const PRICE_NOTE = "* 원가는 [cost] 로그와 같은 기준으로 계산한 추정치입니다.";
 
 function verdictOf(result) {
   // 한 입력에 주장이 여러 개 잡힐 수 있다. 사례마다 '이 입력의 결론'을 하나로 본다:
@@ -150,58 +204,109 @@ function meetsExpectation(c, got, claimCount) {
   return verdictOk && countOk;
 }
 
-async function runCase(c) {
+// 주장 단위 채점 — 기대 주장마다 원문 키워드로 결과 주장을 찾아 판정을 맞춰 본다.
+function claimScore(c, result) {
+  if (!c.claims) return null;
+  const got = result?.claims || [];
+  const rows = c.claims.map((e) => {
+    const hit = got.find((x) => String(x.text || "").includes(e.match));
+    return { match: e.match, expect: e.expect, got: hit ? hit.verdict : "missing", ok: !!hit && hit.verdict === e.expect };
+  });
+  return { ok: rows.filter((r) => r.ok).length, total: rows.length, rows };
+}
+
+async function runCase(c, runVerification, newVerificationId) {
   const id = newVerificationId();
   const started = Date.now();
   try {
-    const { result } = await runVerification({ id, text: c.text, source: "accuracy", onProgress: () => {} });
+    const { result, cost } = await runVerification({ id, text: c.text, source: "accuracy", onProgress: () => {} });
     const got = verdictOf(result);
     const claimCount = (result?.claims || []).length;
+    const cs = claimScore(c, result);
     return {
       ...c,
       got,
       claimCount,
-      pass: meetsExpectation(c, got, claimCount),
+      claimScore: cs,
+      pass: meetsExpectation(c, got, claimCount) && (!cs || cs.ok === cs.total),
       elapsedMs: Date.now() - started,
+      usd: cost?.usd || 0,
+      searches: cost?.searches || 0,
+      byLabel: cost?.byLabel || {},
       claims: (result?.claims || []).map((x) => ({ verdict: x.verdict, via: x.verified_via, text: x.text?.slice(0, 50) })),
     };
   } catch (e) {
-    return { ...c, got: "ERROR", pass: false, error: e.message, elapsedMs: Date.now() - started };
+    return { ...c, got: "ERROR", pass: false, error: e.message, elapsedMs: Date.now() - started, usd: 0, searches: 0, byLabel: {} };
   }
 }
 
 const mark = (r) => (r.pass ? "✅" : r.critical ? "❌" : "⚠️ ");
+const KRW = 1400;
+
+async function pool(items, n, fn) {
+  const out = new Array(items.length);
+  let next = 0;
+  await Promise.all(Array.from({ length: Math.min(n, items.length) }, async () => {
+    while (next < items.length) {
+      const i = next++;
+      out[i] = await fn(items[i], i);
+    }
+  }));
+  return out;
+}
 
 async function main() {
-  console.log("정확도 회귀 측정 — 정답을 아는 입력 " + CASES.length + "건\n");
-  const results = [];
-  for (const c of CASES) {
-    const r = await runCase(c);
-    results.push(r);
+  // 매번 빈 DB로 돈다. 주장 캐시·검증 캐시가 지난 실행의 판정을 돌려주면 비용도 정확도도
+  // 거짓이 된다 — 바꾼 코드가 아니라 지난번 답을 채점하게 된다.
+  process.env.PGLITE_DIR = "memory://";
+  delete process.env.DATABASE_URL;
+  const only = process.argv.find((a) => a.startsWith("--only="))?.slice(7).split(",");
+  const outArg = process.argv.find((a) => a.startsWith("--out="))?.slice(6);
+  const concurrency = Number(process.argv.find((a) => a.startsWith("--jobs="))?.slice(7)) || 3;
+  const db = await import("../db.js");
+  await db.ready;
+  const { runVerification } = await import("../verifyPipeline.js");
+  const { newVerificationId } = await import("../verificationStore.js");
+
+  const cases = only ? CASES.filter((c) => only.includes(c.id)) : CASES;
+  console.log(`정확도·원가 측정 — 정답을 아는 입력 ${cases.length}건 (동시 ${concurrency})\n`);
+  const results = await pool(cases, concurrency, async (c) => {
+    const r = await runCase(c, runVerification, newVerificationId);
     const countNote = r.claimCount === undefined ? "" : ` 주장 ${r.claimCount}개${c.claimCount === undefined ? "" : `/기대 ${c.claimCount}개`}`;
-    console.log(`${mark(r)} ${r.id.padEnd(22)} 기대 ${r.expect.padEnd(10)} 결과 ${String(r.got).padEnd(10)} ${(r.elapsedMs / 1000).toFixed(1)}s${countNote}`);
+    const cs = r.claimScore ? ` 주장채점 ${r.claimScore.ok}/${r.claimScore.total}` : "";
+    console.log(`${mark(r)} ${r.id.padEnd(24)} 기대 ${r.expect.padEnd(9)} 결과 ${String(r.got).padEnd(9)} ${(r.elapsedMs / 1000).toFixed(1).padStart(5)}s  $${r.usd.toFixed(3)} 검색${r.searches}${countNote}${cs}`);
     if (!r.pass) {
       console.log(`     ${r.why}`);
       if (r.error) console.log(`     오류: ${r.error}`);
       for (const cl of r.claims || []) console.log(`     · [${cl.verdict}/${cl.via}] ${cl.text}`);
+      for (const row of r.claimScore?.rows || []) if (!row.ok) console.log(`     ✗ 주장 "${row.match}" 기대 ${row.expect} 결과 ${row.got}`);
     }
-  }
+    return r;
+  });
 
   const passed = results.filter((r) => r.pass).length;
   const criticalFailed = results.filter((r) => !r.pass && r.critical);
-  const rate = Math.round((passed / results.length) * 1000) / 10;
-
-  console.log("\n" + "=".repeat(64));
-  console.log(`통과 ${passed}/${results.length} (${rate}%)`);
-  if (criticalFailed.length) {
-    console.log(`\n핵심 사례 실패 ${criticalFailed.length}건 — ${criticalFailed.map((r) => r.id).join(", ")}`);
-    console.log("비용을 얼마나 아꼈든 이 변경은 되돌려야 합니다.");
-  } else {
-    console.log("핵심 사례 전부 통과.");
+  const falseAccusations = results.filter((r) => (r.expect === "confirmed" || r.expect === "not-false" || r.expect === "uncertain") && r.got === "false");
+  const usd = results.reduce((a, r) => a + r.usd, 0);
+  const stages = {};
+  for (const r of results) for (const [k, v] of Object.entries(r.byLabel || {})) {
+    const e = (stages[k] ||= { calls: 0, searches: 0, usd: 0 });
+    e.calls += v.calls; e.searches += v.searches; e.usd += v.usd;
   }
-  console.log(PRICE_NOTE);
-  console.log("검증별 실제 원가는 서버 로그의 [cost] 줄을 보세요.");
 
+  console.log("\n" + "=".repeat(72));
+  console.log(`통과 ${passed}/${results.length}  ·  핵심 실패 ${criticalFailed.length}  ·  맞는 것을 틀렸다고 한 것 ${falseAccusations.length}`);
+  console.log(`원가 합계 $${usd.toFixed(3)} (약 ${Math.round(usd * KRW).toLocaleString()}원) · 건당 평균 $${(usd / results.length).toFixed(3)} (약 ${Math.round((usd / results.length) * KRW)}원)`);
+  console.log("단계별:", Object.entries(stages).sort((a, b) => b[1].usd - a[1].usd)
+    .map(([k, v]) => `${k} $${v.usd.toFixed(3)} (${v.calls}회, 검색 ${v.searches})`).join(" · "));
+  if (criticalFailed.length) console.log(`핵심 사례 실패: ${criticalFailed.map((r) => r.id).join(", ")} — 이 변경은 되돌려야 합니다.`);
+
+  if (outArg) {
+    const fs = await import("node:fs");
+    fs.writeFileSync(outArg, JSON.stringify({ at: new Date().toISOString(), passed, total: results.length, criticalFailed: criticalFailed.map((r) => r.id), usd, stages, results }, null, 2));
+    console.log(`결과 저장: ${outArg}`);
+  }
+  await db.closeDb().catch(() => {});
   process.exit(criticalFailed.length ? 1 : 0);
 }
 

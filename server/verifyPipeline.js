@@ -112,7 +112,8 @@ async function processVerification({ id, text, source, onProgress = () => {}, on
       // 질의할 수 있는 자리에도 남긴다. 로그는 지워지고, 원가는 나중에 세어야 한다.
       recordApiCost(id, full);
     }
-    return { result, fromCache: false };
+    // 원가도 돌려준다 — 정확도 측정(tests/accuracy.js)이 사례별 비용을 같이 본다.
+    return { result, fromCache: false, cost: cost ? { ...cost, reusedClaims: reusedCount } : null };
   } catch (e) {
     await failVerification(id, e.message).catch(() => {});
     logError(`verify:${source}`, e);
