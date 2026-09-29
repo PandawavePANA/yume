@@ -1,0 +1,331 @@
+// 리머 사이트의 "기술적인" 움직임 — 개발 스튜디오의 작업대에서 가져온 것들.
+//
+//   BuildTerminal     히어로 터미널. 아이디어 한 줄이 기획 → 설계 → 연동 → 배포로 빌드되고,
+//                     실제 작업물(유메·프로바…)의 주소로 배포되며 끝난다. 다음 작업물로 넘어가며 반복
+//   useScrambleLabels 섹션 이름표가 뒤섞인 기호에서 한 자씩 제자리를 찾는다(해독)
+//   LivePing          작업물 사이트에 이 브라우저가 지금 접속해 잰 응답 시간과 작은 그래프.
+//                     지어낸 숫자가 아니다 — 매번 실제로 요청을 보내 걸린 시간을 잰다
+//   ParticleWord      맨 아래 REAMER가 입자 수천 개로 모인다. 커서가 지나가면 흩어졌다 되돌아온다
+//
+// 화면 밖에서는 멈추고(IntersectionObserver), "움직임 줄이기"에서는 완성된 정지 화면을 보여준다.
+import { useEffect, useRef, useState } from "react";
+
+const reduced = () => typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+
+function useInView(ref, margin = "0px") {
+  const [on, setOn] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || !("IntersectionObserver" in window)) { setOn(true); return undefined; }
+    const io = new IntersectionObserver(([e]) => setOn(e.isIntersecting), { rootMargin: margin });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [ref, margin]);
+  return on;
+}
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// ── 히어로 터미널 ───────────────────────────────────────────────────────────
+const stagesFor = (p) => ["요구사항 정리", "화면 설계", `${p.stack.slice(0, 2).join(" · ")} 구현`, "배포"];
+const cmdFor = (p) => `reamer build "${p.blurb.split(".")[0]}"`;
+export function BuildTerminal({ projects }) {
+  const ref = useRef(null);
+  const visible = useInView(ref);
+  const [lines, setLines] = useState([]);
+  const [typing, setTyping] = useState("");
+  const alive = useRef(true);
+
+  useEffect(() => {
+    alive.current = true;
+    const list = projects.filter((p) => p.go);
+    if (reduced()) {
+      const p = list[0];
+      setTyping("");
+      setLines([
+        { k: "cmd", t: cmdFor(p) },
+        ...stagesFor(p).map((s) => ({ k: "stage", t: s, pct: 100 })),
+        { k: "done", t: `https://${p.go}`, name: p.name },
+      ]);
+      return undefined;
+    }
+    if (!visible) return undefined;
+    let idx = 0;
+    const run = async () => {
+      while (alive.current) {
+        const p = list[idx % list.length];
+        idx += 1;
+        setLines([]);
+        const cmd = cmdFor(p);
+        for (let i = 1; i <= cmd.length && alive.current; i += 1) {
+          setTyping(cmd.slice(0, i));
+          await sleep(cmd[i - 1] === " " ? 40 : 26 + Math.random() * 34);
+        }
+        setTyping("");
+        setLines([{ k: "cmd", t: cmd }]);
+        await sleep(380);
+        for (const s of stagesFor(p)) {
+          if (!alive.current) return;
+          setLines((l) => [...l, { k: "stage", t: s, pct: 0 }]);
+          for (let pct = 0; pct <= 100 && alive.current; pct += 7 + Math.round(Math.random() * 12)) {
+            setLines((l) => l.map((x, i) => (i === l.length - 1 ? { ...x, pct: Math.min(100, pct) } : x)));
+            await sleep(55);
+          }
+          setLines((l) => l.map((x, i) => (i === l.length - 1 ? { ...x, pct: 100 } : x)));
+          await sleep(140);
+        }
+        setLines((l) => [...l, { k: "done", t: `https://${p.go}`, name: p.name }]);
+        await sleep(3200);
+      }
+    };
+    run();
+    return () => { alive.current = false; };
+  }, [visible, projects]);
+
+  return (
+    <div className="term" ref={ref} aria-label="리머의 작업 과정을 보여주는 터미널 연출" role="img">
+      <div className="term__bar">
+        <span className="term__dot" /><span className="term__dot" /><span className="term__dot" />
+        <span className="term__title">reamer — build</span>
+      </div>
+      <div className="term__body">
+        {lines.map((l, i) =>
+          l.k === "cmd" ? (
+            <div className="term__line" key={i}><span className="term__ps">$</span> {l.t}</div>
+          ) : l.k === "stage" ? (
+            <div className="term__line term__stage" key={i}>
+              <span className={l.pct >= 100 ? "term__ok" : "term__spin"}>{l.pct >= 100 ? "✓" : "◐"}</span>
+              <span className="term__stage-name">{l.t}</span>
+              <span className="term__bar-track"><span className="term__bar-fill" style={{ transform: `scaleX(${l.pct / 100})` }} /></span>
+              <span className="term__pct">{String(l.pct).padStart(3, " ")}%</span>
+            </div>
+          ) : (
+            <div className="term__line term__done" key={i}>
+              <span className="term__live" /> {l.name} 운영 중 → <span className="term__url">{l.t}</span>
+            </div>
+          ),
+        )}
+        {typing && <div className="term__line"><span className="term__ps">$</span> {typing}<span className="term__caret" /></div>}
+        {!typing && !lines.length && <div className="term__line"><span className="term__ps">$</span> <span className="term__caret" /></div>}
+      </div>
+    </div>
+  );
+}
+
+// ── 이름표 해독 ─────────────────────────────────────────────────────────────
+const GLYPHS = "▯▮░▒▓/\\<>_-=+#01ㄱㄴㄷㄹㅁㅂㅅㅇㅈㅊㅋㅌㅍㅎ";
+export function useScrambleLabels(selector = ".label") {
+  useEffect(() => {
+    if (reduced() || !("IntersectionObserver" in window)) return undefined;
+    const done = new WeakSet();
+    const scramble = (el) => {
+      if (done.has(el)) return;
+      done.add(el);
+      // React가 들고 있는 텍스트 노드를 갈아 끼우면 안 된다. 노드는 그대로 두고 값만 바꾼다.
+      const node = el.childNodes.length === 1 && el.firstChild.nodeType === 3 ? el.firstChild : null;
+      if (!node) return;
+      const final = node.nodeValue;
+      const chars = Array.from(final);
+      const start = performance.now();
+      const dur = 380 + chars.length * 38;
+      const tick = (now) => {
+        const t = (now - start) / dur;
+        const fixed = Math.floor(t * chars.length);
+        node.nodeValue = chars.map((c, i) => (c === " " || c === "·" || i < fixed ? c : GLYPHS[(Math.random() * GLYPHS.length) | 0])).join("");
+        if (t < 1) requestAnimationFrame(tick);
+        else node.nodeValue = final;
+      };
+      requestAnimationFrame(tick);
+    };
+    const io = new IntersectionObserver((entries) => {
+      for (const e of entries) if (e.isIntersecting) { scramble(e.target); io.unobserve(e.target); }
+    }, { threshold: 0.9 });
+    document.querySelectorAll(selector).forEach((el) => io.observe(el));
+    return () => io.disconnect();
+  }, [selector]);
+}
+
+// ── 실시간 응답 시간 ────────────────────────────────────────────────────────
+// 이 브라우저에서 그 사이트로 요청을 보내 걸린 시간을 잰다. 교차 출처라 응답 내용은 볼 수 없지만
+// (no-cors) 걸린 시간은 잴 수 있다. 보이는 동안 12초마다 다시 재고, 최근 12번을 선으로 그린다.
+export function LivePing({ url }) {
+  const ref = useRef(null);
+  const visible = useInView(ref, "100px");
+  const [samples, setSamples] = useState([]);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    if (!visible || !url) return undefined;
+    let stop = false;
+    const ping = async () => {
+      const t0 = performance.now();
+      try {
+        await fetch(url, { mode: "no-cors", cache: "no-store", signal: AbortSignal.timeout?.(6000) });
+        if (stop) return;
+        const ms = Math.round(performance.now() - t0);
+        setFailed(false);
+        setSamples((s) => [...s.slice(-11), ms]);
+      } catch {
+        if (!stop) setFailed(true);
+      }
+    };
+    ping();
+    const id = setInterval(ping, 12000);
+    return () => { stop = true; clearInterval(id); };
+  }, [visible, url]);
+  const last = samples[samples.length - 1];
+  const max = Math.max(...samples, 1);
+  const pts = samples.map((v, i) => `${(i / Math.max(1, samples.length - 1)) * 56},${14 - (v / max) * 12}`).join(" ");
+  return (
+    <span className="ping" ref={ref} title="이 브라우저에서 지금 이 사이트에 접속해 잰 응답 시간">
+      <span className={`ping__dot${failed ? " ping__dot--off" : ""}`} />
+      <span className="ping__ms">{failed ? "응답 없음" : last != null ? `${last}ms` : "재는 중"}</span>
+      {samples.length > 1 && (
+        <svg className="ping__spark" viewBox="0 0 56 16" width="56" height="16" aria-hidden>
+          <polyline points={pts} fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" strokeLinecap="round" />
+        </svg>
+      )}
+    </span>
+  );
+}
+
+// ── 입자 워드마크 ───────────────────────────────────────────────────────────
+// 글자를 화면 밖 캔버스에 한 번 그리고, 그 픽셀 자리마다 입자를 둔다. 입자는 제자리로 당기는
+// 용수철과 커서가 미는 힘을 받는다. 화면에 들어오면 흩어진 곳에서 모여들고, 밖에서는 멈춘다
+// (보이는 동안만 매 프레임 돈다 — 화면을 벗어나면 useInView가 효과를 걷는다).
+export function ParticleWord({ text = "REAMER" }) {
+  const wrap = useRef(null);
+  const canvas = useRef(null);
+  const visible = useInView(wrap, "120px");
+  useEffect(() => {
+    const cv = canvas.current;
+    const box = wrap.current;
+    if (!cv || !box) return undefined;
+    const ctx = cv.getContext("2d");
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    let parts = [];
+    let W = 0;
+    let H = 0;
+    const pointer = { x: -9999, y: -9999 };
+    const still = reduced();
+
+    const build = () => {
+      W = box.clientWidth;
+      H = Math.round(Math.max(90, Math.min(300, W * (W < 600 ? 0.36 : 0.26))));
+      cv.width = W * dpr;
+      cv.height = H * dpr;
+      cv.style.width = `${W}px`;
+      cv.style.height = `${H}px`;
+      const off = document.createElement("canvas");
+      off.width = W;
+      off.height = H;
+      const o = off.getContext("2d");
+      o.fillStyle = "#fff";
+      o.textAlign = "center";
+      o.textBaseline = "middle";
+      // 폭에 맞춰 글자 크기를 정한다 — 좁은 폰에서 양 끝이 잘리지 않게.
+      let size = Math.round(H * 0.86);
+      o.font = `400 ${size}px "Instrument Serif", Georgia, serif`;
+      const wide = o.measureText(text).width;
+      if (wide > W * 0.96) {
+        size = Math.floor((size * W * 0.96) / wide);
+        o.font = `400 ${size}px "Instrument Serif", Georgia, serif`;
+      }
+      o.fillText(text, W / 2, H / 2 + size * 0.05);
+      const data = o.getImageData(0, 0, W, H).data;
+      const step = W < 600 ? 3 : 4;
+      parts = [];
+      for (let y = 0; y < H; y += step) {
+        for (let x = 0; x < W; x += step) {
+          if (data[(y * W + x) * 4 + 3] > 128) {
+            parts.push({
+              hx: x, hy: y,
+              x: still ? x : Math.random() * W, y: still ? y : Math.random() * H * 2 - H / 2,
+              vx: 0, vy: 0, c: colorAt(x / W),
+            });
+          }
+        }
+      }
+    };
+    function colorAt(t) {
+      // 파랑(#3b82f6) → 가운데(#6d5ae0) → 보라(#8b5cf6)
+      const a = t < 0.5 ? [59, 130, 246] : [109, 90, 224];
+      const b = t < 0.5 ? [109, 90, 224] : [139, 92, 246];
+      const k = t < 0.5 ? t * 2 : (t - 0.5) * 2;
+      return `rgb(${Math.round(a[0] + (b[0] - a[0]) * k)},${Math.round(a[1] + (b[1] - a[1]) * k)},${Math.round(a[2] + (b[2] - a[2]) * k)})`;
+    }
+
+    const draw = () => {
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, W, H);
+      const size = W < 600 ? 1.5 : 2;
+      for (const p of parts) {
+        ctx.fillStyle = p.c;
+        ctx.fillRect(p.x, p.y, size, size);
+      }
+    };
+
+    build();
+    // 글꼴이 늦게 도착하면 대체 글꼴로 뽑은 자리를 버리고 다시 뽑는다.
+    let dead = false;
+    document.fonts?.ready?.then(() => { if (dead) return; build(); if (still) draw(); else if (visible) kick(); });
+
+    let raf = 0;
+    const tick = () => {
+      raf = 0;
+      // 제자리도 가만있지 않는다 — 글자 전체에 느린 물결이 지나간다.
+      const time = performance.now() / 1000;
+      for (const p of parts) {
+        const dx = p.x - pointer.x;
+        const dy = p.y - pointer.y;
+        const d2 = dx * dx + dy * dy;
+        if (d2 < 4200) {
+          const f = (4200 - d2) / 4200;
+          p.vx += (dx / Math.sqrt(d2 + 0.01)) * f * 3.2;
+          p.vy += (dy / Math.sqrt(d2 + 0.01)) * f * 3.2;
+        }
+        p.vx += (p.hx - p.x) * 0.045;
+        p.vy += (p.hy + Math.sin(time * 1.7 + p.hx * 0.03) * 1.6 - p.y) * 0.045;
+        p.vx *= 0.82;
+        p.vy *= 0.82;
+        p.x += p.vx;
+        p.y += p.vy;
+      }
+      draw();
+      raf = requestAnimationFrame(tick);
+    };
+    const kick = () => { if (!raf && !still) raf = requestAnimationFrame(tick); };
+
+    const move = (e) => {
+      const r = cv.getBoundingClientRect();
+      pointer.x = e.clientX - r.left;
+      pointer.y = e.clientY - r.top;
+      kick();
+    };
+    const leave = () => { pointer.x = -9999; pointer.y = -9999; kick(); };
+    cv.addEventListener("pointermove", move);
+    cv.addEventListener("pointerleave", leave);
+    let rw = W;
+    const onResize = () => {
+      if (box.clientWidth === rw) return;
+      rw = box.clientWidth;
+      build();
+      if (still) draw();
+      else if (visible) kick();
+    };
+    window.addEventListener("resize", onResize);
+    if (still) draw();
+    else if (visible) kick();
+    return () => {
+      dead = true;
+      if (raf) cancelAnimationFrame(raf);
+      cv.removeEventListener("pointermove", move);
+      cv.removeEventListener("pointerleave", leave);
+      window.removeEventListener("resize", onResize);
+    };
+  }, [text, visible]);
+  return (
+    <div className="pword" ref={wrap} aria-hidden>
+      <canvas ref={canvas} />
+    </div>
+  );
+}
