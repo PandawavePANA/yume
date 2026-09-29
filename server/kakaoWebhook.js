@@ -97,6 +97,10 @@ export async function kakaoSkillHandler(req, res) {
       return remember([{ role: "user", content: utterance }]);
     }
     const usage = await checkAndConsume({ kakaoId, chars: verifyText.length });
+    if (!usage.allowed && usage.reason === "free_paused") {
+      res.json(textReply(prefix + "오늘은 이용자가 많아 준비한 무료 확인이 모두 찼어요. 내일 0시(한국 시간)에 다시 열려요. 지금 더 확인하려면 유메 웹사이트에서 크레딧으로 이용할 수 있어요."));
+      return remember([{ role: "user", content: utterance }]);
+    }
     if (!usage.allowed) {
       res.json(textReply(prefix + `오늘 무료 확인 ${FREE_DAILY_LIMIT}회를 다 쓰셨어요. 내일 다시 이용해주세요. 더 많이 확인하려면 유메 웹사이트에서 가입해 요금제를 이용할 수 있어요.`));
       return remember([{ role: "user", content: utterance }]);

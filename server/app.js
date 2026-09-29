@@ -30,10 +30,13 @@ import { creditReferralOnActivity } from "./referral.js";
 import { awardForVerification } from "./contribution.js";
 import apiV1Router from "./apiV1.js";
 import mcpRouter from "./mcp.js";
-import adminApiRouter from "./adminApi.js";
+import adminApiRouter, { requireAdmin } from "./adminApi.js";
 import { studioRouter } from "./studioApi.js";
 import { deskRouter } from "./deskApi.js";
 import { renderDeskPage } from "./renderDeskPage.js";
+import { renderFunnelPage } from "./renderFunnelPage.js";
+import { recordEvent, funnel, dailyCost } from "./events.js";
+import { dailyBudgetUsd, todaySpendUsd, USD_KRW } from "./costGuard.js";
 import { renderStudioPage } from "./renderStudioPage.js";
 import { adminLogin, adminLogout, hasAdminCookie, renderLoginPage } from "./adminGate.js";
 import { renderProductPage } from "./renderProductPage.js";
@@ -103,6 +106,14 @@ app.use("/api", creditsRouter);
 app.use("/api", express.json({ limit: "28mb" }), screenshotRouter);
 
 const verifyLimiter = createLimiter({ windowMs: 60_000, max: 6 });
+
+// 방문 한 줄(유입 측정). 화면이 세션마다 한 번 보낸다. 받는 값은 헤더의 익명 id와 출처뿐이다.
+const evLimiter = createLimiter({ windowMs: 60_000, max: 20 });
+app.post("/api/ev", limitMiddleware(evLimiter, (req) => `ev:${clientIp(req)}`), (req, res) => {
+  if (req.body?.kind !== "visit") return res.status(400).json({ error: "알 수 없는 기록이에요." });
+  recordEvent("visit", { req });
+  res.status(204).end();
+});
 // 문맥 복구는 대화 전체를 통째로 보내므로 한 번이 무겁다. 검증보다 낮게 잡는다.
 const repairLimiter = createLimiter({ windowMs: 60_000, max: 3 });
 const chatLimiter = createLimiter({ windowMs: 60_000, max: 20 });
@@ -124,6 +135,12 @@ const IDENTITY_FOR_CREDITS = {
 };
 
 function limitMessage(usage, user) {
+  // 오늘 준비한 무료분(AI 비용 상한, costGuard)이 다 찼다. 사람 탓이 아니라는 걸 먼저 말한다.
+  if (usage.reason === "free_paused") {
+    return user
+      ? `오늘은 이용자가 많아 준비한 무료 확인이 모두 찼어요. ${RESET_AT}에 다시 열려요. 지금 더 확인하려면 크레딧이 필요해요(${packLine()}).`
+      : `오늘은 이용자가 많아 준비한 무료 확인이 모두 찼어요. ${RESET_AT}에 다시 열려요. 가입하고 크레딧을 충전하면 지금도 확인할 수 있어요.`;
+  }
   if (usage.reason === "ip_ceiling") return `같은 네트워크에서 오늘 쓸 수 있는 무료 확인 횟수를 모두 사용했어요. ${RESET_AT}에 다시 이용하실 수 있어요.`;
   // 크레딧 소진은 하루 한도와 다른 문제다 — 내일이 되어도 풀리지 않으니 그렇게 안내한다.
   if (usage.reason === "no_credits") {
@@ -158,7 +175,9 @@ app.post("/api/verify", limitMiddleware(verifyLimiter, (req) => `verify:${client
   // 같은 IP 하루 상한(usageStore IP_DAILY_CEILING)이 계정 여러 개로 무료분을 불리는 것을 막는다.
   const usage = await checkAndConsume({ user, ip, chars: text.length, canSpendCredits: canSpend(user) });
   if (usage.reason === "identity_required") return res.status(403).json(IDENTITY_FOR_CREDITS);
+  if (usage.reason === "free_paused" && user && !canSpend(user)) return res.status(403).json(IDENTITY_FOR_CREDITS);
   if (!usage.allowed) return res.status(402).json({ error: limitMessage(usage, user), limitReached: true, loggedIn: !!user });
+  recordEvent("check", { req, userId: user?.id || null });
 
   res.writeHead(200, {
     "Content-Type": "text/event-stream; charset=utf-8",
@@ -279,6 +298,8 @@ app.post("/api/context-repair", limitMiddleware(repairLimiter, (req) => `repair:
 });
 
 app.get("/api/usage", async (req, res) => res.json(await peekUsage({ user: req.user, ip: clientIp(req) })));
+// 크레딧 팩 목록 — 로그인 전에도 보인다. 사기 전에 값을 보는 것이 먼저다(구매는 가입 뒤).
+app.get("/api/packs", (req, res) => res.json({ packs: CREDIT_PACKS }));
 
 app.post(
   "/api/chat",
@@ -351,6 +372,12 @@ app.post("/api/kakao/skill", requireKakaoSecret, kakaoSkillHandler);
 app.post("/api/admin/login", adminLogin);
 app.post("/api/admin/logout", adminLogout);
 
+// 유입·비용 화면(/admin/funnel)의 숫자. 같은 문(requireAdmin)을 쓴다.
+app.get("/api/admin/funnel", requireAdmin, async (req, res) => {
+  const days = Math.max(1, Math.min(90, Math.floor(Number(req.query.days) || 14)));
+  const [rows, daysCost, todayUsd] = await Promise.all([funnel(days), dailyCost(days), todaySpendUsd({ fresh: true })]);
+  res.json({ rows, days: daysCost, todayUsd, budgetUsd: dailyBudgetUsd(), usdKrw: USD_KRW });
+});
 app.use("/api/admin", adminApiRouter);
 // 스튜디오 보드도 같은 문(requireAdmin)을 쓴다. 관리자 화면이 둘인데 문이 둘이면
 // 한쪽만 잠그는 실수가 반드시 생긴다.
@@ -373,6 +400,7 @@ const adminPage = (render) => (req, res) => {
 app.get("/admin", attachUser, adminPage(renderAdminPage));
 app.get("/admin/studio", attachUser, adminPage(renderStudioPage));
 app.get("/admin/desk", attachUser, adminPage(renderDeskPage));
+app.get("/admin/funnel", attachUser, adminPage(renderFunnelPage));
 // 제품별 운영 화면. 화면 코드는 하나이고 제품 키만 다르다.
 app.get("/admin/p/:key", attachUser, (req, res) => {
   const page = renderProductPage(String(req.params.key));

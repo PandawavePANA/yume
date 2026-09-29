@@ -2,6 +2,7 @@ import { kstDay, now, one, run } from "./db.js";
 
 export { PLANS, FREE_DAILY_LIMIT, FREE_DAILY_CHECKS, TOKEN_PRICE_KRW, effectivePlan, userDailyCap } from "./plans.js";
 import { PLANS, FREE_DAILY_CHECKS, effectivePlan, userDailyCap } from "./plans.js";
+import { freeUsePaused } from "./costGuard.js";
 import { ensureMonthlyGrant, spendForVerification, creditsFor, balance as creditBalance, grant as grantCredits } from "./credits.js";
 
 // 무료 계정을 여러 개 만들어 한도를 우회하는 걸 막기 위한, 같은 IP 전체의 하루 상한.
@@ -53,6 +54,12 @@ export async function checkAndConsume({ user = null, ip = null, kakaoId = null, 
   const key = keyFor({ user, ip, kakaoId });
   const ipKey = ip ? `ipall:${ip}` : null;
 
+  // 오늘 AI 비용이 상한을 넘었으면 무료분은 멈춘다(costGuard). 크레딧으로 쓰는 것은 계속된다.
+  const paused = await freeUsePaused();
+  if (paused && !user) {
+    return { allowed: false, plan, reason: "free_paused", remainingFree: 0, dailyLimit: limit, credits: 0 };
+  }
+
   if (user && plan === "free" && ipKey && (await usedToday(ipKey)) >= IP_DAILY_CEILING) {
     return { allowed: false, plan, reason: "ip_ceiling", remainingFree: 0, dailyLimit: limit, credits: await creditBalance(user.id) };
   }
@@ -83,8 +90,9 @@ export async function checkAndConsume({ user = null, ip = null, kakaoId = null, 
     return { allowed: true, plan, usedFree: true, remainingFree: limit - used, dailyLimit: limit, credits: 0 };
   }
 
-  // 오늘 첫 3회는 크레딧을 쓰지 않는다.
-  if (used <= FREE_DAILY_CHECKS) {
+  // 오늘 첫 3회는 크레딧을 쓰지 않는다. 무료분이 멈춘 날에는 바로 크레딧으로 넘어간다 —
+  // 크레딧이 있는 사람은 멈춘 줄도 모르고 계속 쓴다.
+  if (used <= FREE_DAILY_CHECKS && !paused) {
     if (ipKey) await bump(ipKey);
     return {
       allowed: true, plan, usedFree: true, remainingFree: FREE_DAILY_CHECKS - used, dailyLimit: limit,
@@ -94,7 +102,7 @@ export async function checkAndConsume({ user = null, ip = null, kakaoId = null, 
 
   if (!canSpendCredits) {
     await run("UPDATE usage_daily SET used = GREATEST(0, used - 1) WHERE client_key = :key AND day = :day", { key, day: kstDay() });
-    return { allowed: false, plan, reason: "identity_required", remainingFree: 0, dailyLimit: limit, credits: 0 };
+    return { allowed: false, plan, reason: paused ? "free_paused" : "identity_required", remainingFree: 0, dailyLimit: limit, credits: 0 };
   }
 
   await ensureMonthlyGrant(user);
@@ -104,7 +112,7 @@ export async function checkAndConsume({ user = null, ip = null, kakaoId = null, 
     // 크레딧이 없으면 방금 올린 하루 사용량을 되돌린다 — 쓰지도 못했는데 한도만 깎이면 안 된다.
     await run("UPDATE usage_daily SET used = GREATEST(0, used - 1) WHERE client_key = :key AND day = :day", { key, day: kstDay() });
     return {
-      allowed: false, plan, reason: "no_credits", remainingFree: 0, dailyLimit: limit,
+      allowed: false, plan, reason: paused && used <= FREE_DAILY_CHECKS ? "free_paused" : "no_credits", remainingFree: 0, dailyLimit: limit,
       credits: await creditBalance(user.id), needed: creditsFor(chars),
     };
   }

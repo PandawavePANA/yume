@@ -627,3 +627,40 @@ test("주장이 하나라도 있으면 예전처럼 점수가 들어간다", asy
   assert.equal(r.finding, true, "사실과 다른 주장이 잡혔으니 발견 점수도 붙는다");
   assert.equal((await c("GET", "/api/contribution")).data.points, contribution.POINTS.verify + contribution.POINTS.finding);
 });
+
+// 하루 AI 비용 차단기. 광고로 사람이 몰리면 결제 없이 원가가 먼저 불어난다 — 상한을 넘으면
+// 무료분만 멈추고, 크레딧으로 쓰는 사람은 멈춘 줄도 모르고 계속 쓴다.
+test("오늘 AI 비용이 상한을 넘으면 무료분만 멈추고, 크레딧 사용자는 계속 쓴다", async () => {
+  const usage = await import("../usageStore.js");
+  const guard = await import("../costGuard.js");
+  const prev = process.env.DAILY_AI_BUDGET_USD;
+  process.env.DAILY_AI_BUDGET_USD = "1";
+  await db.run("INSERT INTO api_costs (kind, cost_usd, created_at) VALUES ('test', 5, :t)", { t: Date.now() });
+  guard._resetCostGuard();
+  try {
+    const anon = await usage.checkAndConsume({ ip: "10.8.8.1", chars: 10 });
+    assert.equal(anon.allowed, false);
+    assert.equal(anon.reason, "free_paused");
+
+    const { id: richId } = await signedUpUser("rich@yume.test");
+    const rich = { id: richId, plan: "free" };
+    await credits.grant(richId, 10, "admin", { memo: "테스트" });
+    const r = await usage.checkAndConsume({ user: rich, ip: "10.8.8.2", chars: 10 });
+    assert.equal(r.allowed, true, "크레딧이 있으면 계속 쓴다");
+    assert.equal(r.usedFree, false, "무료분 대신 크레딧으로");
+
+    const { id: poorId } = await signedUpUser("poor@yume.test");
+    const poor = { id: poorId, plan: "free" };
+    await credits.ensureMonthlyGrant(poor);
+    await credits.spend(poorId, await credits.balance(poorId), "verify");
+    const p = await usage.checkAndConsume({ user: poor, ip: "10.8.8.3", chars: 10 });
+    assert.equal(p.allowed, false);
+    assert.equal(p.reason, "free_paused", "크레딧이 없으면 멈춘 이유를 그대로 알린다");
+    assert.equal((await usage.peekUsage({ user: poor })).usedToday, 0, "막힌 한 번은 사용량에 남지 않는다");
+  } finally {
+    await db.run("DELETE FROM api_costs WHERE kind = 'test'");
+    if (prev === undefined) delete process.env.DAILY_AI_BUDGET_USD;
+    else process.env.DAILY_AI_BUDGET_USD = prev;
+    guard._resetCostGuard();
+  }
+});
