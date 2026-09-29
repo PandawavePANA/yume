@@ -6,6 +6,7 @@ import { grant } from "./credits.js";
 import { confirmPayment } from "./portone.js";
 import { logError } from "./errorLog.js";
 import { sendMail } from "./mailer.js";
+import { recordEvent } from "./events.js";
 import { COMPANY } from "./renderPages.js";
 
 // 결제 완료 안내.
@@ -114,6 +115,8 @@ export async function settleOrder(order) {
     { id: order.payment_id, m: r.method, t: now() },
   );
   if (!upd.changes) return { ok: true, credits: order.credits, already: true };
+  // 유입 측정 — 결제 한 건. 출처는 이 사람이 가입했을 때의 것으로 잇는다(events.js).
+  recordEvent("purchase", { userId: order.user_id, amount: order.amount });
 
   if (order.kind === "plan") {
     // 요금제는 1개월 이용권으로 판다. 남은 기간이 있으면 그 뒤에 붙인다 — 미리 사 둔 기간을

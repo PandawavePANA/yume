@@ -899,6 +899,25 @@ const MIGRATIONS = [
   CREATE INDEX idx_thread_files_msg ON thread_files(message_id);
   ALTER TABLE thread_files ENABLE ROW LEVEL SECURITY;
   `,
+
+  // 유입 측정(server/events.js). 사람을 식별하지 않는다 — 무작위 브라우저 id와 첫 유입 출처뿐.
+  `
+  CREATE TABLE events (
+    id BIGSERIAL PRIMARY KEY,
+    day TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    anon TEXT,
+    user_id BIGINT,
+    source TEXT,
+    medium TEXT,
+    campaign TEXT,
+    amount INTEGER,
+    created_at BIGINT NOT NULL
+  );
+  CREATE INDEX idx_events_day ON events(kind, day);
+  CREATE INDEX idx_events_user ON events(user_id) WHERE user_id IS NOT NULL;
+  ALTER TABLE events ENABLE ROW LEVEL SECURITY;
+  `,
 ];
 
 async function migrate() {

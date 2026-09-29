@@ -15,6 +15,7 @@ import {
   isEmail,
 } from "./security.js";
 import { sendMail } from "./mailer.js";
+import { recordEvent } from "./events.js";
 import { audit } from "./audit.js";
 import { effectivePlan, PLANS, peekUsage } from "./usageStore.js";
 import { logError } from "./errorLog.js";
@@ -204,6 +205,8 @@ router.post("/auth/signup", limitMiddleware(signupLimiter, (req) => `signup:${cl
   const userId = user.id;
   await audit(`user:${userId}`, "signup", `user:${userId}`, { dataConsent: !!dataConsent }, clientIp(req));
   await createSession(res, req, userId);
+  // 유입 측정 — 가입한 사람이 어느 출처로 들어왔는지. 이후 결제도 이 출처로 센다.
+  recordEvent("signup", { req, userId });
   // 추천 코드로 들어온 가입이면 연결만 해둔다(크레딧은 이 사람이 첫 검증을 마칠 때).
   if (req.body?.referralCode) await attachReferral({ inviteeId: userId, code: req.body.referralCode, ip: clientIp(req) });
   res.status(201).json({ user: publicUser(user) });

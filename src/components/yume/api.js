@@ -1,5 +1,6 @@
 import { BUSINESS } from "../../businessInfo.js";
 import { getLang, t } from "../../i18n.js";
+import { trackingHeaders } from "../../tracking.js";
 
 // 기업용 사이트는 별도 도메인에 배포되므로 유메 서버를 절대 주소로 불러야 한다.
 // 유메 본체에서는 비워 두면 기존처럼 같은 출처로 나간다.
@@ -21,6 +22,9 @@ export async function apiJson(path, { method = "GET", body } = {}) {
     credentials: API_BASE ? "omit" : "same-origin",
     headers: {
       "X-Yume-Lang": getLang(),
+      // 유입 측정 헤더는 같은 출처일 때만 싣는다. 기업용 사이트처럼 다른 도메인에서 부르면
+      // 이 헤더 때문에 사전 요청(CORS)이 막혀 점검 자체가 안 된다.
+      ...(API_BASE ? null : trackingHeaders()),
       ...(body ? { "Content-Type": "application/json" } : null),
     },
     body: body ? JSON.stringify(body) : undefined,

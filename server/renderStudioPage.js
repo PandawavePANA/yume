@@ -215,6 +215,7 @@ export function renderStudioPage() {
     <span class="logo"><i></i>REAMER</span>
     <span class="sp"></span>
     <a class="ghost" href="/admin/desk" id="deskLink">의뢰 데스크</a>
+    <a class="ghost" href="/admin/funnel">유입</a>
     <a class="ghost" href="/admin">유메 운영</a>
     <a class="ghost" href="/admin/p/ballast">밸러스트</a>
     <a class="ghost" href="/admin/p/aipick">아이픽</a>
