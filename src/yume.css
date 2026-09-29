@@ -110,3 +110,21 @@ a:focus-visible,
     transition-duration: 0.01ms !important;
   }
 }
+
+/* "확인하고" — 보라 글씨 위로 빛이 한 번씩 지나간다. 도장 찍기 전 종이를 비춰 보는 손전등. */
+.yume-shimmer {
+  background: linear-gradient(110deg, #8a6bd4 0%, #5b3fa0 38%, #c9b8f2 50%, #5b3fa0 62%, #8a6bd4 100%);
+  background-size: 250% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: yume-shimmer 3.6s ease-in-out infinite;
+}
+@keyframes yume-shimmer {
+  0%, 30% { background-position: 100% 0; }
+  70%, 100% { background-position: 0% 0; }
+}
+/* 여백선은 넓은 화면에서만. 폰에서는 글 위를 지나가 거슬린다. */
+@media (max-width: 900px) {
+  .yume-margin-rule { display: none; }
+}

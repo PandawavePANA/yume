@@ -2,7 +2,8 @@ import React, { useRef, useState } from "react";
 import { copyText } from "./clipboard.js";
 // 누르기 전에는 그려지지 않는 화면들. 첫 화면 번들에서 빼 둔다(src/chunks.js).
 import { AccountModal, AuditModal, AuthModal, CatMouseGame, CheckoutPage, ReviewModal } from "./chunks.jsx";
-import { motion, AnimatePresence, useScroll, useTransform, useMotionValue, useSpring } from "framer-motion";
+import { motion, AnimatePresence, MotionConfig, useScroll, useTransform, useMotionValue, useSpring } from "framer-motion";
+import { DocumentScan, DrawnMark, FactCheckScene, InkStamp, Magnetic, Marker, RollingNumber, ScrollAtmosphere, ScrollLine, ScrollRail, TiltCard, useHeroSplit } from "@/components/yume/motion";
 import NecPanel from "@/components/yume/NecPanel";
 import ContextRepairCard from "@/components/yume/ContextRepairCard";
 import { BountyPrompt } from "@/components/yume/BountyModal";
@@ -157,17 +158,6 @@ const OVERALL_TONE = {
   unverified: { bg: "#FDF5F0", border: "#EBCDBA", fg: "#fff", chipBg: "#9A4318" },
 };
 
-function StatusIcon({ verdict }) {
-  const v = VERDICT[verdict] || VERDICT.uncertain;
-  return (
-    <span style={{
-      display: "inline-flex", alignItems: "center", justifyContent: "center",
-      width: 26, height: 26, borderRadius: 999, background: v.bg,
-      color: v.color, fontSize: 13.5, fontWeight: 700, flexShrink: 0, marginTop: 1
-    }}>{v.glyph}</span>
-  );
-}
-
 function BizRow({ title, desc, cta }) {
   return (
     <div style={{
@@ -276,14 +266,17 @@ function YumeChatWidget({ shiftRight = 0 }) {
     const check = () => {
       cancelAnimationFrame(raf);
       raf = requestAnimationFrame(() => {
-        const row = document.querySelector(".yume-actions");
+        // 입력 화면의 버튼 줄과 결과 화면의 주 버튼들(.yume-actions) 가운데 하나라도 겹치면 비킨다.
+        const rows = document.querySelectorAll(".yume-actions");
         const me = containerRef.current;
-        if (!row || !me) { setBlocked(false); return; }
-        const a = row.getBoundingClientRect();
+        if (!rows.length || !me) { setBlocked(false); return; }
         const b = me.getBoundingClientRect();
         // 딱 붙는 것도 가리는 것으로 친다 — 손가락 끝은 8px쯤 넘친다.
         const pad = 8;
-        setBlocked(!(a.right < b.left - pad || a.left > b.right + pad || a.bottom < b.top - pad || a.top > b.bottom + pad));
+        setBlocked([...rows].some((row) => {
+          const a = row.getBoundingClientRect();
+          return !(a.right < b.left - pad || a.left > b.right + pad || a.bottom < b.top - pad || a.top > b.bottom + pad);
+        }));
       });
     };
     check();
@@ -636,6 +629,7 @@ const STEPS = [
 // 진행률 하나에 종속시킨다 — 내려가면 서서히 나타나고, 올리면 그만큼 되돌아간다.
 function StepsSection() {
   const ref = React.useRef(null);
+  const narrow = useMediaQuery("(max-width: 860px)", false);
   const { scrollYProgress: progress } = useScroll({ target: ref, offset: ["start 0.9", "start 0.3"] });
   const headerOpacity = useTransform(progress, [0, 0.4], [0, 1]);
   const headerY = useTransform(progress, [0, 0.4], [28, 0]);
@@ -646,7 +640,9 @@ function StepsSection() {
         <Eyebrow>HOW IT WORKS</Eyebrow>
         <h2 style={UI.sectionTitle}>{t("세 단계로, 확실하게.")}</h2>
       </motion.div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 20 }}>
+      {/* 카드 셋을 잇는 선이 스크롤만큼 그어진다 — 붙여넣기에서 확인까지가 한 줄로 이어진 일이다. */}
+      <div style={{ position: "relative", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 20 }}>
+        <ScrollLine progress={progress} vertical={narrow} />
         {STEPS.map((step, i) => (
           <StepCard key={step.n} step={step} i={i} progress={progress} />
         ))}
@@ -697,7 +693,7 @@ export default function YumeDashboard() {
 
   // 배경에 은은하게 떠다니는 블러 오브 — 페이지 전체 스크롤량에 따라 서로 다른
   // 속도로 움직여서(패럴랙스) 스크롤하는 내내 배경이 살아있는 느낌을 준다.
-  const orb1Y = useTransform(pageScrollY, [0, 6000], [0, -800]);
+  const { x1: heroX1, x2: heroX2 } = useHeroSplit(pageScrollY);
   const [authModal, setAuthModal] = useState(null); // null | "login" | "signup" | "forgot"
   // 모바일에서 본인확인창을 다녀오면 페이지가 새로 뜬다. 그때 찾아낸 계정을 모달에 다시 쥐여 준다.
   const [resetAccounts, setResetAccounts] = useState(null);
@@ -1208,9 +1204,12 @@ export default function YumeDashboard() {
   });
 
   return (
+    <MotionConfig reducedMotion="user">
     <div style={{
       minHeight: "100vh",
-      background: UI.ground,
+      // 바탕은 body가 같은 색으로 깐다. 여기서 칠하면 그 아래 괘선지 배경(z-index -1)이 가려진다 —
+      // 예전 히어로 물빛이 한 번도 보이지 않았던 이유가 이것이었다.
+      background: "transparent",
       color: UI.ink,
       fontFamily: "var(--yume-font)",
       position: "relative"
@@ -1220,11 +1219,8 @@ export default function YumeDashboard() {
           어느 것이 중요한지 구분되지 않았고, 그 자체가 흔한 표시이기도 했다.
           지금은 종이에 가까운 바탕에 위쪽 한 곳만 아주 옅게 물들인다 — 히어로가 뜬 것처럼
           보이게 하는 정도이고, 스크롤하면 사라져 글에 자리를 내준다. */}
-      <motion.div aria-hidden style={{
-        position: "fixed", inset: "0 0 auto 0", height: 620, zIndex: -1, pointerEvents: "none",
-        background: "radial-gradient(ellipse 70% 100% at 50% -20%, rgba(91,63,160,0.10), transparent 70%)",
-        y: orb1Y,
-      }} />
+      <ScrollAtmosphere />
+      <ScrollRail top="var(--yume-safe-top)" />
       {/* BACKDROP (오버레이용) */}
       <AnimatePresence>
         {sidebarOpen && (
@@ -1444,13 +1440,18 @@ export default function YumeDashboard() {
                   맥박처럼 깜빡이게 했다. 로고가 글이 아니라 그림으로 읽혀 문장이 끊겼고,
                   히어로 한 화면이 거의 비어 있었다. 로고를 글자 크기에 맞춰 문장 안으로
                   되돌리고 글로우를 없앴다. */}
-              <motion.div {...heroEnter(0.05)} style={heroLine}>{t("AI에게 질문하고")}</motion.div>
-              <motion.div {...heroEnter(0.22)} style={{
-                ...heroLine, display: "flex", alignItems: "center", justifyContent: "center",
-                gap: "0.12em", marginTop: "0.18em", flexWrap: "wrap",
-              }}>
-                <YumeLogo height={52} />
-                <span>{t("로 확인하세요")}</span>
+              {/* 스크롤하면 두 줄이 서로 반대로 비켜난다 — 질문과 확인은 다른 일이다. */}
+              <motion.div style={{ x: heroX1 }}>
+                <motion.div {...heroEnter(0.05)} style={heroLine}>{t("AI에게 질문하고")}</motion.div>
+              </motion.div>
+              <motion.div style={{ x: heroX2 }}>
+                <motion.div {...heroEnter(0.22)} style={{
+                  ...heroLine, display: "flex", alignItems: "center", justifyContent: "center",
+                  gap: "0.12em", marginTop: "0.18em", flexWrap: "wrap",
+                }}>
+                  <YumeLogo height={52} />
+                  <span><Marker delay={0.9}>{t("로 확인하세요")}</Marker></span>
+                </motion.div>
               </motion.div>
               <motion.p {...heroEnter(0.38)} style={{ ...UI.lead, maxWidth: 560, margin: "26px auto 0" }}>
                 {t("\"이렇다던데 사실이야?\" 한 줄이면 됩니다. AI 답변을 통째로 붙여넣어도 되고요. 법률·의료·금융·역사·과학 — 어떤 주제든 유메가 하나하나 확인합니다.")}
@@ -1605,7 +1606,8 @@ export default function YumeDashboard() {
           )}
           {stage === "loading" && (
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "52px 0 40px", gap: 14 }}>
-              <div style={{ width: 30, height: 30, borderRadius: 999, border: "2.5px solid rgba(139,111,216,0.2)", borderTopColor: UI.accentSoft, animation: "yume-spin 0.9s linear infinite" }} />
+              {/* 기다리는 동안 문서를 훑는 빛. 주장이 하나 찾아질 때마다 여백에 점이 붙는다. */}
+              <DocumentScan found={liveClaims.length} />
               <div style={{ fontSize: 17, fontWeight: 600, color: UI.ink, letterSpacing: "-0.02em" }}>
                 확인하는 중 <span style={{ fontVariantNumeric: "tabular-nums", color: UI.accentSoft }}>{elapsedSec}초</span>
               </div>
@@ -1703,11 +1705,13 @@ export default function YumeDashboard() {
                           padding: "18px 20px", borderRadius: 18, background: tone.bg, border: `1px solid ${tone.border}`, marginBottom: 14,
                         }}>
                           <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10, marginBottom: 10 }}>
-                            <span style={{
-                              fontSize: 14.5, fontWeight: 700, color: tone.fg, background: tone.chipBg,
-                              borderRadius: 999, padding: "5px 13px", letterSpacing: "-0.01em",
-                            }}>{result.overall.label}</span>
-                            <span style={{ fontSize: 13.5, color: UI.ink2, fontWeight: 500 }}>{confirmedCount}/{totalCount}개 확인됨 · {result.overall_domain}</span>
+                            {/* 판정은 표시가 아니라 날인이다 — 크게 들어와 눌리며 멈춘다. */}
+                            <InkStamp key={result.id || result.overall.label} color={tone.chipBg} rotate={-4} delay={0.2} style={{ fontSize: 15 }}>
+                              {result.overall.label}
+                            </InkStamp>
+                            <span style={{ fontSize: 13.5, color: UI.ink2, fontWeight: 500 }}>
+                              <RollingNumber value={confirmedCount} />/{totalCount}개 확인됨 · {result.overall_domain}
+                            </span>
                             {(result.elapsedMs || elapsedSec > 0) && (
                               <span style={{ fontSize: 12.5, color: UI.ink3, marginLeft: "auto" }}>
                                 {result.fromCache ? t("⚡ 이전 검증 결과 재사용") : `${Math.max(1, Math.round((result.elapsedMs ?? elapsedSec * 1000) / 1000))}초 만에 확인`}
@@ -1729,7 +1733,7 @@ export default function YumeDashboard() {
                             display: "flex", gap: 14, padding: "18px 18px", borderRadius: 18,
                             background: VBG[c.verdict] || VBG.uncertain, border: `1px solid ${VBORDER[c.verdict] || VBORDER.uncertain}`
                           }}>
-                          <StatusIcon verdict={c.verdict} />
+                          <DrawnMark verdict={c.verdict} play={i < revealed} delay={0.08} />
                           <div style={{ minWidth: 0 }}>
                             <div style={{ fontSize: 12.5, fontWeight: 600, color: UI.ink3, marginBottom: 6, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                               <span>{c.domain} · <span style={{ color: (VERDICT[c.verdict] || VERDICT.uncertain).color }}>{t(VERDICT[c.verdict]?.label || "확인되지 않음")}</span></span>
@@ -1862,13 +1866,13 @@ export default function YumeDashboard() {
               </AnimatePresence>
 
                 {reaskText() && (
-                  <motion.button whileHover={{ y: -1 }} whileTap={{ scale: 0.985 }} onClick={copyReask} style={{
+                  <motion.button className="yume-actions" whileHover={{ y: -1 }} whileTap={{ scale: 0.985 }} onClick={copyReask} style={{
                     width: "100%", marginTop: 20, height: 52, borderRadius: 14, border: "none", cursor: "pointer",
                     background: UI.button, color: "#fff", fontSize: 15.5, fontWeight: 600, letterSpacing: "-0.01em",
                     boxShadow: "0 8px 22px rgba(107,79,168,0.22)",
                   }}>{t("틀린 부분을 AI에게 다시 물어보기 (복사)")}</motion.button>
                 )}
-                <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
+                <div className="yume-actions" style={{ display: "flex", gap: 10, marginTop: 20 }}>
                   {result.id && (
                     <motion.button whileHover={{ backgroundColor: "#F5F2ED" }} whileTap={{ scale: 0.985 }} onClick={shareResult} style={{
                       flex: 1, height: 50, borderRadius: 14,
@@ -1902,6 +1906,9 @@ export default function YumeDashboard() {
           앱(스토어 빌드)에서는 통째로 빼둔다. 이 긴 설득 글은 "이 서비스를 쓸까" 고민하는
           웹 방문자를 위한 것이고, 앱을 이미 깐 사람은 쓰러 들어온 사람이다. 열자마자
           34화면짜리 소개가 깔리면 도구를 찾으러 스크롤을 내려야 한다. */}
+      {/* 앱에는 긴 소개를 싣지 않지만, 유메가 어떻게 판정하는지는 한 번 보여 준다(짧은 판). */}
+      {IS_STORE_BUILD && <FactCheckScene t={t} compact />}
+
       {!IS_STORE_BUILD && (<>
 
       {/* 왜 유메인가 — 문제 제기 */}
@@ -1924,6 +1931,9 @@ export default function YumeDashboard() {
         </Reveal>
       </section>
 
+
+      {/* 대표 장면 — 문제 제기("틀린 말을 합니다") 바로 뒤에서, 유메가 그걸 어떻게 잡는지 스크롤로 돌려 본다. */}
+      <FactCheckScene t={t} />
 
       <StepsSection />
 
@@ -1963,17 +1973,16 @@ export default function YumeDashboard() {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(188px, 1fr))", gap: 14 }}>
           {HALLUCINATION_CAUSES.map((c, i) => (
             <Reveal key={c.title} delay={i * 0.06} style={{ height: "100%" }}>
-              <motion.div whileHover={{ y: -6, boxShadow: UI.shadowCard }} transition={{ duration: 0.4, ease: EASE_APPLE }}
-                style={{
+              <TiltCard style={{
                   background: UI.surface, backdropFilter: UI.glass, WebkitBackdropFilter: UI.glass,
-                  border: `1px solid ${UI.hairlineLight}`, borderRadius: 22, padding: "26px 22px",
+                  border: `1px solid ${UI.hairline}`, borderRadius: 22, padding: "26px 22px",
                   height: "100%", boxSizing: "border-box", textAlign: "left", boxShadow: UI.shadowSoft,
                 }}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: UI.accentSoft, marginBottom: 14, fontVariantNumeric: "tabular-nums" }}>{String(i + 1).padStart(2, "0")}</div>
                 <div style={{ fontSize: 17, fontWeight: 700, color: UI.ink, marginBottom: 8, letterSpacing: "-0.02em" }}>{t(c.title)}</div>
                 <div style={{ fontSize: 14, color: UI.ink2, lineHeight: 1.65, marginBottom: 14 }}>{t(c.problem)}</div>
                 <div style={{ fontSize: 14, color: UI.accent, lineHeight: 1.65, fontWeight: 600, paddingTop: 14, borderTop: `1px solid ${UI.hairline}` }}>{t(c.fix)}</div>
-              </motion.div>
+              </TiltCard>
             </Reveal>
           ))}
         </div>
@@ -1986,7 +1995,7 @@ export default function YumeDashboard() {
             {t("AI 답변, {x} 믿으세요.", { x: "\u0000" })
               .split("\u0000")
               .flatMap((part, i) => (i === 0 ? [part] : [
-                <span key="kw" style={{ background: UI.brandText, WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" }}>{t("확인하고")}</span>,
+                <span key="kw" className="yume-shimmer">{t("확인하고")}</span>,
                 part,
               ]))}
           </h2>
@@ -1995,11 +2004,13 @@ export default function YumeDashboard() {
           <p style={{ ...UI.lead, margin: "0 auto 32px" }}>{t("붙여넣기 한 번이면 충분해요. 가입하지 않아도 바로 써볼 수 있어요.")}</p>
         </Reveal>
         <Reveal delay={0.18}>
+          <Magnetic>
           <motion.button whileHover={{ y: -1, boxShadow: "0 14px 32px rgba(107,79,168,0.36)" }} whileTap={{ scale: 0.97 }}
             onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} style={{
             padding: "14px 28px", borderRadius: 980, border: "none", background: UI.button, color: "#fff",
             fontSize: 16, fontWeight: 600, cursor: "pointer", letterSpacing: "-0.01em", boxShadow: "0 8px 22px rgba(107,79,168,0.26)",
           }}>{t("지금 확인해보기")}</motion.button>
+          </Magnetic>
         </Reveal>
       </section>
 
@@ -2282,5 +2293,6 @@ export default function YumeDashboard() {
         );
       })()}
     </div>
+    </MotionConfig>
   );
 }

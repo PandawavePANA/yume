@@ -509,6 +509,52 @@ export default {
   "{plan} 이용권이 {n}일 뒤 끝나요. 끝나면 무료 플랜으로 돌아가요.":
     "Your {plan} pass ends in {n} days. After that you're back on the free plan.",
   "연장하기": "Extend",
+  "스크롤로 돌려 보는 검증":
+    "A fact-check you play by scrolling",
+  "그럴듯한 답변 한 단락,":
+    "One plausible paragraph,",
+  "유메가 읽으면 이렇게 됩니다.":
+    "read by Yume.",
+  "예시 답변":
+    "Sample answer",
+  "주장 {n}개":
+    "{n} claims",
+  "교통사고 손해배상은 ":
+    "Compensation for a car accident ",
+  "민법 제750조 불법행위 책임에 근거합니다":
+    "rests on tort liability under Article 750 of the Civil Act",
+  ". 다만 ":
+    ". But ",
+  "사고가 난 날부터 1년이 지나면 청구할 수 없습니다":
+    "you can no longer claim once a year has passed since the accident",
+  ". 실제로 ":
+    ". In fact, ",
+  "대법원 2019다999999 판결":
+    "Supreme Court ruling 2019Da999999",
+  "도 같은 취지로 판단했습니다.":
+    " held the same.",
+  "법제처 조문과 일치 · 민법 제750조":
+    "Matches the official statute · Civil Act Article 750",
+  "기한이 틀렸습니다 — 손해와 가해자를 안 날부터 3년, 사고일부터 10년 (민법 제766조)":
+    "Wrong deadline: 3 years from learning of the damage and who caused it, 10 years from the accident (Civil Act Article 766)",
+  "법원 기록에서 찾을 수 없는 사건번호입니다":
+    "No such case number exists in court records",
+  "찾기":
+    "Find",
+  "답변에서 사실 주장을 하나씩 골라냅니다":
+    "Pull every factual claim out of the answer",
+  "대조":
+    "Compare",
+  "법제처 조문과 법원 기록에 직접 맞춰 봅니다":
+    "Check each one against official statutes and court records",
+  "판정":
+    "Rule",
+  "근거와 함께 결론을 찍습니다":
+    "Stamp a verdict, with the evidence",
+  "대부분 부정확":
+    "Mostly inaccurate",
+  "3개 중 1개 확인":
+    "1 of 3 confirmed",
   "오늘 무료 {n}회 남음":
     "{n} free left today",
   "매일 3회 무료 확인 (가입 없이도)":
