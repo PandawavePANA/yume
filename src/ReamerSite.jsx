@@ -10,6 +10,10 @@ import "@/components/reamer/motion.css";
 import { useFloatingCta, usePointerFx, useScrollSpy, useScrub } from "@/components/reamer/useMotion";
 import "@/components/reamer/tech.css";
 import { BuildTerminal, CursorGrid, LivePing, ParticleWord, ScrollRuler, useScrambleLabels } from "@/components/reamer/tech";
+// 움직임 부품이 터져도 그 자리만 비우고 본문은 남긴다(Decor.jsx 주석 참고).
+import Decor from "@/components/reamer/Decor";
+import "@/components/reamer/fx.css";
+import { BlueprintSolid, ClickSparks } from "@/components/reamer/fx";
 
 // Characters are split into spans so the global cursor-tile trail can flip
 // them dark as a tile passes underneath.
@@ -433,7 +437,7 @@ function WorkCase({ item, index }) {
         <p className="case__meta">
           <span className={`case__kind${item.live ? " case__kind--live" : ""}`}>{item.kind}</span>
           <span className="case__year">{item.year}</span>
-          {item.live && <LivePing url={item.href} />}
+          {item.live && <Decor name="ping"><LivePing url={item.href} /></Decor>}
         </p>
         <h3 className="case__name">
           {/* 글자별 span을 flex 항목으로 두면 낱자 사이마다 gap이 들어가 "유메"가
@@ -497,9 +501,10 @@ const ReamerSite = () => {
 
   return (
     <>
-      <SiteBackdrop />
-      <CursorGrid />
-      <ScrollRuler sections={RULER_SECTIONS} />
+      <Decor name="backdrop"><SiteBackdrop /></Decor>
+      <Decor name="grid"><CursorGrid /></Decor>
+      <Decor name="ruler"><ScrollRuler sections={RULER_SECTIONS} /></Decor>
+      <Decor name="sparks"><ClickSparks /></Decor>
 
       <div className="site">
         <div className="site__rails" aria-hidden>
@@ -570,7 +575,7 @@ const ReamerSite = () => {
                 </div>
                 <p className="hero__note">{HERO_NOTE}</p>
               </div>
-              <BuildTerminal projects={WORK} />
+              <Decor name="terminal"><BuildTerminal projects={WORK} /></Decor>
             </div>
           </section>
 
@@ -640,8 +645,9 @@ const ReamerSite = () => {
               </header>
 
               <ul className="why">
-                {WHY.map((w) => (
-                  <li className="why__item" key={w.head} data-reveal data-spot>
+                {WHY.map((w, i) => (
+                  <li className="why__item" key={w.head} data-reveal data-spot style={{ "--i": i }}>
+                    <span className="orbit" aria-hidden />
                     <h3 className="why__head">{w.head}</h3>
                     <p className="why__body">{w.body}</p>
                   </li>
@@ -651,7 +657,7 @@ const ReamerSite = () => {
           </section>
 
           <section className="section" id="services">
-            <div className="wrap">
+            <div className="wrap wrap--solid">
               <header className="head" data-reveal>
                 <p className="label">하는 일</p>
                 <h2 className="title">
@@ -662,10 +668,12 @@ const ReamerSite = () => {
                   실제로 돌아가는 상태로 넘겨드립니다.
                 </p>
               </header>
+              <Decor name="solid"><BlueprintSolid /></Decor>
 
               <div className="svc">
-                {SERVICES.map((sv) => (
-                  <div className="svc__item" key={sv.name} data-reveal data-spot>
+                {SERVICES.map((sv, i) => (
+                  <div className="svc__item" key={sv.name} data-reveal data-spot style={{ "--i": i }}>
+                    <span className="orbit" aria-hidden />
                     <h3 className="svc__name">
                       {sv.name}
                       <span className="svc__when">{sv.when}</span>
@@ -829,7 +837,7 @@ const ReamerSite = () => {
         <footer className="footer">
           {/* 입자로 모이는 이름. 커서가 지나가면 흩어졌다가 제자리로 돌아온다. */}
           <div className="wrap">
-            <ParticleWord />
+            <Decor name="particles"><ParticleWord /></Decor>
           </div>
           <div className="wrap footer__row">
             <a className="nav__brand" href="#top">

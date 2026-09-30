@@ -29,14 +29,23 @@
 }
 .term__dot { width: 7px; height: 7px; border-radius: 50%; background: var(--line-strong); }
 .term__title { margin-left: 8px; font-size: 10.5px; letter-spacing: 0.06em; color: var(--ink-faint); }
+/* 높이는 **최소값이 아니라 고정값**이다. 좁은 화면에서 터미널은 글 흐름 안에 있어서,
+   줄이 하나라도 넘치면 아래 사이트 전체가 밀려 내려갔다가 루프가 처음으로 돌아갈 때
+   다시 올라온다. 6줄(명령 1 + 단계 4 + 배포 1)에 딱 맞춰 두고 넘치는 건 자른다.
+   box-sizing이 content-box라 padding은 이 높이 바깥에 더해진다. */
 .term__body {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  min-height: calc(6 * 1.65em + 5 * 2px);
+  height: calc(6 * 1.65em + 5 * 2px);
+  overflow: hidden;
   padding: 12px 14px 14px;
 }
+/* 한 줄의 높이도 못 박는다. line-height만으로는 부족하다 — 한글은 고정폭 글꼴에 없어서
+   기기마다 다른 대체 글꼴로 그려지는데, 그 글꼴의 위아래 여백이 크면 줄 상자가 line-height보다
+   커진다. 그러면 여섯째 줄("운영 중 →", 이 연출의 결말)이 아래 고정 높이에 잘린다. */
 .term__line {
+  height: 1.65em;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
