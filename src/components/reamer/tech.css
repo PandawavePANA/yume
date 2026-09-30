@@ -241,6 +241,7 @@ html:not(.reveal-on) .case__dim-label { opacity: 1; }
 /* 빨리 스크롤하면 큰 글씨의 파랑·보라 성분이 반대로 밀려 나간다. 멈추면 --vel이 0으로
    가라앉으며 다시 한 겹이 된다. 투명 글자(스펙트럼 줄)는 그림자가 비쳐 보이므로 뺀다. */
 .display > .trail-ch,
+.display .tw .trail-ch,
 .title .trail-ch {
   --ab: max(var(--vel, 0), calc(var(--vel, 0) * -1));
   text-shadow:

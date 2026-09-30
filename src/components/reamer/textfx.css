@@ -1,0 +1,266 @@
+/* 글자에 붙는 움직임(TextFx.jsx). 일부러 과하게 넣었다 — 덜어낼 것은 여기서 줄 단위로 지우면 된다.
+   각 묶음 머리에 이름을 붙여 두었다.
+
+   원칙은 motion.css와 같다. transform · translate · scale · opacity · filter · 그림자만 움직이고,
+   쪼갠 조각은 처음부터 제 자리를 차지한다. 어떤 효과도 글줄을 밀거나 줄바꿈을 바꾸지 않는다.
+   감추는 규칙은 <html class="reveal-on">일 때만 — 스크립트가 없으면 글은 그냥 보인다. */
+
+/* 화면에는 안 보이고 읽기 도구만 읽는 글. 쪼갠 글자를 대신해 문장 그대로 읽힌다. */
+.fx-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ── [A] 낱말이 가라앉아 있다가 차례로 떠오른다 ─────────────────────────────── */
+.fx-t { position: relative; perspective: 700px; }
+.fx-w {
+  display: inline-block;
+  transform-origin: 50% 100%;
+  transition:
+    opacity 0.7s var(--ease),
+    transform 0.95s cubic-bezier(0.16, 1.1, 0.3, 1),
+    filter 0.7s var(--ease),
+    translate 0.3s var(--ease),
+    color 0.3s var(--ease),
+    text-shadow 0.3s var(--ease);
+  /* 긴 문단도 2초 안에 다 뜬다 — 낱말 번호가 45를 넘으면 더 늦추지 않는다. */
+  transition-delay:
+    calc(min(var(--wi, 0), 45) * 24ms),
+    calc(min(var(--wi, 0), 45) * 24ms),
+    calc(min(var(--wi, 0), 45) * 24ms),
+    0s, 0s, 0s;
+}
+.reveal-on .fx-t:not(.fx-t--stay):not(.fx-in) .fx-w {
+  opacity: 0;
+  transform: translateY(0.7em) rotateX(-75deg) scale(0.92);
+  filter: blur(7px);
+}
+/* 떠오르는 순간 한 번 하얗게 번쩍였다가 제 색으로 식는다. */
+.reveal-on .fx-t.fx-in .fx-w {
+  animation: fxArrive 1.3s var(--ease) both;
+  animation-delay: calc(min(var(--wi, 0), 45) * 24ms + 0.12s);
+}
+@keyframes fxArrive {
+  from { color: #fff; text-shadow: 0 0 16px color-mix(in srgb, var(--beam-violet) 90%, transparent); }
+}
+
+/* ── [B] 빛이 글을 훑고 지나간다 ──────────────────────────────────────────── */
+/* 문단마다 출발 시각을 엇갈린다(낱말 수로 흩뜨림). 어두운 바탕에서는 overlay가 거의
+   아무것도 하지 않고, 밝은 글자 위에서만 더 밝아진다 — 글자만 빛나는 것처럼 보인다. */
+.fx-glint {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    104deg,
+    transparent 40%,
+    color-mix(in srgb, var(--beam-blue) 70%, #fff) 47%,
+    #fff 50%,
+    color-mix(in srgb, var(--beam-violet) 70%, #fff) 53%,
+    transparent 60%
+  ) no-repeat;
+  background-size: 260% 100%;
+  background-position: 130% 0;
+  mix-blend-mode: overlay;
+  opacity: 0.95;
+}
+.fx-t.fx-in > .fx-glint,
+.fx-t--stay > .fx-glint,
+.title > .fx-glint,
+.display > .fx-glint {
+  animation: fxGlint 7.5s ease-in-out infinite;
+  animation-delay: calc(var(--wn, 12) * -0.41s);
+}
+@keyframes fxGlint {
+  0%, 62% { background-position: 130% 0; }
+  88%, 100% { background-position: -30% 0; }
+}
+
+/* ── [C] 커서가 닿는 낱말과 그 양옆이 들린다 ─────────────────────────────── */
+@media (hover: hover) and (pointer: fine) {
+  .fx-w:hover {
+    translate: 0 -0.2em;
+    color: #fff;
+    text-shadow: 0 0 18px color-mix(in srgb, var(--beam-violet) 95%, transparent), 0 0 3px #fff;
+  }
+  .fx-w:hover + .fx-w,
+  .fx-w:has(+ .fx-w:hover) {
+    translate: 0 -0.1em;
+    color: var(--ink);
+    text-shadow: 0 0 10px color-mix(in srgb, var(--beam-blue) 70%, transparent);
+  }
+}
+
+/* ── [D] 짧은 제목은 글자 단위로 — 위에서 비틀려 떨어진다 ─────────────────── */
+.fx-word { display: inline-block; white-space: nowrap; }
+.fx-c {
+  display: inline-block;
+  transition:
+    opacity 0.55s var(--ease),
+    transform 0.8s cubic-bezier(0.2, 1.4, 0.3, 1),
+    filter 0.55s var(--ease);
+  transition-delay: calc(min(var(--ci, 0), 40) * 28ms + 0.08s);
+}
+.reveal-on .fx-t--chars:not(.fx-t--stay):not(.fx-in) .fx-c {
+  opacity: 0;
+  transform: translateY(-0.9em) rotate(-14deg) scale(1.5);
+  filter: blur(6px);
+}
+.reveal-on .fx-t--chars.fx-in .fx-c {
+  animation: fxCharFlash 1.1s var(--ease) both;
+  animation-delay: calc(min(var(--ci, 0), 40) * 28ms + 0.1s);
+}
+@keyframes fxCharFlash {
+  from { color: var(--beam-blue); text-shadow: 0 0 14px color-mix(in srgb, var(--beam-blue) 90%, transparent); }
+  45% { color: #fff; }
+}
+/* 카드에 커서를 올리면 제목 글자가 물결처럼 한 번 튄다. */
+@media (hover: hover) and (pointer: fine) {
+  :is(.why__item, .svc__item, .step, .vow__item, .tl__item, .also__item, .case__body):hover .fx-t--chars .fx-c {
+    animation: fxWave 0.62s var(--ease) both;
+    animation-delay: calc(min(var(--ci, 0), 40) * 26ms);
+  }
+}
+@keyframes fxWave {
+  0%, 100% { transform: none; }
+  35% { transform: translateY(-0.32em) scale(1.12); color: #fff; text-shadow: 0 0 14px color-mix(in srgb, var(--beam-violet) 90%, transparent); }
+  70% { transform: translateY(0.06em); }
+}
+
+/* ── [E] 섹션 제목 — 커서를 올리면 물결, 커서를 피해 밀려남, 빛이 훑음 ────── */
+.title { position: relative; }
+@media (hover: hover) and (pointer: fine) {
+  .title:hover .tw .trail-ch {
+    animation: fxWave 0.7s var(--ease) both;
+    animation-delay: calc(var(--i, 0) * 22ms);
+  }
+}
+/* 커서 자석(useMagnetText). transform은 나타나는 연출이 쓰므로 translate · scale을 따로 쓴다.
+   제목 글자는 연출과 전환 목록을 같이 쓴다 — 여섯 항목을 한 번에 다시 적는다
+   (순서: opacity, transform, filter, color, translate, scale). */
+.display .trail-ch,
+.title .trail-ch {
+  translate: var(--mx, 0) var(--my, 0);
+  scale: var(--ms, 1);
+}
+.display .trail-ch,
+.title .tw .trail-ch {
+  transition: color 1.2s var(--ease), translate 0.35s var(--ease), scale 0.35s var(--ease);
+}
+.reveal-on [data-reveal] .title .tw .trail-ch {
+  transition-property: opacity, transform, filter, color, translate, scale;
+  transition-duration: 0.55s, 0.9s, 0.6s, 1.2s, 0.35s, 0.35s;
+  transition-timing-function: var(--ease), cubic-bezier(0.16, 1.1, 0.3, 1), var(--ease), var(--ease), var(--ease), var(--ease);
+  transition-delay:
+    calc(var(--i, 0) * 24ms + 120ms), calc(var(--i, 0) * 24ms + 120ms), calc(var(--i, 0) * 24ms + 120ms),
+    0s, 0s, 0s;
+}
+.reveal-on [data-reveal] .title .tw .trail-ch.is-trail { transition-duration: 0.55s, 0.9s, 0.6s, 0.08s, 0.35s, 0.35s; }
+
+/* ── [F] 큰 제목(히어로) — 첫 화면이라 감추지 않는다. 대신 늘 조금씩 움직인다 ── */
+.display { position: relative; }
+/* 앞 두 줄: 글자가 물결처럼 천천히 오르내린다. */
+.display .tw .trail-ch {
+  display: inline-block;
+  animation: fxFloat 5.2s ease-in-out infinite;
+  animation-delay: calc(var(--i, 0) * -0.21s);
+}
+@keyframes fxFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-0.06em); }
+}
+/* 스펙트럼 줄: 글자는 그대로 두고(바탕 그라디언트가 글자 모양으로 비치는 방식이라, 글자를
+   움직이면 그라디언트 밖으로 빠져 안 보일 수 있다) 그라디언트 자체가 흐른다. */
+.display__vow {
+  background-size: 220% 100%;
+  animation: fxFlow 6s ease-in-out infinite alternate;
+}
+@keyframes fxFlow {
+  from { background-position: 0% 50%; }
+  to { background-position: 100% 50%; }
+}
+/* 커서를 올리면 앞 두 줄이 색이 갈라지며 떨린다(글리치). */
+@media (hover: hover) and (pointer: fine) {
+  .display:hover .tw .trail-ch {
+    animation: fxGlitch 0.42s steps(3) 1 both, fxFloat 5.2s ease-in-out infinite;
+    animation-delay: calc(var(--i, 0) * 16ms), calc(var(--i, 0) * -0.21s);
+  }
+}
+@keyframes fxGlitch {
+  0% { text-shadow: -3px 0 rgba(59, 130, 246, 0.95), 3px 0 rgba(236, 72, 153, 0.85); opacity: 0.85; }
+  33% { text-shadow: 2px 0 rgba(59, 130, 246, 0.95), -2px 0 rgba(139, 92, 246, 0.95); opacity: 1; }
+  66% { text-shadow: -1px 0 rgba(139, 92, 246, 0.9), 1px 0 rgba(59, 130, 246, 0.9); }
+  100% { text-shadow: none; }
+}
+
+/* ── [G] 버튼·링크 — 글자가 한 자씩 위로 빠지고 아래서 올라온다 ─────────────── */
+/* 위아래로 0.14em씩 여유를 둔 뒤 같은 만큼 되돌려, 상자 크기는 그대로다(받침이 잘리지 않게). */
+.roll {
+  display: inline-grid;
+  overflow: hidden;
+  padding: 0.14em 0;
+  margin: -0.14em 0;
+  vertical-align: bottom;
+}
+.roll__a,
+.roll__b {
+  grid-area: 1 / 1;
+  display: inline-flex;
+  white-space: pre;
+}
+.rc {
+  display: inline-block;
+  transition: transform 0.5s cubic-bezier(0.7, 0, 0.2, 1);
+  transition-delay: calc(var(--i, 0) * 16ms);
+}
+.roll__b .rc { transform: translateY(130%); }
+:is(a, button):is(:hover, :focus-visible) .roll__a .rc { transform: translateY(-130%); }
+:is(a, button):is(:hover, :focus-visible) .roll__b .rc { transform: none; }
+.roll__b { text-shadow: 0 0 12px color-mix(in srgb, var(--beam-violet) 70%, transparent); }
+
+/* ── [H] 숫자 — 주행기록계처럼 굴러 제자리에 선다 ─────────────────────────── */
+.odo { display: inline-flex; line-height: 1; }
+.odo__col {
+  display: inline-block;
+  height: 1em;
+  overflow: hidden;
+}
+.odo__strip {
+  display: flex;
+  flex-direction: column;
+  transform: translateY(calc(var(--d, 0) * -1em));
+  transition: transform 1.5s cubic-bezier(0.2, 1.25, 0.3, 1);
+  transition-delay: calc(var(--i, 0) * 140ms + 0.15s);
+}
+.odo__d { display: block; height: 1em; }
+.reveal-on .odo:not(.fx-in) .odo__strip { transform: translateY(-9em); }
+
+/* ── [I] 이름표 끝에서 깜빡이는 커서 ───────────────────────────────────────── */
+.label::after {
+  content: "";
+  width: 0.55em;
+  height: 1.05em;
+  background: var(--beam);
+  opacity: 0.85;
+  animation: caret 1.05s steps(1) infinite;
+}
+
+/* ── [J] 글을 긁으면 빛줄기 색으로 칠해진다 ────────────────────────────────── */
+::selection {
+  background: color-mix(in srgb, var(--beam-mid) 55%, transparent);
+  color: #fff;
+  text-shadow: 0 0 10px color-mix(in srgb, var(--beam-violet) 80%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fx-w, .fx-c, .rc, .odo__strip { transition: none; animation: none; }
+  .fx-glint { display: none; }
+  .display .tw .trail-ch, .display__vow, .label::after { animation: none; }
+  .roll__b { display: none; }
+  .display .trail-ch, .title .trail-ch { translate: none; scale: none; }
+}
