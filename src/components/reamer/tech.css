@@ -255,3 +255,178 @@ html:not(.reveal-on) .case__dim-label { opacity: 1; }
   .case__frame:hover .case__scan { animation: none; }
   .display .trail-ch, .title .trail-ch { text-shadow: none; }
 }
+
+/* ---------- 커서 잔상이 지나간 글자 ---------- */
+/* 빛이 닿는 순간 그 자리의 스펙트럼 색(--tc, trail.js가 적는다)으로 켜지고,
+   떠나면 1.2초에 걸쳐 원래 색으로 식는다. 그 식는 시간이 글자에 남는 잔상이다. */
+.trail-ch { transition: color 1.2s var(--ease); }
+.trail-ch.is-trail { color: var(--tc, var(--beam-blue)); transition-duration: 0.08s; }
+/* 제목 글자는 떠오르는 연출과 전환 목록을 같이 쓴다 — 색 항목만 따로 맞춘다. */
+.reveal-on [data-reveal] .title .tw .trail-ch {
+  transition-duration: 0.55s, 0.9s, 0.6s, 1.2s;
+  transition-delay: calc(var(--i, 0) * 24ms + 120ms), calc(var(--i, 0) * 24ms + 120ms), calc(var(--i, 0) * 24ms + 120ms), 0s;
+}
+.reveal-on [data-reveal] .title .tw .trail-ch.is-trail { transition-duration: 0.55s, 0.9s, 0.6s, 0.08s; }
+/* 스펙트럼 줄은 글자가 투명하고 바탕 그라디언트가 비치는 방식이라 색을 바꾸면 깨진다. */
+.display__vow .trail-ch.is-trail { color: transparent; }
+
+/* ---------- 커서가 비추는 청사진 격자 ---------- */
+.cursor-grid {
+  --cx: -999px;
+  --cy: -999px;
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0;
+  background-image:
+    radial-gradient(circle at 1px 1px, rgba(160, 175, 255, 0.55) 1px, transparent 1.5px),
+    linear-gradient(rgba(109, 90, 224, 0.1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(109, 90, 224, 0.1) 1px, transparent 1px);
+  background-size: 24px 24px, 96px 96px, 96px 96px;
+  -webkit-mask-image: radial-gradient(240px circle at var(--cx) var(--cy), #000 0%, rgba(0, 0, 0, 0.35) 45%, transparent 100%);
+  mask-image: radial-gradient(240px circle at var(--cx) var(--cy), #000 0%, rgba(0, 0, 0, 0.35) 45%, transparent 100%);
+  transition: opacity 0.6s var(--ease);
+}
+.cursor-grid.is-on { opacity: 0.55; }
+
+/* ---------- 구역 경계선을 달리는 빛 ---------- */
+/* 구역 사이 가는 선 위로, 그 구역이 화면에 들어오는 만큼 빛줄기가 가운데서 양쪽으로
+   뻗는다. 스크롤 위치에 직접 묶인 애니메이션(animation-timeline)이라 스크립트가 없다.
+   지원하지 않는 브라우저에서는 원래의 가는 선만 보인다. */
+.section { position: relative; }
+@supports (animation-timeline: view()) {
+  .section + .section::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: -1px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--beam-blue) 25%, var(--beam-mid) 50%, var(--beam-violet) 75%, transparent);
+    box-shadow: 0 0 14px 1px rgba(109, 90, 224, 0.45);
+    transform-origin: center;
+    animation: seamBeam linear both;
+    animation-timeline: view();
+    animation-range: entry 0% entry 90%;
+    pointer-events: none;
+  }
+  @keyframes seamBeam {
+    from { transform: scaleX(0); opacity: 1; }
+    70% { opacity: 1; }
+    to { transform: scaleX(1); opacity: 0.35; }
+  }
+}
+
+/* ---------- 제목 위를 한 번 지나가는 빛 ---------- */
+/* 글자가 다 떠오른 뒤 파랑 → 보라 띠가 제목을 한 번 훑는다. 곱하기 합성이라
+   흰 부분은 아무것도 바꾸지 않고, 띠가 글자 위를 지날 때만 글자가 물든다. */
+.head .title { position: relative; }
+.reveal-on .head .title::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(100deg, #fff 38%, #8fb0ff 46%, #7a63f0 50%, #9b6cff 54%, #fff 62%);
+  background-size: 300% 100%;
+  background-position: 100% 0;
+  mix-blend-mode: multiply;
+  opacity: 0;
+}
+.reveal-on .head.is-in .title::after { animation: titleSweep 1.5s var(--ease) 0.75s both; }
+@keyframes titleSweep {
+  0% { opacity: 1; background-position: 100% 0; }
+  90% { opacity: 1; }
+  100% { opacity: 0; background-position: 0 0; }
+}
+
+/* ---------- 문의 양식: 입력하는 동안 테두리를 도는 빛 ---------- */
+@property --ang {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+.inquiry { position: relative; isolation: isolate; }
+.inquiry::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  z-index: -1;
+  border-radius: inherit;
+  padding: 1px;
+  background: conic-gradient(from var(--ang), transparent 0 62%, var(--beam-blue) 74%, var(--beam-violet) 86%, transparent 94%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  opacity: 0;
+  transition: opacity 0.5s var(--ease);
+  animation: angSpin 3.2s linear infinite;
+  animation-play-state: paused;
+  pointer-events: none;
+}
+.inquiry:focus-within::before { opacity: 1; animation-play-state: running; }
+@keyframes angSpin { to { --ang: 360deg; } }
+
+/* ---------- 스크롤 자 ---------- */
+.ruler {
+  --y: 0px;
+  --p: 0;
+  position: fixed;
+  top: 22vh;
+  bottom: 22vh;
+  right: calc(var(--gutter) - 24px);
+  z-index: 2;
+  width: 20px;
+  pointer-events: none;
+  font: 500 9.5px/1 var(--mono);
+  color: var(--ink-faint);
+}
+.ruler__ticks {
+  position: absolute;
+  inset: 0;
+  background:
+    repeating-linear-gradient(to bottom, var(--line-strong) 0 1px, transparent 1px 40px) 0 var(--y) / 12px 100%,
+    repeating-linear-gradient(to bottom, var(--line) 0 1px, transparent 1px 8px) 0 var(--y) / 6px 100%;
+  background-repeat: repeat-y;
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 18%, #000 82%, transparent);
+  mask-image: linear-gradient(to bottom, transparent, #000 18%, #000 82%, transparent);
+}
+/* 지금 위치 — 자 위를 위에서 아래로 내려가는 빛나는 눈금 */
+.ruler__mark {
+  position: absolute;
+  left: -4px;
+  width: 20px;
+  height: 1px;
+  top: calc(var(--p) * 100%);
+  background: var(--beam);
+  box-shadow: 0 0 10px 1px rgba(109, 90, 224, 0.7);
+}
+.ruler__read {
+  position: absolute;
+  left: 4px;
+  top: calc(var(--p) * 100% + 10px);
+  writing-mode: vertical-rl;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-dim);
+}
+.ruler__sec {
+  display: inline-block;
+  margin-top: 8px;
+  color: var(--ink-faint);
+  animation: rulerSec 0.5s var(--ease) both;
+}
+@keyframes rulerSec { from { opacity: 0; transform: translateY(-6px); } }
+@media (max-width: 1180px) {
+  .ruler { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trail-ch { transition: none; }
+  .cursor-grid { display: none; }
+  .section + .section::before { animation: none; transform: none; opacity: 0.35; }
+  .reveal-on .head.is-in .title::after { animation: none; }
+  .inquiry::before { animation: none; }
+  .ruler__sec { animation: none; }
+}

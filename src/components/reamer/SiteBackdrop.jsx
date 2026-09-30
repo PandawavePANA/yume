@@ -46,7 +46,7 @@ export const SiteBackdrop = () => {
     // Touch fires pointermove too (that's what a scroll drag is), so the
     // trail works there as well — it was previously skipped on coarse
     // pointers, which is why it never showed up on a phone.
-    const trail = createTrailLayer(trailCanvas, { coarse });
+    const trail = createTrailLayer(trailCanvas, { coarse, reduced });
 
     let vw = 0;
     let vh = 0;

@@ -9,7 +9,7 @@ import { NAV, HERO_NOTE, WHY, GUARANTEES, SERVICES, PROCESS, WORK, ALSO, CREDENT
 import "@/components/reamer/motion.css";
 import { useFloatingCta, usePointerFx, useScrollSpy, useScrub } from "@/components/reamer/useMotion";
 import "@/components/reamer/tech.css";
-import { BuildTerminal, LivePing, ParticleWord, useScrambleLabels } from "@/components/reamer/tech";
+import { BuildTerminal, CursorGrid, LivePing, ParticleWord, ScrollRuler, useScrambleLabels } from "@/components/reamer/tech";
 
 // Characters are split into spans so the global cursor-tile trail can flip
 // them dark as a tile passes underneath.
@@ -483,6 +483,7 @@ function WorkCase({ item, index }) {
 }
 
 const SPY_IDS = ["work", "why", "services", "process", "guarantee"];
+const RULER_SECTIONS = [...NAV.map((n) => [n.href.slice(1), n.label]), ["about", "소개"], ["contact", "문의"]];
 
 const ReamerSite = () => {
   const navRef = useRef(null);
@@ -497,6 +498,8 @@ const ReamerSite = () => {
   return (
     <>
       <SiteBackdrop />
+      <CursorGrid />
+      <ScrollRuler sections={RULER_SECTIONS} />
 
       <div className="site">
         <div className="site__rails" aria-hidden>

@@ -243,8 +243,7 @@
 
 /* ---------- trail characters ---------- */
 
-.trail-ch { transition: color 0.16s ease; }
-.trail-ch.is-trail { color: #0a0a0a; }
+/* .trail-ch — 커서 잔상이 지나갈 때 물드는 글자. 규칙은 tech.css에 있다. */
 
 /* ---------- nav ---------- */
 
