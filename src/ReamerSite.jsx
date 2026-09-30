@@ -17,6 +17,9 @@ import { BlueprintSolid, ClickSparks } from "@/components/reamer/fx";
 // 글자에 붙는 움직임. 일부러 과하게 넣었다 — 덜어낼 것은 textfx.css에서 묶음([A]~[J]) 단위로 지운다.
 import "@/components/reamer/textfx.css";
 import { Odo, Roll, Txt, useMagnetText } from "@/components/reamer/TextFx";
+// 히어로 바로 아래 — 아이디어부터 운영까지, 스크롤한 만큼 넘어가는 그림.
+import "@/components/reamer/flow.css";
+import Flow from "@/components/reamer/Flow";
 
 // Characters are split into spans so the global cursor-tile trail can flip
 // them dark as a tile passes underneath.
@@ -603,6 +606,9 @@ const ReamerSite = () => {
               <Decor name="terminal"><BuildTerminal projects={WORK} /></Decor>
             </div>
           </section>
+
+          {/* 맡기면 어떻게 되는지를 한 장씩 넘겨 보여 준다. 스크롤한 만큼 단계가 넘어가고, 올리면 되감긴다. */}
+          <Decor name="flow"><Flow /></Decor>
 
           <Ticker />
 

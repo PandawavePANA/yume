@@ -1,0 +1,404 @@
+/* 아이디어 → 견적 → 사이트 → 결제 → 성공 (Flow.jsx).
+   자바스크립트는 숫자만 적는다 — --p(전체 0→1), data-step(0~4), --sp(그 단계 안 0→1).
+   그림은 전부 여기서 그 숫자로 그린다. 스크롤을 올리면 그대로 되감긴다.
+   움직이는 것은 transform · opacity · stroke-dashoffset뿐이고, 섹션 높이는 처음부터 고정이다. */
+
+.flow { position: relative; }
+/* 단계마다 화면 높이의 70%씩 스크롤하고, 그동안 패널은 멈춰 있다. */
+.flow--on { height: 450vh; height: calc(100svh + 5 * 70svh); }
+.flow--on .flow__pin {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  height: 100svh;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+}
+.flow__inner { width: 100%; padding-top: clamp(56px, 8vh, 84px); padding-bottom: clamp(16px, 3vh, 32px); }
+
+/* ── 위쪽 트랙 ── */
+.flow__track { position: relative; margin-bottom: clamp(22px, 4.5vh, 52px); }
+/* 줄은 첫 마디 가운데(10%)에서 끝 마디 가운데(90%)까지. 끝 단계가 시작될 때 가득 찬다(×1.25). */
+.flow__rail {
+  position: absolute;
+  left: 10%;
+  right: 10%;
+  top: 8px;
+  height: 2px;
+  background: var(--line);
+  border-radius: 2px;
+}
+.flow__fill {
+  display: block;
+  height: 100%;
+  background: var(--beam);
+  border-radius: inherit;
+  transform-origin: left center;
+  transform: scaleX(min(1, calc(var(--p, 0) * 1.25)));
+  box-shadow: 0 0 14px color-mix(in srgb, var(--beam-mid) 80%, transparent);
+}
+.flow__nodes {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.flow__node { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.flow__dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--line-strong);
+  background: #0a0a0e;
+  transition: border-color 0.4s var(--ease), background 0.4s var(--ease), transform 0.5s cubic-bezier(0.2, 1.4, 0.3, 1), box-shadow 0.4s var(--ease);
+}
+.flow__label {
+  font: 500 12px/1 var(--mono);
+  letter-spacing: 0.06em;
+  color: var(--ink-faint);
+  transition: color 0.4s var(--ease);
+  white-space: nowrap;
+}
+/* 지나온 마디는 불이 켜져 있다. */
+.flow:not(.flow--on) .flow__dot,
+.flow[data-step="0"] .flow__node:nth-child(-n + 1) .flow__dot,
+.flow[data-step="1"] .flow__node:nth-child(-n + 2) .flow__dot,
+.flow[data-step="2"] .flow__node:nth-child(-n + 3) .flow__dot,
+.flow[data-step="3"] .flow__node:nth-child(-n + 4) .flow__dot,
+.flow[data-step="4"] .flow__node:nth-child(-n + 5) .flow__dot {
+  border-color: transparent;
+  background: var(--beam);
+}
+.flow:not(.flow--on) .flow__label,
+.flow[data-step="0"] .flow__node:nth-child(-n + 1) .flow__label,
+.flow[data-step="1"] .flow__node:nth-child(-n + 2) .flow__label,
+.flow[data-step="2"] .flow__node:nth-child(-n + 3) .flow__label,
+.flow[data-step="3"] .flow__node:nth-child(-n + 4) .flow__label,
+.flow[data-step="4"] .flow__node:nth-child(-n + 5) .flow__label { color: var(--ink-dim); }
+/* 지금 마디는 크게, 빛이 퍼져 나간다. */
+.flow[data-step="0"] .flow__node:nth-child(1) .flow__dot,
+.flow[data-step="1"] .flow__node:nth-child(2) .flow__dot,
+.flow[data-step="2"] .flow__node:nth-child(3) .flow__dot,
+.flow[data-step="3"] .flow__node:nth-child(4) .flow__dot,
+.flow[data-step="4"] .flow__node:nth-child(5) .flow__dot {
+  transform: scale(1.35);
+  animation: flowPulse 1.8s ease-out infinite;
+}
+.flow[data-step="0"] .flow__node:nth-child(1) .flow__label,
+.flow[data-step="1"] .flow__node:nth-child(2) .flow__label,
+.flow[data-step="2"] .flow__node:nth-child(3) .flow__label,
+.flow[data-step="3"] .flow__node:nth-child(4) .flow__label,
+.flow[data-step="4"] .flow__node:nth-child(5) .flow__label { color: #fff; }
+@keyframes flowPulse {
+  from { box-shadow: 0 0 0 0 color-mix(in srgb, var(--beam-violet) 70%, transparent); }
+  to { box-shadow: 0 0 0 14px color-mix(in srgb, var(--beam-violet) 0%, transparent); }
+}
+
+/* ── 본문: 왼쪽 글, 오른쪽 그림 ── */
+.flow__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  gap: clamp(24px, 5vw, 72px);
+  align-items: center;
+}
+.flow__count {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-top: 18px;
+  font-family: var(--serif);
+  line-height: 1;
+}
+/* 큰 번호 — 다섯 개를 세로로 쌓고 지금 단계만큼 올린다(자리는 한 칸 그대로). */
+.flow__count-now {
+  display: inline-flex;
+  flex-direction: column;
+  height: 1em;
+  overflow: hidden;
+  font-size: clamp(52px, 7vw, 92px);
+  background: var(--beam);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.flow__num {
+  display: block;
+  height: 1em;
+  transition: transform 0.7s cubic-bezier(0.7, 0, 0.2, 1);
+}
+.flow[data-step="1"] .flow__num { transform: translateY(-100%); }
+.flow[data-step="2"] .flow__num { transform: translateY(-200%); }
+.flow[data-step="3"] .flow__num { transform: translateY(-300%); }
+.flow[data-step="4"] .flow__num { transform: translateY(-400%); }
+.flow__count-all { font-size: clamp(18px, 1.8vw, 24px); color: var(--ink-faint); }
+
+/* 글 다섯 벌을 한 칸에 겹쳐 둔다 — 칸 높이는 가장 긴 글에 맞춰져서 단계가 바뀌어도 그대로다. */
+.flow__texts { display: grid; margin-top: clamp(14px, 2.4vh, 26px); }
+.flow__text {
+  grid-area: 1 / 1;
+  opacity: 0;
+  transform: translateY(22px);
+  filter: blur(8px);
+  transition: opacity 0.55s var(--ease), transform 0.7s cubic-bezier(0.16, 1.1, 0.3, 1), filter 0.55s var(--ease);
+  pointer-events: none;
+}
+.flow[data-step="0"] .flow__text:nth-child(1),
+.flow[data-step="1"] .flow__text:nth-child(2),
+.flow[data-step="2"] .flow__text:nth-child(3),
+.flow[data-step="3"] .flow__text:nth-child(4),
+.flow[data-step="4"] .flow__text:nth-child(5) {
+  opacity: 1;
+  transform: none;
+  filter: none;
+  pointer-events: auto;
+}
+.flow__step { margin: 0; font: 500 11px/1 var(--mono); letter-spacing: 0.14em; color: var(--beam-mid); }
+.flow__title {
+  margin: 12px 0 0;
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: clamp(24px, 2.8vw, 38px);
+  line-height: 1.2;
+  letter-spacing: -0.015em;
+  word-break: keep-all;
+}
+.flow__desc {
+  margin: 14px 0 0;
+  max-width: 42ch;
+  font-size: clamp(14px, 1.05vw, 15.5px);
+  line-height: 1.75;
+  color: var(--ink-dim);
+  word-break: keep-all;
+}
+.flow__meter { display: flex; align-items: center; gap: 12px; margin-top: clamp(18px, 3vh, 32px); }
+.flow__meter-bar { flex: 0 0 120px; height: 2px; background: var(--line); overflow: hidden; border-radius: 2px; }
+.flow__meter-bar i { display: block; height: 100%; background: var(--beam); transform-origin: left; transform: scaleX(var(--p, 0)); }
+.flow__meter-txt { font: 500 10.5px/1 var(--mono); letter-spacing: 0.1em; color: var(--ink-faint); }
+
+/* ── 그림 ── */
+.flow__stage { position: relative; }
+.flow__svg { display: block; width: 100%; height: auto; overflow: visible; }
+.flow__grid line { stroke: rgba(160, 150, 230, 0.07); stroke-width: 1; }
+
+.flow__scene {
+  opacity: 0;
+  transform: translateY(16px) scale(0.96);
+  transform-origin: 240px 160px;
+  transition: opacity 0.5s var(--ease), transform 0.8s cubic-bezier(0.16, 1.1, 0.3, 1);
+}
+.flow[data-step="0"] .flow__scene--0,
+.flow[data-step="1"] .flow__scene--1,
+.flow[data-step="2"] .flow__scene--2,
+.flow[data-step="3"] .flow__scene--3,
+.flow[data-step="4"] .flow__scene--4 { opacity: 1; transform: none; }
+/* 지나온 장면은 다 그려진 채로 사라지고, 아직 안 온 장면은 빈 채로 기다린다.
+   이게 없으면 다음 단계로 넘어가는 순간 --sp가 0으로 돌아가, 사라지는 장면이 거꾸로 지워진다. */
+.flow:is([data-step="1"], [data-step="2"], [data-step="3"], [data-step="4"]) .flow__scene--0,
+.flow:is([data-step="2"], [data-step="3"], [data-step="4"]) .flow__scene--1,
+.flow:is([data-step="3"], [data-step="4"]) .flow__scene--2,
+.flow[data-step="4"] .flow__scene--3 { --sp: 1; }
+.flow[data-step="0"] :is(.flow__scene--1, .flow__scene--2, .flow__scene--3, .flow__scene--4),
+.flow[data-step="1"] :is(.flow__scene--2, .flow__scene--3, .flow__scene--4),
+.flow[data-step="2"] :is(.flow__scene--3, .flow__scene--4),
+.flow[data-step="3"] .flow__scene--4 { --sp: 0; }
+
+/* 선이 그려지는 것들 — pathLength=1이라 0→1로 그대로 쓴다. */
+.fx-draw {
+  fill: none;
+  stroke: url(#flowBeam);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: calc(1 - min(1, var(--sp, 0) * 1.6));
+}
+
+/* 01 아이디어 */
+.fx-bulb-base { stroke-dashoffset: calc(1 - clamp(0, (var(--sp, 0) - 0.3) * 2.5, 1)); }
+.fx-filament {
+  fill: none;
+  stroke: #fff;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: clamp(0, (var(--sp, 0) - 0.5) * 4, 1);
+  filter: drop-shadow(0 0 6px #8b5cf6) drop-shadow(0 0 14px #6d5ae0);
+}
+.fx-bulb-glow {
+  opacity: clamp(0, (var(--sp, 0) - 0.5) * 3, 1);
+  transform-origin: 240px 130px;
+  animation: flowBreath 2.4s ease-in-out infinite;
+}
+.fx-ray {
+  stroke: url(#flowBeam);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  opacity: clamp(0, (var(--sp, 0) - 0.6) * 4, 1);
+  transform-origin: 240px 128px;
+  animation: flowRay 1.6s ease-in-out infinite;
+  animation-delay: calc(var(--k, 0) * -0.16s);
+}
+.fx-note {
+  opacity: clamp(0, (var(--sp, 0) - 0.7) * 4, 1);
+  transform: translateY(calc(12px * (1 - clamp(0, (var(--sp, 0) - 0.7) * 4, 1))));
+}
+.fx-note rect { fill: rgba(255, 255, 255, 0.04); stroke: var(--line-strong); }
+.fx-note text { fill: var(--ink); font: 500 12px var(--sans); text-anchor: middle; }
+@keyframes flowBreath { 50% { transform: scale(1.08); } }
+@keyframes flowRay { 50% { transform: scale(1.1); } }
+
+/* 02 견적 */
+.fx-doc { fill: rgba(18, 16, 28, 0.88); stroke: var(--line-strong); }
+.fx-doc-title { fill: var(--ink); font: 400 19px var(--serif); }
+.fx-doc-rule { stroke: var(--line); }
+.fx-doc-total { fill: var(--ink-faint); font: 500 10.5px var(--mono); letter-spacing: 0.08em; }
+.fx-row { --on: clamp(0, (var(--sp, 0) - var(--k, 0) * 0.11) * 4, 1); }
+.fx-row rect {
+  fill: url(#flowBeam);
+  opacity: 0.85;
+  transform-box: fill-box;
+  transform-origin: left center;
+  transform: scaleX(var(--on));
+}
+.fx-row circle { fill: none; stroke-width: 2; opacity: var(--on); }
+.fx-yes { stroke: #7dd3a8; }
+.fx-no { stroke: rgba(236, 234, 228, 0.35); }
+.fx-doc-sum {
+  fill: url(#flowBeam);
+  transform-box: fill-box;
+  transform-origin: left center;
+  transform: scaleX(clamp(0, (var(--sp, 0) - 0.62) * 5, 1));
+}
+.fx-stamp {
+  --st: clamp(0, (var(--sp, 0) - 0.72) * 5, 1);
+  opacity: var(--st);
+  transform-origin: 330px 236px;
+  transform: rotate(-14deg) scale(calc(1.9 - 0.9 * var(--st)));
+}
+.fx-stamp circle { fill: none; stroke: var(--beam-violet); stroke-width: 2.5; }
+.fx-stamp circle + circle { stroke-width: 1; stroke-dasharray: 3 3; }
+.fx-stamp text { fill: var(--beam-violet); font: 700 17px var(--sans); text-anchor: middle; letter-spacing: 0.1em; }
+
+/* 03 사이트 */
+.fx-win { fill: rgba(12, 12, 20, 0.92); stroke: var(--line-strong); }
+.fx-win-bar { stroke: var(--line); }
+.fx-win-dot { fill: var(--line-strong); }
+.fx-url { fill: rgba(255, 255, 255, 0.05); }
+.fx-blk {
+  --on: clamp(0, (var(--sp, 0) - var(--t, 0)) * 7, 1);
+  fill: rgba(139, 92, 246, 0.1);
+  stroke: rgba(139, 92, 246, 0.35);
+  opacity: var(--on);
+  transform-box: fill-box;
+  transform-origin: center;
+  transform: scale(calc(0.8 + 0.2 * var(--on)));
+}
+.fx-blk--hero { fill: rgba(59, 130, 246, 0.12); }
+.fx-blk--line { fill: rgba(236, 234, 228, 0.55); stroke: none; }
+.fx-blk--btn { fill: url(#flowBeam); stroke: none; }
+.fx-cursor {
+  --on: clamp(0, (var(--sp, 0) - var(--t, 0)) * 7, 1);
+  opacity: var(--on);
+  transform: translate(calc(300px - 150px * var(--on)), calc(250px - 90px * var(--on)));
+}
+.fx-cursor path { fill: #fff; stroke: #0a0a0e; stroke-width: 1; }
+
+/* 04 결제 */
+.fx-card {
+  --in: clamp(0, var(--sp, 0) * 2.5, 1);
+  opacity: var(--in);
+  transform-origin: 167px 148px;
+  transform: translateX(calc(-110px * (1 - var(--in)))) rotate(calc(-10deg * (1 - var(--in))));
+}
+.fx-card rect:first-child { fill: url(#flowCard); }
+.fx-chip { fill: rgba(255, 255, 255, 0.55); }
+.fx-card-no { fill: #fff; font: 500 12px var(--mono); letter-spacing: 0.08em; }
+.fx-card-name { fill: rgba(255, 255, 255, 0.75); font: 500 10px var(--mono); letter-spacing: 0.14em; }
+.fx-ring-bg { fill: none; stroke: var(--line); stroke-width: 6; }
+.fx-ring {
+  fill: none;
+  stroke: url(#flowBeam);
+  stroke-width: 6;
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: calc(1 - clamp(0, (var(--sp, 0) - 0.3) * 1.9, 1));
+  transform-origin: 352px 148px;
+  transform: rotate(-90deg);
+  filter: drop-shadow(0 0 6px rgba(139, 92, 246, 0.8));
+}
+.fx-check {
+  fill: none;
+  stroke: #fff;
+  stroke-width: 5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: calc(1 - clamp(0, (var(--sp, 0) - 0.84) * 7, 1));
+}
+.fx-pay-txt {
+  fill: var(--ink);
+  font: 500 14px var(--sans);
+  text-anchor: middle;
+  opacity: clamp(0, (var(--sp, 0) - 0.86) * 7, 1);
+}
+
+/* 05 성공 */
+.fx-axis { stroke: var(--line); }
+.fx-area { fill: url(#flowBeam); opacity: calc(0.18 * clamp(0, (var(--sp, 0) - 0.25) * 2, 1)); }
+.fx-chart { stroke-width: 3.5; stroke-dashoffset: calc(1 - clamp(0, var(--sp, 0) * 1.4, 1)); filter: drop-shadow(0 0 6px rgba(109, 90, 224, 0.8)); }
+.fx-peak {
+  fill: #fff;
+  opacity: clamp(0, (var(--sp, 0) - 0.7) * 5, 1);
+  transform-origin: 420px 78px;
+  animation: flowBreath 1.4s ease-in-out infinite;
+  filter: drop-shadow(0 0 8px #8b5cf6);
+}
+.fx-spark {
+  stroke: url(#flowBeam);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  opacity: clamp(0, (var(--sp, 0) - 0.75) * 5, 1);
+  transform-origin: 420px 78px;
+  animation: flowSpark 1.1s ease-out infinite;
+  animation-delay: calc(var(--k, 0) * -0.14s);
+}
+@keyframes flowSpark { 0% { transform: scale(0.6); } 100% { transform: scale(1.5); } }
+.fx-live { opacity: clamp(0, (var(--sp, 0) - 0.55) * 4, 1); }
+.fx-live rect { fill: rgba(125, 211, 168, 0.1); stroke: rgba(125, 211, 168, 0.5); }
+.fx-live circle { fill: #7dd3a8; transform-origin: 104px 85px; animation: flowBreath 1.2s ease-in-out infinite; }
+.fx-live text { fill: var(--ink); font: 600 13px var(--sans); }
+
+/* ── 좁은 화면: 그림이 위, 글이 아래 ── */
+@media (max-width: 900px) {
+  .flow__body { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  .flow__stage { order: -1; max-width: 460px; width: 100%; margin: 0 auto; }
+  .flow__copy .label { display: none; }
+  .flow__count { margin-top: 0; }
+  .flow__count-now { font-size: 44px; }
+  .flow__title { font-size: 23px; }
+  .flow__desc { font-size: 14px; line-height: 1.65; }
+  .flow__label { font-size: 10.5px; letter-spacing: 0.02em; }
+  .flow__dot { width: 14px; height: 14px; }
+  .flow__rail { top: 6px; }
+  .flow__meter { display: none; }
+}
+
+/* ── 움직임 줄이기: 고정 패널 대신 다섯 단계를 늘어놓는다 ── */
+.flow:not(.flow--on) { padding: clamp(48px, 8vh, 96px) 0; }
+.flow:not(.flow--on) .flow__stage,
+.flow:not(.flow--on) .flow__count,
+.flow:not(.flow--on) .flow__meter { display: none; }
+.flow:not(.flow--on) .flow__body { grid-template-columns: minmax(0, 1fr); }
+.flow:not(.flow--on) .flow__text {
+  grid-area: auto;
+  opacity: 1;
+  transform: none;
+  filter: none;
+  margin-bottom: 28px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .flow__dot, .fx-bulb-glow, .fx-ray, .fx-peak, .fx-spark, .fx-live circle { animation: none; }
+}
