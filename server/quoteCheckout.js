@@ -13,6 +13,7 @@ import { confirmPayment } from "./portone.js";
 import { logError } from "./errorLog.js";
 import { addMessage, mailQuoteReceipt, threadById, won } from "./threads.js";
 import { randomToken } from "./security.js";
+import { projectForThread } from "./projectLink.js";
 
 // 포트원 주문번호. 견적 번호를 주문번호 안에 박아 둔다 — 콘솔에서 어디서 온 결제인지
 // 바로 보이고, 아래 quoteForPayment가 이 번호만으로 견적을 되찾을 수 있다.
@@ -124,19 +125,21 @@ async function attachToProject(thread, quote) {
   const amount = Number(quote.amount_krw || 0);
   const t = now();
 
-  if (thread.project_id) {
-    const p = await one("SELECT * FROM projects WHERE id = :id", { id: thread.project_id });
-    if (p) {
-      const paid = Number(p.paid_krw || 0) + amount;
-      await run(
-        `UPDATE projects SET paid_krw = :paid, amount_krw = GREATEST(amount_krw, :paid),
-           status = CASE WHEN status = 'lead' THEN 'active' ELSE status END,
-           started_at = COALESCE(started_at, :t), updated_at = :t
-         WHERE id = :id`,
-        { paid, t, id: p.id },
-      );
-      return;
-    }
+  // 대화에 적힌 일감, 없으면 같은 문의에서 나온 일감(보드에서 "일감으로" 옮긴 것).
+  // 예전에는 앞의 것만 찾아서, 옮긴 일감을 두고 새 일감을 만들었다(projectLink.js 참고).
+  const p = await projectForThread(thread);
+  if (p) {
+    const paid = Number(p.paid_krw || 0) + amount;
+    // 결제는 일을 시작한다는 뜻이다. 상담 중이던 것도, 무산으로 접었던 것도 진행 중이 된다 —
+    // 돈을 받고도 "무산"으로 남아 있으면 보드가 받은 일을 안 보여 준다.
+    await run(
+      `UPDATE projects SET paid_krw = :paid, amount_krw = GREATEST(amount_krw, :paid),
+         status = CASE WHEN status IN ('lead', 'dropped') THEN 'active' ELSE status END,
+         started_at = COALESCE(started_at, :t), updated_at = :t
+       WHERE id = :id`,
+      { paid, t, id: p.id },
+    );
+    return;
   }
 
   const row = await run(

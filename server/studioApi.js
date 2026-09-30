@@ -11,6 +11,7 @@ import express from "express";
 import { patchAsync } from "./asyncExpress.js";
 import { requireAdmin } from "./adminApi.js";
 import { now, all, one, run } from "./db.js";
+import { findSplitProjects, linkThreadsToProject, mergeProjects } from "./projectLink.js";
 import { collectProductRevenue, fetchProduct, EXTERNAL_PRODUCTS } from "./productRevenue.js";
 
 export const studioRouter = patchAsync(express.Router());
@@ -125,7 +126,20 @@ studioRouter.get("/studio", async (req, res) => {
     inquiries,
     projects,
     tasks,
+    // 같은 의뢰에서 둘로 갈라진 일감. 예전에는 "일감으로" 옮긴 뒤 결제가 들어오면 새 일감이
+    // 하나 더 생겼다(projectLink.js). 보드 맨 위에 띄워 한 번에 합치게 한다.
+    splits: findSplitProjects(projects).map(({ keep, from }) => ({
+      keep: { id: keep.id, title: keep.title, status: keep.status, paid: Number(keep.paid_krw || 0) },
+      from: from.map((p) => ({ id: p.id, title: p.title, status: p.status, paid: Number(p.paid_krw || 0) })),
+    })),
   });
+});
+
+// 갈라진 일감 합치기. 같은 의뢰에서 나온 것만 합친다(mergeProjects 참고).
+studioRouter.post("/studio/project/:id/merge", async (req, res) => {
+  const r = await mergeProjects(int(req.params.id), int(req.body?.from));
+  if (r.error) return res.status(400).json({ error: r.error });
+  res.json(r);
 });
 
 // 제품 하나의 운영 현황. 화면이 이 주소만 부르면 되도록 제품 쪽 응답을 그대로 넘긴다.
@@ -169,6 +183,9 @@ studioRouter.post("/studio/inquiry/:id/convert", async (req, res) => {
     },
   );
   await run("UPDATE inquiries SET status = 'won' WHERE id = :id", { id });
+  // 이 문의에서 열린 대화에 새 일감을 적어 둔다. 안 적으면 그 대화로 결제가 들어올 때
+  // 이 일감을 못 찾고 하나를 더 만든다 — 이 일감은 "상담"에 남는다(projectLink.js 참고).
+  await linkThreadsToProject(id, row.rows[0]?.id);
   res.status(201).json({ ok: true, id: row.rows[0]?.id });
 });
 
