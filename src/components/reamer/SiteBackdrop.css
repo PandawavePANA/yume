@@ -32,11 +32,9 @@
   }
 }
 
-/* 커서 트레일은 내리지 않는다. 타일이 지나간 글자는 어둡게 뒤집히는데(.is-trail),
-   타일이 사라지면 검은 바탕에 검은 글자만 남는다. */
+/* 커서 잔상은 내리지 않는다 — 히어로를 지난 뒤에도 커서를 따라간다. */
 
-/* The trail sits behind the copy on purpose: tiles pass *under* text, and
-   the characters flip dark (.is-trail) so they stay legible. */
+/* 잔상은 글 뒤로 지나간다. 지나간 글자는 그 자리의 스펙트럼 색으로 물들었다 식는다(tech.css). */
 .backdrop__layer--trail {
   z-index: 1;
 }

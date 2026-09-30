@@ -329,3 +329,81 @@ export function ParticleWord({ text = "REAMER" }) {
     </div>
   );
 }
+
+// ── 커서가 비추는 청사진 격자 ─────────────────────────────────────────────────
+// 화면 전체에 옅은 점 격자가 깔려 있지만 평소에는 보이지 않는다. 커서 둘레만 원형으로
+// 드러나서, 커서를 움직이면 도면 위를 손전등으로 비추는 것처럼 보인다.
+// 변수는 이 요소 하나에만 쓴다 — <html>에 쓰면 문서 전체가 스타일을 다시 계산한다.
+export function CursorGrid() {
+  const ref = useRef(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || reduced() || !window.matchMedia?.("(hover: hover) and (pointer: fine)")?.matches) return undefined;
+    let raf = 0;
+    let x = 0;
+    let y = 0;
+    const apply = () => {
+      raf = 0;
+      el.style.setProperty("--cx", `${x}px`);
+      el.style.setProperty("--cy", `${y}px`);
+      el.classList.add("is-on");
+    };
+    const move = (e) => { x = e.clientX; y = e.clientY; if (!raf) raf = requestAnimationFrame(apply); };
+    const leave = () => el.classList.remove("is-on");
+    window.addEventListener("pointermove", move, { passive: true });
+    document.addEventListener("pointerleave", leave);
+    return () => {
+      if (raf) cancelAnimationFrame(raf);
+      window.removeEventListener("pointermove", move);
+      document.removeEventListener("pointerleave", leave);
+    };
+  }, []);
+  return <div className="cursor-grid" ref={ref} aria-hidden />;
+}
+
+// ── 스크롤 자 ─────────────────────────────────────────────────────────────────
+// 오른쪽 레일 바깥에 붙은 눈금자. 스크롤하면 눈금이 흘러가고, 지금 위치(%)와 구역 이름이
+// 기계식 계기판처럼 읽힌다. 넓은 화면에서만 보인다(좁은 화면에는 둘 여백이 없다).
+export function ScrollRuler({ sections }) {
+  const ref = useRef(null);
+  const pctRef = useRef(null);
+  const [section, setSection] = useState("");
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return undefined;
+    let raf = 0;
+    const apply = () => {
+      raf = 0;
+      const max = document.documentElement.scrollHeight - window.innerHeight;
+      const p = max > 0 ? window.scrollY / max : 0;
+      el.style.setProperty("--y", `${(-window.scrollY * 0.35).toFixed(1)}px`);
+      el.style.setProperty("--p", p.toFixed(4));
+      if (pctRef.current) pctRef.current.textContent = String(Math.round(p * 100)).padStart(3, "0");
+      // 윗변이 화면 가운데를 지난 마지막 구역이 지금 구역이다.
+      let now = "";
+      for (const [id, label] of sections) {
+        const el = document.getElementById(id);
+        if (el && el.getBoundingClientRect().top < window.innerHeight * 0.5) now = label;
+      }
+      setSection(now);
+    };
+    const on = () => { if (!raf) raf = requestAnimationFrame(apply); };
+    apply();
+    window.addEventListener("scroll", on, { passive: true });
+    window.addEventListener("resize", on, { passive: true });
+    return () => {
+      if (raf) cancelAnimationFrame(raf);
+      window.removeEventListener("scroll", on);
+      window.removeEventListener("resize", on);
+    };
+  }, [sections]);
+  return (
+    <div className="ruler" ref={ref} aria-hidden>
+      <span className="ruler__ticks" />
+      <span className="ruler__mark" />
+      <span className="ruler__read">
+        <span ref={pctRef}>000</span>%<span className="ruler__sec" key={section}>{section || "시작"}</span>
+      </span>
+    </div>
+  );
+}
