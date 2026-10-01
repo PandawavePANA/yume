@@ -24,7 +24,7 @@ function useInView(ref, margin = "0px") {
   return on;
 }
 
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // ── 히어로 터미널 ───────────────────────────────────────────────────────────
 const stagesFor = (p) => ["요구사항 정리", "화면 설계", `${p.stack.slice(0, 2).join(" · ")} 구현`, "배포"];
@@ -35,6 +35,11 @@ const TERM_ROWS = 6;
 export function BuildTerminal({ projects }) {
   const ref = useRef(null);
   const visible = useInView(ref);
+  // 화면 밖으로 나가면 **멈췄다가 그 자리에서 이어 간다.** 예전에는 나갈 때 실행을 끝내고
+  // 들어올 때 새로 시작해서, 터미널이 비워지고 첫 글자부터 다시 쳐졌다. 휴대폰에서 터미널
+  // 언저리를 오르내리면 그게 몇 초마다 반복돼 사이트가 새로고침되는 것처럼 보였다.
+  const shown = useRef(false);
+  shown.current = visible;
   const [lines, setLines] = useState([]);
   const [typing, setTyping] = useState("");
 
@@ -65,9 +70,14 @@ export function BuildTerminal({ projects }) {
       ]);
       return undefined;
     }
-    if (!visible) return undefined;
+    // 기다린 뒤, 화면 밖이면 다시 보일 때까지 그 자리에서 멈춘다.
+    const sleep = async (ms) => {
+      await wait(ms);
+      while (live() && !shown.current) await wait(250);
+    };
     let idx = 0;
     const run = async () => {
+      while (live() && !shown.current) await wait(250);
       while (live()) {
         const p = list[idx % list.length];
         idx += 1;
@@ -99,7 +109,7 @@ export function BuildTerminal({ projects }) {
     };
     run();
     return () => { cancelled = true; };
-  }, [visible, projects]);
+  }, [projects]);
 
   return (
     <div className="term" ref={ref} aria-label="리머의 작업 과정을 보여주는 터미널 연출" role="img">

@@ -3,22 +3,23 @@
    그림은 전부 여기서 그 숫자로 그린다. 스크롤을 올리면 그대로 되감긴다.
    움직이는 것은 transform · opacity · stroke-dashoffset · clip-path뿐이고, 섹션 높이는 처음부터 고정이다. */
 
-.flow { position: relative; }
+/* --fvh: 화면 높이의 1%. Flow.jsx가 처음 잰 값(px)으로 바꿔 적는다 — 툴바가 숨고 나타나도 섹션 높이가 그대로다. */
+.flow { position: relative; --fvh: 1vh; }
+@supports (height: 1svh) { .flow { --fvh: 1svh; } }
 /* 단계마다 화면 높이의 70%씩 스크롤하고, 그동안 패널은 멈춰 있다. */
-.flow--on { height: 450vh; height: calc(100svh + 5 * 70svh); }
+.flow--on { height: calc(450 * var(--fvh)); }
 .flow--on .flow__pin {
   position: sticky;
   top: 0;
-  height: 100vh;
-  height: 100svh;
+  height: calc(100 * var(--fvh));
   display: flex;
   align-items: center;
   overflow: hidden;
 }
-.flow__inner { width: 100%; padding-top: clamp(56px, 8vh, 84px); padding-bottom: clamp(16px, 3vh, 32px); }
+.flow__inner { width: 100%; padding-top: clamp(56px, calc(8 * var(--fvh)), 84px); padding-bottom: clamp(16px, calc(3 * var(--fvh)), 32px); }
 
 /* ══ 위쪽 트랙 ══════════════════════════════════════════════════════════════ */
-.flow__track { position: relative; margin-bottom: clamp(22px, 4.5vh, 52px); }
+.flow__track { position: relative; margin-bottom: clamp(22px, calc(4.5 * var(--fvh)), 52px); }
 /* 줄은 첫 마디 가운데(10%)에서 끝 마디 가운데(90%)까지. 끝 단계가 시작될 때 가득 찬다(×1.25). */
 .flow__rail {
   position: absolute;
@@ -151,7 +152,7 @@
 .flow__count-all { font-size: clamp(18px, 1.8vw, 24px); color: var(--ink-faint); }
 
 /* 글 다섯 벌을 한 칸에 겹쳐 둔다 — 칸 높이는 가장 긴 글에 맞춰져서 단계가 바뀌어도 그대로다. */
-.flow__texts { display: grid; margin-top: clamp(14px, 2.4vh, 26px); }
+.flow__texts { display: grid; margin-top: clamp(14px, calc(2.4 * var(--fvh)), 26px); }
 .flow__text {
   grid-area: 1 / 1;
   opacity: 0;
@@ -207,7 +208,7 @@
 .flow[data-step="3"] .flow__text:nth-child(4) :is(.flow__step, .flow__tw > span, .flow__desc),
 .flow[data-step="4"] .flow__text:nth-child(5) :is(.flow__step, .flow__tw > span, .flow__desc) { transform: none; filter: none; }
 
-.flow__meter { display: flex; align-items: center; gap: 12px; margin-top: clamp(18px, 3vh, 32px); }
+.flow__meter { display: flex; align-items: center; gap: 12px; margin-top: clamp(18px, calc(3 * var(--fvh)), 32px); }
 .flow__meter-pct { min-width: 3.2ch; font: 500 12px/1 var(--mono); font-variant-numeric: tabular-nums; color: var(--ink); }
 .flow__meter-bar { flex: 0 0 120px; height: 2px; background: var(--line); overflow: hidden; border-radius: 2px; }
 .flow__meter-bar i { display: block; height: 100%; background: var(--beam); transform-origin: left; transform: scaleX(var(--p, 0)); }
@@ -505,7 +506,7 @@
 }
 
 /* ══ 움직임 줄이기: 고정 패널 대신 다섯 단계를 늘어놓는다 ═══════════════════ */
-.flow:not(.flow--on) { padding: clamp(48px, 8vh, 96px) 0; }
+.flow:not(.flow--on) { padding: clamp(48px, calc(8 * var(--fvh)), 96px) 0; }
 .flow:not(.flow--on) .flow__stage,
 .flow:not(.flow--on) .flow__count,
 .flow:not(.flow--on) .flow__meter { display: none; }

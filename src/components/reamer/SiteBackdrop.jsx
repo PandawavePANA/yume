@@ -57,10 +57,22 @@ export const SiteBackdrop = () => {
     let vw = 0;
     let vh = 0;
 
+    // 휴대폰은 픽셀 배율을 2로 묶는다. 아이폰은 3이라 캔버스 넷이 화면의 9배 픽셀을 잡는데,
+    // 인앱 브라우저(인스타그램 등)는 메모리가 빠듯해서 넘치면 페이지를 통째로 새로고침해 버린다.
+    // 입자는 점이라 2배와 3배를 눈으로 구분하기 어렵다.
+    const maxDpr = coarse ? 2 : 3;
+
     const resize = () => {
-      vw = window.innerWidth;
-      vh = window.innerHeight;
-      const dpr = window.devicePixelRatio || 1;
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      // 주소창·툴바가 숨고 나타날 때마다 높이만 바뀐다(인앱 브라우저는 스크롤할 때마다).
+      // 그때마다 캔버스를 새로 잡으면 그림이 지워졌다 다시 그려지며 끊기고, 원반 중심도 튄다.
+      // 그래서 폭이 같으면 본 것 중 가장 큰 높이를 유지한다 — 툴바가 나타나 화면이 짧아져도
+      // 캔버스가 조금 길 뿐 화면은 다 덮는다. 폭이 바뀌면(회전) 새로 잡는다.
+      if (w === vw && h <= vh) return;
+      vh = w === vw ? Math.max(vh, h) : h;
+      vw = w;
+      const dpr = Math.min(window.devicePixelRatio || 1, maxDpr);
       bloom.resize(vw, vh, dpr);
       disc.resize(vw, vh, dpr);
       hud.resize(vw, vh, dpr);

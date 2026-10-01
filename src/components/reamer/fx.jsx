@@ -34,11 +34,17 @@ export function ClickSparks() {
     const dpr = Math.min(2, window.devicePixelRatio || 1);
     let W = 0;
     let H = 0;
+    // 툴바가 숨고 나타나며 높이만 바뀔 때는 캔버스를 다시 잡지 않는다(SiteBackdrop과 같은 이유).
     const size = () => {
-      W = window.innerWidth;
-      H = window.innerHeight;
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      if (w === W && h <= H) return;
+      H = w === W ? Math.max(H, h) : h;
+      W = w;
       cv.width = W * dpr;
       cv.height = H * dpr;
+      cv.style.width = `${W}px`;
+      cv.style.height = `${H}px`;
     };
     size();
 

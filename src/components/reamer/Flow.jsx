@@ -68,9 +68,26 @@ export default function Flow() {
     let raf = 0;
     let target = 0;
     let cur = 0;
+    // 화면 높이는 처음 잰 값으로 묶어 둔다(flow.css의 --fvh).
+    //
+    // 휴대폰 브라우저는 주소창·툴바가 숨고 나타날 때마다 창 높이가 바뀐다. 인스타그램·카카오톡
+    // 인앱 브라우저는 스크롤할 때마다 그런다. 섹션 높이를 vh로 두면(화면 5.5개 분량) 그때마다
+    // 페이지 길이가 수백 px씩 늘었다 줄며 아래가 통째로 위아래로 튀었다. 폭이 바뀔 때(회전)만 다시 잰다.
+    let vw = 0;
+    let vh = 0;
+    const lock = () => {
+      if (window.innerWidth === vw) return;
+      vw = window.innerWidth;
+      vh = window.innerHeight;
+      el.style.setProperty("--fvh", `${vh / 100}px`);
+    };
+    lock();
+    // 화면 밖에 있을 때 돌려도 높이는 바로 맞춘다(스크롤은 근처에서만 듣지만 이건 늘 듣는다).
+    window.addEventListener("resize", lock);
     const measure = () => {
+      lock();
       const r = el.getBoundingClientRect();
-      const span = r.height - window.innerHeight;
+      const span = r.height - vh;
       target = span > 0 ? Math.min(1, Math.max(0, -r.top / span)) : 0;
     };
     const apply = () => {
@@ -116,6 +133,7 @@ export default function Flow() {
       if (raf) cancelAnimationFrame(raf);
       io?.disconnect();
       listen(false);
+      window.removeEventListener("resize", lock);
     };
   }, [on]);
 
