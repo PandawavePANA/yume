@@ -46,8 +46,7 @@ const TitleChars = ({ text }) => {
       {wi < arr.length - 1 ? " " : null}
     </span>
   ));
-  // 제목 위를 주기적으로 훑는 빛(textfx.css [B]). 제목마다 출발 시각이 엇갈리도록 글자 수를 준다.
-  return [...words, <span className="fx-glint" aria-hidden key="fx-glint" style={{ "--wn": text.length }} />];
+  return words;
 };
 
 // 히어로 앞 두 줄. 낱말마다 한 덩어리(.tw)로 묶어 글자 사이에서 줄이 바뀌지 않게 하고, 글자에 순번을
@@ -587,7 +586,6 @@ const ReamerSite = () => {
                   <em className="display__vow">
                     <Chars text="뭐든 만들어 드립니다" />
                   </em>
-                  <span className="fx-glint" aria-hidden style={{ "--wn": 3 }} />
                 </h1>
                 <Txt as="p" className="lede" stay>
                   웹사이트, 앱, 결제·본인인증 연동, AI 기능, 업무 자동화까지. 기획서가 없어도, 아직 무엇을

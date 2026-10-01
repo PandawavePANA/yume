@@ -62,8 +62,11 @@ export function createDiscLayer(canvas, { count = 2400 } = {}) {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
 
+  // 계기 층(hud.js)이 원반과 어긋나지 않게 이번 프레임의 자세를 돌려준다.
+  const geo = { cx: 0, cy: 0, outerR: 0, voidR: 0, cosT: 1, sinT: 0, cosS: 1, sinS: 0 };
+
   function draw(m, dt) {
-    if (!W || !H) return;
+    if (!W || !H) return null;
 
     const p = m.progressSmooth;
     const base = Math.min(W, H);
@@ -195,6 +198,16 @@ export function createDiscLayer(canvas, { count = 2400 } = {}) {
       ctx.arc(cx, cy, voidR * 1.14, 0, Math.PI * 2);
       ctx.fill();
     }
+
+    geo.cx = cx;
+    geo.cy = cy;
+    geo.outerR = outerR;
+    geo.voidR = voidR;
+    geo.cosT = cosT;
+    geo.sinT = sinT;
+    geo.cosS = cosS;
+    geo.sinS = sinS;
+    return geo;
   }
 
   function dispose() {

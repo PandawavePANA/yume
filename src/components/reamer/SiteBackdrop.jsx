@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { createBloomLayer } from "./layers/bloom";
 import { createDiscLayer } from "./layers/disc";
+import { createHudLayer } from "./layers/hud";
 import { createTrailLayer } from "./layers/trail";
 import "./SiteBackdrop.css";
 
@@ -15,12 +16,14 @@ export const SiteBackdrop = () => {
   const bloomRef = useRef(null);
   const discRef = useRef(null);
   const trailRef = useRef(null);
+  const hudRef = useRef(null);
 
   useEffect(() => {
     const bloomCanvas = bloomRef.current;
     const discCanvas = discRef.current;
     const trailCanvas = trailRef.current;
-    if (!bloomCanvas || !discCanvas || !trailCanvas) return;
+    const hudCanvas = hudRef.current;
+    if (!bloomCanvas || !discCanvas || !trailCanvas || !hudCanvas) return;
 
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const coarse = window.matchMedia("(pointer: coarse)").matches;
@@ -37,6 +40,7 @@ export const SiteBackdrop = () => {
       pointerInside: false,
       pointer: 0,
       time: 0,
+      scrollY: 0,
     };
 
     const bloom = createBloomLayer(bloomCanvas);
@@ -47,6 +51,8 @@ export const SiteBackdrop = () => {
     // trail works there as well — it was previously skipped on coarse
     // pointers, which is why it never showed up on a phone.
     const trail = createTrailLayer(trailCanvas, { coarse, reduced });
+    // 원반과 같은 면에 얹는 측정 눈금. 히어로에서만 보인다.
+    const hud = createHudLayer(hudCanvas, { reduced });
 
     let vw = 0;
     let vh = 0;
@@ -57,12 +63,14 @@ export const SiteBackdrop = () => {
       const dpr = window.devicePixelRatio || 1;
       bloom.resize(vw, vh, dpr);
       disc.resize(vw, vh, dpr);
+      hud.resize(vw, vh, dpr);
       trail?.resize(vw, vh, dpr);
     };
     resize();
 
     const readScroll = () => {
       const max = document.documentElement.scrollHeight - window.innerHeight;
+      m.scrollY = window.scrollY;
       m.progress = max > 0 ? Math.min(1, Math.max(0, window.scrollY / max)) : 0;
     };
     readScroll();
@@ -131,7 +139,7 @@ export const SiteBackdrop = () => {
       m.pointer += ((m.pointerInside ? 1 : 0) - m.pointer) * pk;
 
       bloom.draw(m, dt);
-      disc.draw(m, dt);
+      hud.draw(m, dt, disc.draw(m, dt));
       trail?.draw(m, dt, now);
 
       raf = requestAnimationFrame(frame);
@@ -151,6 +159,7 @@ export const SiteBackdrop = () => {
       window.removeEventListener("touchcancel", onTouchEnd);
       bloom.dispose();
       disc.dispose();
+      hud.dispose();
       trail?.dispose();
     };
   }, []);
@@ -159,6 +168,7 @@ export const SiteBackdrop = () => {
     <div className="backdrop" aria-hidden>
       <canvas className="backdrop__layer backdrop__layer--bloom" ref={bloomRef} />
       <canvas className="backdrop__layer backdrop__layer--disc" ref={discRef} />
+      <canvas className="backdrop__layer backdrop__layer--hud" ref={hudRef} />
       <canvas className="backdrop__layer backdrop__layer--trail" ref={trailRef} />
     </div>
   );

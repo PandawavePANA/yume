@@ -245,8 +245,8 @@ html:not(.reveal-on) .case__dim-label { opacity: 1; }
 .title .trail-ch {
   --ab: max(var(--vel, 0), calc(var(--vel, 0) * -1));
   text-shadow:
-    calc(var(--vel, 0) * 7px) 0 rgba(59, 130, 246, calc(var(--ab) * 2.2)),
-    calc(var(--vel, 0) * -7px) 0 rgba(139, 92, 246, calc(var(--ab) * 2.2));
+    calc(var(--vel, 0) * 3px) 0 rgba(59, 130, 246, calc(var(--ab) * 0.8)),
+    calc(var(--vel, 0) * -3px) 0 rgba(139, 92, 246, calc(var(--ab) * 0.8));
 }
 
 /* ---------- 입자 워드마크 ---------- */
