@@ -329,6 +329,9 @@
 .inquiry__check path { stroke: var(--ink); stroke-dasharray: 40; stroke-dashoffset: 40; animation: drawIn 0.5s var(--ease) 0.6s forwards; }
 @keyframes drawIn { to { stroke-dashoffset: 0; } }
 
+/* ── 화면에서 먼 덩어리는 멈춰 둔다(ReamerSite의 usePauseOffscreen) ────────────── */
+.is-off, .is-off *, .is-off *::before, .is-off *::after { animation-play-state: paused !important; }
+
 @media (prefers-reduced-motion: reduce) {
   .ticker__row { animation: none; }
   .ticker__skew { transform: none; }

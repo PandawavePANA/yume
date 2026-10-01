@@ -41,11 +41,14 @@ export function ClickSparks() {
       if (w === W && h <= H) return;
       H = w === W ? Math.max(H, h) : h;
       W = w;
-      cv.width = W * dpr;
-      cv.height = H * dpr;
+      // 실제 픽셀은 처음 누를 때 잡는다. 한 번도 안 누르면 화면 한 장 분량의 메모리를 아낀다.
+      if (held) { cv.width = W * dpr; cv.height = H * dpr; }
       cv.style.width = `${W}px`;
       cv.style.height = `${H}px`;
     };
+    let held = false;
+    cv.width = 1;
+    cv.height = 1;
     size();
 
     let sparks = [];
@@ -93,6 +96,7 @@ export function ClickSparks() {
     const burst = (e) => {
       // 입력칸 안에서 누르는 건 글을 쓰려는 것이다. 거기서 불꽃이 튀면 방해만 된다.
       if (e.target instanceof Element && e.target.closest("input, textarea, select, [contenteditable]")) return;
+      if (!held) { held = true; cv.width = W * dpr; cv.height = H * dpr; }
       const x = e.clientX;
       const y = e.clientY;
       const n = 16;

@@ -154,6 +154,29 @@ function useReveal() {
   }, []);
 }
 
+// 화면에서 먼 덩어리의 CSS 애니메이션은 멈춰 둔다(.is-off, motion.css).
+//
+// 사이트 전체에 늘 돌아가는 애니메이션이 일흔 개가 넘는다. 화면 밖이라 안 보여도 브라우저는
+// 매 프레임 계산하고 합성 층을 붙들고 있는다. 휴대폰, 특히 인앱 브라우저에서는 그게 끊김과
+// 메모리로 돌아왔다. 멈췄다가 다가오면(위아래 한 화면 여유) 그 자리에서 다시 돈다 — 처음부터가 아니다.
+function usePauseOffscreen() {
+  useEffect(() => {
+    if (!("IntersectionObserver" in window)) return undefined;
+    const blocks = document.querySelectorAll("main > *, .footer");
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) e.target.classList.toggle("is-off", !e.isIntersecting);
+      },
+      { rootMargin: "100% 0px" },
+    );
+    blocks.forEach((el) => io.observe(el));
+    return () => {
+      io.disconnect();
+      blocks.forEach((el) => el.classList.remove("is-off"));
+    };
+  }, []);
+}
+
 // 스크롤에 따라 움직이는 것 전부를 한 곳에서 정한다: 상단 바를 눌러 붙일지,
 // 읽기 진행선을 얼마나 채울지, 배경 연출을 얼마나 남길지, 그리고 화면 캡처를
 // 얼마나 어긋나게 둘지.
@@ -432,15 +455,21 @@ function WorkCase({ item, index }) {
           <span className="case__glare" aria-hidden />
           <span className="case__crop" aria-hidden />
           <span className="case__scan" aria-hidden />
-          <img
-            className="case__img"
-            src={current.src}
-            alt={current.alt}
-            width={1440}
-            height={900}
-            loading={index === 0 ? "eager" : "lazy"}
-            decoding="async"
-          />
+          {/* 휴대폰에는 폭 720 캡처를 준다. 1440짜리는 펼치면 한 장에 5MB라, 메모리가 빠듯한
+              인앱 브라우저(인스타그램 등)에서 스크롤하다 페이지가 통째로 다시 열리는 원인이 됐다.
+              srcset으로 두면 배율 3인 아이폰이 큰 쪽을 고르므로 media로 못 박는다. */}
+          <picture>
+            <source media="(max-width: 900px)" srcSet={current.src.replace(/\.webp$/, "-720.webp")} />
+            <img
+              className="case__img"
+              src={current.src}
+              alt={current.alt}
+              width={1440}
+              height={900}
+              loading={index === 0 ? "eager" : "lazy"}
+              decoding="async"
+            />
+          </picture>
         </a>
         {item.shots.length > 1 && (
           <div className="case__dots">
@@ -517,6 +546,7 @@ const RULER_SECTIONS = [...NAV.map((n) => [n.href.slice(1), n.label]), ["about",
 const ReamerSite = () => {
   const navRef = useRef(null);
   useReveal();
+  usePauseOffscreen();
   useScrollChrome(navRef);
   useScrub();
   usePointerFx();

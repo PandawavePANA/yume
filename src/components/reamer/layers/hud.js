@@ -32,15 +32,28 @@ export function createHudLayer(canvas, { reduced = false } = {}) {
   let readoutAt = -1;
   let readout = ["", ""];
 
+  // 히어로를 지나면 캔버스를 1×1로 줄여 메모리를 돌려준다(휴대폰 기준 화면 한 장 분량).
+  // 다시 올라오면 그때 새로 잡는다.
+  let held = false;
+  function hold() {
+    canvas.width = Math.round(W * dpr);
+    canvas.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    held = true;
+  }
+  function release() {
+    canvas.width = 1;
+    canvas.height = 1;
+    held = false;
+  }
+
   function resize(vw, vh, nextDpr) {
     dpr = nextDpr;
     W = vw;
     H = vh;
-    canvas.width = Math.round(vw * dpr);
-    canvas.height = Math.round(vh * dpr);
     canvas.style.width = `${vw}px`;
     canvas.style.height = `${vh}px`;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (held) hold();
     cleared = false;
   }
 
@@ -53,11 +66,12 @@ export function createHudLayer(canvas, { reduced = false } = {}) {
 
     if (shown < 0.004) {
       if (!cleared) {
-        ctx.clearRect(0, 0, W, H);
+        release();
         cleared = true;
       }
       return;
     }
+    if (!held) hold();
     cleared = false;
     ctx.clearRect(0, 0, W, H);
 
