@@ -95,7 +95,7 @@ function Manifesto() {
 
 // 하는 일 키워드가 흐르는 띠. 스크롤을 빨리 하면 그만큼 기운다(--vel, useMotion.js).
 const TICKER_BIG = ["웹사이트", "앱", "결제 연동", "본인인증", "AI 기능", "업무 자동화", "관리자 화면", "API 연동"];
-const TICKER_SMALL = ["기획서 없어도 괜찮습니다", "상담·견적 무료", "대표가 직접 개발", "매주 진행 공유", "코드·계정 모두 이관", "정한 금액 그대로"];
+const TICKER_SMALL = ["기획서 없어도 괜찮습니다", "상담·견적 무료", "AI로 빠르게, 검증은 꼼꼼하게", "매주 진행 공유", "코드·계정 모두 이관", "정한 금액 그대로"];
 function Ticker() {
   const row = (items, rev) => (
     <div className={`ticker__row${rev ? " ticker__row--rev" : ""}`}>
@@ -647,7 +647,7 @@ const ReamerSite = () => {
               <header className="head" data-reveal>
                 <p className="label">작업물</p>
                 <h2 className="title">
-                  <TitleChars text="직접 만들어 지금도 운영하고 있습니다." />
+                  <TitleChars text="만들어서 지금도 운영하고 있습니다." />
                 </h2>
                 <Txt as="p" className="lede">
                   {/* 개수를 글에 박아두면 작업물을 추가할 때마다 한쪽만 고치게 된다. */}
@@ -723,7 +723,7 @@ const ReamerSite = () => {
                   <TitleChars text="이런 일을 맡길 수 있습니다." />
                 </h2>
                 <Txt as="p" className="lede">
-                  기획서가 다 없어도 됩니다. 이야기를 나누며 범위를 좁히고, 직접 만들어서,
+                  기획서가 다 없어도 됩니다. 이야기를 나누며 범위를 좁히고, 만들어서,
                   실제로 돌아가는 상태로 넘겨드립니다.
                 </Txt>
               </header>
@@ -819,7 +819,7 @@ const ReamerSite = () => {
                 <Txt as="p" className="lede">
                   리머 대표. 한국디지털미디어고등학교 해킹방어과를 졸업하고 중앙대학교 전자전기공학부에
                   재학 중입니다. 여러 번의 창업, 그리고 AI 오답으로 직접 손해를 본 경험을 계기로 리머를
-                  시작했습니다. 맡은 일은 대표가 직접 만듭니다.
+                  시작했습니다. 그래서 AI로 빠르게 만들되, AI가 만든 것을 그대로 믿지 않습니다.
                 </Txt>
                 <Txt as="blockquote" className="quote">
                   “허술하게 남겨 둔 구멍은 결국 누군가 대가를 치르게 된다는 걸 직접 겪었습니다.”
