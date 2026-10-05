@@ -9,7 +9,7 @@ import { NAV, HERO_NOTE, WHY, GUARANTEES, SERVICES, PROCESS, WORK, ALSO, CREDENT
 import "@/components/reamer/motion.css";
 import { useFloatingCta, usePointerFx, useScrollSpy, useScrub } from "@/components/reamer/useMotion";
 import "@/components/reamer/tech.css";
-import { BuildTerminal, CursorGrid, LivePing, ParticleWord, ScrollRuler, useScrambleLabels } from "@/components/reamer/tech";
+import { BuildTerminal, CursorGrid, LivePing, ParticleWord, ScrollRuler, useNavRail, useScrambleLabels } from "@/components/reamer/tech";
 // 움직임 부품이 터져도 그 자리만 비우고 본문은 남긴다(Decor.jsx 주석 참고).
 import Decor from "@/components/reamer/Decor";
 import "@/components/reamer/fx.css";
@@ -551,6 +551,7 @@ const ReamerSite = () => {
   useScrub();
   usePointerFx();
   const active = useScrollSpy(SPY_IDS);
+  const navRail = useNavRail(active);
   const floatCta = useFloatingCta();
   useScrambleLabels();
   useMagnetText();
@@ -582,6 +583,8 @@ const ReamerSite = () => {
                 </a>
               </li>
             ))}
+            {/* 지금 보고 있는 구역으로 건너가는 막대. 건너가는 동안 늘어난다(tech.jsx). */}
+            <span className="nav__rail" ref={navRail} aria-hidden />
           </ul>
           <div className="nav__right">
             {/* 이미 문의한 사람이 돌아올 자리. 링크를 잃었으면 여기서 다시 받는다. */}
@@ -729,7 +732,13 @@ const ReamerSite = () => {
               </header>
               <Decor name="solid"><BlueprintSolid /></Decor>
 
-              <div className="svc">
+              {/* 칸을 가르는 선이 회로처럼 차오른다 — 스크롤한 만큼(--s). */}
+              <div className="svc" data-scrub>
+                <svg className="svc__wires" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden>
+                  <line x1="50" y1="0" x2="50" y2="100" pathLength="1" />
+                  <line x1="0" y1="50" x2="100" y2="50" pathLength="1" />
+                </svg>
+                <span className="svc__node" aria-hidden />
                 {SERVICES.map((sv, i) => (
                   <div className="svc__item" key={sv.name} data-reveal data-spot style={{ "--i": i }}>
                     <span className="orbit" aria-hidden />
@@ -798,7 +807,12 @@ const ReamerSite = () => {
               <ul className="vow">
                 {GUARANTEES.map((g, i) => (
                   <li className="vow__item" key={g.head} data-reveal style={{ "--d": `${(i % 3) * 0.08 + Math.floor(i / 3) * 0.12}s` }}>
-                    <span className="vow__mark" aria-hidden />
+                    <span className="vow__mark" aria-hidden>
+                      <svg viewBox="0 0 22 22" fill="none">
+                        <circle cx="11" cy="11" r="10.2" pathLength="1" />
+                        <path d="M6.4 11.2l3.2 3.2 6.1-6.5" pathLength="1" />
+                      </svg>
+                    </span>
                     <div>
                       <Txt as="h3" split="chars" className="vow__head">{g.head}</Txt>
                       <Txt as="p" className="vow__body">{g.body}</Txt>

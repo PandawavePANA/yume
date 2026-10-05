@@ -440,3 +440,169 @@ html:not(.reveal-on) .case__dim-label { opacity: 1; }
   .inquiry::before { animation: none; }
   .ruler__sec { animation: none; }
 }
+
+/* ---------- 상단 메뉴를 미끄러져 다니는 표시 ---------- */
+/* 항목마다 밑줄을 켰다 껐다 하지 않는다. 막대 하나가 지금 구역으로 건너가고,
+   건너가는 동안 진행 방향으로 늘어났다가 도착해서 제자리 폭으로 돌아온다. */
+.nav__links { position: relative; }
+.nav__rail {
+  --rx: 0px;
+  --rw: 0px;
+  --stretch: 1;
+  position: absolute;
+  left: 0;
+  bottom: -7px;
+  width: var(--rw);
+  height: 2px;
+  border-radius: 2px;
+  background: var(--beam);
+  box-shadow: 0 0 12px 1px rgba(109, 90, 224, 0.5);
+  opacity: 0;
+  transform: translateX(var(--rx)) scaleX(var(--stretch));
+  transform-origin: center;
+  pointer-events: none;
+  transition:
+    transform 0.5s cubic-bezier(0.34, 1.4, 0.5, 1),
+    width 0.5s cubic-bezier(0.34, 1.4, 0.5, 1),
+    opacity 0.3s var(--ease);
+}
+.nav__rail.is-on { opacity: 1; }
+/* 막대가 자리를 표시하므로 그 항목의 밑줄은 비운다 — 둘이 겹치면 두 줄로 보인다. */
+.nav__link.is-active::after { opacity: 0; }
+
+/* ---------- 하는 일: 칸을 가르는 회로선 ---------- */
+.svc { position: relative; }
+.svc__wires {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  pointer-events: none;
+  overflow: visible;
+}
+.svc__wires line {
+  stroke: var(--beam-mid);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+  stroke-dasharray: 1;
+  /* 스크롤한 만큼 차오른다. --s는 useMotion의 data-scrub이 쓴다. */
+  stroke-dashoffset: calc(1 - var(--s, 0));
+  filter: drop-shadow(0 0 4px rgba(109, 90, 224, 0.75));
+}
+.svc__wires line:nth-child(1) { stroke: var(--beam-blue); }
+.svc__wires line:nth-child(2) { stroke: var(--beam-violet); }
+/* 두 선이 만나는 자리. 선이 다 차면 켜진다. */
+.svc__node {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 2;
+  width: 7px;
+  height: 7px;
+  margin: -3.5px 0 0 -3.5px;
+  border-radius: 50%;
+  background: var(--ink);
+  box-shadow: 0 0 10px 2px rgba(139, 92, 246, 0.8);
+  pointer-events: none;
+  opacity: clamp(0, calc((var(--s, 0) - 0.72) * 6), 1);
+  transform: scale(clamp(0.4, calc((var(--s, 0) - 0.72) * 6), 1));
+}
+@media (max-width: 680px) {
+  /* 한 줄로 바뀌면 가운데 십자가 격자와 맞지 않는다. */
+  .svc__wires, .svc__node { display: none; }
+}
+
+/* ---------- 하는 일: 목록이 차례로 켜진다 ---------- */
+.svc__list li { position: relative; padding-left: 14px; }
+.svc__list li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.62em;
+  width: 8px;
+  height: 1px;
+  background: var(--beam-mid);
+  transform: scaleX(0);
+  transform-origin: left;
+}
+.reveal-on .svc__item.is-in .svc__list li::before {
+  animation: svcTick 0.5s var(--ease) both;
+  animation-delay: calc(var(--n, 0) * 90ms + 420ms);
+}
+.svc__list li:nth-child(1) { --n: 0; }
+.svc__list li:nth-child(2) { --n: 1; }
+.svc__list li:nth-child(3) { --n: 2; }
+.svc__list li:nth-child(4) { --n: 3; }
+@keyframes svcTick {
+  from { transform: scaleX(0); opacity: 0; }
+  to { transform: scaleX(1); opacity: 1; }
+}
+html:not(.reveal-on) .svc__list li::before { transform: scaleX(1); }
+
+/* ---------- 약속: 체크가 그려진다 ---------- */
+/* 원을 한 바퀴 긋고, 다 그어지면 체크가 이어서 그려진다. 그 뒤 고리가 한 번 퍼진다. */
+.vow__mark { border: 0; }
+.vow__mark::after { content: none; }
+.vow__mark svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.vow__mark circle {
+  stroke: color-mix(in srgb, var(--beam-mid) 62%, transparent);
+  stroke-width: 1;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+}
+.vow__mark path {
+  stroke: color-mix(in srgb, var(--beam-violet) 88%, var(--ink));
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+}
+.reveal-on .vow__item circle { stroke-dashoffset: 1; }
+.reveal-on .vow__item path { stroke-dashoffset: 1; }
+.reveal-on .vow__item.is-in circle {
+  animation: drawLine 0.7s var(--ease) both;
+  animation-delay: var(--d, 0s);
+}
+.reveal-on .vow__item.is-in path {
+  animation: drawLine 0.42s var(--ease) both;
+  animation-delay: calc(var(--d, 0s) + 0.5s);
+}
+@keyframes drawLine { to { stroke-dashoffset: 0; } }
+/* 다 그려진 자리에서 고리가 한 번 퍼진다. */
+.vow__mark::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1px solid var(--beam-violet);
+  opacity: 0;
+}
+.reveal-on .vow__item.is-in .vow__mark::before {
+  animation: vowRing2 0.9s var(--ease) both;
+  animation-delay: calc(var(--d, 0s) + 0.84s);
+}
+@keyframes vowRing2 {
+  from { opacity: 0.55; transform: scale(1); }
+  to { opacity: 0; transform: scale(1.75); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav__rail { transition: opacity 0.2s linear; transform: translateX(var(--rx)); }
+  .svc__wires line { stroke-dashoffset: 0; }
+  .svc__node { opacity: 1; transform: none; }
+  .svc__list li::before { transform: scaleX(1); }
+  .reveal-on .svc__item.is-in .svc__list li::before { animation: none; }
+  .reveal-on .vow__item circle,
+  .reveal-on .vow__item path { stroke-dashoffset: 0; }
+  .reveal-on .vow__item.is-in circle,
+  .reveal-on .vow__item.is-in path,
+  .reveal-on .vow__item.is-in .vow__mark::before { animation: none; }
+}

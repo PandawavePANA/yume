@@ -468,3 +468,32 @@ export function ScrollRuler({ sections }) {
     </div>
   );
 }
+
+// ── 상단 메뉴를 미끄러져 다니는 표시 ──────────────────────────────────────────
+// 항목마다 밑줄을 켰다 껐다 하는 대신, 막대 하나가 지금 구역으로 실제로 건너간다.
+// 건너가는 동안 진행 방향으로 늘어났다가(--stretch) 도착하면 제자리 폭으로 돌아온다.
+// 스크롤마다 재지 않는다 — 구역이 바뀔 때 한 번만 잰다.
+export function useNavRail(active) {
+  const ref = useRef(null);
+  useEffect(() => {
+    const rail = ref.current;
+    if (!rail) return undefined;
+    const list = rail.parentElement;
+    const link = active ? list?.querySelector(`a[href="#${active}"]`) : null;
+    if (!list || !link) {
+      rail.classList.remove("is-on");
+      return undefined;
+    }
+    const from = parseFloat(rail.style.getPropertyValue("--rx")) || 0;
+    const to = link.offsetLeft;
+    rail.style.setProperty("--rx", `${to}px`);
+    rail.style.setProperty("--rw", `${link.offsetWidth}px`);
+    // 멀리 건너뛸수록 많이 늘어난다. 1.0(제자리) ~ 1.9.
+    const far = Math.min(1, Math.abs(to - from) / 260);
+    rail.style.setProperty("--stretch", (1 + far * 0.9).toFixed(2));
+    rail.classList.add("is-on");
+    const done = setTimeout(() => rail.style.setProperty("--stretch", "1"), 180);
+    return () => clearTimeout(done);
+  }, [active]);
+  return ref;
+}
