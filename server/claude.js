@@ -289,7 +289,162 @@ const EXTRACT_SYSTEM_PROMPT = `당신은 '유메'라는 팩트체크 엔진입�
 }
 legal_ref 필드는 domain이 "법률"인 항목에만 포함하고, 그 외 항목에는 넣지 마세요.`;
 
+// ── 추출과 검증을 나눈다 (2026-09-29, 원가 실측 뒤) ──────────────────────────
+//
+// 예전에는 한 번의 호출(Sonnet + 웹검색 6회)이 주장 추출과 웹 판정을 같이 했다. 실측하니
+// 검증 한 건 원가의 60%가 이 한 호출이었고, 그 안에서 돈이 새는 곳이 둘 있었다.
+//   · 법률 주장도 이 호출 안에서 웹검색을 했다 — 판정은 어차피 뒤에서 법제처 원문과 대조하는데.
+//   · 확인할 주장이 없는 글("한국의 수도는 어디야?")에도 검색을 두 번 했다.
+// 그래서 둘로 나눈다. ① 싼 모델(Haiku)이 검색 없이 주장만 뽑고, ② 웹 판정이 필요한 주장
+// (법률이 아닌 것)이 있을 때만 Sonnet + 검색을 부른다. 검색 한도도 주장 수에 맞춘다.
+// YUME_EXTRACT_MODE=single 이면 예전 한 번 호출로 돌아간다(비교·비상용).
+const EXTRACT_ONLY_PROMPT = `당신은 '유메' 팩트체크 엔진의 첫 단계입니다. 사용자가 넣은 글에서 **검증 가능한 사실 주장만 뽑아내세요.** 판정은 하지 않습니다(다음 단계가 검색해서 판정합니다). 검색 도구도 없습니다.
+
+들어오는 글은 두 가지 모양입니다.
+① AI 답변 전문(여러 문단, 주장 여러 개)
+② 짧은 질문 한 줄 — "로또 1등 당첨금이 평균 20억이라는데 사실이야?", "민법 750조가 계약 해제 조항 맞나요?"
+②가 오면 질문 껍데기("~라는데", "~맞아?", "사실이야?")를 벗기고 그 안의 주장만 뽑으세요. 위 예의 주장은 "로또 1등 당첨금은 평균 20억원이다", "민법 제750조는 계약 해제를 규정한다"입니다. 누가 한 말인지는 검증 대상이 아닙니다.
+
+규칙:
+- 의견·추천·감상처럼 참/거짓을 가릴 수 없는 문장은 빼고, 숫자·연도·인물·기관·조문·인과관계처럼 확인할 수 있는 주장만 뽑습니다.
+- **"○○가 있다/존재한다"도 사실 주장입니다**(회사·가게·사람·제도·제품이 있다는 말). 빼지 마세요.
+- **주장 개수는 글에 실제로 들어 있는 만큼입니다.** 긴 답변이면 3~7개로 굵직하게 나누고, 한 줄 질문이면 1개가 정상입니다. 없는 주장을 만들어 개수를 채우지 마세요.
+- 확인할 사실 주장이 하나도 없으면(순수한 질문 "한국의 수도는 어디야?", 인사, 의견 요청) claims를 빈 배열로 두고 note에 이유를 쓰세요.
+- 주장 문장은 원문의 수치·연도·이름·조건을 **그대로** 옮기세요. 틀려 보여도 고치지 마세요 — 고치면 검증할 대상이 사라집니다. 한 주장에 필요한 조건(누구에게, 언제, 몇 %)이 빠지지 않게 하세요.
+- 원문이 스스로 정정한 내용이 있으면 정정된 최종 주장을 뽑습니다.
+- 도메인을 "법률", "의료", "금융", "역사", "과학", "일반" 중 하나로 분류하세요. 법령·조문·판례·행정규칙·법적 의무/처벌/권리에 관한 주장은 "법률"입니다.
+- domain이 "법률"이면 legal_ref를 최대한 구체적으로 채우세요:
+  - 특정 법령 조문을 언급하면 {"type":"statute","law_name":"정확한 법령명(예: 민법)","article":"조문 번호(예: 750조, 32조 1항)"}
+  - 고시·훈령·예규는 type "statute"로 하되 law_name에 **원문 인용 그대로**(예: "공정위 고시 제2022-4호").
+  - 특정 판례를 언급하면 {"type":"case","case_number":"사건번호(예: 2016다254467)","court":"법원명(모르면 생략)"}
+  - **원문에 조문 번호가 없어도**, 주장이 어느 법령 몇 조의 내용인지 확실히 알면 그 법령명과 조문을 채우세요(예: "퇴직금은 1년 이상 근무하면 받는다" → {"type":"statute","law_name":"근로자퇴직급여 보장법","article":"4조"}, "연차휴가 15일" → 근로기준법 60조). 이렇게 해야 법제처 원문과 직접 대조됩니다. 확실하지 않으면 추측하지 말고 unspecified로 두세요.
+  - 조문·판례를 특정할 수 없으면 {"type":"unspecified","keyword":"검색에 쓸 핵심 키워드"}
+  - 원문에 **적혀 있는** 사건번호·법령명·조문은 원문 그대로 옮기세요(틀려 보여도 고치지 마세요). 존재 여부는 다음 단계가 확인합니다.
+- 원문에 학술·서지 식별자(DOI "10."으로 시작, arXiv, PMID, ISBN)가 적혀 있으면 identifiers에 그대로 넣으세요. 없으면 빈 배열.
+- 이 글을 읽는 사람에게 실제로 쓸모 있는 상품 카테고리(쿠팡 검색 키워드)를 0~3개 제안하세요. 주제와 자연스럽게 이어질 때만. 법률 해설처럼 상품과 무관하면 빈 배열이 맞습니다.
+
+반드시 아래 JSON 형식으로만 응답하세요. 다른 설명, 코드블록을 붙이지 마세요.
+{"overall_domain":"주요 도메인","note":"주장이 없을 때만 그 이유","claims":[{"text":"주장 (60자 이내)","domain":"법률|의료|금융|역사|과학|일반","identifiers":[{"type":"doi|arxiv|pmid|isbn","value":"원문 그대로"}],"legal_ref":{"type":"statute|case|unspecified","law_name":"","article":"","case_number":"","court":"","keyword":""}}],"related_products":[{"keyword":"쿠팡 검색용 키워드","reason":"이 내용과 어떻게 이어지는지 (40자 이내)"}]}
+legal_ref는 domain이 "법률"인 항목에만 넣으세요.`;
+
+const WEB_VERIFY_PROMPT = `당신은 '유메' 팩트체크 엔진의 웹 판정 담당입니다. 아래 번호가 붙은 사실 주장들이 맞는지 web_search 도구로 실제로 찾아보고 판정하세요. 원문은 문맥 파악용으로만 함께 드립니다.
+
+- 검색 한도는 서버가 강제합니다. 근거가 약한 주장부터 배분하고, 한 번의 검색으로 여러 주장을 확인할 수 있으면 묶으세요. 주장이 하나뿐이면 한도를 그 하나에 쓰세요.
+- 1차 출처(발표 주체의 공식 자료, 정부·공공기관, 학회 가이드라인, 원문 매체)를 우선하세요.
+- **"false"는 반박하는 근거를 찾았을 때만** 씁니다. 검색에 안 나왔다는 것은 틀렸다는 뜻이 아닙니다(유료 DB, 잡지 평점, 구독자 전용 자료, 소규모 사업자는 검색에 안 걸리는 게 정상). 뒷받침을 못 찾았을 뿐이면 "uncertain"입니다.
+- false로 판정할 때는 explanation에 **근거가 말하는 실제 값**을 쓰세요("실제로는 ○○"). 실제 값을 댈 수 없으면 그건 반박이 아니므로 uncertain입니다.
+- 시점이 들어간 주장(○○년 기준 수치, 현행 제도)은 **그 시점의 값**과 대조하세요. 다른 해의 값을 근거로 삼으면 안 됩니다.
+- **판이 여럿인 대상**(와인 빈티지, 제품 모델·연식, 책의 판, 해마다 바뀌는 통계)에서 주장이 판을 특정하지 않았다면, **다른 판의 값은 반박 근거가 아닙니다.** 주장한 값을 가진 판이 있으면 confirmed, 확인이 안 되면 uncertain입니다. 판을 특정한 주장이면 그 판의 값과만 대조하세요.
+- 핵심이 맞고 곁가지만 조금 다르면(반올림, 표기 차이, 같은 뜻의 다른 이름) false가 아니라 confirmed로 하고 차이를 덧붙이세요. 틀린 부분이 주장의 핵심일 때만 false입니다.
+- 근거를 못 찾았는데 그럴듯해 보인다고 confirmed를 주지 마세요. 그 경우 uncertain이고, explanation에 무엇을 확인했고 무엇이 확인되면 결론이 나는지 쓰세요.
+- confirmed나 false에는 sources에 실제 근거 URL을 1~2개 반드시 넣으세요. 출처 없는 판정은 유메가 자동으로 "확인되지 않음"으로 내립니다.
+- 조건에 따라 달라지는 주장이면 가장 일반적인 경우를 기준으로 판정하고 조건을 설명에 덧붙이세요.
+- 검색이 끝나면 반드시 최종 JSON을 출력하세요.
+
+반드시 아래 JSON 형식으로만 응답하세요.
+{"summary":"전체 결과 한 문장","results":[{"n":1,"verdict":"confirmed|false|uncertain","explanation":"구체적 근거 (100자 이내)","sources":[{"title":"출처 제목","url":"https://..."}]}]}`;
+
+async function extractClaimsOnly(text, { ledger = null } = {}) {
+  const parsed = await callClaudeJson({
+    system: EXTRACT_ONLY_PROMPT,
+    user: `다음 글에서 검증할 사실 주장을 뽑아줘:\n\n${text}`,
+    maxTokens: 3000,
+    ledger,
+    label: "extract",
+    // 검색이 없어 값이 싸다(한 건 약 2~3원). 대신 판단은 Sonnet에게 — 어느 법 몇 조의 이야기인지
+    // 알아보는 일은 Haiku가 자주 놓쳤고, 놓치면 법제처 대조 대신 비싼 웹 리서치로 넘어갔다.
+    strong: true,
+  });
+  const claims = (Array.isArray(parsed.claims) ? parsed.claims : [])
+    .filter((c) => c && String(c.text || "").trim())
+    .map((c) => {
+      const domain = ["법률", "의료", "금융", "역사", "과학", "일반"].includes(c.domain) ? c.domain : "일반";
+      return {
+        text: String(c.text).trim(),
+        domain,
+        verdict: domain === "법률" ? "pending_legal_check" : "uncertain",
+        explanation: "",
+        sources: [],
+        identifiers: Array.isArray(c.identifiers) ? c.identifiers : [],
+        ...(domain === "법률" ? { legal_ref: c.legal_ref || { type: "unspecified", keyword: String(c.text).slice(0, 40) } } : {}),
+      };
+    });
+  return {
+    overall_domain: parsed.overall_domain || claims[0]?.domain || "일반",
+    note: parsed.note || "",
+    claims,
+    related_products: Array.isArray(parsed.related_products) ? parsed.related_products.slice(0, 3) : [],
+  };
+}
+
+async function verifyClaimsOnWeb(text, claims, { ledger = null, onProgress = () => {} } = {}) {
+  const list = claims.map((c, i) => `${i + 1}. [${c.domain}] ${c.text}`).join("\n");
+  // 주장 하나면 3회, 늘수록 1회씩 더(최대 6). 실측으로 한 주장에 3회를 넘기면 결론이 거의 안 바뀐다.
+  const cap = Math.min(6, 2 + claims.length);
+  const raw = await callClaudeStreaming({
+    system: WEB_VERIFY_PROMPT,
+    label: "web_verify",
+    ledger,
+    messages: [{ role: "user", content: `원문(문맥 참고용):\n${text.slice(0, 4000)}\n\n판정할 주장:\n${list}` }],
+    tools: searchTools(ledger, cap),
+    max_tokens: 4000,
+    onProgress,
+  });
+  // 검색을 여러 번 한 뒤에는 최종 JSON 없이 말로 끝나는 경우가 있다. 그때 검증 전체를 오류로
+  // 끝내면 사용자는 아무것도 못 받는다 — 찾은 내용을 두고 JSON만 한 번 더 받는다(검색 없이, 싸다).
+  // 그래도 안 되면 판정을 비워 둔 채 넘긴다. 뒤 단계(심층 리서치)가 이어서 본다.
+  let parsed;
+  try {
+    parsed = extractJson(raw);
+  } catch {
+    try {
+      const again = await callClaude({
+        system: WEB_VERIFY_PROMPT,
+        label: "web_verify:json",
+        ledger,
+        messages: [
+          { role: "user", content: `판정할 주장:\n${list}` },
+          { role: "assistant", content: raw.slice(-6000) || "(검색 결과 정리 중)" },
+          { role: "user", content: "지금까지 찾은 내용만으로 최종 판정을 요청한 JSON 형식 하나로만 출력하세요. 설명이나 코드블록 없이." },
+        ],
+        max_tokens: 2000,
+      });
+      parsed = extractJson(again);
+    } catch {
+      parsed = { summary: null, results: [] };
+    }
+  }
+  const byN = new Map((Array.isArray(parsed.results) ? parsed.results : []).map((r) => [Number(r.n), r]));
+  return {
+    summary: parsed.summary || null,
+    claims: claims.map((c, i) => {
+      const r = byN.get(i + 1);
+      if (!r) return c;
+      const verdict = ["confirmed", "false", "uncertain"].includes(r.verdict) ? r.verdict : "uncertain";
+      return { ...c, verdict, explanation: String(r.explanation || "").slice(0, 400), sources: Array.isArray(r.sources) ? r.sources.slice(0, 3) : [] };
+    }),
+  };
+}
+
+async function extractAndVerifySplit(text, onProgress, { ledger }) {
+  const extracted = await extractClaimsOnly(text, { ledger });
+  if (!extracted.claims.length) {
+    return { overall_domain: extracted.overall_domain, summary: extracted.note || "확인할 사실 주장이 없습니다.", claims: [], related_products: [] };
+  }
+  const webIdx = extracted.claims.map((c, i) => (c.domain === "법률" ? -1 : i)).filter((i) => i >= 0);
+  let summary = null;
+  const claims = [...extracted.claims];
+  if (webIdx.length) {
+    onProgress(`${extracted.claims.length}개 주장을 찾았습니다. 웹에서 확인하는 중…`);
+    const verified = await verifyClaimsOnWeb(text, webIdx.map((i) => claims[i]), { ledger, onProgress });
+    summary = verified.summary;
+    webIdx.forEach((ci, k) => { claims[ci] = verified.claims[k]; });
+  }
+  return { overall_domain: extracted.overall_domain, summary, claims, related_products: extracted.related_products };
+}
+
 export async function extractAndVerify(text, onProgress = () => {}, { ledger = null } = {}) {
+  if (process.env.YUME_EXTRACT_MODE !== "single") return extractAndVerifySplit(text, onProgress, { ledger });
   const raw = await callClaudeStreaming({
     system: EXTRACT_SYSTEM_PROMPT,
     label: "extract",
@@ -511,6 +666,7 @@ const ACCUSATION_REVIEW_PROMPT = `당신은 팩트체크 판정의 마지막 검
 - 근거가 주장과 다른 것을 말하고 있다(주제가 비슷할 뿐 같은 사안이 아니다).
 - 표현 차이일 뿐 내용은 같다. 반올림, 요약, 같은 뜻의 다른 표기, 근소한 가격 차는 틀린 게 아니다.
 - 주장이 조건부로 맞는데, 근거는 다른 조건을 말하고 있다.
+- 판이 여럿인 대상(와인 빈티지, 제품 연식, 해마다 다른 통계)인데 주장이 판을 특정하지 않았고, 지목 근거가 **다른 판의 값**이다.
 - 검색해 보니 오히려 주장이 맞았다.
 
 반드시 아래 JSON 형식으로만 응답하세요. uphold일 때 counter_fact는 비울 수 없습니다 — 실제 값을 댈 수 없다면 그건 반박이 아니므로 withdraw입니다.

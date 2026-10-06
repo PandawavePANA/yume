@@ -9,7 +9,17 @@ import { NAV, HERO_NOTE, WHY, GUARANTEES, SERVICES, PROCESS, WORK, ALSO, CREDENT
 import "@/components/reamer/motion.css";
 import { useFloatingCta, usePointerFx, useScrollSpy, useScrub } from "@/components/reamer/useMotion";
 import "@/components/reamer/tech.css";
-import { BuildTerminal, CursorGrid, LivePing, ParticleWord, ScrollRuler, useScrambleLabels } from "@/components/reamer/tech";
+import { BuildTerminal, CursorGrid, LivePing, ParticleWord, ScrollRuler, useNavRail, useScrambleLabels } from "@/components/reamer/tech";
+// 움직임 부품이 터져도 그 자리만 비우고 본문은 남긴다(Decor.jsx 주석 참고).
+import Decor from "@/components/reamer/Decor";
+import "@/components/reamer/fx.css";
+import { BlueprintSolid, ClickSparks } from "@/components/reamer/fx";
+// 글자에 붙는 움직임. 일부러 과하게 넣었다 — 덜어낼 것은 textfx.css에서 묶음([A]~[J]) 단위로 지운다.
+import "@/components/reamer/textfx.css";
+import { Odo, Roll, Txt, useMagnetText } from "@/components/reamer/TextFx";
+// 히어로 바로 아래 — 아이디어부터 운영까지, 스크롤한 만큼 넘어가는 그림.
+import "@/components/reamer/flow.css";
+import Flow from "@/components/reamer/Flow";
 
 // Characters are split into spans so the global cursor-tile trail can flip
 // them dark as a tile passes underneath.
@@ -26,6 +36,25 @@ const Chars = ({ text }) =>
 // 붙여 화면에 들어올 때 한 자씩 차례로 떠오르게 한다(motion.css). 글자 span은 커서 꼬리도 그대로 쓴다.
 const TitleChars = ({ text }) => {
   let i = 0;
+  const words = text.split(" ").map((word, wi, arr) => (
+    <span key={wi}>
+      <span className="tw">
+        {Array.from(word).map((ch) => (
+          <span className="trail-ch" key={i} style={{ "--i": i++ }}>{ch}</span>
+        ))}
+      </span>
+      {wi < arr.length - 1 ? " " : null}
+    </span>
+  ));
+  return words;
+};
+
+// 히어로 앞 두 줄. 낱말마다 한 덩어리(.tw)로 묶어 글자 사이에서 줄이 바뀌지 않게 하고, 글자에 순번을
+// 붙인다 — 늘 조금씩 오르내리는 물결(textfx.css [F]). 스펙트럼 줄("뭐든 만들어 드립니다")은 여기 넣지
+// 않는다. 그 줄은 부모의 그라디언트가 글자 모양으로 비치는 방식이라, 글자를 움직이면 그라디언트
+// 밖으로 빠져 줄이 통째로 안 보일 수 있다.
+const HeroChars = ({ text, from = 0 }) => {
+  let i = from;
   return text.split(" ").map((word, wi, arr) => (
     <span key={wi}>
       <span className="tw">
@@ -66,7 +95,7 @@ function Manifesto() {
 
 // 하는 일 키워드가 흐르는 띠. 스크롤을 빨리 하면 그만큼 기운다(--vel, useMotion.js).
 const TICKER_BIG = ["웹사이트", "앱", "결제 연동", "본인인증", "AI 기능", "업무 자동화", "관리자 화면", "API 연동"];
-const TICKER_SMALL = ["기획서 없어도 괜찮습니다", "상담·견적 무료", "대표가 직접 개발", "매주 진행 공유", "코드·계정 모두 이관", "정한 금액 그대로"];
+const TICKER_SMALL = ["기획서 없어도 괜찮습니다", "상담·견적 무료", "AI로 빠르게, 검증은 꼼꼼하게", "매주 진행 공유", "코드·계정 모두 이관", "정한 금액 그대로"];
 function Ticker() {
   const row = (items, rev) => (
     <div className={`ticker__row${rev ? " ticker__row--rev" : ""}`}>
@@ -121,6 +150,29 @@ function useReveal() {
     return () => {
       clearTimeout(failsafe);
       io.disconnect();
+    };
+  }, []);
+}
+
+// 화면에서 먼 덩어리의 CSS 애니메이션은 멈춰 둔다(.is-off, motion.css).
+//
+// 사이트 전체에 늘 돌아가는 애니메이션이 일흔 개가 넘는다. 화면 밖이라 안 보여도 브라우저는
+// 매 프레임 계산하고 합성 층을 붙들고 있는다. 휴대폰, 특히 인앱 브라우저에서는 그게 끊김과
+// 메모리로 돌아왔다. 멈췄다가 다가오면(위아래 한 화면 여유) 그 자리에서 다시 돈다 — 처음부터가 아니다.
+function usePauseOffscreen() {
+  useEffect(() => {
+    if (!("IntersectionObserver" in window)) return undefined;
+    const blocks = document.querySelectorAll("main > *, .footer");
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) e.target.classList.toggle("is-off", !e.isIntersecting);
+      },
+      { rootMargin: "100% 0px" },
+    );
+    blocks.forEach((el) => io.observe(el));
+    return () => {
+      io.disconnect();
+      blocks.forEach((el) => el.classList.remove("is-off"));
     };
   }, []);
 }
@@ -324,7 +376,7 @@ function InquiryForm() {
       {error && <p className="inquiry__error">{error} 메일로 보내셔도 됩니다: <a href={`mailto:${BUSINESS.email}`}>{BUSINESS.email}</a></p>}
 
       <button className="btn btn--solid inquiry__submit" data-magnet type="submit" disabled={state === "sending"}>
-        {state === "sending" ? "보내는 중…" : "문의 보내기"} <span className="btn__arrow">→</span>
+        <Roll>{state === "sending" ? "보내는 중…" : "문의 보내기"}</Roll> <span className="btn__arrow">→</span>
       </button>
       <p className="inquiry__note">
         보내 주신 내용은 답장에만 사용합니다. 영업일 기준 하루 안에 답장드립니다.
@@ -367,7 +419,7 @@ function FaqItem({ f }) {
     return (
       <div className="faq__item">
         <dt className="faq__q">{f.q}</dt>
-        <dd className="faq__a">{f.a}</dd>
+        <Txt as="dd" className="faq__a">{f.a}</Txt>
       </div>
     );
   }
@@ -379,7 +431,7 @@ function FaqItem({ f }) {
           <span className="faq__mark" aria-hidden="true">{open ? "−" : "+"}</span>
         </button>
       </dt>
-      {open && <dd className="faq__a">{f.a}</dd>}
+      {open && <Txt as="dd" className="faq__a">{f.a}</Txt>}
     </div>
   );
 }
@@ -403,15 +455,21 @@ function WorkCase({ item, index }) {
           <span className="case__glare" aria-hidden />
           <span className="case__crop" aria-hidden />
           <span className="case__scan" aria-hidden />
-          <img
-            className="case__img"
-            src={current.src}
-            alt={current.alt}
-            width={1440}
-            height={900}
-            loading={index === 0 ? "eager" : "lazy"}
-            decoding="async"
-          />
+          {/* 휴대폰에는 폭 720 캡처를 준다. 1440짜리는 펼치면 한 장에 5MB라, 메모리가 빠듯한
+              인앱 브라우저(인스타그램 등)에서 스크롤하다 페이지가 통째로 다시 열리는 원인이 됐다.
+              srcset으로 두면 배율 3인 아이폰이 큰 쪽을 고르므로 media로 못 박는다. */}
+          <picture>
+            <source media="(max-width: 900px)" srcSet={current.src.replace(/\.webp$/, "-720.webp")} />
+            <img
+              className="case__img"
+              src={current.src}
+              alt={current.alt}
+              width={1440}
+              height={900}
+              loading={index === 0 ? "eager" : "lazy"}
+              decoding="async"
+            />
+          </picture>
         </a>
         {item.shots.length > 1 && (
           <div className="case__dots">
@@ -433,7 +491,7 @@ function WorkCase({ item, index }) {
         <p className="case__meta">
           <span className={`case__kind${item.live ? " case__kind--live" : ""}`}>{item.kind}</span>
           <span className="case__year">{item.year}</span>
-          {item.live && <LivePing url={item.href} />}
+          {item.live && <Decor name="ping"><LivePing url={item.href} /></Decor>}
         </p>
         <h3 className="case__name">
           {/* 글자별 span을 flex 항목으로 두면 낱자 사이마다 gap이 들어가 "유메"가
@@ -443,17 +501,17 @@ function WorkCase({ item, index }) {
           </span>
           <span className="case__en">{item.en}</span>
         </h3>
-        <p className="case__blurb">{item.blurb}</p>
-        <p className="case__problem">{item.problem}</p>
+        <Txt as="p" className="case__blurb">{item.blurb}</Txt>
+        <Txt as="p" className="case__problem">{item.problem}</Txt>
 
         {showBuilt && (
           <ul className="case__built" id={`built-${index}`}>
             {item.built.map((b) => (
-              <li key={b}>{b}</li>
+              <Txt as="li" key={b}>{b}</Txt>
             ))}
           </ul>
         )}
-        {showBuilt && item.note && <p className="case__note">{item.note}</p>}
+        {showBuilt && item.note && <Txt as="p" className="case__note">{item.note}</Txt>}
         {narrow && (
           <button
             type="button"
@@ -469,12 +527,12 @@ function WorkCase({ item, index }) {
 
         <ul className="case__stack">
           {item.stack.map((t) => (
-            <li key={t}>{t}</li>
+            <Txt as="li" split="chars" key={t}>{t}</Txt>
           ))}
         </ul>
 
         <a className="case__go" href={item.href} target="_blank" rel="noreferrer">
-          {item.go}
+          <Roll>{item.go}</Roll>
           <span className="btn__arrow"> →</span>
         </a>
       </div>
@@ -488,18 +546,22 @@ const RULER_SECTIONS = [...NAV.map((n) => [n.href.slice(1), n.label]), ["about",
 const ReamerSite = () => {
   const navRef = useRef(null);
   useReveal();
+  usePauseOffscreen();
   useScrollChrome(navRef);
   useScrub();
   usePointerFx();
   const active = useScrollSpy(SPY_IDS);
+  const navRail = useNavRail(active);
   const floatCta = useFloatingCta();
   useScrambleLabels();
+  useMagnetText();
 
   return (
     <>
-      <SiteBackdrop />
-      <CursorGrid />
-      <ScrollRuler sections={RULER_SECTIONS} />
+      <Decor name="backdrop"><SiteBackdrop /></Decor>
+      <Decor name="grid"><CursorGrid /></Decor>
+      <Decor name="ruler"><ScrollRuler sections={RULER_SECTIONS} /></Decor>
+      <Decor name="sparks"><ClickSparks /></Decor>
 
       <div className="site">
         <div className="site__rails" aria-hidden>
@@ -517,18 +579,20 @@ const ReamerSite = () => {
               <li key={item.href}>
                 <a className={`nav__link${active && item.href === `#${active}` ? " is-active" : ""}`} href={item.href}
                   aria-current={active && item.href === `#${active}` ? "true" : undefined}>
-                  {item.label}
+                  <Roll>{item.label}</Roll>
                 </a>
               </li>
             ))}
+            {/* 지금 보고 있는 구역으로 건너가는 막대. 건너가는 동안 늘어난다(tech.jsx). */}
+            <span className="nav__rail" ref={navRail} aria-hidden />
           </ul>
           <div className="nav__right">
             {/* 이미 문의한 사람이 돌아올 자리. 링크를 잃었으면 여기서 다시 받는다. */}
             <a className="nav__link" href="/t">
-              내 의뢰
+              <Roll>내 의뢰</Roll>
             </a>
             <a className="nav__cta" data-magnet href="#contact">
-              개발 문의
+              <Roll>개발 문의</Roll>
             </a>
           </div>
           {/* 읽은 만큼 차는 빛줄기. 긴 한 장짜리라 지금 어디쯤인지가 보이면 덜 막막하다. */}
@@ -548,31 +612,34 @@ const ReamerSite = () => {
                 {/* 내거는 문장. 앞 줄이 문턱을 없애고, 뒷 줄이 약속한다.
                     두 줄을 같은 크기로 두면 무엇이 약속인지 흐려지므로 뒷 줄만 강조한다. */}
                 <h1 className="display">
-                  <Chars text="아이디어마저" />
+                  <HeroChars text="아이디어마저" />
                   <br />
-                  <Chars text="없어도 괜찮습니다" />
+                  <HeroChars text="없어도 괜찮습니다" from={6} />
                   <br />
                   <em className="display__vow">
                     <Chars text="뭐든 만들어 드립니다" />
                   </em>
                 </h1>
-                <p className="lede">
+                <Txt as="p" className="lede" stay>
                   웹사이트, 앱, 결제·본인인증 연동, AI 기능, 업무 자동화까지. 기획서가 없어도, 아직 무엇을
                   만들지 몰라도 괜찮습니다. <b>무엇을 만들지부터 함께 정합니다.</b>
-                </p>
+                </Txt>
                 <div className="actions">
                   <a className="btn btn--solid" data-magnet href="#contact">
-                    무료로 견적 받기 <span className="btn__arrow">→</span>
+                    <Roll>무료로 견적 받기</Roll> <span className="btn__arrow">→</span>
                   </a>
                   <a className="btn btn--ghost" data-magnet href="#work">
-                    작업물 보기
+                    <Roll>작업물 보기</Roll>
                   </a>
                 </div>
-                <p className="hero__note">{HERO_NOTE}</p>
+                <Txt as="p" className="hero__note" stay>{HERO_NOTE}</Txt>
               </div>
-              <BuildTerminal projects={WORK} />
+              <Decor name="terminal"><BuildTerminal projects={WORK} /></Decor>
             </div>
           </section>
+
+          {/* 맡기면 어떻게 되는지를 한 장씩 넘겨 보여 준다. 스크롤한 만큼 단계가 넘어가고, 올리면 되감긴다. */}
+          <Decor name="flow"><Flow /></Decor>
 
           <Ticker />
 
@@ -583,12 +650,12 @@ const ReamerSite = () => {
               <header className="head" data-reveal>
                 <p className="label">작업물</p>
                 <h2 className="title">
-                  <TitleChars text="직접 만들어 지금도 운영하고 있습니다." />
+                  <TitleChars text="만들어서 지금도 운영하고 있습니다." />
                 </h2>
-                <p className="lede">
+                <Txt as="p" className="lede">
                   {/* 개수를 글에 박아두면 작업물을 추가할 때마다 한쪽만 고치게 된다. */}
                   아래 {WORK.length}개 서비스는 지금 주소를 열면 그대로 쓸 수 있습니다. 화면도 직접 캡처했습니다.
-                </p>
+                </Txt>
               </header>
 
               <div className="cases">
@@ -598,7 +665,7 @@ const ReamerSite = () => {
               </div>
 
               <div className="also" data-reveal>
-                <h3 className="also__head">그 외 작업</h3>
+                <Txt as="h3" split="chars" className="also__head">그 외 작업</Txt>
                 <ul className="also__list">
                   {ALSO.map((a) => (
                     <li className="also__item" key={a.title}>
@@ -606,9 +673,9 @@ const ReamerSite = () => {
                         <span className="also__year">{a.year}</span>
                         <span className="also__kind">{a.kind}</span>
                       </div>
-                      <h4 className="also__title">{a.title}</h4>
-                      <p className="also__desc">{a.desc}</p>
-                      <p className="also__meta">{a.meta}</p>
+                      <Txt as="h4" split="chars" className="also__title">{a.title}</Txt>
+                      <Txt as="p" className="also__desc">{a.desc}</Txt>
+                      <Txt as="p" className="also__meta">{a.meta}</Txt>
                     </li>
                   ))}
                 </ul>
@@ -617,11 +684,11 @@ const ReamerSite = () => {
               {/* 작업물을 다 훑고 마음이 움직이는 지점이 여기다. 여기서 문의하려면
                   맨 아래 양식까지 다시 스크롤을 내려야 했다 — 그 사이에 대부분 닫는다. */}
               <div className="cta" data-reveal>
-                <p className="cta__line">비슷한 것을 만들고 싶으신가요?</p>
+                <Txt as="p" split="chars" className="cta__line">비슷한 것을 만들고 싶으신가요?</Txt>
                 <a className="btn btn--solid" data-magnet href="#contact">
-                  무료로 문의하기 <span className="btn__arrow">→</span>
+                  <Roll>무료로 문의하기</Roll> <span className="btn__arrow">→</span>
                 </a>
-                <p className="cta__note">범위가 정해지기 전까지는 비용이 없습니다. 견적만 받아 보셔도 괜찮습니다.</p>
+                <Txt as="p" className="cta__note">범위가 정해지기 전까지는 비용이 없습니다. 견적만 받아 보셔도 괜찮습니다.</Txt>
               </div>
             </div>
           </section>
@@ -640,10 +707,11 @@ const ReamerSite = () => {
               </header>
 
               <ul className="why">
-                {WHY.map((w) => (
-                  <li className="why__item" key={w.head} data-reveal data-spot>
-                    <h3 className="why__head">{w.head}</h3>
-                    <p className="why__body">{w.body}</p>
+                {WHY.map((w, i) => (
+                  <li className="why__item" key={w.head} data-reveal data-spot style={{ "--i": i }}>
+                    <span className="orbit" aria-hidden />
+                    <Txt as="h3" split="chars" className="why__head">{w.head}</Txt>
+                    <Txt as="p" className="why__body">{w.body}</Txt>
                   </li>
                 ))}
               </ul>
@@ -651,29 +719,37 @@ const ReamerSite = () => {
           </section>
 
           <section className="section" id="services">
-            <div className="wrap">
+            <div className="wrap wrap--solid">
               <header className="head" data-reveal>
                 <p className="label">하는 일</p>
                 <h2 className="title">
                   <TitleChars text="이런 일을 맡길 수 있습니다." />
                 </h2>
-                <p className="lede">
-                  기획서가 다 없어도 됩니다. 이야기를 나누며 범위를 좁히고, 직접 만들어서,
+                <Txt as="p" className="lede">
+                  기획서가 다 없어도 됩니다. 이야기를 나누며 범위를 좁히고, 만들어서,
                   실제로 돌아가는 상태로 넘겨드립니다.
-                </p>
+                </Txt>
               </header>
+              <Decor name="solid"><BlueprintSolid /></Decor>
 
-              <div className="svc">
-                {SERVICES.map((sv) => (
-                  <div className="svc__item" key={sv.name} data-reveal data-spot>
-                    <h3 className="svc__name">
-                      {sv.name}
+              {/* 칸을 가르는 선이 회로처럼 차오른다 — 스크롤한 만큼(--s). */}
+              <div className="svc" data-scrub>
+                <svg className="svc__wires" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden>
+                  <line x1="50" y1="0" x2="50" y2="100" pathLength="1" />
+                  <line x1="0" y1="50" x2="100" y2="50" pathLength="1" />
+                </svg>
+                <span className="svc__node" aria-hidden />
+                {SERVICES.map((sv, i) => (
+                  <div className="svc__item" key={sv.name} data-reveal data-spot style={{ "--i": i }}>
+                    <span className="orbit" aria-hidden />
+                    <Txt as="h3" split="chars" className="svc__name">
+                      <span>{sv.name}</span>
                       <span className="svc__when">{sv.when}</span>
-                    </h3>
-                    <p className="svc__desc">{sv.desc}</p>
+                    </Txt>
+                    <Txt as="p" className="svc__desc">{sv.desc}</Txt>
                     <ul className="svc__list">
                       {sv.items.map((it) => (
-                        <li key={it}>{it}</li>
+                        <Txt as="li" key={it}>{it}</Txt>
                       ))}
                     </ul>
                   </div>
@@ -691,21 +767,21 @@ const ReamerSite = () => {
                 <h2 className="title">
                   <TitleChars text="맡기시면 이렇게 진행됩니다." />
                 </h2>
-                <p className="lede">
+                <Txt as="p" className="lede">
                   처음 두 단계는 비용이 들지 않습니다. 범위와 금액을 정한 뒤에 시작합니다.
-                </p>
+                </Txt>
               </header>
 
               <ol className="steps" data-scrub>
                 {PROCESS.map((p, i) => (
                   <li className="step" key={p.no} data-reveal style={{ "--k": (i / PROCESS.length).toFixed(3), "--d": `${i * 0.07}s` }}>
-                    <span className="step__no">{p.no}</span>
+                    <span className="step__no"><Odo>{p.no}</Odo></span>
                     <div className="step__body">
-                      <h3 className="step__name">
-                        {p.name}
+                      <Txt as="h3" split="chars" className="step__name">
+                        <span>{p.name}</span>
                         <span className="step__when">{p.when}</span>
-                      </h3>
-                      <p className="step__desc">{p.desc}</p>
+                      </Txt>
+                      <Txt as="p" className="step__desc">{p.desc}</Txt>
                     </div>
                   </li>
                 ))}
@@ -731,10 +807,15 @@ const ReamerSite = () => {
               <ul className="vow">
                 {GUARANTEES.map((g, i) => (
                   <li className="vow__item" key={g.head} data-reveal style={{ "--d": `${(i % 3) * 0.08 + Math.floor(i / 3) * 0.12}s` }}>
-                    <span className="vow__mark" aria-hidden />
+                    <span className="vow__mark" aria-hidden>
+                      <svg viewBox="0 0 22 22" fill="none">
+                        <circle cx="11" cy="11" r="10.2" pathLength="1" />
+                        <path d="M6.4 11.2l3.2 3.2 6.1-6.5" pathLength="1" />
+                      </svg>
+                    </span>
                     <div>
-                      <h3 className="vow__head">{g.head}</h3>
-                      <p className="vow__body">{g.body}</p>
+                      <Txt as="h3" split="chars" className="vow__head">{g.head}</Txt>
+                      <Txt as="p" className="vow__body">{g.body}</Txt>
                     </div>
                   </li>
                 ))}
@@ -749,14 +830,14 @@ const ReamerSite = () => {
                 <h2 className="title">
                   <TitleChars text="정원영" />
                 </h2>
-                <p className="lede">
+                <Txt as="p" className="lede">
                   리머 대표. 한국디지털미디어고등학교 해킹방어과를 졸업하고 중앙대학교 전자전기공학부에
                   재학 중입니다. 여러 번의 창업, 그리고 AI 오답으로 직접 손해를 본 경험을 계기로 리머를
-                  시작했습니다. 맡은 일은 대표가 직접 만듭니다.
-                </p>
-                <blockquote className="quote">
+                  시작했습니다. 그래서 AI로 빠르게 만들되, AI가 만든 것을 그대로 믿지 않습니다.
+                </Txt>
+                <Txt as="blockquote" className="quote">
                   “허술하게 남겨 둔 구멍은 결국 누군가 대가를 치르게 된다는 걸 직접 겪었습니다.”
-                </blockquote>
+                </Txt>
 
                 {/* 연혁을 다 읽지 않아도 보이도록 앞에 둔다. 맡기기 전에 확인하는 건 대개 이 넷이다. */}
                 <dl className="cred">
@@ -777,8 +858,8 @@ const ReamerSite = () => {
                   <li className={`tl__item${item.now ? " tl__item--now" : ""}`} key={item.title} data-reveal style={{ "--k": (i / TIMELINE.length).toFixed(3) }}>
                     <span className="tl__year">{item.year}</span>
                     <div className="tl__body">
-                      <h3 className="tl__title">{item.title}</h3>
-                      {item.desc && <p className="tl__desc">{item.desc}</p>}
+                      <Txt as="h3" split="chars" className="tl__title">{item.title}</Txt>
+                      {item.desc && <Txt as="p" className="tl__desc">{item.desc}</Txt>}
                     </div>
                   </li>
                 ))}
@@ -793,10 +874,10 @@ const ReamerSite = () => {
                 <h2 className="title">
                   <TitleChars text="무엇을 만들어 드릴까요?" />
                 </h2>
-                <p className="lede">
+                <Txt as="p" className="lede">
                   기획이 절반만 잡혀 있어도 괜찮습니다. 무엇을 만들지부터 함께 정리합니다.
                   영업일 기준 하루 안에 답장드립니다.
-                </p>
+                </Txt>
                 <ul className="contact__direct">
                   <li>
                     <span>이메일</span>
@@ -813,8 +894,8 @@ const ReamerSite = () => {
                 <ol className="after">
                   {AFTER_SEND.map((t, i) => (
                     <li className="after__item" key={t}>
-                      <span className="after__no">{String(i + 1).padStart(2, "0")}</span>
-                      <span>{t}</span>
+                      <span className="after__no"><Odo>{String(i + 1).padStart(2, "0")}</Odo></span>
+                      <Txt as="span">{t}</Txt>
                     </li>
                   ))}
                 </ol>
@@ -829,7 +910,7 @@ const ReamerSite = () => {
         <footer className="footer">
           {/* 입자로 모이는 이름. 커서가 지나가면 흩어졌다가 제자리로 돌아온다. */}
           <div className="wrap">
-            <ParticleWord />
+            <Decor name="particles"><ParticleWord /></Decor>
           </div>
           <div className="wrap footer__row">
             <a className="nav__brand" href="#top">
@@ -839,11 +920,11 @@ const ReamerSite = () => {
             <ul className="footer__links">
               {NAV.map((n) => (
                 <li key={n.href}>
-                  <a className="footer__link" href={n.href}>{n.label}</a>
+                  <a className="footer__link" href={n.href}><Roll>{n.label}</Roll></a>
                 </li>
               ))}
               <li>
-                <a className="footer__link" href="#contact">문의</a>
+                <a className="footer__link" href="#contact"><Roll>문의</Roll></a>
               </li>
             </ul>
           </div>
@@ -867,7 +948,7 @@ const ReamerSite = () => {
               )}
               이메일 <a className="footer__link" href={`mailto:${BUSINESS.email}`}>{BUSINESS.email}</a>
             </span>
-            <p className="footer__copy">{COPYRIGHT}</p>
+            <Txt as="p" className="footer__copy">{COPYRIGHT}</Txt>
           </address>
         </footer>
       </div>
@@ -876,7 +957,7 @@ const ReamerSite = () => {
       <div className={`float-cta${floatCta ? " is-on" : ""}`} aria-hidden={!floatCta}>
         <span className="float-cta__text"><b>상담·견적 무료</b><br />하루 안에 답장드립니다</span>
         <a className="btn btn--solid" href="#contact" tabIndex={floatCta ? 0 : -1}>
-          문의하기 <span className="btn__arrow">→</span>
+          <Roll>문의하기</Roll> <span className="btn__arrow">→</span>
         </a>
       </div>
     </>

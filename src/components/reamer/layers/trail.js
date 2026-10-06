@@ -54,12 +54,21 @@ export function createTrailLayer(canvas, { coarse = false, reduced = false } = {
   let boxesDirty = true;
   let lastMeasureAt = -Infinity;
 
+  // 실제 픽셀은 커서·손가락이 처음 들어올 때 잡는다. 그전까지는 1×1이다.
+  let held = false;
+  canvas.width = 1;
+  canvas.height = 1;
+  const hold = () => {
+    canvas.width = Math.round(W * dpr);
+    canvas.height = Math.round(H * dpr);
+    held = true;
+  };
+
   function resize(vw, vh, nextDpr) {
     dpr = Math.min(nextDpr, 2);
     W = vw;
     H = vh;
-    canvas.width = Math.round(vw * dpr);
-    canvas.height = Math.round(vh * dpr);
+    if (held) hold();
     canvas.style.width = `${vw}px`;
     canvas.style.height = `${vh}px`;
     pts = [];
@@ -98,6 +107,10 @@ export function createTrailLayer(canvas, { coarse = false, reduced = false } = {
 
   function draw(m, dt, now) {
     if (!W || !H) return;
+    if (!held) {
+      if (!m.pointerInside || reduced) return;
+      hold();
+    }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, W, H);
     if (reduced) return;

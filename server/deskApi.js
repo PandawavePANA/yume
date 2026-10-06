@@ -23,6 +23,7 @@ import {
   won,
 } from "./threads.js";
 import { taskKey } from "./threadProgress.js";
+import { projectForThread } from "./projectLink.js";
 import { postPhotos, readFile, sendFile, withFiles } from "./threadFiles.js";
 
 export const deskRouter = patchAsync(express.Router());
@@ -252,9 +253,18 @@ deskRouter.patch("/desk/quote/:id", async (req, res) => {
 deskRouter.post("/desk/:id/project", async (req, res) => {
   const t = await threadById(int(req.params.id));
   if (!t) return res.status(404).json({ error: "대화를 찾을 수 없어요." });
-  if (t.project_id) {
-    const has = await one("SELECT id FROM projects WHERE id = :id", { id: t.project_id });
-    if (has) return res.json({ ok: true, id: has.id, already: true });
+  // 대화에 적힌 일감, 없으면 보드에서 이 문의를 옮겨 둔 일감. 둘 다 없을 때만 새로 만든다.
+  const has = await projectForThread(t);
+  if (has) {
+    // 데스크에서 "일감 만들기"는 일을 시작한다는 뜻이다. 상담 중이던 것은 진행 중으로 올린다.
+    if (has.status === "lead") {
+      const ts = now();
+      await run(
+        "UPDATE projects SET status = 'active', started_at = COALESCE(started_at, :t), updated_at = :t WHERE id = :id",
+        { id: has.id, t: ts },
+      );
+    }
+    return res.json({ ok: true, id: has.id, already: true });
   }
   const ts = now();
   const row = await run(

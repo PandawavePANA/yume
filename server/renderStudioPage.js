@@ -389,12 +389,32 @@ export function renderStudioPage() {
   }
 
   // ── 요약 ──
+  // 같은 의뢰에서 둘로 갈라진 일감. 예전에는 "일감으로" 옮긴 뒤 결제가 들어오면 새 일감이
+  // 따로 생겨서, 옮겨 둔 쪽은 계속 "상담"에 머물렀다. 서버가 짝을 찾아 주고, 한 번 눌러 합친다.
+  function splitCard() {
+    var list = S.splits || [];
+    if (!list.length) return "";
+    var rows = list.map(function (x) {
+      return x.from.map(function (f) {
+        var left = (PRJ[x.keep.status] || x.keep.status) + " #" + x.keep.id + (x.keep.paid ? " · 받은 돈 " + won(x.keep.paid) : "");
+        var right = (PRJ[f.status] || f.status) + " #" + f.id + (f.paid ? " · 받은 돈 " + won(f.paid) : "");
+        return '<div class="item"><div class="av">!</div>' +
+          '<div><div class="t1">' + E(x.keep.title) + '</div>' +
+          '<div class="t2">' + E(left) + ' ← ' + E(right) + '</div></div>' +
+          '<div class="right"><button class="b" data-merge="' + x.keep.id + '" data-from="' + f.id + '">하나로 합치기</button></div></div>';
+      }).join("");
+    }).join("");
+    return '<section class="card"><h2>둘로 갈라진 일감</h2>' +
+      '<p class="d">같은 의뢰에서 일감이 두 개 생겼습니다. 예전에는 “일감으로” 옮긴 뒤 결제가 들어오면 새 일감이 따로 생겼어요(지금은 고쳐졌습니다). ' +
+      '합치면 받은 돈·마감·할 일이 왼쪽 일감으로 옮겨지고, 돈을 받았으면 진행 중이 됩니다.</p>' + rows + '</section>';
+  }
+
   function home() {
     var soon = S.projects.filter(function (p) { return p.status === "active"; })
       .sort(function (a, b) { return (Number(a.due_at) || 9e15) - (Number(b.due_at) || 9e15); });
     var fresh = S.inquiries.filter(function (q) { return (q.status || "new") === "new"; }).slice(0, 4);
 
-    document.getElementById("pane-home").innerHTML =
+    document.getElementById("pane-home").innerHTML = splitCard() +
       '<section class="card"><h2>진행 중인 일</h2><p class="d">마감이 가까운 순서입니다.</p>' +
       (soon.length ? soon.map(function (p) {
         var g = progressOf(p), late = lateness(p);
@@ -614,7 +634,7 @@ export function renderStudioPage() {
   }
 
   document.addEventListener("click", async function (ev) {
-    var el = ev.target.closest("[data-tab],[data-conv],[data-del],[data-task],[data-tdel],[data-move],[data-edit],#addProject,#rateReset,#out");
+    var el = ev.target.closest("[data-tab],[data-conv],[data-merge],[data-del],[data-task],[data-tdel],[data-move],[data-edit],#addProject,#rateReset,#out");
     if (!el) return;
     try {
       if (el.dataset.tab) { TAB = el.dataset.tab; localStorage.setItem("studio.tab", TAB); return tabs(); }
@@ -626,6 +646,11 @@ export function renderStudioPage() {
         await api("/studio/project", { method: "POST", body: { title: t,
           client: document.getElementById("nClient").value,
           amount_krw: Number(document.getElementById("nAmount").value || 0) } });
+        return load();
+      }
+      if (el.dataset.merge) {
+        if (!confirm("두 일감을 하나로 합칠까요? 오른쪽 일감의 받은 돈·할 일이 왼쪽으로 옮겨지고, 오른쪽은 사라집니다.")) return;
+        await api("/studio/project/" + el.dataset.merge + "/merge", { method: "POST", body: { from: Number(el.dataset.from) } });
         return load();
       }
       if (el.dataset.conv) { await api("/studio/inquiry/" + el.dataset.conv + "/convert", { method: "POST" }); TAB = "proj"; localStorage.setItem("studio.tab", TAB); return load(); }

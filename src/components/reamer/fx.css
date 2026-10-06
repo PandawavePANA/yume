@@ -1,0 +1,82 @@
+/* fx.jsx의 부품들과, 카드 테두리를 도는 빛.
+   원칙은 motion.css와 같다 — transform·opacity·배경만 움직이고 레이아웃은 건드리지 않는다.
+   떠 있는 것은 전부 절대 위치이거나 고정 위치라, 무엇이 어떻게 움직여도 글이 밀리지 않는다. */
+
+/* ── 카드 테두리를 도는 빛 (맡기는 이유 · 하는 일) ───────────────────────────
+   원뿔 그라데이션 한 조각이 테두리를 따라 돈다. 평소에는 흐릿하게 한 바퀴씩,
+   커서를 올리면 밝아지고 번진다. 카드마다 출발 각도를 엇갈려 둬서 일제히 돌지 않는다. */
+@property --orbit {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+.orbit {
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  border-radius: inherit;
+  background: conic-gradient(
+    from var(--orbit),
+    transparent 0deg 250deg,
+    color-mix(in srgb, var(--beam-blue) 55%, transparent) 290deg,
+    color-mix(in srgb, #fff 85%, var(--beam-mid)) 318deg,
+    color-mix(in srgb, var(--beam-violet) 70%, transparent) 334deg,
+    transparent 352deg
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  pointer-events: none;
+  opacity: 0.32;
+  animation: orbit 6.5s linear infinite;
+  animation-delay: calc(var(--i, 0) * -1.37s);
+  transition: opacity 0.5s var(--ease), filter 0.5s var(--ease);
+}
+@keyframes orbit { to { --orbit: 360deg; } }
+[data-spot]:hover > .orbit {
+  opacity: 1;
+  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--beam-mid) 80%, transparent));
+}
+
+/* ── 누르면 튀는 빛 ─────────────────────────────────────────────────────────
+   화면 전체를 덮지만 누를 수 없는 캔버스다. 모달·메뉴보다는 아래에 둔다. */
+/* 크기는 fx.jsx가 px로 적는다. vh로 두면 툴바가 움직일 때마다 그림이 늘었다 줄었다 한다. */
+.sparks {
+  position: fixed;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  z-index: 60;
+}
+
+/* ── 도면 위에서 도는 입체 ───────────────────────────────────────────────────
+   제목 오른쪽의 빈자리에 뜬다. 글 흐름 밖(절대 위치)이라 크기가 바뀌어도 아무것도 밀리지 않는다.
+   좁은 화면에서는 제목과 겹치므로 감춘다. */
+.wrap--solid { position: relative; }
+.solid {
+  position: absolute;
+  /* 제목 덩어리(이름표 · 제목 · 설명)의 높이 안에 들어오게 둔다. 더 내려오면 첫 줄 카드의
+     기간 표시("1~3주") 위로 눈금 원이 지나간다. */
+  top: -64px;
+  right: calc(var(--gutter, 24px) * -0.5);
+  width: clamp(200px, 22vw, 290px);
+  aspect-ratio: 1;
+  pointer-events: none;
+}
+.solid canvas { display: block; }
+/* 제목이 떠오를 때 같이 들어온다 — 작게 비틀린 채 흐릿하다가 제자리를 찾는다.
+   스크립트가 안 돌면(reveal-on이 없으면) 처음부터 보인다. */
+.reveal-on .solid {
+  opacity: 0;
+  transform: scale(0.86) rotate(-10deg);
+  transition: opacity 1.1s var(--ease) 0.15s, transform 1.6s cubic-bezier(0.16, 1.1, 0.3, 1) 0.15s;
+}
+.reveal-on .head.is-in ~ .solid { opacity: 1; transform: none; }
+@media (max-width: 900px) {
+  .solid { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orbit { animation: none; --orbit: 300deg; }
+  .sparks { display: none; }
+}

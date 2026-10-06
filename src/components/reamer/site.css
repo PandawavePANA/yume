@@ -424,6 +424,8 @@
   pointer-events: none;
 }
 .case__frame:hover { border-color: var(--line-strong); }
+/* 휴대폰용 작은 캡처를 고르는 껍데기일 뿐 — 상자를 만들지 않는다. */
+.case__frame picture { display: contents; }
 .case__img {
   display: block;
   width: 100%;
