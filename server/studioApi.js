@@ -29,7 +29,12 @@ const PRODUCT_KEYS = new Set(PRODUCTS.map((p) => p.key));
 
 // 제품도 일감도 아닌 목록. 개인 할 일은 사업 어디에도 속하지 않지만, 매일 여는
 // 화면이 여기라 여기 있어야 실제로 쓰인다. 다른 앱에 따로 두면 안 보게 된다.
-export const EXTRA_OWNERS = [{ key: "personal", label: "개인", sub: "개인 할 일" }];
+// 리머는 회사 자체의 일 — 외주 영업, 리머 사이트, 세무·지원사업·보안처럼 어느 제품에도
+// 속하지 않지만 현금을 만드는 일이 여기 모인다.
+export const EXTRA_OWNERS = [
+  { key: "personal", label: "개인", sub: "개인 할 일" },
+  { key: "reamer", label: "리머", sub: "외주 영업 · 회사 운영" },
+];
 const EXTRA_KEYS = new Set(EXTRA_OWNERS.map((o) => o.key));
 
 // 체크리스트는 자사 제품뿐 아니라 외주 일감에도 붙는다. 키를 "project:12"처럼

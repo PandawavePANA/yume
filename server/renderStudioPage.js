@@ -265,7 +265,7 @@ export function renderStudioPage() {
   var INQ = { new: "신규", replied: "회신함", quoted: "견적 보냄", won: "수주", lost: "무산" };
   var PRJ = { lead: "상담", active: "진행 중", done: "완료", dropped: "무산" };
   var NEXT = { todo: "doing", doing: "done", done: "todo" };
-  var TINT = { yume: "#7c5cd6", proba: "#4c7df6", ballast: "#59a9ff", aipick: "#d8b48a", personal: "#4fb8a8" };
+  var TINT = { yume: "#7c5cd6", proba: "#4c7df6", ballast: "#59a9ff", aipick: "#d8b48a", personal: "#4fb8a8", reamer: "#e0668a" };
 
   function fail(m) { var e = document.getElementById("err"); e.textContent = m; e.style.display = "block"; }
   function clearErr() { document.getElementById("err").style.display = "none"; }
