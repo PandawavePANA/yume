@@ -221,4 +221,8 @@ export default {
   "이 주장은 이미 정정을 보내셨어요.": "You have already sent a correction for this claim.",
   "정정을 찾을 수 없어요.": "That correction could not be found.",
   "이미 처리된 정정이에요.": "That correction has already been reviewed.",
+  // 일감 합치기 (projectLink.js)
+  "합칠 일감을 다시 골라주세요.": "Pick the jobs to merge again.",
+  "일감을 찾을 수 없어요.": "That job could not be found.",
+  "같은 의뢰에서 나온 일감만 합칠 수 있어요.": "Only jobs from the same inquiry can be merged.",
 };
