@@ -6,6 +6,7 @@ import { AccountModal, AuditModal, AuthModal, CatMouseGame, CheckoutPage, Review
 import { motion, AnimatePresence, MotionConfig, useScroll, useTransform, useMotionValue, useSpring } from "framer-motion";
 import { CreditCoin, CursorLoupe, EvidenceField, InkWordmark, SealRing, VerdictMarquee, WordReveal } from "@/components/yume/motion2";
 import { DocumentScan, DrawnMark, FactCheckScene, InkStamp, Magnetic, Marker, RollingNumber, ScrollAtmosphere, ScrollLine, ScrollRail, TiltCard, useHeroSplit } from "@/components/yume/motion";
+import { CaseDeck, DomainCloud, Scatter } from "@/components/yume/showcase";
 import NecPanel from "@/components/yume/NecPanel";
 import ContextRepairCard from "@/components/yume/ContextRepairCard";
 import { BountyPrompt } from "@/components/yume/BountyModal";
@@ -1938,6 +1939,50 @@ export default function YumeDashboard() {
 
       {!IS_STORE_BUILD && (<>
 
+      {/* 일상에서 겪는 것부터 보여 준다. 법 이야기를 먼저 꺼내면 변호사용 도구로 읽히는데,
+          실제로 사람들이 AI에게 묻는 건 약 용량과 최저임금과 연도다. */}
+      <section style={{ maxWidth: 1080, margin: "clamp(88px, 14vw, 180px) auto 0", padding: "0 24px", textAlign: "center" }}>
+        <Reveal>
+          <Eyebrow>{t("이런 것도 틀립니다")}</Eyebrow>
+        </Reveal>
+        <h2 style={{ ...UI.sectionTitle, margin: "0 0 18px" }}>
+          <WordReveal delay={0.05} lines={[t("자신 있게 말해서,"), t("틀린 줄도 모릅니다.")]} />
+        </h2>
+        <Reveal delay={0.1}>
+          <p style={{ ...UI.lead, maxWidth: 620, margin: "0 auto" }}>
+            {t("아래 넷은 유메가 매번 통과시키는 실제 회귀 테스트 사례입니다. 숫자 하나, 연도 하나가 바뀐 말은 눈으로 걸러지지 않습니다.")}
+          </p>
+        </Reveal>
+        <CaseDeck t={t} />
+      </section>
+
+      {/* 흩어진 조각이 모이는 장면 — 유메가 하는 일을 한 그림으로. */}
+      <section style={{ maxWidth: 980, margin: "clamp(96px, 16vw, 200px) auto 0", padding: "0 24px", textAlign: "center" }}>
+        <Reveal>
+          <Eyebrow>{t("유메가 하는 일")}</Eyebrow>
+        </Reveal>
+        <h2 style={{ ...UI.sectionTitle, margin: "0 0 12px" }}>
+          <WordReveal delay={0.05} lines={[t("흩어진 말을"), t("확인된 사실로.")]} />
+        </h2>
+        <Scatter text={t("사실")} caption={t("붙여넣은 답변을 문장이 아니라 주장 단위로 쪼갠 뒤, 하나씩 원천에 맞춰 보고 다시 모읍니다.")} />
+      </section>
+
+      {/* 분야 — "법률 전용"이라는 오해를 여기서 끊는다. */}
+      <section style={{ maxWidth: 900, margin: "clamp(96px, 16vw, 200px) auto 0", padding: "0 24px", textAlign: "center" }}>
+        <Reveal>
+          <Eyebrow>{t("확인하는 범위")}</Eyebrow>
+        </Reveal>
+        <h2 style={{ ...UI.sectionTitle, margin: "0 0 18px" }}>
+          <WordReveal delay={0.05} lines={[t("법률만 보는 게"), t("아닙니다.")]} />
+        </h2>
+        <Reveal delay={0.1}>
+          <p style={{ ...UI.lead, maxWidth: 620, margin: "0 auto" }}>
+            {t("매일 묻는 것들을 확인합니다. 그중 법률은 공식 원문과 직접 대조하는, 가장 엄격한 한 분야입니다.")}
+          </p>
+        </Reveal>
+        <DomainCloud t={t} />
+      </section>
+
       {/* 왜 유메인가 — 문제 제기 */}
       <section style={{ maxWidth: 900, margin: "clamp(88px, 14vw, 180px) auto 0", padding: "0 24px", textAlign: "center" }}>
         <Reveal>
@@ -1958,9 +2003,6 @@ export default function YumeDashboard() {
         </Reveal>
       </section>
 
-
-      {/* 대표 장면 — 문제 제기("틀린 말을 합니다") 바로 뒤에서, 유메가 그걸 어떻게 잡는지 스크롤로 돌려 본다. */}
-      <FactCheckScene t={t} />
 
       <StepsSection />
 
@@ -2014,6 +2056,25 @@ export default function YumeDashboard() {
           ))}
         </div>
       </section>
+
+      {/* 여기서부터는 "그게 어떻게 가능한가"를 묻는 사람을 위한 자리다. 일반 방문자는
+          위에서 이미 무엇을 해 주는 서비스인지 봤다. */}
+      <section style={{ maxWidth: 900, margin: "clamp(96px, 16vw, 200px) auto 0", padding: "0 24px", textAlign: "center" }}>
+        <Reveal>
+          <Eyebrow>{t("기술")}</Eyebrow>
+        </Reveal>
+        <h2 style={{ ...UI.sectionTitle, margin: "0 0 18px" }}>
+          <WordReveal delay={0.05} lines={[t("법률은 검색하지 않고,"), t("원문을 받아 옵니다.")]} />
+        </h2>
+        <Reveal delay={0.1}>
+          <p style={{ ...UI.lead, maxWidth: 640, margin: "0 auto" }}>
+            {t("법률 주장은 웹 검색 대신 법제처 국가법령정보 공동활용 API로 조문 원문을 직접 받아 대조합니다. 오늘 시행 중인 버전만 조회하므로 개정 전 내용을 현행으로 착각하지 않습니다. 인용된 판례·조문이 공식 자료에 없으면 부존재 신뢰도와 함께 표시합니다.")}
+          </p>
+        </Reveal>
+      </section>
+
+      {/* 법률 대조를 스크롤로 돌려 보는 장면. 기술 설명 바로 뒤가 제자리다. */}
+      <FactCheckScene t={t} />
 
       {/* 마무리 CTA */}
       <section style={{ maxWidth: 760, margin: "clamp(96px, 16vw, 200px) auto 0", padding: "0 24px", textAlign: "center" }}>

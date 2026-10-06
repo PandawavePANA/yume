@@ -751,4 +751,53 @@ export default {
   // 입력칸 안내 — 줄바꿈이 키에 그대로 들어간다.
   "궁금한 것 한 줄만 물어보셔도 돼요.\n예시: \"로또 1등 당첨금이 평균 20억이라는데 사실이야?\"\n\nAI 답변을 통째로 붙여넣어도 됩니다.":
     "Ask it in one line if you like.\ne.g. \"Is the average lottery jackpot really 2 billion won?\"\n\nOr paste a whole AI answer.",
+  // 첫 화면 아래 일반 방문자용 장면 (components/yume/showcase.jsx)
+  "이런 것도 틀립니다": "It gets these wrong too",
+  "자신 있게 말해서,": "It sounds certain,",
+  "틀린 줄도 모릅니다.": "so nobody checks.",
+  "아래 넷은 유메가 매번 통과시키는 실제 회귀 테스트 사례입니다. 숫자 하나, 연도 하나가 바뀐 말은 눈으로 걸러지지 않습니다.":
+    "These four are real regression cases Yume clears on every run. One digit or one year out of place is not something the eye catches.",
+  "유메가 하는 일": "What Yume does",
+  "흩어진 말을": "Scattered claims,",
+  "확인된 사실로.": "checked into fact.",
+  "사실": "FACT",
+  "붙여넣은 답변을 문장이 아니라 주장 단위로 쪼갠 뒤, 하나씩 원천에 맞춰 보고 다시 모읍니다.":
+    "Yume splits what you paste into individual claims rather than sentences, checks each one against its source, and puts the answer back together.",
+  "확인하는 범위": "What it covers",
+  "법률만 보는 게": "Law is not",
+  "아닙니다.": "all it reads.",
+  "매일 묻는 것들을 확인합니다. 그중 법률은 공식 원문과 직접 대조하는, 가장 엄격한 한 분야입니다.":
+    "It checks the things people ask every day. Law is the one field it matches against official source text, and the strictest.",
+  "기술": "How it works",
+  "법률은 검색하지 않고,": "Statutes are not searched,",
+  "원문을 받아 옵니다.": "they are fetched.",
+  "법률 주장은 웹 검색 대신 법제처 국가법령정보 공동활용 API로 조문 원문을 직접 받아 대조합니다. 오늘 시행 중인 버전만 조회하므로 개정 전 내용을 현행으로 착각하지 않습니다. 인용된 판례·조문이 공식 자료에 없으면 부존재 신뢰도와 함께 표시합니다.":
+    "Legal claims are matched against statute text pulled straight from the Korean Ministry of Government Legislation open API rather than from a web search. Only the version in force today is read, so a repealed clause is never passed off as current. When a cited case or article is absent from the official record, Yume says so and shows how confident it is that the thing does not exist.",
+  "건강 · 영양": "Health & nutrition",
+  "약 용량": "Drug dosage",
+  "통계 · 수치": "Statistics",
+  "역사 · 상식": "History",
+  "노동 · 임금": "Work & wages",
+  "제품 · 사양": "Products & specs",
+  "사업자 정보": "Business records",
+  "뉴스 인용": "News quotes",
+  "법률 · 판례": "Law & case law",
+  // 사례 카드 본문 (showcase.jsx CASES)
+  "2024년 최저임금은 시간당 10,030원입니다.": "The 2024 minimum wage was 10,030 won an hour.",
+  "10,030원은 2025년 금액입니다. 2024년은 9,860원이었습니다. 다른 해의 숫자를 올해 것처럼 말하는 실수가 가장 잦습니다.":
+    "10,030 won is the 2025 figure; 2024 was 9,860. Quoting one year’s number as another’s is the most common slip of all.",
+  "2024년 대구 중구 안경 공방의 평균 객단가는 18만 7천원으로 집계되었습니다.":
+    "The average spend at eyewear studios in Jung-gu, Daegu came to 187,000 won in 2024.",
+  "그런 집계 자체가 없습니다. 출처가 없는 수치는 그럴듯할수록 걸러내기 어렵습니다.":
+    "No such figure was ever compiled. A number with no source is hardest to catch when it sounds plausible.",
+  "비타민C를 하루 1000mg씩 먹으면 감기에 거의 걸리지 않습니다.":
+    "Taking 1,000mg of vitamin C a day means you almost never catch a cold.",
+  "코크런 체계적 문헌고찰에서 일반인의 감기 발생률은 낮추지 못했습니다. 앓는 기간만 조금 줄었습니다.":
+    "Cochrane’s systematic review found no drop in how often ordinary people catch colds — only a slightly shorter illness.",
+  "훈민정음은 1446년에 반포되었습니다.": "Hunminjeongeum was promulgated in 1446.",
+  "맞는 것을 틀렸다고 말하지 않는 것도 똑같이 중요하게 봅니다.":
+    "This one is right. Not calling a true thing false matters just as much.",
+  "사실 아님": "Not true",
+  "근거 부족": "Not supported",
+  "확인됨": "Confirmed",
 };
