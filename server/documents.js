@@ -48,7 +48,7 @@ export async function documentPayload(id) {
 }
 
 // 시작. 실패하면 { error: { status, code, message } }.
-export async function startDocument({ key, text, title = "", refs = [], organization = "", endpoint, source = "api", userId = null, docId = null, onAllDone = null }) {
+export async function startDocument({ key, text, title = "", refs = [], organization = "", endpoint, source = "api", userId = null, docId = null, strict = false, onAllDone = null }) {
   if (text.length > MAX_DOCUMENT_CHARS) {
     return { error: { status: 413, code: "document_too_long", message: `문서는 ${MAX_DOCUMENT_CHARS.toLocaleString()}자까지 검사할 수 있습니다(지금 ${text.length.toLocaleString()}자).` } };
   }
@@ -94,6 +94,7 @@ export async function startDocument({ key, text, title = "", refs = [], organiza
       dataConsent: false,
       references: refs,
       organization,
+      strict,
     })),
     CHUNK_CONCURRENCY,
   );

@@ -1,6 +1,7 @@
 import { extractAndVerify, writeSuggestedFixes } from "./claude.js";
 import { attachSpans } from "./claimSpan.js";
 import { referenceScope } from "./referenceCheck.js";
+import { lockEvidence } from "./evidenceLock.js";
 import { resolveLegalClaims } from "./legalPipeline.js";
 import { resolveIdentifierClaims } from "./identifierPipeline.js";
 import { resolveUncertainClaims } from "./resolveUncertain.js";
@@ -33,9 +34,12 @@ export const MAX_INPUT_CHARS = 10_000;
 // 주장을 그대로 내보내면, 처음 것은 5~8초에 보이고 나머지가 그 위에서 채워진다.
 // 기다리는 시간 자체는 그대로지만 기다리는 경험이 달라진다 — 빈 화면을 보는 것과
 // 결과가 하나씩 쌓이는 것을 보는 것은 다른 일이다.
-async function processVerification({ id, text, source, onProgress = () => {}, onClaims = () => {}, references = [], organization = "" }) {
-  // 기업이 보낸 기준 자료·자사명이 있으면 결과 캐시를 그 조건으로 나눈다(referenceCheck.js).
-  const scope = referenceScope(references, organization);
+// 같은 글이라도 결과가 달라지는 조건 — 기준 자료·자사명, 엄격 모드. 결과 캐시를 이 값으로 나눈다.
+const scopeOf = ({ references = [], organization = "", strict = false }) =>
+  [referenceScope(references, organization), strict ? "strict" : ""].filter(Boolean).join("|");
+
+async function processVerification({ id, text, source, onProgress = () => {}, onClaims = () => {}, references = [], organization = "", strict = false }) {
+  const scope = scopeOf({ references, organization, strict });
   const startedAt = Date.now();
   try {
     const cached = await findCached(text, scope);
@@ -81,6 +85,9 @@ async function processVerification({ id, text, source, onProgress = () => {}, on
     // 마지막으로 "사실과 다름" 지목만 다시 본다. 맞는 정보를 거짓이라 부르는 게
     // 유메가 낼 수 있는 가장 해로운 오류라, 여기에만 따로 비용을 쓴다.
     claims = await reviewAccusations(claims, { onProgress, ledger });
+    // 근거 잠금: 웹·리서치 판정의 근거 문장을 출처 페이지에서 직접 확인하고, 처음 판정을 모르는
+    // 검토자에게 다시 묻는다. 통과하지 못한 판정은 저장(캐시)되기 전에 여기서 거둔다.
+    claims = await lockEvidence(claims, { onProgress, ledger, strict });
     // 이번에 새로 판단한 것만 캐시에 넣는다(확인되지 않음은 저장하지 않는다).
     await storeAll(claims);
     // 내부 표시는 여기서 뗀다. 중간에 떼면 지목 재확인과 저장이 캐시된 주장을 구분하지
@@ -112,7 +119,7 @@ async function processVerification({ id, text, source, onProgress = () => {}, on
     // 말이 된다("사실과 다른 내용이 있습니다"라고 써 놓고 화면에는 '확인되지 않음'만 있는 꼴).
     // 그 두 경로는 각각 unbacked_verdict / withdrawn_verdict를 남기므로 그것으로 가린다.
     const verdictsChanged = claims.some(
-      (c) => ["official", "nec", "research"].includes(c.verified_via) || c.unbacked_verdict || c.withdrawn_verdict,
+      (c) => ["official", "nec", "research", "reference"].includes(c.verified_via) || c.unbacked_verdict || c.withdrawn_verdict || c.locked_out_verdict,
     );
     const result = {
       overall_domain: extracted.overall_domain || claims[0]?.domain || "일반",
@@ -140,8 +147,8 @@ async function processVerification({ id, text, source, onProgress = () => {}, on
   }
 }
 
-function create({ id, text, source, userId = null, apiKeyId = null, clientKey = null, dataConsent = false, references = [], organization = "" }) {
-  return createVerification({ id, source, userId, apiKeyId, clientKey, input: text, dataConsent, scope: referenceScope(references, organization) });
+function create({ id, text, source, userId = null, apiKeyId = null, clientKey = null, dataConsent = false, references = [], organization = "", strict = false }) {
+  return createVerification({ id, source, userId, apiKeyId, clientKey, input: text, dataConsent, scope: scopeOf({ references, organization, strict }) });
 }
 
 // 웹(SSE)처럼 결과가 나올 때까지 기다리는 경로. 검증 기록은 항상 DB에 남는다.

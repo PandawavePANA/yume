@@ -97,6 +97,7 @@ export default function DocumentPanel() {
   const [showRef, setShowRef] = useState(false);
   const [org, setOrg] = useState("");
   const [refText, setRefText] = useState("");
+  const [strict, setStrict] = useState(false);
   const [job, setJob] = useState(null); // { id, parts }
   const [doc, setDoc] = useState(null);
   const [error, setError] = useState("");
@@ -153,6 +154,7 @@ export default function DocumentPanel() {
     } else if (raw.trim()) body.text = raw;
     else return setError(t("검사할 글을 붙여 넣거나 파일을 올려 주세요."));
     if (org.trim()) body.organization = org.trim();
+    if (strict) body.strict = true;
     if (refText.trim()) body.references = [{ title: t("회사 기준 자료"), text: refText.trim() }];
     setBusy(true);
     try {
@@ -224,6 +226,13 @@ export default function DocumentPanel() {
         )}
       </div>
 
+      <label style={{ display: "flex", alignItems: "flex-start", gap: 8, marginTop: 12, fontSize: 13, color: UI.ink2, lineHeight: 1.55, cursor: "pointer" }}>
+        <input type="checkbox" checked={strict} disabled={busy} onChange={(e) => setStrict(e.target.checked)} style={{ marginTop: 3 }} />
+        <span>
+          <b style={{ color: UI.ink }}>{t("엄격 모드")}</b> — {t("근거 문장을 출처에서 직접 확인한 판정만 내립니다. 광고 심의·공시처럼 틀리면 안 되는 문서에 쓰세요.")}
+        </span>
+      </label>
+
       <div style={{ display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
         <button onClick={start} disabled={busy} style={btn(true, busy)}>
           {busy
@@ -286,6 +295,11 @@ export default function DocumentPanel() {
                         </div>
                       )}
                       {c.verified_via === "reference" && <div style={{ fontSize: 12, color: UI.accent, marginTop: 4 }}>{t("회사 기준 자료와 대조")}</div>}
+                      {c.evidence?.status === "verified" && (
+                        <div style={{ fontSize: 12, color: "#1F7A52", marginTop: 4 }}>
+                          {t("근거 원문 확인")}: “{c.evidence.quote}”
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

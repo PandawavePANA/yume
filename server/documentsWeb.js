@@ -60,6 +60,7 @@ router.post("/documents", limitMiddleware(limiter, (req) => `doc:${req.user?.id 
   const started = await startDocument({
     key, text: input.text, title: input.title, refs: ctx.refs, organization: ctx.organization,
     endpoint: "POST /api/documents", source: "web", userId: req.user.id,
+    strict: req.body?.strict === true,
   });
   if (started.error) {
     const { status, code, message, extra } = started.error;

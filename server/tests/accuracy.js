@@ -306,7 +306,9 @@ async function main() {
     fs.writeFileSync(outArg, JSON.stringify({ at: new Date().toISOString(), passed, total: results.length, criticalFailed: criticalFailed.map((r) => r.id), usd, stages, results }, null, 2));
     console.log(`결과 저장: ${outArg}`);
   }
-  await db.closeDb().catch(() => {});
+  // 닫기가 끝나지 않는 경우가 있었다(측정은 다 끝났는데 프로세스가 15분 동안 남음). 결과는 이미
+  // 찍혔으니 5초만 기다리고 나간다.
+  await Promise.race([db.closeDb().catch(() => {}), new Promise((r) => setTimeout(r, 5000))]);
   process.exit(criticalFailed.length ? 1 : 0);
 }
 

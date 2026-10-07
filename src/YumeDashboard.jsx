@@ -1776,6 +1776,9 @@ export default function YumeDashboard() {
                               {c.verified_via === "nec" && (
                                 <span style={{ fontSize: 11, fontWeight: 600, color: "#A23A2B", background: "rgba(214,70,50,0.10)", borderRadius: 999, padding: "2px 9px" }}>{t("부존재 신뢰도 판정")}</span>
                               )}
+                              {c.evidence?.status === "verified" && (
+                                <span title={c.evidence.quote} style={{ fontSize: 11, fontWeight: 600, color: "#1F7A52", background: "rgba(40,160,100,0.10)", borderRadius: 999, padding: "2px 9px" }}>{t("근거 원문 확인")}</span>
+                              )}
                               {c.verified_via === "reference" && (
                                 <span style={{ fontSize: 11, fontWeight: 600, color: "#5B3FB5", background: "rgba(109,90,224,0.10)", borderRadius: 999, padding: "2px 9px" }}>{t("기준 자료 대조")}</span>
                               )}

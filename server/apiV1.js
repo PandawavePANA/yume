@@ -85,6 +85,10 @@ function publicClaim(c) {
   }
   // "사실과 다름"일 때만: 판정 근거의 실제 값으로 고친 문장.
   if (c.verdict === "false" && c.suggested_fix) out.suggested_fix = c.suggested_fix;
+  // 판정의 확신도(근거 잠금): high = 공식 원문·기준 자료·부존재 판정, 또는 근거 문장을 출처에서 직접 확인하고
+  // 독립 검토도 같은 결론 / medium = 판정은 있으나 근거 페이지를 직접 열어 보지 못함. 확인되지 않음이면 없음.
+  if (c.confidence) out.confidence = c.confidence;
+  if (c.evidence?.status === "verified") out.evidence = { verified: true, url: c.evidence.url, quote: c.evidence.quote };
   if (c.effective_date) out.effective_date = c.effective_date;
   if (c.legal_ref) out.legal_ref = c.legal_ref;
   if (c.identifiers) out.identifiers = c.identifiers;
@@ -194,7 +198,8 @@ router.post("/verify", requireApiKey, async (req, res) => {
 
   const id = newVerificationId();
   // 멱등 키는 한도 확인보다 먼저 본다. 이미 처리한 요청의 재시도는 한도와 무관하게 처음 결과를 돌려줘야 한다.
-  const hash = bodyHash({ text, references: req.body?.references ?? null, organization: req.body?.organization ?? null, callback_url: req.body?.callback_url ?? null });
+  const strict = req.body?.strict === true;
+  const hash = bodyHash({ text, references: req.body?.references ?? null, organization: req.body?.organization ?? null, callback_url: req.body?.callback_url ?? null, strict });
   if (extras.idemKey) {
     const claim = await claimKey(key.id, extras.idemKey, { hash, kind: "single", refs: [{ ref: null, id }] });
     if (!claim.fresh) {
@@ -236,6 +241,7 @@ router.post("/verify", requireApiKey, async (req, res) => {
       dataConsent: !!key.data_sharing && !ctx.refs.length,
       references: ctx.refs,
       organization: ctx.organization,
+      strict,
     }));
   } catch (e) {
     // 시작도 못 한 요청은 과금하지 않는다. 멱등 키도 놓아준다 — 다시 보내면 새로 시작해야 한다.
@@ -302,7 +308,8 @@ router.post("/verify/batch", requireApiKey, async (req, res) => {
 
   // 항목마다 id를 먼저 정해 둔다. 멱등 키가 이 id들을 기억해야 재시도에 같은 결과를 돌려줄 수 있다.
   for (const it of items) it.id = newVerificationId();
-  const hash = bodyHash({ items: items.map(({ ref, text }) => ({ ref, text })), references: req.body?.references ?? null, organization: req.body?.organization ?? null, callback_url: req.body?.callback_url ?? null });
+  const strict = req.body?.strict === true;
+  const hash = bodyHash({ items: items.map(({ ref, text }) => ({ ref, text })), references: req.body?.references ?? null, organization: req.body?.organization ?? null, callback_url: req.body?.callback_url ?? null, strict });
   if (extras.idemKey) {
     const claim = await claimKey(key.id, extras.idemKey, { hash, kind: "batch", refs: items.map(({ ref, id }) => ({ ref, id })) });
     if (!claim.fresh) {
@@ -330,7 +337,7 @@ router.post("/verify/batch", requireApiKey, async (req, res) => {
         const { done } = await startVerification({
           id, text, source: "api", userId: null, apiKeyId: key.id,
           clientKey: `key:${key.id}`, dataConsent: !!key.data_sharing && !ctx.refs.length,
-          references: ctx.refs, organization: ctx.organization,
+          references: ctx.refs, organization: ctx.organization, strict,
         });
         // 웹훅은 항목마다 보낸다(ref를 붙여서). 묶음 전체를 기다리면 빠른 항목이 느린 항목을 기다린다.
         notifyWhenDone(extras.callback, done, id, ref);
@@ -392,7 +399,8 @@ router.post("/documents", docJson, requireApiKey, async (req, res) => {
   if (!extras) return;
 
   const docId = newDocumentId();
-  const hash = bodyHash({ text: input.text, references: req.body?.references ?? null, organization: req.body?.organization ?? null, callback_url: req.body?.callback_url ?? null });
+  const strict = req.body?.strict === true;
+  const hash = bodyHash({ text: input.text, references: req.body?.references ?? null, organization: req.body?.organization ?? null, callback_url: req.body?.callback_url ?? null, strict });
   if (extras.idemKey) {
     const claim = await claimKey(key.id, extras.idemKey, { hash, kind: "document", refs: [{ ref: null, id: docId }] });
     if (!claim.fresh) {
@@ -410,7 +418,7 @@ router.post("/documents", docJson, requireApiKey, async (req, res) => {
   }
 
   const started = await startDocument({
-    key, text: input.text, title: input.title, refs: ctx.refs, organization: ctx.organization, endpoint, source: "api", docId,
+    key, text: input.text, title: input.title, refs: ctx.refs, organization: ctx.organization, endpoint, source: "api", docId, strict,
     onAllDone: extras.callback
       ? async (id) => {
           const payload = await documentPayload(id);
@@ -467,6 +475,7 @@ router.get("/", (req, res) => {
           references: `[{ title?, text }] (선택, 최대 ${MAX_REFERENCES}개·합계 ${MAX_REFERENCE_CHARS.toLocaleString()}자) — 자사 기준 자료. 다루는 주장은 이 자료와 먼저 대조`,
           organization: "string (선택) — 자사명. 자사에 관한 주장은 공개 기록이 없다는 이유로 '사실과 다름'이 되지 않는다",
           callback_url: "https 주소 (선택) — 끝나면 결과를 POST(웹훅). callback_secret을 주면 X-Yume-Signature로 서명",
+          strict: "boolean (선택) — 엄격 모드. 근거를 출처 원문에서 직접 확인한(confidence: high) 판정만 내리고, 나머지는 uncertain",
           wait: "boolean | 초(최대 60) — 결과가 나올 때까지 기다림",
         },
         returns: "claims[]: verdict, explanation, sources, quote·span(원문 속 위치), suggested_fix(사실과 다름일 때 고친 문장)",

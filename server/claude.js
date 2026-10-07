@@ -342,11 +342,12 @@ const WEB_VERIFY_PROMPT = `당신은 '유메' 팩트체크 엔진의 웹 판정 
 - 핵심이 맞고 곁가지만 조금 다르면(반올림, 표기 차이, 같은 뜻의 다른 이름) false가 아니라 confirmed로 하고 차이를 덧붙이세요. 틀린 부분이 주장의 핵심일 때만 false입니다.
 - 근거를 못 찾았는데 그럴듯해 보인다고 confirmed를 주지 마세요. 그 경우 uncertain이고, explanation에 무엇을 확인했고 무엇이 확인되면 결론이 나는지 쓰세요.
 - confirmed나 false에는 sources에 실제 근거 URL을 1~2개 반드시 넣으세요. 출처 없는 판정은 유메가 자동으로 "확인되지 않음"으로 내립니다.
+- **sources마다 quote에 그 페이지에서 근거가 된 문장을 한 글자도 바꾸지 말고 그대로 옮기세요**(최대 200자, 검색 결과에서 실제로 본 문장만). 유메가 그 페이지를 직접 열어 이 문장이 정말 있는지, 그 문장이 판정을 뒷받침하는지 대조합니다. 요약하거나 지어내면 판정이 거둬집니다.
 - 조건에 따라 달라지는 주장이면 가장 일반적인 경우를 기준으로 판정하고 조건을 설명에 덧붙이세요.
 - 검색이 끝나면 반드시 최종 JSON을 출력하세요.
 
 반드시 아래 JSON 형식으로만 응답하세요.
-{"summary":"전체 결과 한 문장","results":[{"n":1,"verdict":"confirmed|false|uncertain","explanation":"구체적 근거 (100자 이내)","sources":[{"title":"출처 제목","url":"https://..."}]}]}`;
+{"summary":"전체 결과 한 문장","results":[{"n":1,"verdict":"confirmed|false|uncertain","explanation":"구체적 근거 (100자 이내)","sources":[{"title":"출처 제목","url":"https://...","quote":"그 페이지에서 근거가 된 문장 그대로"}]}]}`;
 
 // 긴 글이 빈손으로 오면 한 번 더 묻는다. 실제로 겪은 실패: 다른 AI가 "그 조문은 없습니다",
 // "이 DOI는 확인되지 않습니다"처럼 정정해 준 답변을 넣었더니 주장 0개가 나왔다. 그 글에는
@@ -556,6 +557,32 @@ export async function writeSuggestedFixes(claims, { ledger = null } = {}) {
   return out;
 }
 
+// ── 독립 판정(근거 잠금, evidenceLock.js) ────────────────────────────────────
+// 처음 판정을 알려주지 않는다. 알려주면 검토자는 그쪽으로 기운다 — 그러면 두 번 본 게 아니라
+// 한 번 본 것을 두 번 말한 것이 된다. 근거는 출처 페이지에 실제로 있다고 서버가 확인한 문장뿐이다.
+const JUDGE_PROMPT = `당신은 '유메' 팩트체크의 독립 검토자입니다. 각 항목에는 주장 하나와, 출처 페이지에 실제로 있다고 확인된 문장들이 있습니다. **그 문장들만 근거로** 판단하세요. 배경지식으로 보태지 마세요.
+
+- supports: 문장이 주장의 핵심(주체·수치·시점·조건)을 그대로 뒷받침한다.
+- contradicts: 문장이 같은 대상에 대해 주장과 다른 값·사실을 말한다.
+- unrelated: 문장이 주장을 직접 다루지 않거나, 문장만으로는 판단할 수 없다.
+
+애매하면 unrelated입니다. 표기 차이·반올림처럼 핵심이 같으면 supports, 핵심 값이 다르면 contradicts입니다.
+
+반드시 아래 JSON으로만 답하세요.
+{"results":[{"n":1,"relation":"supports|contradicts|unrelated"}]}`;
+
+export async function judgeEvidence(items, { ledger = null } = {}) {
+  const list = items
+    .map((it, k) => `${k + 1}. 주장: ${it.claim}\n   확인된 문장:\n${it.excerpts.map((e) => `   - "${String(e).slice(0, 300)}"`).join("\n")}`)
+    .join("\n\n");
+  const parsed = await callClaudeJson({ system: JUDGE_PROMPT, user: list, maxTokens: 1200, ledger, label: "judge", strong: true });
+  const byN = new Map((Array.isArray(parsed?.results) ? parsed.results : []).map((r) => [Number(r.n), r.relation]));
+  return items.map((_, k) => {
+    const r = byN.get(k + 1);
+    return ["supports", "contradicts", "unrelated"].includes(r) ? r : null;
+  });
+}
+
 const GROUNDING_SYSTEM_PROMPT = `당신은 유메의 법률 판정 보조입니다. 웹검색을 쓰지 말고, 아래 제공된 "공식 조회 결과" 텍스트만 근거로 판단하세요. 배경지식으로 추측하지 마세요. 공식 텍스트에 없는 내용은 판단하지 마세요.
 
 중요 — 이 "공식 조회 결과"는 법제처 국가법령정보에서 오늘 기준으로 실제 시행 중인 최신 버전만 조회한 것입니다. 함께 제공되는 시행일자는 이 조문의 현재 버전이 언제부터 적용되는지를 뜻합니다.
@@ -599,7 +626,7 @@ const WEB_FALLBACK_SYSTEM_PROMPT = `당신은 유메의 법률 리서치 보조�
 - 공식 데이터베이스에서는 이미 찾지 못한 상태이므로, 존재를 확인하지 못했다면 주장 내용이 그럴듯해 보여도 verdict를 confirmed로 하지 마세요.
 
 반드시 아래 JSON 형식으로만 응답하세요. 다른 설명, 마크다운 코드블록을 추가하지 마세요.
-{"verdict": "confirmed|false|uncertain", "explanation": "구체적 근거 (100자 이내)", "sources": [{ "title": "출처 제목", "url": "https://..." }], "identifier_found": true|false}`;
+{"verdict": "confirmed|false|uncertain", "explanation": "구체적 근거 (100자 이내)", "sources": [{ "title": "출처 제목", "url": "https://...", "quote": "그 페이지에서 근거가 된 문장을 한 글자도 바꾸지 않고 그대로" }], "identifier_found": true|false}`;
 
 export async function verifyLegalClaimViaWeb(claimText, onProgress = () => {}, { identifier = null, ledger = null } = {}) {
   const idLine = identifier ? `\n\n인용된 식별자: ${identifier} (법제처 공식 데이터베이스에서는 찾지 못함)` : "";
@@ -654,6 +681,7 @@ const RESEARCH_SYSTEM_PROMPT = `당신은 유메의 심층 리서치 담당입�
 explanation을 비워두거나 "확인할 수 없습니다" 한 줄로 끝내면 안 됩니다. 어디까지 갔는지를 남겨야 사용자가 그다음을 할 수 있습니다.
 
 confirmed나 false로 판정할 때는 sources에 실제로 근거가 된 URL을 반드시 넣으세요. 출처 없는 confirmed·false는 유메가 자동으로 "확인되지 않음"으로 내립니다.
+**sources마다 quote에 그 페이지에서 근거가 된 문장을 한 글자도 바꾸지 말고 그대로 옮기세요**(최대 200자, 실제로 본 문장만). 유메가 그 페이지를 직접 열어 문장이 정말 있는지, 그 문장이 판정을 뒷받침하는지 대조합니다. 요약하거나 지어내면 판정이 거둬집니다.
 
 추가로 채워야 할 세 필드:
 
@@ -688,7 +716,7 @@ confirmed나 false로 판정할 때는 sources에 실제로 근거가 된 URL을
 **near_miss** — 주장과 비슷하지만 다른 실재 사실을 찾았다면 적으세요. 숫자만 다른 통계, 연도만 다른 사건, 이름이 비슷한 기관 등. 이게 있으면 지어낸 것이 아니라 잘못 기억한 것일 수 있어 유메가 부존재로 단정하지 않습니다. 없으면 null.
 
 반드시 아래 JSON 형식으로만 응답하세요. 다른 설명, 마크다운 코드블록을 추가하지 마세요.
-{"verdict": "confirmed|false|uncertain", "explanation": "구체적 근거 (200자 이내)", "sources": [{ "title": "출처 제목", "url": "https://..." }], "recordedness": "public_record|published|reported|niche|private|unrecordable", "searched_thoroughly": true|false, "subject_found": true|false, "near_miss": { "value": "찾은 비슷한 실재 사실", "similarity": 0.0~1.0 } }`;
+{"verdict": "confirmed|false|uncertain", "explanation": "구체적 근거 (200자 이내)", "sources": [{ "title": "출처 제목", "url": "https://...", "quote": "그 페이지에서 근거가 된 문장 그대로" }], "recordedness": "public_record|published|reported|niche|private|unrecordable", "searched_thoroughly": true|false, "subject_found": true|false, "near_miss": { "value": "찾은 비슷한 실재 사실", "similarity": 0.0~1.0 } }`;
 
 export async function researchClaim(claimText, { domain = "일반", priorExplanation = "", priorSources = [], onProgress = () => {}, ledger = null } = {}) {
   const prior = priorExplanation ? `\n\n앞선 검증에서 여기까지는 확인했습니다(이걸 반복하지 말고 더 파고드세요): ${priorExplanation}` : "";

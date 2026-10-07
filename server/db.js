@@ -960,6 +960,12 @@ const MIGRATIONS = [
   CREATE INDEX idx_documents_user ON documents(user_id, created_at);
   ALTER TABLE documents ENABLE ROW LEVEL SECURITY;
   `,
+
+  // 근거 잠금(evidenceLock.js)의 확신도. 캐시에서 다시 쓸 때도 처음 확인한 수준을 그대로 알려야
+  // 엄격 모드가 캐시 적중분을 일괄로 '확인 못 함'으로 내리지 않는다.
+  `
+  ALTER TABLE claim_cache ADD COLUMN confidence TEXT;
+  `,
 ];
 
 async function migrate() {

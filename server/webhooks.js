@@ -11,8 +11,8 @@
 //      보낸 callback_secret을 쓰고, 그 값은 저장하지 않는다(보내는 동안 메모리에만).
 //   ③ 한 번 실패로 끝내지 않는다. 받는 쪽이 잠깐 내려가 있어도 몇 번 더 보낸다.
 import crypto from "node:crypto";
-import net from "node:net";
 import { logError } from "./errorLog.js";
+import { privateHost } from "./netGuard.js";
 
 const MAX_URL = 2000;
 const MAX_SECRET = 200;
@@ -22,17 +22,7 @@ const BACKOFF_MS = [0, 2_000, 10_000, 60_000];
 // 테스트에서는 로컬 수신 서버로 보내야 한다. 운영에서는 켜지 않는다.
 const allowPrivate = () => process.env.YUME_WEBHOOK_ALLOW_PRIVATE === "1";
 
-function privateHost(host) {
-  const h = host.replace(/^\[|\]$/g, "").toLowerCase();
-  if (h === "localhost" || h.endsWith(".localhost") || h.endsWith(".local") || h.endsWith(".internal")) return true;
-  const kind = net.isIP(h);
-  if (kind === 4) {
-    const [a, b] = h.split(".").map(Number);
-    return a === 10 || a === 127 || a === 0 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127);
-  }
-  if (kind === 6) return h === "::1" || h === "::" || h.startsWith("fc") || h.startsWith("fd") || h.startsWith("fe80") || h.startsWith("::ffff:");
-  return false;
-}
+export { privateHost };
 
 export function validateCallback(rawUrl, rawSecret) {
   if (rawUrl == null || rawUrl === "") return { url: null, secret: "" };

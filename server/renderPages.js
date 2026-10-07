@@ -499,6 +499,7 @@ export function renderApiDocsPage(baseUrl) {
 <tr><th>필드</th><th>타입</th><th>설명</th></tr>
 <tr><td><code>text</code></td><td>string</td><td>검증할 텍스트. 최대 10,000자</td></tr>
 <tr><td><code>references</code></td><td>array</td><td>선택. 자사 기준 자료 <code>[{ "title": "요금 안내", "text": "…" }]</code>. 최대 5개, 합계 20,000자. 이 자료가 다루는 주장은 웹보다 먼저 이 자료와 대조해 <code>verified_via: "reference"</code>로 판정하고, 근거 문장을 <code>sources[].quote</code>로 돌려줍니다. 자료에 없는 근거로는 판정하지 않습니다.</td></tr>
+<tr><td><code>strict</code></td><td>boolean</td><td>선택. 엄격 모드 — 근거를 출처 원문에서 직접 확인한 판정(<code>confidence: "high"</code>)만 내립니다(아래 "확신도와 엄격 모드").</td></tr>
 <tr><td><code>organization</code></td><td>string</td><td>선택. 자사명. 자사에 관한 주장은 "공개 기록이 없다"는 이유만으로 <code>false</code>가 되지 않습니다(기준 자료가 있으면 그 자료로 판정).</td></tr>
 <tr><td><code>wait</code></td><td>boolean | number</td><td>선택. <code>true</code>면 최대 60초, 숫자면 그 초만큼 기다림</td></tr>
 <tr><td><code>callback_url</code></td><td>string</td><td>선택. 검증이 끝나면(실패 포함) 결과를 이 https 주소로 POST합니다. 폴링이 필요 없습니다. 공인 주소만 가능</td></tr>
@@ -586,6 +587,14 @@ while job["status"] == "pending":
 <li><b>P 유사항목 근접도</b> — 비슷한 실재 항목(한 글자 틀린 사건번호 등)이 있을수록 높음</li>
 </ul>
 <p><code>grade</code>가 <code>nonexistent</code>(NEC ≥ 0.7)이면 해당 주장은 <code>false</code>로, <code>unverifiable</code>이면 <code>uncovered</code>에 아직 확인하지 못한 영역과 확인 방법이 담깁니다. 지원 식별자: 판례 사건번호, 헌법재판소 사건번호, 법령·조문, DOI, arXiv, PMID, ISBN.</p>
+
+<h2>확신도와 엄격 모드</h2>
+<p>유메가 "사실" 또는 "사실과 다름"이라고 단정한 주장마다 <code>confidence</code>가 붙습니다.</p>
+<ul>
+<li><code>high</code> — 법제처 조문 원문 대조, 보내 주신 기준 자료 대조, 부존재 신뢰도 판정, 또는 <b>근거 문장을 출처 페이지에서 서버가 직접 확인</b>하고 처음 판정을 모르는 독립 검토도 같은 결론을 낸 경우. 이때 <code>evidence: { verified: true, url, quote }</code>가 함께 옵니다.</li>
+<li><code>medium</code> — 판정은 있지만 출처 페이지를 직접 열어 확인하지 못한 경우(접속 차단·동적 페이지 등).</li>
+</ul>
+<p>근거로 제시된 문장이 출처 페이지에 실제로 없거나, 독립 검토가 처음 판정과 다르게 보면 판정을 내리지 않고 <code>uncertain</code>으로 둡니다. 요청에 <code>"strict": true</code>를 주면 <b>엄격 모드</b>로, <code>high</code>만 판정하고 나머지는 모두 <code>uncertain</code>입니다 — 유메가 단정하는 말은 원문으로 확인된 것뿐이어야 하는 곳(광고 심의·공시·법무 검토)에 쓰세요.</p>
 
 <h2>원문 속 위치와 고친 문장</h2>
 <ul>

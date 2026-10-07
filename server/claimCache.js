@@ -62,6 +62,8 @@ export async function findClaim(claim) {
     sources: row.sources_json ? JSON.parse(row.sources_json) : [],
     ...(row.nec_json ? { nec: JSON.parse(row.nec_json) } : {}),
     ...(row.effective_date ? { effective_date: row.effective_date } : {}),
+    // 처음 판정될 때 근거 잠금(evidenceLock.js)을 거친 확신도. 예전 행에는 없다.
+    ...(row.confidence ? { confidence: row.confidence } : {}),
     from_claim_cache: true,
   };
 }
@@ -69,8 +71,8 @@ export async function findClaim(claim) {
 export async function saveClaim(claim) {
   if (!claim?.text || !cacheable(claim)) return false;
   await run(
-    `INSERT INTO claim_cache (hash, verdict, verified_via, explanation, sources_json, nec_json, effective_date, created_at)
-     VALUES (:hash, :verdict, :via, :explanation, :sources, :nec, :eff, :t)
+    `INSERT INTO claim_cache (hash, verdict, verified_via, explanation, sources_json, nec_json, effective_date, confidence, created_at)
+     VALUES (:hash, :verdict, :via, :explanation, :sources, :nec, :eff, :conf, :t)
      ON CONFLICT (hash) DO NOTHING`,
     {
       hash: claimKey(claim),
@@ -80,6 +82,7 @@ export async function saveClaim(claim) {
       sources: JSON.stringify(claim.sources || []),
       nec: claim.nec ? JSON.stringify(claim.nec) : null,
       eff: claim.effective_date || null,
+      conf: claim.confidence || null,
       t: now(),
     },
   ).catch(() => {});
