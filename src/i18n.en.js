@@ -800,4 +800,16 @@ export default {
   "사실 아님": "Not true",
   "근거 부족": "Not supported",
   "확인됨": "Confirmed",
+  // 감사 — 답변 전체 붙여넣기 (components/yume/AuditModal.jsx)
+  "답변 전체 붙여넣기": "Paste all answers at once",
+  "AI가 1. 2. 3. 번호를 달아 답했다면, 그대로 한 번에 붙여넣으세요. 문항별로 나눠 드립니다.":
+    "If the AI numbered its answers 1. 2. 3., paste the whole thing — we will split it by question.",
+  "AI 답변 전체를 그대로 붙여넣으세요": "Paste the AI's full answer exactly as it came",
+  "문항별로 나누기": "Split by question",
+  "번호를 찾지 못했어요. 답변 앞에 1. 2. 3. 번호가 붙어 있어야 나눌 수 있어요. 아래 칸에 직접 넣어주세요.":
+    "No numbering found. Splitting needs answers that start with 1. 2. 3. — please fill the boxes below by hand.",
+  "{a}개를 나눠 넣었어요. 나머지 {b}개는 아래에서 확인해주세요.":
+    "Filled {a}. Please check the remaining {b} below.",
+  "{a}개를 모두 나눠 넣었어요. 아래에서 한 번 확인해주세요.":
+    "Filled all {a}. Please give them a look below.",
 };

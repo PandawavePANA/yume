@@ -5,7 +5,7 @@
 // 넣어본 답변을 붙여넣는다. 붙여넣기가 번거로우니 문항 복사를 최대한 쉽게 만든다.
 import { useState } from "react";
 import { copyText } from "../../clipboard.js";
-import { apiJson, apiUrl, safeUrl } from "./api.js";
+import { apiJson, apiUrl, safeUrl, CONTACT_EMAIL } from "./api.js";
 import { t } from "../../i18n.js";
 
 const UI = {
@@ -38,11 +38,16 @@ const CITE_STATUS = {
   unverified: { label: "? 조회 불가", fg: "#6A6E76" },
 };
 
+// server/audit/probeBank.js의 DOMAIN_LAWS와 키가 같아야 한다. 업종마다 다른 법령으로
+// 문항을 만들기 때문에, 여기 없는 값을 보내면 법률 문항으로 떨어진다.
 const DOMAINS = [
   ["법률", "로펌·법무팀·법률 상담"],
   ["의료", "병원·제약·헬스케어"],
-  ["금융", "은행·증권·핀테크"],
-  ["일반", "그 외 모든 분야"],
+  ["금융", "은행·증권·보험·핀테크"],
+  ["커머스", "쇼핑몰·유통·고객센터"],
+  ["제조", "제조·건설·산업안전"],
+  ["공공", "공공기관·행정·개인정보"],
+  ["인사", "인사·노무·채용"],
 ];
 
 const field = {
@@ -231,8 +236,66 @@ function Intro({ domain, setDomain, subject, setSubject, busy, onStart }) {
   );
 }
 
+// 답변 한 덩어리를 문항별로 나눈다.
+//
+// 기업 담당자는 질문 8개를 한 번에 자기 AI에 넣고 답도 한 번에 받는다. 그걸 다시 여덟 칸에
+// 손으로 나눠 넣게 하면 거기서 그만둔다 — 실제로 "0 / 8 답변 입력됨"에서 멈춘 화면을 봤다.
+// AI 답변은 거의 항상 "1." "2." 처럼 번호를 달고 오므로 그 번호를 찾아 자른다.
+// 번호를 못 찾으면 억지로 나누지 않고 그대로 두고 알린다 — 잘못 나누면 남의 AI를 엉뚱하게 채점한다.
+export function splitNumberedAnswers(raw, count) {
+  const text = String(raw || "").replace(/\r\n/g, "\n").trim();
+  if (!text || count < 1) return null;
+
+  // 줄 맨 앞의 "1." "2)" "**3.**" "### 4." 같은 표시를 찾는다. 소수점(3.14)이나
+  // 조문 번호(제307조)가 걸리지 않도록 줄 처음에서만, 뒤에 공백이 오는 것만 센다.
+  const marks = [];
+  const re = /^[ \t]*(?:#{1,4}[ \t]*)?(?:\*\*)?(\d{1,2})[.)．][ \t]*(?:\*\*)?(?=\S)/gm;
+  for (let m = re.exec(text); m; m = re.exec(text)) {
+    marks.push({ n: Number(m[1]), start: m.index, bodyAt: m.index + m[0].length });
+  }
+  // 1번부터 차례로 올라가는 번호만 남긴다. 본문 속 "2. 두 번째 이유" 같은 군더더기를 거른다.
+  const seq = [];
+  let want = 1;
+  for (const mk of marks) {
+    if (mk.n === want) { seq.push(mk); want += 1; }
+    if (want > count) break;
+  }
+  if (seq.length < 2) return null;
+
+  const parts = seq.map((mk, i) =>
+    text
+      .slice(mk.bodyAt, i + 1 < seq.length ? seq[i + 1].start : text.length)
+      // "**1.** 답변"처럼 번호를 굵게 쓴 경우 닫는 별표가 본문 앞에 남는다.
+      .replace(/^[*\s]+/, "")
+      .trim(),
+  );
+  return { parts, matched: seq.length };
+}
+
 function AnswerStep({ session, answers, setAnswers, filled, busy, onGrade, copy, copied, onBack }) {
   const allText = session.probes.map((p, i) => `${i + 1}. ${p.question}`).join("\n\n");
+  const [bulk, setBulk] = useState("");
+  const [bulkNote, setBulkNote] = useState("");
+
+  function applyBulk() {
+    const n = session.probes.length;
+    const split = splitNumberedAnswers(bulk, n);
+    if (!split) {
+      setBulkNote(t("번호를 찾지 못했어요. 답변 앞에 1. 2. 3. 번호가 붙어 있어야 나눌 수 있어요. 아래 칸에 직접 넣어주세요."));
+      return;
+    }
+    setAnswers((prev) => {
+      const next = { ...prev };
+      split.parts.forEach((part, i) => { if (session.probes[i] && part) next[session.probes[i].id] = part; });
+      return next;
+    });
+    setBulkNote(
+      split.matched < n
+        ? t("{a}개를 나눠 넣었어요. 나머지 {b}개는 아래에서 확인해주세요.", { a: split.matched, b: n - split.matched })
+        : t("{a}개를 모두 나눠 넣었어요. 아래에서 한 번 확인해주세요.", { a: split.matched }),
+    );
+  }
+
   return (
     <>
       <p style={{ fontSize: 14.5, color: UI.ink2, lineHeight: 1.65, marginTop: 14 }}>{session.instructions}</p>
@@ -244,6 +307,28 @@ function AnswerStep({ session, answers, setAnswers, filled, busy, onGrade, copy,
         <span style={{ fontSize: 13, color: UI.ink3 }}>
           {filled} / {session.probes.length} 답변 입력됨
         </span>
+      </div>
+
+      {/* 답변을 한 번에 받아 문항별로 나눠 준다. 여덟 번 복사·붙여넣기를 한 번으로 줄이는 자리다. */}
+      <div style={{ marginTop: 16, padding: "16px 18px", borderRadius: 16, background: "#FBFAFD", border: `1px solid ${UI.hairline}` }}>
+        <div style={{ fontSize: 13.5, fontWeight: 700, color: UI.ink, marginBottom: 4 }}>{t("답변 전체 붙여넣기")}</div>
+        <div style={{ fontSize: 12.5, color: UI.ink3, lineHeight: 1.6, marginBottom: 10 }}>
+          {t("AI가 1. 2. 3. 번호를 달아 답했다면, 그대로 한 번에 붙여넣으세요. 문항별로 나눠 드립니다.")}
+        </div>
+        <textarea
+          id="audit-bulk"
+          value={bulk}
+          onChange={(e) => { setBulk(e.target.value); setBulkNote(""); }}
+          placeholder={t("AI 답변 전체를 그대로 붙여넣으세요")}
+          rows={4}
+          style={{ ...field, resize: "vertical", lineHeight: 1.6 }}
+        />
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 10, flexWrap: "wrap" }}>
+          <button onClick={applyBulk} disabled={!bulk.trim()} style={{ ...ghostBtn, opacity: bulk.trim() ? 1 : 0.5, padding: "9px 16px", fontSize: 13.5 }}>
+            {t("문항별로 나누기")}
+          </button>
+          {bulkNote && <span style={{ fontSize: 12.5, color: UI.ink2, lineHeight: 1.5 }}>{bulkNote}</span>}
+        </div>
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 18 }}>
@@ -333,10 +418,34 @@ function Result({ report, onRestart }) {
           <div style={{ fontSize: 16.5, fontWeight: 700, marginBottom: 8 }}>{t("이 결과를 두고 드리는 제안")}</div>
           <p style={{ margin: 0, fontSize: 14.5, color: "#CFC9DE", lineHeight: 1.65 }}>{rec.reason}</p>
           <p style={{ margin: "10px 0 0", fontSize: 14.5, color: "#CFC9DE", lineHeight: 1.65 }}>{rec.fit}</p>
-          <a href={apiUrl("/docs/api")} target="_blank" rel="noopener noreferrer"
-            style={{ display: "inline-block", marginTop: 16, background: UI.accent, color: "#fff", textDecoration: "none", borderRadius: 999, padding: "11px 22px", fontWeight: 600, fontSize: 14.5 }}>
-            유메 API 문서 보기 →
-          </a>
+
+          {/* 점수만 주고 끝내면 한 번 쓰고 마는 진단이 된다. 이 숫자가 실제로 몇 건을
+              뜻하는지 보여 주고, 문서가 아니라 사람에게 연결한다 — 도입을 결정하는 쪽은
+              개발자가 아니라 담당자이고, 그 사람에게 필요한 건 API 문서가 아니라 견적이다. */}
+          {s.graded > 0 && (
+            <div style={{ marginTop: 16, padding: "14px 16px", borderRadius: 14, background: "rgba(255,255,255,0.08)" }}>
+              <div style={{ fontSize: 13.5, color: "#EDE9F6", lineHeight: 1.7 }}>
+                이 비율이면 답변 <b>1,000건마다 약 {Math.round(s.rate * 1000).toLocaleString()}건</b>이 지어낸 내용을 담고 나갑니다.
+                유메를 앞에 두면 그 자리에서 걸러지고, 근거가 없을 때는 없다고 답하게 됩니다.
+              </div>
+            </div>
+          )}
+
+          <div style={{ display: "flex", gap: 10, marginTop: 16, flexWrap: "wrap" }}>
+            <a href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent("유메 도입 문의 — 할루시네이션 점검 결과")}&body=${encodeURIComponent(
+              `점검 결과를 보고 문의드립니다.\n\n할루시네이션 지수: ${s.index}/100 (${s.bandLabel})\n채점 문항: ${s.graded}개\n리포트: ${report.report_url ? apiUrl(report.report_url) : "(링크 없음)"}\n\n회사명:\n담당자:\n연락처:\n월 예상 검증 건수:\n`,
+            )}`}
+              style={{ display: "inline-block", background: "#fff", color: "#1F1B2E", textDecoration: "none", borderRadius: 999, padding: "11px 22px", fontWeight: 700, fontSize: 14.5 }}>
+              도입 상담 요청하기 →
+            </a>
+            <a href={apiUrl("/docs/api")} target="_blank" rel="noopener noreferrer"
+              style={{ display: "inline-block", border: "1px solid rgba(255,255,255,0.3)", color: "#fff", textDecoration: "none", borderRadius: 999, padding: "11px 22px", fontWeight: 600, fontSize: 14.5 }}>
+              API 문서 보기
+            </a>
+          </div>
+          <div style={{ marginTop: 12, fontSize: 12.5, color: "#A79FBE", lineHeight: 1.6 }}>
+            상담은 무료입니다. 결과 리포트를 그대로 보내 주시면 월 건수에 맞는 요금을 알려 드립니다.
+          </div>
         </div>
       ) : (
         <div style={{ marginTop: 24, padding: 20, borderRadius: 16, background: "#FBFAFD", border: `1px solid ${UI.hairline}`, color: UI.ink2 }}>

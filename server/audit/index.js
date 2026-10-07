@@ -4,12 +4,12 @@
 // API 키를 넘기는 기업은 없고, 그걸 요구하는 순간 리드 생성 도구로서는 죽는다.
 //   1) 문항 발급: 유메가 오라클로 검증한 질문 묶음을 준다. 기업은 자기 AI에 그대로 넣는다.
 //   2) 답변 채점: 받은 답변을 붙여넣으면 유메가 채점하고 지수를 낸다.
-import { buildProbeSet, PROBE_TYPES } from "./probeBank.js";
+import { buildProbeSet, PROBE_TYPES, AUDIT_DOMAINS } from "./probeBank.js";
 import { gradeAnswer } from "./grade.js";
 import { scoreAudit, buildRecommendation } from "./score.js";
 import { explainResult } from "./explain.js";
 
-export { buildProbeSet, PROBE_TYPES, explainResult };
+export { buildProbeSet, PROBE_TYPES, AUDIT_DOMAINS, explainResult };
 
 const MAX_ANSWER_CHARS = 8000;
 const CONCURRENCY = 3;
