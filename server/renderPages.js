@@ -501,7 +501,10 @@ export function renderApiDocsPage(baseUrl) {
 <tr><td><code>references</code></td><td>array</td><td>선택. 자사 기준 자료 <code>[{ "title": "요금 안내", "text": "…" }]</code>. 최대 5개, 합계 20,000자. 이 자료가 다루는 주장은 웹보다 먼저 이 자료와 대조해 <code>verified_via: "reference"</code>로 판정하고, 근거 문장을 <code>sources[].quote</code>로 돌려줍니다. 자료에 없는 근거로는 판정하지 않습니다.</td></tr>
 <tr><td><code>organization</code></td><td>string</td><td>선택. 자사명. 자사에 관한 주장은 "공개 기록이 없다"는 이유만으로 <code>false</code>가 되지 않습니다(기준 자료가 있으면 그 자료로 판정).</td></tr>
 <tr><td><code>wait</code></td><td>boolean | number</td><td>선택. <code>true</code>면 최대 60초, 숫자면 그 초만큼 기다림</td></tr>
+<tr><td><code>callback_url</code></td><td>string</td><td>선택. 검증이 끝나면(실패 포함) 결과를 이 https 주소로 POST합니다. 폴링이 필요 없습니다. 공인 주소만 가능</td></tr>
+<tr><td><code>callback_secret</code></td><td>string</td><td>선택. 주면 웹훅에 서명합니다(아래 "웹훅"). 저장하지 않습니다</td></tr>
 </table>
+<p>헤더 <code>Idempotency-Key: &lt;임의 문자열&gt;</code>를 붙이면, 응답을 못 받아 다시 보내도 처음 시작한 검증을 그대로 돌려주고 <b>다시 과금하지 않습니다</b>(24시간). 같은 키로 다른 내용을 보내면 <code>422 idempotency_conflict</code>.</p>
 <pre>curl -X POST ${base}/v1/verify \\
   -H "Authorization: Bearer yume_live_..." \\
   -H "Content-Type: application/json" \\
@@ -596,6 +599,20 @@ while job["status"] == "pending":
   "references": [ { "title": "상품 설명서", "text": "…" } ], "wait": 60 }
 → { "count": 2, "pending": 0, "results": [ { "ref": "faq-01", "id": "…", "status": "done", "result": { … } }, … ] }</pre>
 
+<h2>웹훅</h2>
+<p><code>callback_url</code>을 주면 검증이 끝날 때 아래처럼 보냅니다. 묶음 요청은 항목마다 <code>ref</code>를 붙여 하나씩 보냅니다. 2xx를 받지 못하면 최대 4번까지 다시 보냅니다(0초·2초·10초·60초).</p>
+<pre>POST https://고객사/yume-hook
+X-Yume-Event: verification.completed
+X-Yume-Delivery: 3f9a…        // 같은 전달의 재시도는 같은 값
+X-Yume-Timestamp: 1791234567
+X-Yume-Signature: sha256=…    // callback_secret을 줬을 때만
+
+{ "event": "verification.completed", "ref": "faq-01", "id": "…", "status": "done", "result": { … } }</pre>
+<p>서명 확인: <code>hmac_sha256(callback_secret, X-Yume-Timestamp + "." + 원문 본문)</code>의 hex가 <code>sha256=</code> 뒤 값과 같은지 보세요. 시각이 5분 넘게 차이 나면 버리세요(재전송 방지).</p>
+<pre>// Node.js
+const sig = "sha256=" + crypto.createHmac("sha256", SECRET).update(req.headers["x-yume-timestamp"] + "." + rawBody).digest("hex");
+const ok = crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(req.headers["x-yume-signature"]));</pre>
+
 <h2>GET /v1/verify/:id</h2>
 <p>같은 계정의 키로 요청한 검증만 조회할 수 있습니다. 조회는 과금되지 않습니다.</p>
 
@@ -616,6 +633,9 @@ while job["status"] == "pending":
 <tr><th>HTTP</th><th>code</th><th>의미</th></tr>
 <tr><td>400</td><td>invalid_request</td><td>text가 비어 있음</td></tr>
 <tr><td>400</td><td>invalid_references</td><td>기준 자료 형식이 틀림(개수·길이·text 누락)</td></tr>
+<tr><td>400</td><td>invalid_callback / invalid_idempotency_key</td><td>웹훅 주소(https 공인 주소만) 또는 멱등 키 형식이 틀림</td></tr>
+<tr><td>409</td><td>idempotency_in_progress</td><td>같은 키의 첫 요청을 아직 시작하는 중</td></tr>
+<tr><td>422</td><td>idempotency_conflict</td><td>같은 키로 다른 내용을 보냄</td></tr>
 <tr><td>401</td><td>invalid_api_key</td><td>키가 없거나 폐기됨</td></tr>
 <tr><td>404</td><td>not_found</td><td>검증 id가 없거나 다른 계정의 것</td></tr>
 <tr><td>413</td><td>text_too_long</td><td>10,000자 초과</td></tr>

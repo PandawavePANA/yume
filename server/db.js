@@ -99,6 +99,7 @@ const TABLES = [
   "credit_ledger", "bounty_claims", "redemptions", "referrals", "contribution_ledger", "quarter_awards", "claim_cache",
   "credit_orders", "inquiries", "audit_sessions", "audit_reports", "projects", "product_tasks",
   "threads", "thread_messages", "thread_quotes", "lobby_messages", "api_costs", "verdict_corrections",
+  "api_idempotency",
 ];
 const TABLE_REF = new RegExp(`\\b(FROM|JOIN|INTO|UPDATE)\\s+(${TABLES.join("|")})\\b`, "gi");
 const qualify = (sql) => sql.replace(TABLE_REF, (_m, kw, table) => `${kw} ${SCHEMA}.${table}`);
@@ -917,6 +918,26 @@ const MIGRATIONS = [
   CREATE INDEX idx_events_day ON events(kind, day);
   CREATE INDEX idx_events_user ON events(user_id) WHERE user_id IS NOT NULL;
   ALTER TABLE events ENABLE ROW LEVEL SECURITY;
+  `,
+
+  // ── 같은 요청을 두 번 받아도 한 번만 처리한다(API 멱등 키) ──
+  //
+  // 고객사 서버는 응답을 못 받으면 다시 보낸다(시간 초과, 네트워크 끊김). 그때마다 새 검증을
+  // 시작하면 같은 글을 두 번 과금한다. Idempotency-Key 헤더가 같으면 처음 시작한 검증을
+  // 그대로 돌려준다. 본문이 다른데 키가 같으면 실수이므로 거절한다(body_hash).
+  // 하루가 지나면 지운다 — 재시도는 그 안에 끝난다.
+  `
+  CREATE TABLE api_idempotency (
+    api_key_id BIGINT NOT NULL REFERENCES api_keys(id) ON DELETE CASCADE,
+    idem_key TEXT NOT NULL,
+    body_hash TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    refs_json TEXT NOT NULL,
+    created_at BIGINT NOT NULL,
+    PRIMARY KEY (api_key_id, idem_key)
+  );
+  CREATE INDEX idx_api_idem_created ON api_idempotency(created_at);
+  ALTER TABLE api_idempotency ENABLE ROW LEVEL SECURITY;
   `,
 ];
 

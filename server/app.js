@@ -516,6 +516,7 @@ export async function maintenance() {
     await run("DELETE FROM verifications WHERE user_id IS NULL AND source IN ('web', 'kakao') AND created_at < :t", { t: now() - 180 * DAY_MS });
     await run("DELETE FROM verifications WHERE source = 'api' AND created_at < :t", { t: now() - 365 * DAY_MS });
     await run("DELETE FROM api_usage WHERE created_at < :t", { t: now() - 365 * DAY_MS });
+    await run("DELETE FROM api_idempotency WHERE created_at < :t", { t: now() - DAY_MS });
     await run("DELETE FROM chat_messages WHERE created_at < :t", { t: now() - 180 * DAY_MS });
     await run("DELETE FROM error_logs WHERE created_at < :t", { t: now() - 90 * DAY_MS });
     await run("DELETE FROM usage_daily WHERE day < :d", { d: new Date(now() - 40 * 24 * 3600 * 1000).toISOString().slice(0, 10) });

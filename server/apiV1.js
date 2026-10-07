@@ -5,6 +5,8 @@ import { getVerification, newVerificationId } from "./verificationStore.js";
 import { startVerification, MAX_INPUT_CHARS } from "./verifyPipeline.js";
 import { kstMonthStart, one } from "./db.js";
 import { normalizeReferences, MAX_REFERENCES, MAX_REFERENCE_CHARS } from "./referenceCheck.js";
+import { bodyHash, claimKey, readIdempotencyKey, releaseKey } from "./idempotency.js";
+import { deliverWebhook, validateCallback } from "./webhooks.js";
 
 // 유메 검증 API(/v1) — AI 서비스를 운영하는 기업이 자기 서비스의 답변을 유메로 검증하는
 // 공개 API. 계정의 "API 키" 메뉴에서 발급한 키로 인증한다(키는 해시로만 저장).
@@ -21,7 +23,7 @@ const MAX_WAIT_SEC = 60;
 
 router.use((req, res, next) => {
   res.set("Access-Control-Allow-Origin", "*");
-  res.set("Access-Control-Allow-Headers", "Authorization, X-API-Key, Content-Type");
+  res.set("Access-Control-Allow-Headers", "Authorization, X-API-Key, Content-Type, Idempotency-Key");
   res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   if (req.method === "OPTIONS") return res.sendStatus(204);
   next();
@@ -117,6 +119,58 @@ export async function usageInfo(key) {
   return { used, quota: key.monthly_quota, remaining: Math.max(0, key.monthly_quota - used), resets_at: iso(next) };
 }
 
+// ── 멱등 키 · 웹훅 ─────────────────────────────────────────────────────────
+// 둘 다 선택이다. 형식이 틀리면 아무것도 시작하지 않고 무엇이 틀렸는지 알려준다.
+async function readExtras(req, res, key, endpoint) {
+  const idem = readIdempotencyKey(req);
+  if (idem.error) {
+    await recordApiUsage(key.id, { endpoint, statusCode: 400 });
+    fail(res, 400, "invalid_idempotency_key", idem.error);
+    return null;
+  }
+  const cb = validateCallback(req.body?.callback_url, req.body?.callback_secret);
+  if (cb.error) {
+    await recordApiUsage(key.id, { endpoint, statusCode: 400 });
+    fail(res, 400, "invalid_callback", cb.error);
+    return null;
+  }
+  return { idemKey: idem.key, callback: cb.url ? cb : null };
+}
+
+// 같은 키로 다시 온 요청: 처음 시작한 검증을 그대로 돌려준다. 새로 시작하지도, 과금하지도 않는다.
+async function replay(res, key, row, endpoint, hash) {
+  if (row.body_hash !== hash) {
+    await recordApiUsage(key.id, { endpoint, statusCode: 422 });
+    return fail(res, 422, "idempotency_conflict", "같은 Idempotency-Key로 다른 내용을 보냈습니다. 새 요청이면 새 키를 쓰세요.");
+  }
+  await recordApiUsage(key.id, { endpoint, statusCode: 200 });
+  res.set("Idempotent-Replayed", "true");
+  const views = await Promise.all(row.refs.map(async (r) => ({ ref: r.ref, v: r.id ? await getVerification(r.id) : null })));
+  if (row.kind === "single") {
+    const v = views[0]?.v;
+    if (!v) return fail(res, 409, "idempotency_in_progress", "같은 Idempotency-Key 요청을 아직 시작하는 중입니다. 잠시 후 다시 보내주세요.");
+    return res.status(v.status === "pending" ? 202 : 200).json({ ...publicVerification(v), poll_url: `/v1/verify/${v.id}`, replayed: true, usage: await usageInfo(key) });
+  }
+  const results = views.map(({ ref, v }) =>
+    v ? { ref, ...publicVerification(v), poll_url: `/v1/verify/${v.id}` } : { ref, status: "error", error: { code: "start_failed", message: "검증을 시작하지 못했습니다. 다시 보내주세요." } },
+  );
+  const pending = results.filter((r) => r.status === "pending").length;
+  return res.status(pending ? 202 : 200).json({ count: results.length, pending, results, replayed: true, usage: await usageInfo(key) });
+}
+
+// 검증이 끝나면(실패해도) 고객사 주소로 결과를 보낸다. 응답은 기다리지 않는다.
+function notifyWhenDone(callback, done, id, ref) {
+  if (!callback || !id) return;
+  Promise.resolve(done)
+    .catch(() => null)
+    .then(async () => {
+      const v = await getVerification(id);
+      if (!v) return;
+      await deliverWebhook({ url: callback.url, secret: callback.secret, payload: { ...(ref != null ? { ref } : {}), ...publicVerification(v) } });
+    })
+    .catch(() => {});
+}
+
 router.post("/verify", requireApiKey, async (req, res) => {
   const key = req.apiKey;
   const text = typeof req.body?.text === "string" ? req.body.text.trim() : "";
@@ -133,8 +187,24 @@ router.post("/verify", requireApiKey, async (req, res) => {
     await recordApiUsage(key.id, { endpoint: "POST /v1/verify", statusCode: 400 });
     return fail(res, 400, "invalid_references", ctx.error);
   }
+  const extras = await readExtras(req, res, key, "POST /v1/verify");
+  if (!extras) return;
+
+  const id = newVerificationId();
+  // 멱등 키는 한도 확인보다 먼저 본다. 이미 처리한 요청의 재시도는 한도와 무관하게 처음 결과를 돌려줘야 한다.
+  const hash = bodyHash({ text, references: req.body?.references ?? null, organization: req.body?.organization ?? null, callback_url: req.body?.callback_url ?? null });
+  if (extras.idemKey) {
+    const claim = await claimKey(key.id, extras.idemKey, { hash, kind: "single", refs: [{ ref: null, id }] });
+    if (!claim.fresh) {
+      if (claim.row) return replay(res, key, claim.row, "POST /v1/verify", hash);
+      return fail(res, 409, "idempotency_in_progress", "같은 Idempotency-Key 요청을 처리하는 중입니다. 잠시 후 다시 보내주세요.");
+    }
+  }
+  const release = () => (extras.idemKey ? releaseKey(key.id, extras.idemKey) : null);
+
   const usage = await usageInfo(key);
   if (usage.remaining <= 0) {
+    await release();
     await recordApiUsage(key.id, { endpoint: "POST /v1/verify", statusCode: 429 });
     // 이 응답을 받는 건 사람이 아니라 고객사의 서버다. 메일 주소 대신 요금표 주소를 준다 —
     // 개발자가 로그에서 이걸 보고 담당자에게 그대로 넘길 수 있어야 한다.
@@ -148,7 +218,6 @@ router.post("/verify", requireApiKey, async (req, res) => {
     );
   }
 
-  const id = newVerificationId();
   // 한도는 과금 행 수로 센다. 결과를 기다린 뒤(최대 60초)에야 행을 남기면 그 사이에 들어온
   // 요청이 전부 한도 확인을 통과한다. 받아들이는 순간 먼저 잡아 둔다.
   const usageId = await recordApiUsage(key.id, { verificationId: id, endpoint: "POST /v1/verify", statusCode: 202, billable: true });
@@ -167,10 +236,12 @@ router.post("/verify", requireApiKey, async (req, res) => {
       organization: ctx.organization,
     }));
   } catch (e) {
-    // 시작도 못 한 요청은 과금하지 않는다.
+    // 시작도 못 한 요청은 과금하지 않는다. 멱등 키도 놓아준다 — 다시 보내면 새로 시작해야 한다.
     if (usageId) await finishApiUsage(usageId, { statusCode: 500, cached: false, billable: false });
+    await release();
     throw e;
   }
+  notifyWhenDone(extras.callback, done, id, null);
 
   // wait를 주지 않아도 캐시 재사용분은 곧바로 끝나므로 아주 잠깐은 기다려 완료 상태로 돌려준다.
   const waitSec = req.body?.wait === true ? MAX_WAIT_SEC : Math.min(MAX_WAIT_SEC, Math.max(0, Number(req.body?.wait) || 0));
@@ -224,9 +295,23 @@ router.post("/verify/batch", requireApiKey, async (req, res) => {
     await recordApiUsage(key.id, { endpoint: "POST /v1/verify/batch", statusCode: 400 });
     return fail(res, 400, "invalid_references", ctx.error);
   }
+  const extras = await readExtras(req, res, key, "POST /v1/verify/batch");
+  if (!extras) return;
+
+  // 항목마다 id를 먼저 정해 둔다. 멱등 키가 이 id들을 기억해야 재시도에 같은 결과를 돌려줄 수 있다.
+  for (const it of items) it.id = newVerificationId();
+  const hash = bodyHash({ items: items.map(({ ref, text }) => ({ ref, text })), references: req.body?.references ?? null, organization: req.body?.organization ?? null, callback_url: req.body?.callback_url ?? null });
+  if (extras.idemKey) {
+    const claim = await claimKey(key.id, extras.idemKey, { hash, kind: "batch", refs: items.map(({ ref, id }) => ({ ref, id })) });
+    if (!claim.fresh) {
+      if (claim.row) return replay(res, key, claim.row, "POST /v1/verify/batch", hash);
+      return fail(res, 409, "idempotency_in_progress", "같은 Idempotency-Key 요청을 처리하는 중입니다. 잠시 후 다시 보내주세요.");
+    }
+  }
 
   const usage = await usageInfo(key);
   if (usage.remaining < items.length) {
+    if (extras.idemKey) await releaseKey(key.id, extras.idemKey);
     await recordApiUsage(key.id, { endpoint: "POST /v1/verify/batch", statusCode: 429 });
     return fail(
       res, 429, "quota_exceeded",
@@ -237,8 +322,7 @@ router.post("/verify/batch", requireApiKey, async (req, res) => {
 
   const waitSec = req.body?.wait === true ? MAX_WAIT_SEC : Math.min(MAX_WAIT_SEC, Math.max(0, Number(req.body?.wait) || 0));
   const started = await Promise.all(
-    items.map(async ({ ref, text }) => {
-      const id = newVerificationId();
+    items.map(async ({ ref, text, id }) => {
       const usageId = await recordApiUsage(key.id, { verificationId: id, endpoint: "POST /v1/verify/batch", statusCode: 202, billable: true });
       try {
         const { done } = await startVerification({
@@ -246,6 +330,8 @@ router.post("/verify/batch", requireApiKey, async (req, res) => {
           clientKey: `key:${key.id}`, dataConsent: !!key.data_sharing && !ctx.refs.length,
           references: ctx.refs, organization: ctx.organization,
         });
+        // 웹훅은 항목마다 보낸다(ref를 붙여서). 묶음 전체를 기다리면 빠른 항목이 느린 항목을 기다린다.
+        notifyWhenDone(extras.callback, done, id, ref);
         return { ref, id, usageId, done: done.catch(() => null) };
       } catch {
         // 시작도 못 한 항목은 과금하지 않는다.
@@ -294,6 +380,7 @@ router.get("/", (req, res) => {
     version: "v1",
     docs: "/docs/api",
     auth: "Authorization: Bearer <API 키> (유메 계정 > API 키에서 발급)",
+    idempotency: "Idempotency-Key 헤더 — 같은 키로 다시 보내면 처음 결과를 과금 없이 돌려줌(24시간)",
     endpoints: [
       {
         method: "POST", path: "/v1/verify",
@@ -301,6 +388,7 @@ router.get("/", (req, res) => {
           text: "string (최대 10,000자) — AI가 쓴 글이든 사람이 쓴 글이든",
           references: `[{ title?, text }] (선택, 최대 ${MAX_REFERENCES}개·합계 ${MAX_REFERENCE_CHARS.toLocaleString()}자) — 자사 기준 자료. 다루는 주장은 이 자료와 먼저 대조`,
           organization: "string (선택) — 자사명. 자사에 관한 주장은 공개 기록이 없다는 이유로 '사실과 다름'이 되지 않는다",
+          callback_url: "https 주소 (선택) — 끝나면 결과를 POST(웹훅). callback_secret을 주면 X-Yume-Signature로 서명",
           wait: "boolean | 초(최대 60) — 결과가 나올 때까지 기다림",
         },
         returns: "claims[]: verdict, explanation, sources, quote·span(원문 속 위치), suggested_fix(사실과 다름일 때 고친 문장)",

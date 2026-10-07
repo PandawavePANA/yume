@@ -457,3 +457,91 @@ test("카카오 스킬: 비밀 헤더 확인과 응답 형식", async () => {
     delete process.env.KAKAO_SKILL_SECRET;
   }
 });
+
+// ── 웹훅·멱등 키 ──
+// 고객사가 폴링 코드를 쓰지 않아도 결과를 받고(웹훅), 응답을 못 받아 다시 보내도
+// 두 번 과금되지 않아야(멱등 키) 하루 만에 붙일 수 있다.
+test("API 웹훅은 서명해서 보내고, 같은 Idempotency-Key는 처음 결과를 다시 준다(과금 없이)", async () => {
+  const { signPayload, validateCallback } = await import("../webhooks.js");
+  const http = await import("node:http");
+
+  // 운영에서는 공인 https 주소만 받는다(SSRF 방지).
+  delete process.env.YUME_WEBHOOK_ALLOW_PRIVATE;
+  assert.ok(validateCallback("http://example.com/hook").error, "https만");
+  assert.ok(validateCallback("https://127.0.0.1/hook").error, "루프백 불가");
+  assert.ok(validateCallback("https://10.1.2.3/hook").error, "사설 IP 불가");
+  assert.ok(validateCallback("https://localhost/hook").error, "localhost 불가");
+  assert.ok(validateCallback("https://user:pw@example.com/hook").error, "계정 정보 불가");
+  assert.equal(validateCallback("https://example.com/hook", "s").url, "https://example.com/hook");
+  assert.deepEqual(validateCallback(undefined), { url: null, secret: "" });
+
+  // 테스트에서는 로컬 수신 서버로 보낸다.
+  process.env.YUME_WEBHOOK_ALLOW_PRIVATE = "1";
+  const received = [];
+  const hook = http.createServer((req, res) => {
+    let body = "";
+    req.on("data", (c) => (body += c));
+    req.on("end", () => {
+      received.push({ headers: req.headers, body });
+      res.writeHead(204).end();
+    });
+  });
+  await new Promise((r) => hook.listen(0, "127.0.0.1", r));
+  const hookUrl = `http://127.0.0.1:${hook.address().port}/yume`;
+
+  try {
+    const owner = client();
+    await owner("POST", "/api/auth/signup", signupBody("hook@yume.test", { company: "웹훅AI" }));
+    const key = (await owner("POST", "/api/account/api-keys", { label: "웹훅" })).data.key;
+    const auth = { Authorization: `Bearer ${key}`, "Content-Type": "application/json" };
+
+    const text = "웹훅 시험용 문장: 대법원 2019다123457 판결은 존재한다.";
+    await seedVerification({ id: "seedhook000000001", input: text, claims: [{ text, domain: "법률", verdict: "false", verified_via: "nec", explanation: "부존재", sources: [] }] });
+
+    const body = JSON.stringify({ text, callback_url: hookUrl, callback_secret: "s3cret" });
+    const first = await fetch(`${base}/v1/verify`, { method: "POST", headers: { ...auth, "Idempotency-Key": "order-42" }, body });
+    assert.equal(first.status, 200);
+    const job = await first.json();
+    const usedAfterFirst = job.usage.used;
+
+    // 결과가 수신 서버로 온다(서명 포함).
+    for (let i = 0; i < 40 && received.length === 0; i++) await new Promise((r) => setTimeout(r, 50));
+    assert.equal(received.length, 1, "웹훅 한 번");
+    const got = received[0];
+    const payload = JSON.parse(got.body);
+    assert.equal(payload.event, "verification.completed");
+    assert.equal(payload.id, job.id);
+    assert.equal(payload.status, "done");
+    assert.equal(got.headers["x-yume-signature"], signPayload("s3cret", got.headers["x-yume-timestamp"], got.body), "서명이 맞아야 함");
+
+    // 같은 키·같은 내용으로 다시 → 처음 검증을 그대로, 과금 없이.
+    const again = await fetch(`${base}/v1/verify`, { method: "POST", headers: { ...auth, "Idempotency-Key": "order-42" }, body });
+    assert.equal(again.status, 200);
+    assert.equal(again.headers.get("idempotent-replayed"), "true");
+    const replayed = await again.json();
+    assert.equal(replayed.id, job.id, "같은 검증 id");
+    assert.equal(replayed.replayed, true);
+    assert.equal(replayed.usage.used, usedAfterFirst, "다시 보낸 요청은 과금하지 않음");
+
+    // 같은 키로 다른 내용 → 실수이므로 거절.
+    const conflict = await fetch(`${base}/v1/verify`, { method: "POST", headers: { ...auth, "Idempotency-Key": "order-42" }, body: JSON.stringify({ text: `${text} 다른 글` }) });
+    assert.equal(conflict.status, 422);
+    assert.equal((await conflict.json()).error.code, "idempotency_conflict");
+
+    // 키 형식 검사
+    const badKey = await fetch(`${base}/v1/verify`, { method: "POST", headers: { ...auth, "Idempotency-Key": "has space" }, body });
+    assert.equal(badKey.status, 400);
+
+    // 묶음도 같은 규칙: 두 번째는 같은 id들을 과금 없이.
+    const batchBody = JSON.stringify({ items: [{ ref: "x", text }, { ref: "y", text }] });
+    const b1 = await (await fetch(`${base}/v1/verify/batch`, { method: "POST", headers: { ...auth, "Idempotency-Key": "batch-1" }, body: batchBody })).json();
+    const b2res = await fetch(`${base}/v1/verify/batch`, { method: "POST", headers: { ...auth, "Idempotency-Key": "batch-1" }, body: batchBody });
+    const b2 = await b2res.json();
+    assert.deepEqual(b2.results.map((r) => r.id), b1.results.map((r) => r.id));
+    assert.deepEqual(b2.results.map((r) => r.ref), ["x", "y"]);
+    assert.equal(b2.usage.used, b1.usage.used, "묶음 재시도도 과금 없음");
+  } finally {
+    hook.close();
+    delete process.env.YUME_WEBHOOK_ALLOW_PRIVATE;
+  }
+});
