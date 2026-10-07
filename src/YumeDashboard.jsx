@@ -676,7 +676,7 @@ export default function YumeDashboard() {
   const [authModal, setAuthModal] = useState(null); // null | "login" | "signup" | "forgot"
   // 모바일에서 본인확인창을 다녀오면 페이지가 새로 뜬다. 그때 찾아낸 계정을 모달에 다시 쥐여 준다.
   const [resetAccounts, setResetAccounts] = useState(null);
-  const [accountTab, setAccountTab] = useState(null); // null | "profile" | "api" | "data" | "security"
+  const [accountTab, setAccountTab] = useState(null); // null | "profile" | "credits" | "batch" | "api" | "data" | "security"
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [showBiz, setShowBiz] = useState(false);
   const [showAudit, setShowAudit] = useState(false);
@@ -1391,6 +1391,7 @@ export default function YumeDashboard() {
                       {[
                         ...(IS_STORE_BUILD ? [] : [[t("크레딧 충전"), () => openStore("credits")]]),
                         [t("계정 설정"), () => setAccountTab("profile")],
+                        [t("일괄 검증"), () => setAccountTab("batch")],
                         [t("API 키"), () => setAccountTab("api")],
                         [t("데이터 · 개인정보"), () => setAccountTab("data")],
                         ...(user.role === "admin"
