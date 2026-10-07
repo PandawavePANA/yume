@@ -1,10 +1,12 @@
-import { extractAndVerify } from "./claude.js";
+import { extractAndVerify, writeSuggestedFixes } from "./claude.js";
+import { attachSpans } from "./claimSpan.js";
+import { referenceScope } from "./referenceCheck.js";
 import { resolveLegalClaims } from "./legalPipeline.js";
 import { resolveIdentifierClaims } from "./identifierPipeline.js";
 import { resolveUncertainClaims } from "./resolveUncertain.js";
 import { reviewAccusations } from "./reviewAccusations.js";
 import { applyCache, storeAll } from "./claimCache.js";
-import { sanitizeClaim } from "./claimGuard.js";
+import { dropStaleFix, sanitizeClaim } from "./claimGuard.js";
 import { buildOverallVerdict } from "./overallVerdict.js";
 import { resolveProductLinks } from "./coupang.js";
 import { logError } from "./errorLog.js";
@@ -31,20 +33,23 @@ export const MAX_INPUT_CHARS = 10_000;
 // 주장을 그대로 내보내면, 처음 것은 5~8초에 보이고 나머지가 그 위에서 채워진다.
 // 기다리는 시간 자체는 그대로지만 기다리는 경험이 달라진다 — 빈 화면을 보는 것과
 // 결과가 하나씩 쌓이는 것을 보는 것은 다른 일이다.
-async function processVerification({ id, text, source, onProgress = () => {}, onClaims = () => {} }) {
+async function processVerification({ id, text, source, onProgress = () => {}, onClaims = () => {}, references = [], organization = "" }) {
+  // 기업이 보낸 기준 자료·자사명이 있으면 결과 캐시를 그 조건으로 나눈다(referenceCheck.js).
+  const scope = referenceScope(references, organization);
   const startedAt = Date.now();
   try {
-    const cached = await findCached(text);
+    const cached = await findCached(text, scope);
     if (cached) {
       onProgress("전에 확인한 내용이라 저장된 결과를 바로 보여드려요…");
       await completeVerification(id, cached, { fromCache: true, elapsedMs: Date.now() - startedAt });
       return { result: cached, fromCache: true };
     }
 
-    onProgress("AI 답변에서 사실 주장을 추출하는 중…");
+    // AI 답변만 받는 게 아니다 — 보도자료·상품 설명·상담 기록, 누가 쓴 글이든 같은 길로 간다.
+    onProgress("글에서 사실 주장을 찾는 중…");
     // 이 검증 한 건이 Claude를 몇 번 부르고 검색을 몇 번 돌렸는지 모은다.
     const ledger = newLedger();
-    const extracted = await extractAndVerify(text, onProgress, { ledger });
+    const extracted = await extractAndVerify(text, onProgress, { ledger, references });
     const legalCount = extracted.claims.filter((c) => c.domain === "법률").length;
     onProgress(
       legalCount > 0
@@ -69,7 +74,7 @@ async function processVerification({ id, text, source, onProgress = () => {}, on
     // 아래 재확인 대상에 포함된다 — 거르는 순서가 반대면 근거를 찾아볼 기회 없이 강등만 된다.
     claims = claims.map(sanitizeClaim);
     // 결론이 안 난 주장을 도메인별로 한 번 더 판다. 근거를 찾으면 판정이 살아 돌아온다.
-    claims = await resolveUncertainClaims(claims, { onProgress, ledger });
+    claims = await resolveUncertainClaims(claims, { onProgress, ledger, organization });
     show();
     // 재확인이 만들어낸 판정도 같은 잣대로 다시 거른다(이미 강등된 건 건드리지 않는다).
     claims = claims.map(sanitizeClaim);
@@ -83,8 +88,22 @@ async function processVerification({ id, text, source, onProgress = () => {}, on
     const reusedCount = claims.filter((c) => c.from_claim_cache).length;
     claims = claims.map(({ from_claim_cache: _c, ...rest }) => rest);
 
+    // 위치와 고친 문장은 판정이 다 끝난 뒤에 붙인다. 판정이 중간에 바뀌면(지목 철회·근거 부족)
+    // 고친 문장이 맞는 문장을 고치라고 권하게 된다.
+    claims = attachSpans(text, claims);
+    if (claims.some((c) => c.verdict === "false")) {
+      onProgress("틀린 문장을 어떻게 고치면 되는지 정리하는 중…");
+      // 고친 문장은 덤이다. 실패해도 판정은 그대로 나간다.
+      claims = await writeSuggestedFixes(claims, { ledger }).catch((e) => {
+        logError("verify:fix", e);
+        return claims;
+      });
+    }
+    // 내부 표시는 내보내지 않는다(기준 자료로 판정했다는 사실은 verified_via: "reference"가 말한다).
+    claims = claims.map(dropStaleFix).map(({ from_reference: _r, ...rest }) => rest);
     const overall = buildOverallVerdict(claims);
-    const relatedProducts = await resolveProductLinks(extracted.related_products);
+    // 기업 API 응답에는 상품 링크를 싣지 않는다(publicVerification이 빼고 보낸다). 쿠팡 조회도 하지 않는다.
+    const relatedProducts = source === "api" ? [] : await resolveProductLinks(extracted.related_products);
     // 추출 단계의 한 줄 요약은 공식 대조·부존재 판정 전에 쓰인 것이라, 뒤 단계에서 판정이
     // 바뀌었을 수 있는 경우엔 버리고 결정론적 총평만 보여준다.
     //
@@ -121,8 +140,8 @@ async function processVerification({ id, text, source, onProgress = () => {}, on
   }
 }
 
-function create({ id, text, source, userId = null, apiKeyId = null, clientKey = null, dataConsent = false }) {
-  return createVerification({ id, source, userId, apiKeyId, clientKey, input: text, dataConsent });
+function create({ id, text, source, userId = null, apiKeyId = null, clientKey = null, dataConsent = false, references = [], organization = "" }) {
+  return createVerification({ id, source, userId, apiKeyId, clientKey, input: text, dataConsent, scope: referenceScope(references, organization) });
 }
 
 // 웹(SSE)처럼 결과가 나올 때까지 기다리는 경로. 검증 기록은 항상 DB에 남는다.

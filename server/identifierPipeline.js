@@ -9,7 +9,8 @@ import { SCHOLARLY_LOOKUP } from "./nec/scholarly.js";
 const MAX_PER_CLAIM = 3;
 
 export async function resolveIdentifierClaims(claims, { onProgress = () => {}, lookups = SCHOLARLY_LOOKUP } = {}) {
-  return Promise.all(claims.map((c) => resolveClaim(c, onProgress, lookups)));
+  // 기업 기준 자료로 판정이 끝난 주장은 건드리지 않는다(referenceCheck.js).
+  return Promise.all(claims.map((c) => (c.from_reference ? c : resolveClaim(c, onProgress, lookups))));
 }
 
 async function resolveClaim(claim, onProgress, lookups) {

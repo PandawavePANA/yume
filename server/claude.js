@@ -275,6 +275,7 @@ const EXTRACT_SYSTEM_PROMPT = `당신은 '유메'라는 팩트체크 엔진입�
   "claims": [
     {
       "text": "주장 (60자 이내)",
+      "quote": "그 주장이 나온 원문 부분을 한 글자도 바꾸지 않고 그대로 (최대 150자)",
       "domain": "법률|의료|금융|역사|과학|일반",
       "verdict": "confirmed|false|uncertain|pending_legal_check",
       "explanation": "구체적 근거 (100자 이내, 법률 주장이면 빈 문자열도 가능)",
@@ -313,6 +314,7 @@ const EXTRACT_ONLY_PROMPT = `당신은 '유메' 팩트체크 엔진의 첫 단�
 - **주장 개수는 글에 실제로 들어 있는 만큼입니다.** 긴 답변이면 3~7개로 굵직하게 나누고, 한 줄 질문이면 1개가 정상입니다. 없는 주장을 만들어 개수를 채우지 마세요.
 - 확인할 사실 주장이 하나도 없으면(순수한 질문 "한국의 수도는 어디야?", 인사, 의견 요청) claims를 빈 배열로 두고 note에 이유를 쓰세요. **빈 배열일 때 note는 반드시 채웁니다.** 글이 두 문단을 넘는데 빈손이면 거의 틀린 판단이니, 다시 읽고 단정하는 문장을 찾으세요.
 - 주장 문장은 원문의 수치·연도·이름·조건을 **그대로** 옮기세요. 틀려 보여도 고치지 마세요 — 고치면 검증할 대상이 사라집니다. 한 주장에 필요한 조건(누구에게, 언제, 몇 %)이 빠지지 않게 하세요.
+- 주장마다 quote에 **그 주장이 나온 원문 부분을 한 글자도 바꾸지 말고 그대로** 옮기세요(보통 한 문장, 최대 150자). 요약하거나 다듬지 마세요 — 원문에서 그 위치를 찾아 표시하는 데 씁니다. 짧은 질문 한 줄이면 그 질문 전체입니다.
 - 원문이 스스로 정정한 내용이 있으면 정정된 최종 주장을 뽑습니다.
 - 도메인을 "법률", "의료", "금융", "역사", "과학", "일반" 중 하나로 분류하세요. 법령·조문·판례·행정규칙·법적 의무/처벌/권리에 관한 주장은 "법률"입니다.
 - domain이 "법률"이면 legal_ref를 최대한 구체적으로 채우세요:
@@ -326,7 +328,7 @@ const EXTRACT_ONLY_PROMPT = `당신은 '유메' 팩트체크 엔진의 첫 단�
 - 이 글을 읽는 사람에게 실제로 쓸모 있는 상품 카테고리(쿠팡 검색 키워드)를 0~3개 제안하세요. 주제와 자연스럽게 이어질 때만. 법률 해설처럼 상품과 무관하면 빈 배열이 맞습니다.
 
 반드시 아래 JSON 형식으로만 응답하세요. 다른 설명, 코드블록을 붙이지 마세요.
-{"overall_domain":"주요 도메인","note":"주장이 없을 때만 그 이유","claims":[{"text":"주장 (60자 이내)","domain":"법률|의료|금융|역사|과학|일반","identifiers":[{"type":"doi|arxiv|pmid|isbn","value":"원문 그대로"}],"legal_ref":{"type":"statute|case|unspecified","law_name":"","article":"","case_number":"","court":"","keyword":""}}],"related_products":[{"keyword":"쿠팡 검색용 키워드","reason":"이 내용과 어떻게 이어지는지 (40자 이내)"}]}
+{"overall_domain":"주요 도메인","note":"주장이 없을 때만 그 이유","claims":[{"text":"주장 (60자 이내)","quote":"원문 그대로의 해당 부분","domain":"법률|의료|금융|역사|과학|일반","identifiers":[{"type":"doi|arxiv|pmid|isbn","value":"원문 그대로"}],"legal_ref":{"type":"statute|case|unspecified","law_name":"","article":"","case_number":"","court":"","keyword":""}}],"related_products":[{"keyword":"쿠팡 검색용 키워드","reason":"이 내용과 어떻게 이어지는지 (40자 이내)"}]}
 legal_ref는 domain이 "법률"인 항목에만 넣으세요.`;
 
 const WEB_VERIFY_PROMPT = `당신은 '유메' 팩트체크 엔진의 웹 판정 담당입니다. 아래 번호가 붙은 사실 주장들이 맞는지 web_search 도구로 실제로 찾아보고 판정하세요. 원문은 문맥 파악용으로만 함께 드립니다.
@@ -381,6 +383,8 @@ async function extractClaimsOnly(text, { ledger = null } = {}) {
       const domain = ["법률", "의료", "금융", "역사", "과학", "일반"].includes(c.domain) ? c.domain : "일반";
       return {
         text: String(c.text).trim(),
+        // 위치는 파이프라인 끝에서 원문과 맞춰 본다(claimSpan.js). 여기서는 받은 그대로만 둔다.
+        ...(typeof c.quote === "string" && c.quote.trim() ? { quote: c.quote.trim().slice(0, 300) } : {}),
         domain,
         verdict: domain === "법률" ? "pending_legal_check" : "uncertain",
         explanation: "",
@@ -446,14 +450,21 @@ async function verifyClaimsOnWeb(text, claims, { ledger = null, onProgress = () 
   };
 }
 
-async function extractAndVerifySplit(text, onProgress, { ledger }) {
+async function extractAndVerifySplit(text, onProgress, { ledger, references = [] }) {
   const extracted = await extractClaimsOnly(text, { ledger });
   if (!extracted.claims.length) {
     return { overall_domain: extracted.overall_domain, summary: extracted.note || "확인할 사실 주장이 없습니다.", claims: [], related_products: [] };
   }
-  const webIdx = extracted.claims.map((c, i) => (c.domain === "법률" ? -1 : i)).filter((i) => i >= 0);
+  let claims = [...extracted.claims];
+  // 기업이 기준 자료를 함께 보냈으면, 그 자료가 다루는 주장은 웹보다 먼저 그 자료와 대조한다.
+  // 대조가 끝난 주장은 웹 판정에서 빼서 검색 비용도 아낀다. 실패하면 기준 자료 없이 계속한다.
+  if (references.length) {
+    onProgress(`${claims.length}개 주장을 찾았습니다. 보내 주신 기준 자료와 먼저 대조하는 중…`);
+    const { checkAgainstReferences } = await import("./referenceCheck.js");
+    claims = await checkAgainstReferences(claims, references, { ledger }).catch(() => claims);
+  }
+  const webIdx = claims.map((c, i) => (c.domain === "법률" || c.from_reference ? -1 : i)).filter((i) => i >= 0);
   let summary = null;
-  const claims = [...extracted.claims];
   if (webIdx.length) {
     onProgress(`${extracted.claims.length}개 주장을 찾았습니다. 웹에서 확인하는 중…`);
     const verified = await verifyClaimsOnWeb(text, webIdx.map((i) => claims[i]), { ledger, onProgress });
@@ -463,8 +474,9 @@ async function extractAndVerifySplit(text, onProgress, { ledger }) {
   return { overall_domain: extracted.overall_domain, summary, claims, related_products: extracted.related_products };
 }
 
-export async function extractAndVerify(text, onProgress = () => {}, { ledger = null } = {}) {
-  if (process.env.YUME_EXTRACT_MODE !== "single") return extractAndVerifySplit(text, onProgress, { ledger });
+export async function extractAndVerify(text, onProgress = () => {}, { ledger = null, references = [] } = {}) {
+  // 기준 자료 대조는 나눠 부르는 경로에만 있다. 기준 자료가 오면 비상용 한 번 호출 모드여도 나눠 부른다.
+  if (process.env.YUME_EXTRACT_MODE !== "single" || references.length) return extractAndVerifySplit(text, onProgress, { ledger, references });
   const raw = await callClaudeStreaming({
     system: EXTRACT_SYSTEM_PROMPT,
     label: "extract",
@@ -505,6 +517,43 @@ ${text}` },
     return { ...second, claims: [] };
   }
   return parsed;
+}
+
+// ── 틀린 문장을 어떻게 고치면 되는지 ──────────────────────────────────────────
+//
+// 기업이 판정을 받고 다음에 하는 일은 그 문장을 고치는 것이다. "사실과 다름 — 실제로는
+// 3년"까지만 주면, 보도자료 담당자는 문장을 다시 쓰다가 또 틀린다. 고친 문장까지 주면
+// 그대로 바꿔 넣는다. 이게 "판정 도구"와 "검수 도구"의 차이다.
+//
+// 판정이 다 끝난 뒤 한 번만 부른다. 판정 경로(웹·법제처·심층 재확인·지목 재확인)마다
+// 따로 쓰게 하면 경로가 늘 때마다 빠뜨린다. 여기서는 최종 판정이 "사실과 다름"인 것만,
+// 그 판정의 설명에 적힌 실제 값만으로 고친다 — 새로운 사실을 지어낼 자리가 아니다.
+const FIX_PROMPT = `당신은 '유메' 팩트체크의 마지막 단계입니다. 아래 항목들은 이미 "사실과 다름"으로 판정이 끝났습니다. 각 항목의 원문 문장을, 판정 근거에 적힌 실제 값에 맞게 고친 문장을 쓰세요.
+
+- 원문의 문체·어조·길이를 그대로 두고 **틀린 부분만** 바꾸세요. 다른 부분을 다듬지 마세요.
+- 고칠 값은 **판정 근거에 적힌 것만** 쓰세요. 근거에 실제 값이 없으면 지어내지 말고 fix를 빈 문자열로 두세요.
+- "존재하지 않는 조문·판례·논문"처럼 대상 자체가 없으면, 그 인용을 빼거나 근거에 나온 실제 대상으로 바꾼 문장을 쓰세요. 바꿀 대상이 근거에 없으면 인용을 뺀 문장을 쓰세요.
+
+반드시 아래 JSON으로만 답하세요.
+{"fixes":[{"n":1,"fix":"고친 문장"}]}`;
+
+export async function writeSuggestedFixes(claims, { ledger = null } = {}) {
+  const targets = claims
+    .map((c, i) => ({ c, i }))
+    .filter(({ c }) => c.verdict === "false" && String(c.explanation || "").trim());
+  if (!targets.length) return claims;
+  const list = targets
+    .map(({ c }, k) => `${k + 1}. 원문 문장: ${c.quote || c.text}\n   판정 근거: ${String(c.explanation).slice(0, 400)}`)
+    .join("\n\n");
+  const parsed = await callClaudeJson({ system: FIX_PROMPT, user: list, maxTokens: 1500, ledger, label: "fix" });
+  const byN = new Map((Array.isArray(parsed?.fixes) ? parsed.fixes : []).map((f) => [Number(f.n), String(f.fix || "").trim()]));
+  const out = [...claims];
+  targets.forEach(({ c, i }, k) => {
+    const fix = byN.get(k + 1);
+    // 원문과 같으면 고친 게 아니다. 너무 길면 문장이 아니라 해설을 쓴 것이다.
+    if (fix && fix !== (c.quote || c.text).trim() && fix.length <= 400) out[i] = { ...c, suggested_fix: fix };
+  });
+  return out;
 }
 
 const GROUNDING_SYSTEM_PROMPT = `당신은 유메의 법률 판정 보조입니다. 웹검색을 쓰지 말고, 아래 제공된 "공식 조회 결과" 텍스트만 근거로 판단하세요. 배경지식으로 추측하지 마세요. 공식 텍스트에 없는 내용은 판단하지 마세요.
@@ -625,6 +674,10 @@ confirmed나 false로 판정할 때는 sources에 실제로 근거가 된 URL을
 **특히 주의 — "무엇이 존재한다"는 주장.**
 회사·가게·단체·사람이 존재한다는 주장은 웹에 흔적이 없다고 없는 것이 아닙니다. 비상장 소규모 법인, 이번 달에 낸 사업자등록, 1인 사업자, 동네 가게는 검색해도 나오지 않는 게 정상입니다. 이런 주장은 상장사·공시 의무가 있는 법인처럼 **공개가 강제되는 경우가 아니면 "private"** 로 고르세요.
 찾지 못했다고 "존재하지 않는다"고 판정하면, 갓 시작한 사업자를 없는 사람으로 만듭니다. 존재를 부정하려면 검색에 안 나오는 것 말고 실제 근거(폐업 공고, 등기 말소, 사칭으로 확인된 보도)가 있어야 합니다.
+**그 주체 하나의 활동도 같습니다.** 이름이 특정된 소규모·신생·비상장 조직 **한 곳**의 출시·계약·채용·행사는 언론이 보도할 의무가 없습니다. 상장사·공공기관·대기업처럼 보도와 공시가 사실상 강제되는 주체가 아니면 "reported"가 아니라 "private"로 고르세요.
+단, **여러 주체를 묶은 집계·평균·통계·순위**("○○ 업계 평균", "지역 공방 평균 객단가", "△△ 이용자 비율")는 이 예외가 아닙니다. 그런 주장은 누군가 집계해 공표했어야 성립하므로 위 기준대로 public_record·reported입니다.
+
+**subject_found** — 주장이 **이름이 특정된 주체 하나**(회사·기관·사람·제품)에 관한 것일 때, 그 주체를 검색에서 찾았으면 true, 주체 자체를 찾지 못했으면 false. 주체를 못 찾았다면 그 주체에 관한 기록이 없는 것은 당연하므로, 유메는 이 경우 부존재로 단정하지 않습니다. 특정 주체 하나가 아닌 주장(집계·통계·평균·과학 사실·일반 상식)이면 **항상 true**로 두세요.
 
 **특히 주의 — 남이 매긴 평가·등급·수상 기록.**
 잡지 평점, 심사 결과, 업계 랭킹, 구독자 전용 데이터베이스의 수치는 **사실이어도 일반 웹검색에 안 걸립니다.** 와인·위스키 평점(Wine Enthusiast, James Suckling, Wine Spectator 등), 영화·음식 평가, 유료 산업 리포트, 학술 유료 DB가 모두 그렇습니다. 이런 주장은 recordedness를 "niche"로 고르세요 — 회원 전용·유료 자료가 검색공간의 대부분이라 뒤져도 덮이지 않는 것이 정상입니다.
@@ -635,7 +688,7 @@ confirmed나 false로 판정할 때는 sources에 실제로 근거가 된 URL을
 **near_miss** — 주장과 비슷하지만 다른 실재 사실을 찾았다면 적으세요. 숫자만 다른 통계, 연도만 다른 사건, 이름이 비슷한 기관 등. 이게 있으면 지어낸 것이 아니라 잘못 기억한 것일 수 있어 유메가 부존재로 단정하지 않습니다. 없으면 null.
 
 반드시 아래 JSON 형식으로만 응답하세요. 다른 설명, 마크다운 코드블록을 추가하지 마세요.
-{"verdict": "confirmed|false|uncertain", "explanation": "구체적 근거 (200자 이내)", "sources": [{ "title": "출처 제목", "url": "https://..." }], "recordedness": "public_record|published|reported|niche|private|unrecordable", "searched_thoroughly": true|false, "near_miss": { "value": "찾은 비슷한 실재 사실", "similarity": 0.0~1.0 } }`;
+{"verdict": "confirmed|false|uncertain", "explanation": "구체적 근거 (200자 이내)", "sources": [{ "title": "출처 제목", "url": "https://..." }], "recordedness": "public_record|published|reported|niche|private|unrecordable", "searched_thoroughly": true|false, "subject_found": true|false, "near_miss": { "value": "찾은 비슷한 실재 사실", "similarity": 0.0~1.0 } }`;
 
 export async function researchClaim(claimText, { domain = "일반", priorExplanation = "", priorSources = [], onProgress = () => {}, ledger = null } = {}) {
   const prior = priorExplanation ? `\n\n앞선 검증에서 여기까지는 확인했습니다(이걸 반복하지 말고 더 파고드세요): ${priorExplanation}` : "";
@@ -659,6 +712,8 @@ export async function researchClaim(claimText, { domain = "일반", priorExplana
     sources: Array.isArray(parsed.sources) ? parsed.sources : [],
     recordedness: RECORDEDNESS.includes(parsed.recordedness) ? parsed.recordedness : "niche",
     searchedThoroughly: parsed.searched_thoroughly === true,
+    // 명시적으로 false일 때만 "주체를 못 찾았다"로 본다. 필드가 빠졌으면 예전처럼 판단한다.
+    subjectFound: parsed.subject_found !== false,
     nearMiss: near && near.value ? { value: String(near.value), similarity: Math.max(0, Math.min(1, Number(near.similarity) || 0)) } : null,
   };
 }

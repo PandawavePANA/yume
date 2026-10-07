@@ -23,11 +23,13 @@ const DOMAINS = new Set(["법률", "의료", "금융", "역사", "과학", "일�
 //   nec      — 부존재 신뢰도를 정량 산출했다. 점수와 탐색 커버리지가 근거다.
 // 그 외(web·research·추출 단계)는 "찾은 출처"가 유일한 근거이므로, 출처가 없으면
 // 그 판정은 근거 없는 단정이다.
-const SELF_GROUNDED = new Set(["official", "nec"]);
+//   reference — 기업이 보낸 기준 자료와 대조했다. 그 자료의 원문 문장이 근거다(URL이 없다).
+const SELF_GROUNDED = new Set(["official", "nec", "reference"]);
 
 export function sanitizeClaim(c) {
   const { identifier_found: _f, ...claim } = c;
   if (!VERDICTS.has(claim.verdict)) claim.verdict = "uncertain";
+  dropStaleFix(claim);
   if (!DOMAINS.has(claim.domain)) claim.domain = "일반";
   // 추출 단계에서 바로 판정된 비법률 주장은 경로 표시가 비어 있었다 — 웹검색 결과이므로 명시한다.
   if (!claim.verified_via) claim.verified_via = "web";
@@ -48,6 +50,7 @@ export function sanitizeClaim(c) {
       `검색에 걸리지 않는 기록(유료 데이터베이스, 지면 기사, 구독자 전용 자료)도 있어 ` +
       `'사실과 다름'으로 단정하지 않고 '확인되지 않음'으로 표시합니다.` +
       (claim.explanation ? ` (검토 내용: ${claim.explanation})` : "");
+    dropStaleFix(claim);
     return claim;
   }
 
@@ -60,6 +63,14 @@ export function sanitizeClaim(c) {
       `이 주장을 ${asserted} 볼 만한 출처를 유메가 확보하지 못했습니다. ` +
       `근거 없이 판정하지 않기 때문에 '확인되지 않음'으로 표시합니다.` +
       (claim.explanation ? ` (검토 내용: ${claim.explanation})` : "");
+    dropStaleFix(claim);
   }
+  return claim;
+}
+
+// 고친 문장(suggested_fix)은 "사실과 다름"에만 붙는다. 판정이 내려갔는데 고친 문장이
+// 남으면, 맞을 수도 있는 문장을 고치라고 권하는 셈이다.
+export function dropStaleFix(claim) {
+  if (claim.verdict !== "false") delete claim.suggested_fix;
   return claim;
 }

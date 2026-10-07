@@ -15,6 +15,7 @@ import { researchClaim as defaultResearch } from "./claude.js";
 import { searchesLeft } from "./apiCost.js";
 import { coverageFor } from "./nec/searchSpace.js";
 import { buildNecReport, NEC_WEIGHTS } from "./nec/nec.js";
+import { mentionsOrganization } from "./referenceCheck.js";
 
 const W = NEC_WEIGHTS.assertion;
 
@@ -43,7 +44,7 @@ async function inBatches(items, size, fn) {
   return out;
 }
 
-export async function resolveUncertainClaims(claims, { research = defaultResearch, onProgress = () => {}, ledger = null } = {}) {
+export async function resolveUncertainClaims(claims, { research = defaultResearch, onProgress = () => {}, ledger = null, organization = "" } = {}) {
   const targets = claims.map((c, i) => ({ c, i })).filter(({ c }) => needsResearch(c));
   if (targets.length === 0) return claims;
 
@@ -82,6 +83,28 @@ export async function resolveUncertainClaims(claims, { research = defaultResearc
       // 모델이 "false"라고 말했다는 사실만으로 ①이라고 믿지 않는다. 검색공간을 얼마나
       // 덮었는지로 따져서, 부존재 신뢰도가 임계값을 넘을 때만 판정으로 인정한다.
       const nec = assertionNec(c, r);
+      // 부존재로 단정하면 안 되는 두 경우. 기록이 없다는 것이 '지어냈다'의 근거가 되려면,
+      // 그 기록이 있어야 할 곳을 뒤졌다는 전제가 서야 한다.
+      //   · 주체 자체를 찾지 못했다 — 주체가 검색에 안 잡히면 그 활동 기록이 없는 것도 당연하다.
+      //   · 요청한 기업 자신에 관한 주장이다 — 자기 회사 이야기는 공개 웹에 거의 없다.
+      //     "리머는 2026년 9월 유메를 출시했습니다"가 실제로 '지어낸 정보'로 판정됐다.
+      const ownClaim = mentionsOrganization(c.text, organization);
+      if (nec && nec.grade === "nonexistent" && (ownClaim || r.subjectFound === false)) {
+        return {
+          i,
+          claim: {
+            ...c,
+            verdict: "uncertain",
+            verified_via: "research",
+            explanation:
+              (ownClaim
+                ? `'${organization}'에 관한 내용은 공개 자료에 남지 않는 경우가 많아, 기록을 못 찾았다고 '사실과 다름'으로 단정하지 않습니다. 기준 자료로 보내 주시면 그 자료와 대조합니다.`
+                : `이 주장의 주체를 공개 자료에서 찾지 못했습니다. 주체가 검색에 잡히지 않으면 그 활동 기록이 없는 것도 당연해서, '없다'로 단정하지 않고 확인되지 않음으로 둡니다.`) +
+              (r.explanation ? ` (확인 경과: ${r.explanation})` : ""),
+            sources,
+          },
+        };
+      }
       if (nec && nec.grade === "nonexistent") {
         return {
           i,

@@ -483,7 +483,8 @@ export function renderApiDocsPage(baseUrl) {
   return layout(
     "API 문서",
     `<h1>유메 검증 API <span class="muted">v1</span></h1>
-<p>자사 서비스의 AI 답변을 사용자에게 보여주기 전에 유메로 사실 여부를 확인하세요. 응답에는 주장별 판정·근거·출처와, 인용된 법령·판례·문헌이 공식 자료에 없을 때의 <b>부존재 신뢰도</b>가 함께 들어 있습니다.</p>
+<p>고객에게 나갈 답변, 보도자료, 상품 설명, 상담 스크립트 — <b>AI가 쓴 글이든 사람이 쓴 글이든</b> 밖으로 내보내기 전에 유메로 사실 여부를 확인하세요. 응답에는 주장별 판정·근거·출처, <b>원문 속 위치</b>, 틀린 문장의 <b>고친 문장</b>, 그리고 인용된 법령·판례·문헌이 공식 자료에 없을 때의 <b>부존재 신뢰도</b>가 함께 들어 있습니다.</p>
+<p>자사 상품·약관·회사 정보처럼 공개 웹에 없는 사실은 <b>기준 자료</b>(<code>references</code>)로 함께 보내면 그 자료와 먼저 대조합니다.</p>
 
 <h2>시작하기</h2>
 <ol>
@@ -497,6 +498,8 @@ export function renderApiDocsPage(baseUrl) {
 <table>
 <tr><th>필드</th><th>타입</th><th>설명</th></tr>
 <tr><td><code>text</code></td><td>string</td><td>검증할 텍스트. 최대 10,000자</td></tr>
+<tr><td><code>references</code></td><td>array</td><td>선택. 자사 기준 자료 <code>[{ "title": "요금 안내", "text": "…" }]</code>. 최대 5개, 합계 20,000자. 이 자료가 다루는 주장은 웹보다 먼저 이 자료와 대조해 <code>verified_via: "reference"</code>로 판정하고, 근거 문장을 <code>sources[].quote</code>로 돌려줍니다. 자료에 없는 근거로는 판정하지 않습니다.</td></tr>
+<tr><td><code>organization</code></td><td>string</td><td>선택. 자사명. 자사에 관한 주장은 "공개 기록이 없다"는 이유만으로 <code>false</code>가 되지 않습니다(기준 자료가 있으면 그 자료로 판정).</td></tr>
 <tr><td><code>wait</code></td><td>boolean | number</td><td>선택. <code>true</code>면 최대 60초, 숫자면 그 초만큼 기다림</td></tr>
 </table>
 <pre>curl -X POST ${base}/v1/verify \\
@@ -535,9 +538,12 @@ while job["status"] == "pending":
     "claims": [
       {
         "text": "대법원 2019다123456 판결은 …",
+        "quote": "실제로 대법원 2019다123456 판결도 같은 취지로 판단했습니다.",  // 원문 그대로의 해당 부분
+        "span": { "start": 118, "end": 152 },   // 원문 속 위치(글자 단위, end 제외)
+        "suggested_fix": "실제로 이 취지의 대법원 판결은 확인되지 않습니다.",  // false일 때만
         "domain": "법률",
         "verdict": "false",           // confirmed | false | uncertain
-        "verified_via": "nec",        // official | nec | web | research | unavailable
+        "verified_via": "nec",        // official | reference | nec | web | research | unavailable
         "explanation": "인용된 ‘2019다123456’은(는) 존재하지 않을 가능성이 높습니다(부존재 신뢰도 0.735). …",
         "sources": [],
         "legal_ref": { "type": "case", "case_number": "2019다123456" },
@@ -560,6 +566,7 @@ while job["status"] == "pending":
 <h2>verified_via</h2>
 <table>
 <tr><td><code>official</code></td><td>법제처 국가법령정보의 현행 조문·판례·헌재 결정 원문과 대조</td></tr>
+<tr><td><code>reference</code></td><td>요청에 함께 보낸 기준 자료(<code>references</code>)와 대조. 근거 문장이 <code>sources[].quote</code>에 있음</td></tr>
 <tr><td><code>nec</code></td><td>인용된 식별자 또는 사실 주장을 공식 자료·웹에서 찾지 못해 부존재 신뢰도로 판정</td></tr>
 <tr><td><code>web</code></td><td>실시간 웹 자료로 교차 확인</td></tr>
 <tr><td><code>research</code></td><td>앞 단계에서 결론이 나지 않아 도메인별 심층 재확인을 거침</td></tr>
@@ -576,6 +583,18 @@ while job["status"] == "pending":
 <li><b>P 유사항목 근접도</b> — 비슷한 실재 항목(한 글자 틀린 사건번호 등)이 있을수록 높음</li>
 </ul>
 <p><code>grade</code>가 <code>nonexistent</code>(NEC ≥ 0.7)이면 해당 주장은 <code>false</code>로, <code>unverifiable</code>이면 <code>uncovered</code>에 아직 확인하지 못한 영역과 확인 방법이 담깁니다. 지원 식별자: 판례 사건번호, 헌법재판소 사건번호, 법령·조문, DOI, arXiv, PMID, ISBN.</p>
+
+<h2>원문 속 위치와 고친 문장</h2>
+<ul>
+<li><code>quote</code>·<code>span</code> — 그 주장이 나온 원문 부분과 위치입니다. <code>text.slice(span.start, span.end)</code>가 <code>quote</code>와 같습니다. 원문에서 정확히 찾지 못한 주장에는 붙지 않습니다.</li>
+<li><code>suggested_fix</code> — 판정이 <code>false</code>일 때만, 판정 근거에 적힌 실제 값으로 그 부분을 고친 문장입니다. 근거에 실제 값이 없으면 붙지 않습니다. 원문의 문체는 그대로 두고 틀린 부분만 바꿉니다.</li>
+</ul>
+
+<h2>POST /v1/verify/batch</h2>
+<p>여러 건을 한 번에 보냅니다(최대 20건). <code>references</code>·<code>organization</code>은 묶음 전체에 적용됩니다. 남은 한도가 항목 수보다 적으면 <b>한 건도 시작하지 않고</b> <code>429</code>를 돌려줍니다 — 일부만 처리되어 무엇이 빠졌는지 맞춰 보는 일이 없게 하려는 것입니다.</p>
+<pre>{ "items": [ { "ref": "faq-01", "text": "…" }, { "ref": "faq-02", "text": "…" } ],
+  "references": [ { "title": "상품 설명서", "text": "…" } ], "wait": 60 }
+→ { "count": 2, "pending": 0, "results": [ { "ref": "faq-01", "id": "…", "status": "done", "result": { … } }, … ] }</pre>
 
 <h2>GET /v1/verify/:id</h2>
 <p>같은 계정의 키로 요청한 검증만 조회할 수 있습니다. 조회는 과금되지 않습니다.</p>
@@ -596,6 +615,7 @@ while job["status"] == "pending":
 <table>
 <tr><th>HTTP</th><th>code</th><th>의미</th></tr>
 <tr><td>400</td><td>invalid_request</td><td>text가 비어 있음</td></tr>
+<tr><td>400</td><td>invalid_references</td><td>기준 자료 형식이 틀림(개수·길이·text 누락)</td></tr>
 <tr><td>401</td><td>invalid_api_key</td><td>키가 없거나 폐기됨</td></tr>
 <tr><td>404</td><td>not_found</td><td>검증 id가 없거나 다른 계정의 것</td></tr>
 <tr><td>413</td><td>text_too_long</td><td>10,000자 초과</td></tr>
@@ -603,6 +623,7 @@ while job["status"] == "pending":
 </table>
 
 <h2>데이터 처리</h2>
+<p><b>기준 자료(<code>references</code>)는 저장하지 않습니다.</b> 검증 한 건을 처리하는 동안만 쓰고, 그 자료로 낸 판정은 다른 고객에게 재사용되는 캐시에 넣지 않습니다.</p>
 <p>API로 보낸 텍스트는 검증과 과금·분쟁 대응을 위해 1년간 보관되며, 별도 계약으로 허용한 경우를 제외하고 데이터셋 제공 대상에 포함되지 않습니다. 텍스트에 개인정보가 들어간다면 귀사 이용자에게 필요한 고지·동의를 받아주세요. 자세한 내용은 <a href="/privacy">개인정보처리방침</a>과 <a href="/terms">이용약관</a>을 참고하세요.</p>`,
   );
 }

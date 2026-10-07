@@ -4,6 +4,7 @@ import { authenticateApiKey, finishApiUsage, isTrialKey, quotaUsage, recordApiUs
 import { getVerification, newVerificationId } from "./verificationStore.js";
 import { startVerification, MAX_INPUT_CHARS } from "./verifyPipeline.js";
 import { kstMonthStart, one } from "./db.js";
+import { normalizeReferences, MAX_REFERENCES, MAX_REFERENCE_CHARS } from "./referenceCheck.js";
 
 // 유메 검증 API(/v1) — AI 서비스를 운영하는 기업이 자기 서비스의 답변을 유메로 검증하는
 // 공개 API. 계정의 "API 키" 메뉴에서 발급한 키로 인증한다(키는 해시로만 저장).
@@ -73,6 +74,13 @@ function publicClaim(c) {
     explanation: c.explanation,
     sources: c.sources || [],
   };
+  // 원문 속 위치(글자 단위, start 포함·end 제외)와 그 부분 원문. 고객사 화면에서 밑줄을 긋는 데 쓴다.
+  if (c.span) {
+    out.quote = c.quote;
+    out.span = c.span;
+  }
+  // "사실과 다름"일 때만: 판정 근거의 실제 값으로 고친 문장.
+  if (c.verdict === "false" && c.suggested_fix) out.suggested_fix = c.suggested_fix;
   if (c.effective_date) out.effective_date = c.effective_date;
   if (c.legal_ref) out.legal_ref = c.legal_ref;
   if (c.identifiers) out.identifiers = c.identifiers;
@@ -120,6 +128,11 @@ router.post("/verify", requireApiKey, async (req, res) => {
     await recordApiUsage(key.id, { endpoint: "POST /v1/verify", statusCode: 413 });
     return fail(res, 413, "text_too_long", `text는 ${MAX_INPUT_CHARS.toLocaleString()}자 이하여야 합니다.`);
   }
+  const ctx = normalizeReferences(req.body?.references, req.body?.organization);
+  if (ctx.error) {
+    await recordApiUsage(key.id, { endpoint: "POST /v1/verify", statusCode: 400 });
+    return fail(res, 400, "invalid_references", ctx.error);
+  }
   const usage = await usageInfo(key);
   if (usage.remaining <= 0) {
     await recordApiUsage(key.id, { endpoint: "POST /v1/verify", statusCode: 429 });
@@ -148,7 +161,10 @@ router.post("/verify", requireApiKey, async (req, res) => {
       userId: null,
       apiKeyId: key.id,
       clientKey: `key:${key.id}`,
-      dataConsent: !!key.data_sharing,
+      // 기준 자료를 함께 보낸 검증은 회사 고유의 사실이 섞여 있다. 데이터셋에 넣지 않는다.
+      dataConsent: !!key.data_sharing && !ctx.refs.length,
+      references: ctx.refs,
+      organization: ctx.organization,
     }));
   } catch (e) {
     // 시작도 못 한 요청은 과금하지 않는다.
@@ -202,6 +218,12 @@ router.post("/verify/batch", requireApiKey, async (req, res) => {
     }
     items.push({ ref, text });
   }
+  // 기준 자료·자사명은 묶음 전체에 한 번만 받는다(항목마다 같은 회사의 글이다).
+  const ctx = normalizeReferences(req.body?.references, req.body?.organization);
+  if (ctx.error) {
+    await recordApiUsage(key.id, { endpoint: "POST /v1/verify/batch", statusCode: 400 });
+    return fail(res, 400, "invalid_references", ctx.error);
+  }
 
   const usage = await usageInfo(key);
   if (usage.remaining < items.length) {
@@ -221,7 +243,8 @@ router.post("/verify/batch", requireApiKey, async (req, res) => {
       try {
         const { done } = await startVerification({
           id, text, source: "api", userId: null, apiKeyId: key.id,
-          clientKey: `key:${key.id}`, dataConsent: !!key.data_sharing,
+          clientKey: `key:${key.id}`, dataConsent: !!key.data_sharing && !ctx.refs.length,
+          references: ctx.refs, organization: ctx.organization,
         });
         return { ref, id, usageId, done: done.catch(() => null) };
       } catch {
@@ -272,8 +295,17 @@ router.get("/", (req, res) => {
     docs: "/docs/api",
     auth: "Authorization: Bearer <API 키> (유메 계정 > API 키에서 발급)",
     endpoints: [
-      { method: "POST", path: "/v1/verify", body: { text: "string (최대 10,000자)", wait: "boolean | 초(최대 60) — 결과가 나올 때까지 기다림" } },
-      { method: "POST", path: "/v1/verify/batch", body: { items: "[{ ref?, text }] (최대 20건)", wait: "boolean | 초(최대 60)" }, desc: "여러 건을 한 번에. 한도가 모자라면 한 건도 시작하지 않는다" },
+      {
+        method: "POST", path: "/v1/verify",
+        body: {
+          text: "string (최대 10,000자) — AI가 쓴 글이든 사람이 쓴 글이든",
+          references: `[{ title?, text }] (선택, 최대 ${MAX_REFERENCES}개·합계 ${MAX_REFERENCE_CHARS.toLocaleString()}자) — 자사 기준 자료. 다루는 주장은 이 자료와 먼저 대조`,
+          organization: "string (선택) — 자사명. 자사에 관한 주장은 공개 기록이 없다는 이유로 '사실과 다름'이 되지 않는다",
+          wait: "boolean | 초(최대 60) — 결과가 나올 때까지 기다림",
+        },
+        returns: "claims[]: verdict, explanation, sources, quote·span(원문 속 위치), suggested_fix(사실과 다름일 때 고친 문장)",
+      },
+      { method: "POST", path: "/v1/verify/batch", body: { items: "[{ ref?, text }] (최대 20건)", references: "선택, 묶음 전체에 적용", organization: "선택", wait: "boolean | 초(최대 60)" }, desc: "여러 건을 한 번에. 한도가 모자라면 한 건도 시작하지 않는다" },
       { method: "GET", path: "/v1/verify/:id", desc: "검증 결과 조회" },
       { method: "GET", path: "/v1/usage", desc: "이번 달 사용량·한도" },
     ],

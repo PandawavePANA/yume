@@ -48,7 +48,8 @@ const CASE_IN_TEXT = /(\d{2,4})\s?([가-힣]{1,3})\s?(\d{2,7})/;
 export async function resolveLegalClaims(claims, { ground = defaultGround, webVerify = defaultWebVerify, onProgress = () => {}, ledger = null } = {}) {
   return Promise.all(
     // from_claim_cache가 붙은 주장은 이미 판정이 끝난 것이다. 법제처를 다시 부르지 않는다.
-    claims.map((claim) => (claim.domain === "법률" && !claim.from_claim_cache ? resolveOne(claim, { ground, webVerify, onProgress, ledger }) : claim)),
+    // 기업 기준 자료로 판정이 끝난 주장(from_reference)도 다시 부르지 않는다 — 그 회사의 사실은 그 자료가 기준이다.
+    claims.map((claim) => (claim.domain === "법률" && !claim.from_claim_cache && !claim.from_reference ? resolveOne(claim, { ground, webVerify, onProgress, ledger }) : claim)),
   );
 }
 

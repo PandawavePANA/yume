@@ -11,24 +11,26 @@ function normalize(text) {
   return String(text).trim().replace(/\s+/g, " ");
 }
 
-export function inputHash(text) {
-  return crypto.createHash("sha256").update(`${ENGINE_VERSION}\n${normalize(text)}`).digest("hex");
+// scope: 같은 글이어도 결과가 달라지는 조건(기업이 보낸 기준 자료·자사명). 비어 있으면 예전과 같은 해시다.
+// 기준 자료로 낸 판정은 그 회사에만 맞는 답이라, 같은 글을 넣은 다른 사람에게 캐시로 나가면 안 된다.
+export function inputHash(text, scope = "") {
+  return crypto.createHash("sha256").update(`${ENGINE_VERSION}\n${normalize(text)}${scope ? `\n${scope}` : ""}`).digest("hex");
 }
 
-export function createVerification({ id, source, userId = null, apiKeyId = null, clientKey = null, input, dataConsent = false }) {
+export function createVerification({ id, source, userId = null, apiKeyId = null, clientKey = null, input, dataConsent = false, scope = "" }) {
   return run(
     `INSERT INTO verifications (id, source, user_id, api_key_id, client_key, input, input_hash, status, data_consent, created_at)
      VALUES (:id, :source, :userId, :apiKeyId, :clientKey, :input, :hash, 'pending', :dc, :t)`,
-    { id, source, userId, apiKeyId, clientKey, input, hash: inputHash(input), dc: dataConsent ? 1 : 0, t: now() },
+    { id, source, userId, apiKeyId, clientKey, input, hash: inputHash(input, scope), dc: dataConsent ? 1 : 0, t: now() },
   );
 }
 
-export async function findCached(text) {
+export async function findCached(text, scope = "") {
   const row = await one(
     `SELECT result_json FROM verifications
       WHERE input_hash = :hash AND status = 'done' AND from_cache = 0 AND created_at > :since
       ORDER BY created_at DESC LIMIT 1`,
-    { hash: inputHash(text), since: now() - CACHE_TTL_MS },
+    { hash: inputHash(text, scope), since: now() - CACHE_TTL_MS },
   );
   return row ? JSON.parse(row.result_json) : null;
 }

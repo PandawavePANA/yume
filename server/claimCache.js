@@ -91,6 +91,8 @@ export async function saveClaim(claim) {
 export async function applyCache(claims) {
   return Promise.all(
     claims.map(async (c) => {
+      // 기업 기준 자료로 판정한 주장은 공용 캐시가 덮지 않는다. 그 회사의 사실은 그 자료가 기준이다.
+      if (c.from_reference) return c;
       // 법률 주장은 추출 시점에 판정이 없으므로(pending_legal_check) 캐시를 먼저 본다.
       const hit = await findClaim(c).catch(() => null);
       return hit || c;
@@ -99,7 +101,8 @@ export async function applyCache(claims) {
 }
 
 export async function storeAll(claims) {
-  await Promise.all(claims.filter((c) => !c.from_claim_cache).map((c) => saveClaim(c).catch(() => {})));
+  // 기준 자료로 낸 판정은 그 회사에만 맞는 답이라 공용 캐시에 넣지 않는다.
+  await Promise.all(claims.filter((c) => !c.from_claim_cache && !c.from_reference).map((c) => saveClaim(c).catch(() => {})));
 }
 
 // 판정이 틀렸다고 확인된 주장은 캐시에서 지운다.

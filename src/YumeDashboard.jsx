@@ -1143,7 +1143,8 @@ export default function YumeDashboard() {
     const lines = bad.map((c, i) => {
       const src = (c.sources || []).find((x) => x?.url);
       const head = c.verdict === "false" ? "사실과 다름" : "근거를 확인할 수 없음";
-      return `${i + 1}. "${c.text}" — ${head}.${c.explanation ? ` ${c.explanation}` : ""}${src ? ` (근거: ${src.url})` : ""}`;
+      const fix = c.verdict === "false" && c.suggested_fix ? ` 바르게 쓰면: "${c.suggested_fix}"` : "";
+      return `${i + 1}. "${c.text}" — ${head}.${c.explanation ? ` ${c.explanation}` : ""}${fix}${src ? ` (근거: ${src.url})` : ""}`;
     });
     return [
       "방금 네 답변을 사실 확인해 봤는데, 아래 부분이 틀렸거나 근거를 찾을 수 없었어.",
@@ -1771,6 +1772,9 @@ export default function YumeDashboard() {
                               {c.verified_via === "nec" && (
                                 <span style={{ fontSize: 11, fontWeight: 600, color: "#A23A2B", background: "rgba(214,70,50,0.10)", borderRadius: 999, padding: "2px 9px" }}>{t("부존재 신뢰도 판정")}</span>
                               )}
+                              {c.verified_via === "reference" && (
+                                <span style={{ fontSize: 11, fontWeight: 600, color: "#5B3FB5", background: "rgba(109,90,224,0.10)", borderRadius: 999, padding: "2px 9px" }}>{t("기준 자료 대조")}</span>
+                              )}
                               {c.verified_via === "research" && (
                                 <span style={{ fontSize: 11, fontWeight: 600, color: "#1F6FA8", background: "rgba(40,120,180,0.10)", borderRadius: 999, padding: "2px 9px" }}>{t("심층 재확인")}</span>
                               )}
@@ -1783,6 +1787,13 @@ export default function YumeDashboard() {
                             </div>
                             <div style={{ fontSize: 15.5, fontWeight: 600, color: UI.ink, lineHeight: 1.6, marginBottom: 6, letterSpacing: "-0.015em" }}>{c.text}</div>
                             <div style={{ fontSize: 14, color: UI.ink2, lineHeight: 1.7 }}>{c.explanation}</div>
+                            {/* 틀린 문장을 어떻게 고치면 되는지. 판정 근거의 실제 값으로만 고친 문장이다. */}
+                            {c.verdict === "false" && c.suggested_fix && (
+                              <div style={{ marginTop: 10, padding: "10px 13px", borderRadius: 12, background: "rgba(40,160,100,0.07)", border: "1px solid rgba(40,160,100,0.22)" }}>
+                                <div style={{ fontSize: 11.5, fontWeight: 700, color: "#1F7A52", marginBottom: 4 }}>{t("이렇게 고치면 맞습니다")}</div>
+                                <div style={{ fontSize: 14, color: UI.ink, lineHeight: 1.65 }}>{c.suggested_fix}</div>
+                              </div>
+                            )}
                             <NecPanel nec={c.nec} />
                             {c.nec?.grade === "nonexistent" && result.id && (
                               <BountyPrompt claim={c} claimIdx={i} verificationId={result.id} user={user} onNeedLogin={() => setAuthModal("login")} />

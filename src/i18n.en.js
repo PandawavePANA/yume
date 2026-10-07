@@ -64,6 +64,8 @@ export default {
   "법제처 공식 확인": "Verified against official statutes",
   "부존재 신뢰도 판정": "Non-existence confidence",
   "심층 재확인": "Deep re-check",
+  "이렇게 고치면 맞습니다": "Corrected version",
+  "기준 자료 대조": "Checked against your reference",
   "공식 자료 조회 실패": "Official lookup failed",
   "인용 문헌 실재 확인": "Checked whether the source exists",
   "⚡ 이전 검증 결과 재사용": "⚡ Reused an earlier result",
