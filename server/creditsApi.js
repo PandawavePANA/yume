@@ -3,7 +3,8 @@ import { patchAsync } from "./asyncExpress.js";
 import { requireUser } from "./auth.js";
 import { audit } from "./audit.js";
 import { clientIp, createLimiter, limitMiddleware } from "./security.js";
-import { CREDIT_KRW, CREDIT_PACKS, PLAN_CREDITS, balance, ensureMonthlyGrant, listLedger, listUserCreditRequests, requestCreditPack } from "./credits.js";
+import { CREDIT_KRW, CREDIT_PACKS, PLAN_CREDITS, balance, ensureMonthlyGrant, expireCredits, listLedger, listUserCreditRequests, requestCreditPack } from "./credits.js";
+import { CREDIT_VALID_DAYS, nextExpiry, withRunningBalance } from "./creditExpiry.js";
 import { POINTS, RANK_TIERS, leaderboard, listLedger as listContribLedger, nextRewardTier, periodEndsAt, periodOf, rankOf, handleFor, rewardTierFor, userCount } from "./contribution.js";
 import { PLANS, effectivePlan } from "./usageStore.js";
 import { listUserBounties, submitBounty } from "./bounty.js";
@@ -11,7 +12,7 @@ import { listUserCorrections, submitCorrection } from "./corrections.js";
 import { PLATFORMS } from "./shareLink.js";
 import { referralSummary } from "./referral.js";
 import { getVerification } from "./verificationStore.js";
-import { now, one, run } from "./db.js";
+import { all as allRows, now, one, run } from "./db.js";
 import { logError } from "./errorLog.js";
 import {
   CHANNEL_KEY, IDENTITY_CHANNEL_KEY, STORE_ID,
@@ -23,6 +24,9 @@ import crypto from "node:crypto";
 import { CHAT_MIN_POINTS, MAX_BODY as LOBBY_MAX_BODY, meIn as lobbyMe, recent as lobbyRecent, say as lobbySay } from "./lobby.js";
 
 const router = patchAsync(express.Router());
+
+// 소멸 예정 계산용 — 한 사람의 원장 전체(오래된 것부터).
+const all_ = (userId) => allRows("SELECT id, delta, reason, ref, created_at FROM credit_ledger WHERE user_id = :userId ORDER BY id", { userId });
 router.use(["/credits", "/bounty", "/corrections", "/credit-packs", "/referral", "/contribution", "/checkout", "/identity"], requireUser);
 
 const bountyLimiter = createLimiter({ windowMs: 60 * 60 * 1000, max: 20 });
@@ -35,13 +39,20 @@ router.get("/credits", async (req, res) => {
   const plan = effectivePlan(req.user);
   // 화면을 열어본 김에 이번 달 구독분이 들어왔는지 확인한다. 이미 들어왔으면 아무 일도 없다.
   await ensureMonthlyGrant(req.user);
+  // 1년 지난 적립분을 먼저 소멸시켜야 화면의 잔액과 내역 계산이 맞는다.
+  await expireCredits(userId);
+  const total = await balance(userId);
+  const all = await all_(userId);
   res.json({
-    balance: await balance(userId),
+    balance: total,
     creditKrw: CREDIT_KRW,
     plan,
     planCredits: PLAN_CREDITS[plan] ?? PLAN_CREDITS.free,
     packs: CREDIT_PACKS,
-    ledger: await listLedger(userId),
+    validDays: CREDIT_VALID_DAYS,
+    nextExpiry: nextExpiry(all, now()),
+    // 행마다 거래 뒤 잔액(balance_after)과, 적립 행에는 소멸일(expires_at)이 붙는다.
+    ledger: withRunningBalance(await listLedger(userId, 100), total),
     platforms: Object.entries(PLATFORMS).map(([key, p]) => ({ key, label: p.label, host: p.hosts[0] })),
     bounties: await listUserBounties(userId),
     corrections: await listUserCorrections(userId),
@@ -173,18 +184,12 @@ router.post("/checkout", limitMiddleware(checkoutLimiter, (req) => `checkout:${r
     return res.status(403).json({ error: "휴대폰 본인확인을 마치면 결제하실 수 있어요.", code: "IDENTITY_REQUIRED" });
   }
 
-  const planKey = String(req.body?.plan || "");
-  let order;
-  if (planKey) {
-    const p = PLANS[planKey];
-    // monthlyKrw가 없는 요금제(무료·비즈니스)는 파는 상품이 아니다.
-    if (!p || !p.monthlyKrw) return res.status(400).json({ error: "결제할 수 없는 요금제예요." });
-    order = { kind: "plan", plan: planKey, key: `plan:${planKey}`, credits: 0, amount: p.monthlyKrw, name: `유메 ${p.label} 플랜 1개월` };
-  } else {
-    const item = packItem(String(req.body?.packKey || ""));
-    if (!item) return res.status(400).json({ error: "선택한 크레딧 팩을 찾을 수 없어요." });
-    order = { kind: "credits", plan: null, key: item.key, credits: item.credits, amount: item.krw, name: `유메 ${item.label}` };
-  }
+  // 월 요금제(1개월 이용권)는 판매를 닫았다 — 이니시스 포인트충전 입점 조건이 정기결제 관련
+  // 상품 삭제다. 크레딧 충전만 판다. 이미 결제된 요금제 주문의 정산·취소는 checkoutStore가 그대로 처리한다.
+  if (req.body?.plan) return res.status(400).json({ error: "월 요금제 판매를 마쳤어요. 크레딧을 충전해서 이용해주세요.", code: "PLAN_DISCONTINUED" });
+  const item = packItem(String(req.body?.packKey || ""));
+  if (!item) return res.status(400).json({ error: "선택한 크레딧 팩을 찾을 수 없어요." });
+  const order = { kind: "credits", plan: null, key: item.key, credits: item.credits, amount: item.krw, name: `유메 ${item.label} 충전` };
 
   const paymentId = `yume-${Date.now()}-${crypto.randomBytes(6).toString("hex")}`;
   await run(

@@ -219,6 +219,25 @@ test("요금제 월 지급은 같은 달에 두 번 들어오지 않는다", asy
   assert.equal((await c("GET", "/api/credits")).data.balance, first, "여러 번 열어도 한 번만 들어온다");
 });
 
+test("1년이 지난 크레딧은 소멸하고, 그 크레딧으로는 검증하지 못한다", async () => {
+  const { id: userId } = await signedUpUser("expire@yume.test");
+  await credits.grant(userId, 20, "purchase", { ref: "purchase:expire-test", memo: "20크레딧 충전" });
+  const before = await credits.balance(userId);
+  const realNow = Date.now;
+  try {
+    // 2년 뒤로 시계를 돌린다(도입일 + 1년도 지난 시점).
+    const later = realNow() + 2 * 365 * 24 * 3600 * 1000;
+    Date.now = () => later;
+    assert.equal(await credits.spendOne(userId, null), false, "소멸된 크레딧으로 검증하면 안 된다");
+    assert.equal(await credits.balance(userId), 0);
+    assert.equal(await credits.expireCredits(userId), 0, "두 번 소멸시키지 않는다");
+    const rows = await db.all("SELECT delta, reason FROM credit_ledger WHERE user_id = :u AND reason = 'expire'", { u: userId });
+    assert.equal(rows.reduce((s, r) => s - r.delta, 0), before, "남아 있던 만큼만 소멸");
+  } finally {
+    Date.now = realNow;
+  }
+});
+
 test("크레딧이 모자라면 차감되지 않고, 동시에 써도 음수가 되지 않는다", async () => {
   const { id: userId } = await signedUpUser("race@yume.test");
   await credits.ensureMonthlyGrant({ id: userId, plan: "free" });

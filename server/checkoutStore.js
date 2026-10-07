@@ -39,6 +39,7 @@ function sendReceipt(order, { method, planExpiresAt }) {
       ["결제 일시", when],
       ["주문번호", order.payment_id],
       order.kind === "plan" && until ? ["이용 기간", `${until}까지 · 자동 갱신되지 않습니다`] : null,
+      order.kind !== "plan" ? ["유효기간", "결제일부터 1년 · 기간 안에 쓰지 않은 크레딧은 소멸합니다"] : null,
     ].filter(Boolean);
 
     const esc = (v) => String(v).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
@@ -63,6 +64,7 @@ function sendReceipt(order, { method, planExpiresAt }) {
         "",
         "청약철회는 결제일부터 7일 이내에 가능합니다. 다만 이미 사용한 크레딧은",
         "전자상거래법 제17조 제2항 제5호에 따라 청약철회가 제한됩니다.",
+        "환불은 결제하신 카드의 결제 취소로만 처리되며, 현금으로 돌려드리지 않습니다.",
         `환불 문의: ${COMPANY.email}`,
         "환불정책: https://www.yume-reamer.com/refund",
         "",
@@ -76,7 +78,8 @@ function sendReceipt(order, { method, planExpiresAt }) {
   </table>
   <p style="margin:20px 0 0;font-size:13px;color:#54505E">
     청약철회는 결제일부터 <b>7일 이내</b>에 가능합니다. 다만 이미 사용한 크레딧은
-    전자상거래법 제17조 제2항 제5호에 따라 청약철회가 제한됩니다.<br/>
+    전자상거래법 제17조 제2항 제5호에 따라 청약철회가 제한됩니다.
+    환불은 결제하신 카드의 결제 취소로만 처리됩니다.<br/>
     환불 문의 <a href="mailto:${esc(COMPANY.email)}">${esc(COMPANY.email)}</a> ·
     <a href="https://www.yume-reamer.com/refund">환불정책</a>
   </p>
@@ -136,7 +139,8 @@ export async function settleOrder(order) {
 
   await grant(order.user_id, order.credits, "purchase", {
     ref: `purchase:${order.payment_id}`,
-    memo: `크레딧 구매(${r.method})`,
+    // 내역 화면에 이 줄이 그대로 "충전"으로 보인다. 금액까지 적어야 충전·차감 흐름이 읽힌다.
+    memo: `${Number(order.credits).toLocaleString("ko-KR")}크레딧 충전 · ${Number(order.amount).toLocaleString("ko-KR")}원 (${r.method || "카드"})`,
   });
   sendReceipt(order, { method: r.method });
   return { ok: true, credits: order.credits, method: r.method };

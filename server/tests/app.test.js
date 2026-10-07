@@ -155,9 +155,11 @@ test("상품 안내에 판매 상품과 가격이 다 나온다", async () => {
   for (const pack of CREDIT_PACKS) {
     assert.ok(t.includes(pack.krw.toLocaleString()), `${pack.label} 가격이 없다`);
   }
-  for (const key of ["standard", "expert"]) {
-    assert.ok(t.includes(PLANS[key].monthlyKrw.toLocaleString()), `${key} 가격이 없다`);
-  }
+  // 이니시스 포인트충전 조건 — 정기결제 상품이 없고, 소진기한(1년)과 카드 취소 환불이 적혀 있어야 한다.
+  for (const key of ["standard", "expert"]) assert.equal(PLANS[key].monthlyKrw, null, `${key} 월 요금제는 판매 종료`);
+  assert.ok(!/1개월 이용권/.test(t), "월 요금제 상품이 남아 있으면 안 된다");
+  assert.match(t, /결제한 시점부터 1년 이내/);
+  assert.match(t, /카드의 결제 취소로만/);
   // "12,000원"에도 "0원"이 들어 있으므로 칸 전체가 그 값일 때만 잡는다.
   assert.ok(!/>\s*0원\s*</.test(t), "판매가가 0원인 상품이 있으면 심사가 반려된다");
   assert.ok(!/>\s*품절\s*</.test(t), "품절 표시가 있으면 심사가 반려된다");

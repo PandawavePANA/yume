@@ -319,60 +319,56 @@ test("동의 항목 전에 가입한 회원도 그 자리에서 동의하고 본
   assert.ok(row.identity_agreed_at, "동의 시각이 남아야 한다");
 });
 
-// ── 요금제 1개월 이용권 ─────────────────────────────────────────────────────
-// 크레딧과 같은 결제 경로를 쓰되, 지급되는 것이 크레딧이 아니라 기간이다.
-test("요금제는 결제가 확인돼야 열리고, 기간은 30일이다", async () => {
-  const { call, userId } = await signedIn();
-  const order = await call("POST", "/api/checkout", { plan: "standard" });
-  assert.equal(order.status, 200);
-  assert.equal(order.data.totalAmount, 9900, "금액은 서버 plans.js가 정한다");
-
-  // 결제 전에는 무료 그대로다.
-  let u = await db.one("SELECT plan FROM users WHERE id = :id", { id: userId });
-  assert.equal(u.plan, "free");
-
-  portone.payment = { status: "PAID", amount: { total: 9900 }, method: { type: "CARD" } };
-  const done = await call("POST", "/api/checkout/confirm", { paymentId: order.data.paymentId });
-  assert.equal(done.status, 200);
-  assert.equal(done.data.plan, "standard");
-
-  u = await db.one("SELECT plan, plan_expires_at FROM users WHERE id = :id", { id: userId });
-  assert.equal(u.plan, "standard");
-  const days = (u.plan_expires_at - Date.now()) / (24 * 3600 * 1000);
-  assert.ok(days > 29 && days < 31, `30일이어야 하는데 ${days.toFixed(1)}일`);
-});
-
-test("이미 있는 기간 뒤에 이어 붙는다", async () => {
-  const { call, userId } = await signedIn();
-  portone.payment = { status: "PAID", amount: { total: 9900 }, method: { type: "CARD" } };
-  const first = await call("POST", "/api/checkout", { plan: "standard" });
-  await call("POST", "/api/checkout/confirm", { paymentId: first.data.paymentId });
-  const second = await call("POST", "/api/checkout", { plan: "standard" });
-  await call("POST", "/api/checkout/confirm", { paymentId: second.data.paymentId });
-
-  const u = await db.one("SELECT plan_expires_at FROM users WHERE id = :id", { id: userId });
-  const days = (u.plan_expires_at - Date.now()) / (24 * 3600 * 1000);
-  assert.ok(days > 59 && days < 61, `미리 산 기간이 날아가면 안 된다 — ${days.toFixed(1)}일`);
-});
-
-test("파는 요금제가 아니면 주문되지 않는다", async () => {
+// ── 월 요금제 판매 종료 ──────────────────────────────────────────────────
+// 이니시스 포인트충전 입점 조건이 "정기결제 관련 상품 삭제"라 월 요금제(1개월 이용권)를
+// 더 팔지 않는다. 다만 닫기 전에 산 주문은 정산·취소가 그대로 돌아야 한다.
+test("월 요금제는 더 이상 주문되지 않는다", async () => {
   const { call } = await signedIn();
-  assert.equal((await call("POST", "/api/checkout", { plan: "business" })).status, 400, "비즈니스는 문의 상품이다");
-  assert.equal((await call("POST", "/api/checkout", { plan: "free" })).status, 400);
-  assert.equal((await call("POST", "/api/checkout", { plan: "nope" })).status, 400);
+  for (const plan of ["standard", "expert", "business", "free", "nope"]) {
+    const r = await call("POST", "/api/checkout", { plan });
+    assert.equal(r.status, 400, plan);
+    assert.equal(r.data.code, "PLAN_DISCONTINUED", plan);
+  }
 });
 
-test("요금제 결제가 취소되면 늘려 준 기간을 도로 깎는다", async () => {
+test("판매 종료 전에 산 요금제 결제도 확인되면 열리고, 취소되면 기간을 깎는다", async () => {
   const { call, userId } = await signedIn();
+  const paymentId = `yume-old-plan-${Date.now()}`;
+  await db.run(
+    `INSERT INTO credit_orders (payment_id, user_id, pack_key, kind, plan, credits, amount, status, created_at)
+     VALUES (:id, :uid, 'plan:expert', 'plan', 'expert', 0, 29000, 'pending', :t)`,
+    { id: paymentId, uid: userId, t: Date.now() },
+  );
   portone.payment = { status: "PAID", amount: { total: 29000 }, method: { type: "CARD" } };
-  const order = await call("POST", "/api/checkout", { plan: "expert" });
-  await call("POST", "/api/checkout/confirm", { paymentId: order.data.paymentId });
+  const done = await call("POST", "/api/checkout/confirm", { paymentId });
+  assert.equal(done.status, 200);
   assert.equal((await db.one("SELECT plan FROM users WHERE id = :id", { id: userId })).plan, "expert");
 
-  await sendWebhook({ type: "Transaction.Cancelled", data: { paymentId: order.data.paymentId } });
+  await sendWebhook({ type: "Transaction.Cancelled", data: { paymentId } });
   const u = await db.one("SELECT plan, plan_expires_at FROM users WHERE id = :id", { id: userId });
   assert.equal(u.plan, "free", "30일짜리 한 번을 취소하면 요금제가 닫혀야 한다");
   assert.equal(u.plan_expires_at, null);
+});
+
+test("충전 결제창은 간편결제를 숨기고, 가장 큰 팩도 카드사 충전 한도(5만원) 아래다", async () => {
+  // 이니시스 조건: 신용카드 단발성 결제만(간편결제·할부 불가). 신한카드는 충전을 하루 5만원까지만 승인한다.
+  const src = fs.readFileSync(new URL("../../src/payments.js", import.meta.url), "utf8");
+  assert.match(src, /noeasypay/);
+  for (const p of credits.CREDIT_PACKS) assert.ok(p.krw < 50000, `${p.label} ${p.krw}원 — 5만원 이상이면 할부가 열리고 신한카드는 거절한다`);
+});
+
+test("충전 내역에 금액이 남고, 크레딧 화면은 거래마다 잔여와 소멸일을 준다", async () => {
+  const { call } = await signedIn();
+  portone.payment = { status: "PAID", amount: { total: PACK.krw }, method: { type: "CARD" } };
+  const order = await call("POST", "/api/checkout", { packKey: PACK.key });
+  await call("POST", "/api/checkout/confirm", { paymentId: order.data.paymentId });
+  const c = await call("GET", "/api/credits");
+  assert.equal(c.status, 200);
+  const charge = c.data.ledger.find((l) => l.reason === "purchase");
+  assert.match(charge.memo, /20크레딧 충전 · 12,000원/);
+  assert.equal(c.data.ledger[0].balance_after, c.data.balance, "맨 위 행의 잔여 = 현재 잔액");
+  assert.ok(charge.expires_at > Date.now() + 360 * 24 * 3600 * 1000, "충전분에는 1년 뒤 소멸일이 붙는다");
+  assert.ok(c.data.nextExpiry && c.data.nextExpiry.amount > 0);
 });
 
 // 계정으로 검증하려면 휴대폰 본인확인을 마쳐야 한다. 크레딧과 공헌도가 걸려 있어

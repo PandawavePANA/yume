@@ -12,11 +12,11 @@ import ContextRepairCard from "@/components/yume/ContextRepairCard";
 import { BountyPrompt } from "@/components/yume/BountyModal";
 import { CorrectionPrompt } from "@/components/yume/CorrectionModal";
 import { apiJson, safeUrl, CONTACT_EMAIL } from "@/components/yume/api";
-import { BUSINESS, telHref, COPYRIGHT, businessLine } from "@/businessInfo";
+import { BUSINESS, COMPLAINT_NOTICE, COMPLAINT_OFFICER, telHref, COPYRIGHT, businessLine } from "@/businessInfo";
 import BusinessInfo from "@/components/yume/BusinessInfo";
 import { IS_NATIVE_APP, onNativeBack, shareLink } from "./native.js";
 import { IS_STORE_BUILD } from "./storeBuild.js";
-import { orderPack, orderPlan, resumeFromRedirect, verifyIdentity } from "./payments.js";
+import { orderPack, resumeFromRedirect, verifyIdentity } from "./payments.js";
 import SidePanel, { PANEL_WIDTH } from "@/components/yume/SidePanel";
 import { t, useLang } from "./i18n.js";
 import { useMediaQuery } from "./useMedia.js";
@@ -25,12 +25,6 @@ import { useMediaQuery } from "./useMedia.js";
 const BUSINESS_URL = (import.meta.env?.VITE_BUSINESS_URL || "https://business.yume-reamer.com").replace(/\/+$/, "");
 
 const EASE_APPLE = [0.22, 1, 0.36, 1];
-
-// 결제 버튼에 찍는 판매가. 서버 plans.js의 monthlyKrw와 같은 값이어야 한다 —
-// 금액은 서버가 정하므로 여기 값이 틀려도 결제는 서버 금액으로 되지만, 화면과 청구가
-// 어긋나면 그 자체가 사고다. 둘 중 하나를 고치면 반드시 둘 다 고칠 것.
-// 값이 없는 요금제(무료·비즈니스)는 파는 상품이 아니다.
-const PLAN_PRICE_KRW = { standard: 9900, expert: 29000 };
 
 // 디자인 토큰 — 유메의 파스텔 퍼플은 그대로, 애플 제품 페이지처럼 여백·타이포·유리 질감으로
 // 고급스러움을 낸다. 색을 새로 들이지 말고 여기 값을 재사용할 것.
@@ -142,11 +136,6 @@ const verdictLabel = (c) =>
   c?.verdict === "uncertain" ? UNCERTAIN_LABEL[c.uncertain_reason] || "확인되지 않음" : VERDICT[c?.verdict]?.label || "확인되지 않음";
 const VBORDER = { confirmed: "#C6E2D2", false: "#EEC3B9", uncertain: "#EBCDBA" };
 const VBG = { confirmed: "#FCFDFC", false: "#FFFBFA", uncertain: "#FFFCFA" };
-const PLANS = {
-  free: { label: "무료", price: "0원", period: "", tagline: "일상적인 사실관계 확인", features: ["매일 3회 무료 확인 (가입 없이도)", "가입하면 매달 5 크레딧 추가 (2,000자당 1크레딧)", "법률 주장 법제처 공식 대조", "인용된 판례·법령·논문의 부존재 신뢰도", "로그인 시 검증 기록 최근 50건 저장"] },
-  standard: { label: "스탠다드", price: "9,900원", period: "/월", tagline: "매일 AI 답변을 확인하는 분께", features: ["매달 20 크레딧 (정가 12,000원어치)", "무료 플랜 기능 전체 포함", "검증 기록 무제한 저장", "크레딧 소진 시 추가 구매 가능"] },
-  expert: { label: "전문가", price: "29,000원", period: "/월", tagline: "업무에서 조문·판례를 자주 확인하는 분께", features: ["매달 60 크레딧 (정가 36,000원어치)", "스탠다드 전체 포함", "우선 지원", "크레딧 소진 시 추가 구매 가능"] },
-};
 
 // AI 할루시네이션이 발생하는 구조적 원인 5가지와, 유메가 도메인에 상관없이
 // 그 원인마다 붙이는 대응 로직. 법률 도메인에서 먼저 검증한 내용을 일반화했다.
@@ -729,8 +718,7 @@ export default function YumeDashboard() {
   }, []);
   const [showPricing, setShowPricing] = useState(false);
   // 요금제 창의 탭. 크레딧 충전이 맨 앞이다 — "더 쓰고 싶다"는 사람 대부분이 찾는 것이 이쪽이다.
-  const [storeTab, setStoreTab] = useState("credits");
-  const openStore = (tab = "credits") => { setStoreTab(tab); setShowPricing(true); };
+  const openStore = () => setShowPricing(true);
   const [packs, setPacks] = useState([]);
   React.useEffect(() => {
     if (!showPricing || packs.length) return;
@@ -774,8 +762,9 @@ export default function YumeDashboard() {
       try { localStorage.setItem("yume:ref", ref.slice(0, 20)); } catch { /* 저장이 막혀도 이번 방문 주소에는 남아 있다 */ }
     }
     // 기업용 사이트가 "?open=docs"(문서 검사)·"?open=api"(키 발급)로 바로 그 화면을 연다.
+    // "?open=credits"는 크레딧 충전·차감 내역 화면이다 — 결제 심사 회신에 경로로 적는다.
     const open = q.get("open");
-    if (["api", "docs", "batch"].includes(open)) {
+    if (["api", "docs", "batch", "credits"].includes(open)) {
       if (user) setAccountTab(open);
       else { afterAuth.current = open; setAuthModal("signup"); }
       q.delete("open");
@@ -793,22 +782,6 @@ export default function YumeDashboard() {
 
   const [planBusy, setPlanBusy] = React.useState("");
   const [checkout, setCheckout] = React.useState(null);
-  const buyPlan = async (key, label) => {
-    if (!user) { setShowPricing(false); setAuthModal("signup"); return; }
-    // 주문만 만들고 결제 화면으로 넘어간다. 구매자 이름·휴대폰 번호를 확인하거나
-    // 채워 넣을 자리가 필요해서다 — 이니시스는 그 둘이 비면 창을 열지 않는다.
-    setPlanBusy(key);
-    try {
-      const order = await orderPlan(key);
-      setShowPricing(false);
-      setCheckout({ ...order, kind: "plan", label });
-    } catch (e) {
-      if (!e.cancelled) setToast(e.message || t("결제하지 못했어요."));
-    } finally {
-      setPlanBusy("");
-    }
-  };
-
   // 크레딧 팩 구매. 로그인 전이면 가입부터 — 가입이 끝나면 이 창(충전 탭)으로 돌아온다.
   const buyPack = async (pack) => {
     if (!user) { setShowPricing(false); afterAuth.current = "credits"; setAuthModal("signup"); return; }
@@ -1528,7 +1501,8 @@ export default function YumeDashboard() {
                         ? t("{plan} 이용권이 오늘 끝나요. 끝나면 무료 플랜으로 돌아가요.", { plan: t(user.planLabel) })
                         : t("{plan} 이용권이 {n}일 뒤 끝나요. 끝나면 무료 플랜으로 돌아가요.", { plan: t(user.planLabel), n: left })}
                     </span>
-                    <button onClick={() => openStore("plans")} style={{ ...pillBtn, border: "none", background: UI.ink, color: "#fff", fontWeight: 600 }}>{t("연장하기")}</button>
+                    {/* 월 요금제는 판매를 닫아 연장할 수 없다. 끝난 뒤에는 크레딧 충전으로 이어 쓴다. */}
+                    <button onClick={() => openStore("credits")} style={{ ...pillBtn, border: "none", background: UI.ink, color: "#fff", fontWeight: 600 }}>{t("크레딧 충전")}</button>
                   </div>
                 );
               })()}
@@ -1585,9 +1559,6 @@ export default function YumeDashboard() {
                       ...pillBtn, border: limitReached.loggedIn ? "none" : `1px solid ${UI.hairline}`,
                       background: limitReached.loggedIn ? UI.button : "#fff", color: limitReached.loggedIn ? "#fff" : UI.accent, fontWeight: 700,
                     }}>{t("크레딧 충전")}</button>}
-                    {!IS_STORE_BUILD && <button onClick={() => openStore("plans")} style={{
-                      ...pillBtn, border: `1px solid ${UI.hairline}`, background: "#fff", color: UI.ink2, fontWeight: 600,
-                    }}>{t("월 요금제")}</button>}
                   </div>
                 </div>
               ) : stage === "error" && (
@@ -2153,7 +2124,7 @@ export default function YumeDashboard() {
               <div style={{ fontSize: 13, color: UI.ink3, marginTop: 10, maxWidth: 280, lineHeight: 1.6 }}>{t("AI 답변, 확인하고 믿으세요.")}</div>
             </div>
             <div style={{ display: "flex", gap: 28, flexWrap: "wrap" }}>
-              {!IS_STORE_BUILD && <button onClick={() => openStore("credits")} className="yume-footer-link" style={{ border: "none", background: "transparent", color: UI.ink2, fontSize: 13, cursor: "pointer", padding: 0 }}>{t("요금제")}</button>}
+              {!IS_STORE_BUILD && <button onClick={() => openStore("credits")} className="yume-footer-link" style={{ border: "none", background: "transparent", color: UI.ink2, fontSize: 13, cursor: "pointer", padding: 0 }}>{t("크레딧 충전")}</button>}
               {!IS_STORE_BUILD && <button onClick={() => setShowBiz(true)} className="yume-footer-link" style={{ border: "none", background: "transparent", color: UI.ink2, fontSize: 13, cursor: "pointer", padding: 0 }}>{t("비즈니스 · API")}</button>}
               {!IS_STORE_BUILD && <a href="/docs/api" target="_blank" rel="noopener noreferrer" className="yume-footer-link" style={{ color: UI.ink2, fontSize: 13, textDecoration: "none" }}>{t("API 문서")}</a>}
               {!IS_NATIVE_APP && !IS_STORE_BUILD && (
@@ -2183,6 +2154,8 @@ export default function YumeDashboard() {
                 )}
                 이메일 <a href={`mailto:${BUSINESS.email}`} className="yume-footer-link" style={{ color: UI.ink3, textDecoration: "none" }}>{BUSINESS.email}</a>
               </div>
+              {/* 이니시스 포인트충전 조건 — 거래 책임과 민원 담당자를 하단에 늘 적는다. */}
+              <div>{t(COMPLAINT_NOTICE)} {COMPLAINT_OFFICER}</div>
               <div style={{ marginTop: 6 }}>{COPYRIGHT}</div>
             </address>
             <span style={{ display: "flex", gap: 0 }}>
@@ -2228,37 +2201,18 @@ export default function YumeDashboard() {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 18 }}>
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontSize: 28, fontWeight: 750, letterSpacing: "-0.03em", color: UI.ink }}>
-                  {storeTab === "credits" ? t("크레딧 충전") : t("월 요금제")}
+                  {t("크레딧 충전")}
                 </div>
                 <div style={{ fontSize: 14, color: UI.ink2, marginTop: 4, lineHeight: 1.6 }}>{IS_NATIVE_APP || IS_STORE_BUILD
                   ? t("앱에서는 무료 플랜을 이용할 수 있어요. 결제는 웹사이트에서 할 수 있어요.")
                   : !user
                     ? t("매일 3회는 무료예요. 더 확인하려면 가입하고 크레딧을 충전하세요.")
-                    : storeTab === "credits"
-                      ? t("매일 무료 3회를 다 쓴 뒤에 크레딧이 쓰여요. 2,000자마다 1크레딧이에요.")
-                      : payCfg?.payment
-                        ? t("카드로 바로 결제하고 1개월 동안 이용하실 수 있어요. 자동 갱신되지 않습니다.")
-                        : t("온라인 결제는 준비 중이에요. 유료 플랜은 문의해주시면 바로 열어드려요.")}</div>
+                    : t("매일 무료 3회를 다 쓴 뒤에 크레딧이 쓰여요. 2,000자마다 1크레딧이에요.")}</div>
               </div>
               <button onClick={() => setShowPricing(false)} aria-label={t("닫기")} style={{ width: 32, height: 32, flexShrink: 0, borderRadius: 999, border: "none", background: "rgba(118,118,128,0.12)", color: UI.ink2, fontSize: 16, cursor: "pointer" }}>×</button>
             </div>
 
-            {/* 두 탭 — 흰 알약이 미끄러져 옮겨 간다. */}
-            <div role="tablist" style={{ display: "inline-flex", padding: 4, borderRadius: 14, background: "rgba(118,118,128,0.10)", marginBottom: 22 }}>
-              {[["credits", "크레딧 충전"], ["plans", "월 요금제"]].map(([k, label]) => (
-                <button key={k} role="tab" aria-selected={storeTab === k} onClick={() => setStoreTab(k)} style={{
-                  position: "relative", border: "none", background: "transparent", padding: "9px 18px", borderRadius: 10,
-                  fontSize: 14, fontWeight: storeTab === k ? 700 : 600, color: storeTab === k ? UI.ink : UI.ink2, cursor: "pointer", fontFamily: "inherit",
-                }}>
-                  {storeTab === k && <motion.span layoutId="store-tab" transition={{ type: "spring", stiffness: 500, damping: 36 }}
-                    style={{ position: "absolute", inset: 0, borderRadius: 10, background: "#fff", boxShadow: "0 3px 10px rgba(20,17,24,0.08)" }} />}
-                  <span style={{ position: "relative" }}>{t(label)}</span>
-                </button>
-              ))}
-            </div>
-
-            <AnimatePresence mode="wait">
-            {storeTab === "credits" ? (
+            {/* 월 요금제는 판매를 닫았다(이니시스 포인트충전 조건) — 크레딧 충전 하나만 남는다. */}
               <motion.div key="credits" initial={{ opacity: 0, x: -14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 14 }} transition={{ duration: 0.22, ease: EASE_APPLE }}>
                 {user && (
                   <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap", padding: "14px 18px", borderRadius: 16, marginBottom: 16,
@@ -2312,63 +2266,14 @@ export default function YumeDashboard() {
                   })}
                   {!packs.length && <div style={{ fontSize: 14, color: UI.ink3, padding: "30px 0" }}>{t("불러오는 중…")}</div>}
                 </div>
+                {/* 이니시스 포인트충전 조건 — 소진기한(1년)과 카드 취소 환불을 충전 화면에 적는다. */}
                 <p style={{ fontSize: 12.5, color: UI.ink3, margin: "14px 2px 0", lineHeight: 1.7 }}>
-                  {t("크레딧은 유효기간이 없고, 서버 오류로 확인이 끝나지 않으면 자동으로 돌려드려요. 매달 크레딧을 받으려면")}{" "}
-                  <button onClick={() => setStoreTab("plans")} className="yume-link" style={{ border: "none", background: "none", padding: 0, font: "inherit", color: UI.accent, fontWeight: 600, cursor: "pointer" }}>{t("월 요금제")}</button>
-                  {t("를 보세요.")}
+                  <b style={{ color: UI.ink2 }}>{t("충전한 크레딧은 결제한 시점부터 1년 이내에 사용할 수 있으며, 1년 안에 쓰지 않은 크레딧은 소멸합니다.")}</b>{" "}
+                  {t("먼저 충전한 크레딧부터 쓰이고, 서버 오류로 확인이 끝나지 않으면 자동으로 돌려드려요. 환불은 결제하신 카드의 결제 취소로만 처리됩니다.")}{" "}
+                  {t("신용카드·체크카드 일시불 결제만 가능해요.")}{" "}
+                  <a href="/refund" target="_blank" rel="noopener noreferrer" className="yume-link" style={{ color: UI.accent, fontWeight: 600 }}>{t("환불정책")}</a>
                 </p>
               </motion.div>
-            ) : (
-              <motion.div key="plans" initial={{ opacity: 0, x: 14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -14 }} transition={{ duration: 0.22, ease: EASE_APPLE }}>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 14 }}>
-                {Object.entries(PLANS).map(([key, p]) => (
-                  <div key={key} style={{
-                    border: plan === key ? `2px solid ${UI.accentSoft}` : `1px solid ${UI.hairline}`, borderRadius: 20, padding: 22,
-                    background: key === "expert" ? "linear-gradient(180deg, #F7F2FF 0%, #fff 70%)" : "#FBFAFD", display: "flex", flexDirection: "column"
-                  }}>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: UI.accent, marginBottom: 6 }}>{t(p.label)}</div>
-                    <div style={{ fontSize: 28, fontWeight: 700, marginBottom: 4, letterSpacing: "-0.03em", color: UI.ink }}>{t(p.price)}<span style={{ fontSize: 14, fontWeight: 500, color: UI.ink3, letterSpacing: 0 }}>{t(p.period)}</span></div>
-                    <div style={{ fontSize: 13.5, color: UI.ink2, marginBottom: 18, lineHeight: 1.5 }}>{t(p.tagline)}</div>
-                    <ul style={{ listStyle: "none", padding: "16px 0 0", margin: "0 0 22px", display: "flex", flexDirection: "column", gap: 9, flex: 1, borderTop: `1px solid ${UI.hairline}` }}>
-                      {p.features.map((f, i) => (
-                        <li key={i} style={{ fontSize: 13.5, color: UI.ink2, display: "flex", gap: 8, lineHeight: 1.5 }}>
-                          <span style={{ color: UI.accentSoft, fontWeight: 700 }}>✓</span>{t(f)}
-                        </li>
-                      ))}
-                    </ul>
-                    {plan === key ? (
-                      <div style={{ width: "100%", padding: "12px 0", borderRadius: 12, background: "rgba(118,118,128,0.10)", color: UI.ink3, fontSize: 14, fontWeight: 600, textAlign: "center" }}>{t("현재 플랜")}</div>
-                    ) : key === "free" ? (
-                      user ? null : (
-                        <button onClick={() => { setShowPricing(false); setAuthModal("signup"); }} style={{
-                          width: "100%", padding: "12px 0", borderRadius: 12, border: "none", background: "rgba(139,111,216,0.14)",
-                          color: UI.accent, fontSize: 14, fontWeight: 600, cursor: "pointer",
-                        }}>{t("무료로 가입하기")}</button>
-                      )
-                    ) : IS_NATIVE_APP || IS_STORE_BUILD ? (
-                      // 앱스토어·플레이스토어는 앱 안의 디지털 상품을 자체 결제로만 팔게 한다 — 외부 결제 안내를 두지 않는다.
-                      <div style={{ width: "100%", padding: "12px 0", borderRadius: 12, background: "rgba(118,118,128,0.10)", color: UI.ink3, fontSize: 14, fontWeight: 600, textAlign: "center" }}>{t("준비 중")}</div>
-                    ) : payCfg?.payment && PLAN_PRICE_KRW[key] ? (
-                      // 결제 연동이 켜져 있으면 바로 산다. 금액은 서버가 정하고, 크레딧·플랜은
-                      // 서버가 포트원에 결제를 확인한 뒤에만 열린다.
-                      <button onClick={() => buyPlan(key, p.label)} disabled={!!planBusy} style={{
-                        width: "100%", padding: "12px 0", borderRadius: 12, border: "none", cursor: planBusy ? "default" : "pointer",
-                        background: UI.button, color: "#fff", fontSize: 14, fontWeight: 600, opacity: planBusy ? 0.6 : 1, fontFamily: "inherit",
-                      }}>{planBusy === key ? "결제창 여는 중…" : `${PLAN_PRICE_KRW[key].toLocaleString()}원 결제하기`}</button>
-                    ) : (
-                      <a href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(`[유메] ${p.label} 플랜 이용 문의`)}&body=${encodeURIComponent(`가입 이메일: ${user?.email || ""}
-  원하는 플랜: ${p.label}
-  `)}`} style={{
-                        display: "block", width: "100%", padding: "12px 0", borderRadius: 12, textAlign: "center", textDecoration: "none",
-                        background: UI.button, color: "#fff", fontSize: 14, fontWeight: 600,
-                      }}>{PLAN_PRICE_KRW[key] ? "이용 문의하기" : "도입 문의하기"}</a>
-                    )}
-                  </div>
-                ))}
-              </div>
-              </motion.div>
-            )}
-            </AnimatePresence>
             {/* 결제가 일어나는 화면이라 사업자 정보가 여기에도 있어야 한다(PG 심사 필수). */}
             <BusinessInfo />
           </motion.div>

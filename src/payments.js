@@ -18,6 +18,17 @@ const returnTo = (param, value) => {
   base.search = `?${param}=${encodeURIComponent(value)}`;
   return base.toString();
 };
+// 결제창 옵션 — KG이니시스 포인트충전 입점 조건: 신용카드 단발성 결제만, 할부·간편결제 불가.
+//   noeasypay — 카드 결제창 안에 뜨는 간편결제(카카오페이 등) 버튼을 숨긴다. PC는 acceptmethod,
+//               모바일은 P_RESERVED로 같은 뜻을 보낸다.
+//   할부는 따로 막지 않는다. 카드 할부는 5만원 이상부터 열리는데, 가장 큰 충전 팩이 45,000원이라
+//   결제창에 할부 선택지가 애초에 나오지 않는다(server/credits.js CREDIT_PACKS). 할부 옵션을
+//   강제로 넣으면 금액 조건과 부딪혀 결제창이 오류를 낼 수 있다. 팩을 5만원 넘게 올리려면
+//   card.installment.monthOption.fixedMonth: 1을 여기에 같이 넣을 것.
+const CARD_ONLY = {
+  bypass: { inicis_v2: { acceptmethod: ["noeasypay"], P_RESERVED: ["noeasypay=Y"] } },
+};
+
 const CANCEL_CODES = new Set(["USER_CANCEL", "PAY_PROCESS_CANCELED", "IDENTITY_VERIFICATION_CANCELLED"]);
 
 function cancelled(message) {
@@ -64,12 +75,6 @@ export async function orderPack(packKey) {
   return apiJson("/api/checkout", { method: "POST", body: { packKey } });
 }
 
-/** 요금제 1개월 이용권 주문을 만든다. */
-export async function orderPlan(plan) {
-  await ensureIdentity();
-  return apiJson("/api/checkout", { method: "POST", body: { plan } });
-}
-
 /**
  * 결제창을 연다. buyer는 결제 화면에서 받은 이름·휴대폰 번호다.
  *
@@ -87,6 +92,7 @@ export async function startCheckout(order, buyer) {
     totalAmount: order.totalAmount,
     currency: order.currency,
     payMethod: "CARD",
+    ...CARD_ONLY,
     customer: { ...(order.customer || {}), ...(buyer || {}) },
     // 모바일 결제창은 페이지를 떠났다가 돌아온다. 돌아올 곳을 지정하지 않으면 결과를 잃는다.
     redirectUrl: returnTo("checkout", order.paymentId),
@@ -111,6 +117,7 @@ export async function payForPack(packKey) {
     totalAmount: order.totalAmount,
     currency: order.currency,
     payMethod: "CARD",
+    ...CARD_ONLY,
     // 이니시스 V2 일반결제는 구매자 이메일이 없으면 창을 열지 않는다. 서버가 계정에서 꺼내 준 값이다.
     customer: order.customer,
     // 모바일 결제창은 페이지를 떠났다가 돌아온다. 돌아올 곳을 지정하지 않으면 결과를 잃는다.
@@ -201,27 +208,4 @@ export async function resumeFromRedirect() {
   } catch (e) {
     return { kind: paymentId ? "payment" : pwResetId ? "identityReset" : "identity", error: e.message };
   }
-}
-
-/** 요금제 1개월 이용권 결제. 성공하면 { plan, planExpiresAt }. */
-export async function payForPlan(plan) {
-  await ensureIdentity();
-  const order = await apiJson("/api/checkout", { method: "POST", body: { plan } });
-  const PortOne = await sdk();
-  const res = await PortOne.requestPayment({
-    storeId: order.storeId,
-    channelKey: order.channelKey,
-    paymentId: order.paymentId,
-    orderName: order.orderName,
-    totalAmount: order.totalAmount,
-    currency: order.currency,
-    payMethod: "CARD",
-    customer: order.customer,
-    redirectUrl: returnTo("checkout", order.paymentId),
-  });
-  if (res?.code != null) {
-    if (CANCEL_CODES.has(res.code)) throw cancelled(res.message);
-    throw new Error(res.message || "결제에 실패했어요.");
-  }
-  return confirmCheckout(order.paymentId);
 }

@@ -10,14 +10,20 @@ import { t } from "../../i18n.js";
 
 // 계정 설정 → 크레딧 탭.
 //
-// 크레딧은 검증을 돌리는 데 쓰는 재화다. 요금제마다 매달 정해진 양이 들어오고,
-// 다 쓰면 최고 등급이라도 추가로 사야 한다. 공헌도 점수와는 완전히 다른 값이라
+// 크레딧은 검증을 돌리는 데 쓰는 충전식 이용권이다. 공헌도 점수와는 완전히 다른 값이라
 // 이 화면에 섞어 보여주지 않는다 — 랭킹은 따로 있다.
+//
+// 아래 "크레딧 내역"이 이니시스 포인트충전 조건의 차감 페이지다. 충전 내역, 차감 내역(이용한
+// 서비스명), 거래마다의 잔여 크레딧이 함께 보이고 계산이 맞아야 한다. 잔여는 서버가 행마다
+// 계산해 준다(balance_after) — 화면에서 다시 더하면 50건 밖의 오래된 내역 때문에 틀린다.
 const REASON = {
-  plan_grant: "요금제 월 지급",
-  purchase: "크레딧 구매",
-  referral: "친구 추천",
-  verify: "검증 사용",
+  plan_grant: "월 기본 지급",
+  purchase: "크레딧 충전",
+  purchase_cancelled: "충전 결제 취소",
+  referral: "친구 추천 보상",
+  verify: "사용 · 유메 팩트체크(사실 검증)",
+  refund: "환급 · 검증 실패",
+  expire: "소멸 · 유효기간 1년 만료",
   admin: "운영자 지급",
 };
 const BOUNTY_STATUS = {
@@ -35,6 +41,7 @@ const CORRECTION_STATUS = {
 const PURCHASE_STATUS = { requested: "입금 확인 중", fulfilled: "지급 완료", cancelled: "취소됨" };
 
 const fmt = (ts) => (ts ? new Date(ts).toLocaleDateString("ko-KR", { month: "short", day: "numeric" }) : "-");
+const fmtDay = (ts) => (ts ? new Date(ts).toLocaleDateString("ko-KR", { year: "numeric", month: "2-digit", day: "2-digit" }) : "-");
 const card = { border: "1px solid #EDE3FA", borderRadius: 12, padding: 14, marginBottom: 10 };
 const ghostBtn = { padding: "7px 13px", borderRadius: 999, border: "1px solid #D4BEF0", background: "#fff", color: "#6B4FA8", fontSize: 12.5, fontWeight: 600, cursor: "pointer" };
 
@@ -135,14 +142,19 @@ export default function CreditsTab() {
           <span style={{ fontSize: 14, fontWeight: 600, marginLeft: 4 }}>{t("크레딧")}</span>
         </div>
         <div style={{ fontSize: 11.5, color: "#8577A8", marginTop: 2 }}>
-          2,000자당 1크레딧 · 매달 {data.planCredits.toLocaleString()}크레딧이 들어옵니다
+          2,000자당 1크레딧 · 매일 무료 3회 뒤에 쓰여요
         </div>
+        {data.nextExpiry && (
+          <div style={{ fontSize: 11.5, color: "#B4690E", marginTop: 4, fontWeight: 600 }}>
+            {t("{n}크레딧이 {d}에 소멸 예정이에요", { n: data.nextExpiry.amount.toLocaleString(), d: fmtDay(data.nextExpiry.expiresAt) })}
+          </div>
+        )}
       </div>
 
       <div style={{ ...card, background: "#FBF8FF" }}>
         <div style={{ fontSize: 12.5, color: "#5B5470", lineHeight: 1.7 }}>
-          요금제에 따라 매달 크레딧이 들어오고, 검증할 때마다 1개씩 씁니다.
-          다 쓰면 <b>{t("요금제를 올려도 자동으로 늘어나지 않고")}</b> 크레딧을 추가로 구매하셔야 해요.
+          검증할 때마다 크레딧이 차감됩니다. <b>{t("충전한 크레딧은 결제한 시점부터 1년 이내에 사용할 수 있으며, 1년 안에 쓰지 않은 크레딧은 소멸합니다.")}</b>
+          {" "}{t("먼저 충전한 크레딧부터 쓰여요.")}
         </div>
       </div>
 
@@ -154,12 +166,12 @@ export default function CreditsTab() {
         <>
           <div style={{ fontSize: 13, fontWeight: 700, margin: "18px 0 8px" }}>{t("크레딧 추가 구매")}</div>
           <div style={{ ...card, background: "#FBF8FF", color: "#6E6389", fontSize: 12.5, lineHeight: 1.7 }}>
-            {t("앱에서는 크레딧 구매를 준비 중이에요. 요금제로 매달 받는 크레딧은 그대로 쓰실 수 있어요.")}
+            {t("앱에서는 크레딧 충전을 준비 중이에요. 이미 가진 크레딧은 그대로 쓰실 수 있어요.")}
           </div>
         </>
       ) : (
       <>
-      <div style={{ fontSize: 13, fontWeight: 700, margin: "18px 0 8px" }}>{t("크레딧 추가 구매")}</div>
+      <div style={{ fontSize: 13, fontWeight: 700, margin: "18px 0 8px" }}>{t("크레딧 충전")}</div>
       {pay?.identity && !pay.identityVerified && (
         <div style={{ ...card, background: "#FBF8FF", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
           <div style={{ fontSize: 12.5, color: "#5B5470", lineHeight: 1.6 }}>
@@ -187,8 +199,8 @@ export default function CreditsTab() {
       {data.packs.map((pack) => (
         <div key={pack.key} style={{ ...card, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
           <div>
-            <div style={{ fontSize: 13, fontWeight: 600 }}>{pack.label}</div>
-            <div style={{ fontSize: 11.5, color: "#A99BC9" }}>{pack.krw.toLocaleString()}원</div>
+            <div style={{ fontSize: 13, fontWeight: 600 }}>{pack.label} {t("충전")}</div>
+            <div style={{ fontSize: 11.5, color: "#A99BC9" }}>{pack.krw.toLocaleString()}원 · {t("결제일부터 1년 이내 사용")}</div>
           </div>
           <button
             onClick={() => (pay?.payment ? buyNow(pack) : buy(pack))}
@@ -200,12 +212,13 @@ export default function CreditsTab() {
         </div>
       ))}
       <div style={{ fontSize: 11, color: "#A99BC9", lineHeight: 1.6, marginBottom: 18 }}>
-        크레딧은 AI 답변 속 사실 주장을 유메가 검증하는 데 쓰는 이용권입니다. 검증 1회에 1크레딧이 차감되고(입력 2,000자마다 1개),
-        유효기간은 없습니다. 배송되는 실물은 없으며 결제가 확인되면 계정에 바로 적립됩니다.
+        크레딧은 AI 답변·문서 속 사실 주장을 유메가 검증하는 데 쓰는 충전식 이용권입니다. 검증 1회에 1크레딧이 차감되고(입력 2,000자마다 1개),
+        <b>충전한 크레딧은 결제한 시점부터 1년 이내에 사용할 수 있으며 미사용 크레딧은 소멸합니다.</b> 배송되는 실물은 없으며 결제가 확인되면 계정에 바로 충전됩니다.
+        신용카드·체크카드 일시불 결제만 가능합니다.
         {pay?.payment
           ? "결제가 끝나면 서버가 결제 내역을 확인한 뒤 크레딧을 바로 넣어드립니다."
           : "온라인 결제는 준비 중이라 지금은 신청만 받고 있어요. 입금이 확인되면 운영자가 크레딧을 넣어드립니다."}
-        크레딧은 현금으로 바꿔드리지 않으며, 환불 조건은 아래 <a href="/refund" target="_blank" rel="noopener noreferrer" style={{ color: "#8577A8" }}>{t("환불정책")}</a>을 따릅니다.
+        크레딧은 현금으로 바꿔드리지 않으며, 환불은 결제하신 카드의 결제 취소로만 처리됩니다. 환불 조건은 아래 <a href="/refund" target="_blank" rel="noopener noreferrer" style={{ color: "#8577A8" }}>{t("환불정책")}</a>을 따릅니다.
       </div>
       </>
       )}
@@ -302,13 +315,22 @@ export default function CreditsTab() {
 
       {data.ledger.length > 0 && (
         <>
-          <div style={{ fontSize: 13, fontWeight: 700, margin: "18px 0 8px" }}>{t("크레딧 내역")}</div>
+          <div style={{ fontSize: 13, fontWeight: 700, margin: "18px 0 4px" }}>{t("크레딧 내역")}</div>
+          <div style={{ fontSize: 11.5, color: "#A99BC9", marginBottom: 6 }}>{t("충전·차감 내역과 거래마다의 잔여 크레딧이에요. 최근 100건까지 보여요.")}</div>
+          <div style={{ display: "grid", gridTemplateColumns: "auto 1fr auto auto", columnGap: 10, fontSize: 11, color: "#A99BC9", fontWeight: 600, padding: "6px 0", borderBottom: "1px solid #EDE3FA" }}>
+            <span>{t("날짜")}</span><span>{t("내용")}</span><span style={{ textAlign: "right" }}>{t("증감")}</span><span style={{ textAlign: "right" }}>{t("잔여")}</span>
+          </div>
           {data.ledger.map((l) => (
-            <div key={l.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, padding: "7px 0", borderBottom: "1px solid #F4EEFC" }}>
-              <span style={{ color: "#5B5470" }}>{REASON[l.reason] || l.reason}{l.memo ? ` · ${l.memo}` : ""}</span>
-              <span style={{ fontWeight: 700, color: l.delta > 0 ? "#1F9D66" : "#6E6389", fontVariantNumeric: "tabular-nums" }}>
+            <div key={l.id} style={{ display: "grid", gridTemplateColumns: "auto 1fr auto auto", columnGap: 10, alignItems: "baseline", fontSize: 12.5, padding: "7px 0", borderBottom: "1px solid #F4EEFC" }}>
+              <span style={{ color: "#A99BC9", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{fmtDay(l.created_at)}</span>
+              <span style={{ color: "#5B5470", minWidth: 0 }}>
+                {t(REASON[l.reason] || l.reason)}{l.memo ? ` · ${l.memo}` : ""}
+                {l.expires_at && <span style={{ display: "block", fontSize: 11, color: "#A99BC9" }}>{t("{d}까지 사용 가능", { d: fmtDay(l.expires_at) })}</span>}
+              </span>
+              <span style={{ fontWeight: 700, color: l.delta > 0 ? "#1F9D66" : "#6E6389", fontVariantNumeric: "tabular-nums", textAlign: "right" }}>
                 {l.delta > 0 ? "+" : ""}{l.delta.toLocaleString()}
               </span>
+              <span style={{ color: "#241F33", fontVariantNumeric: "tabular-nums", textAlign: "right" }}>{(l.balance_after ?? 0).toLocaleString()}</span>
             </div>
           ))}
         </>

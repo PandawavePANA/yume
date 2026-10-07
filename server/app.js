@@ -10,7 +10,7 @@ import { kakaoSkillHandler } from "./kakaoWebhook.js";
 import { renderResultPage } from "./renderResultPage.js";
 import { resolveProductLinks } from "./coupang.js";
 import { checkAndConsume, refundOne, peekUsage, PLANS, FREE_DAILY_CHECKS } from "./usageStore.js";
-import { CREDIT_PACKS, PLAN_CREDITS } from "./credits.js";
+import { CREDIT_PACKS, PLAN_CREDITS, expireAllCredits } from "./credits.js";
 import { appendTurns } from "./chatHistory.js";
 import { logError } from "./errorLog.js";
 import { repairContext, MAX_TRANSCRIPT_CHARS, MIN_TRANSCRIPT_CHARS } from "./contextRepair.js";
@@ -524,6 +524,8 @@ export async function maintenance() {
     await run("DELETE FROM documents WHERE created_at < :t", { t: now() - 365 * DAY_MS });
     await run("DELETE FROM chat_messages WHERE created_at < :t", { t: now() - 180 * DAY_MS });
     await run("DELETE FROM error_logs WHERE created_at < :t", { t: now() - 90 * DAY_MS });
+    // 적립 후 1년이 지난 크레딧 소멸(이니시스 포인트충전 조건, 환불정책 제4조).
+    await expireAllCredits();
     await run("DELETE FROM usage_daily WHERE day < :d", { d: new Date(now() - 40 * 24 * 3600 * 1000).toISOString().slice(0, 10) });
     await run("UPDATE verifications SET status = 'error', error = '시간 초과', completed_at = :t WHERE status = 'pending' AND created_at < :cutoff", {
       t: now(),
