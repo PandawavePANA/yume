@@ -41,29 +41,38 @@ test("법제처 공식 대조와 부존재 신뢰도는 스스로 근거를 갖�
   assert.equal(sanitizeClaim({ ...base, verdict: "false", verified_via: "nec" }).verdict, "false");
 });
 
-test("총평은 '확인되지 않음'을 중립이 아니라 경고로 다룬다", () => {
+test("총평은 '근거 없음'을 중립이 아니라 경고로, 분명하게 말한다", () => {
   const mixed = buildOverallVerdict([
     { text: "A", verdict: "confirmed" },
-    { text: "B", verdict: "uncertain" },
+    { text: "B", verdict: "uncertain", uncertain_reason: "no_evidence" },
   ]);
   assert.equal(mixed.tone, "unverified");
-  assert.match(mixed.label, /확인되지 않음/);
+  assert.equal(mixed.label, "근거 없는 주장 있음");
   assert.match(mixed.detail, /그대로 믿으면 안 됩니다/);
-  assert.match(mixed.detail, /"B"/, "어느 주장이 확인되지 않았는지 짚어준다");
+  assert.match(mixed.detail, /"B"/, "어느 주장인지 짚어준다");
 
   const none = buildOverallVerdict([{ text: "A", verdict: "uncertain" }, { text: "B", verdict: "uncertain" }]);
-  assert.equal(none.label, "확인되지 않음");
-  assert.match(none.detail, /모두 뒷받침할 근거를 찾지 못했습니다/);
+  assert.equal(none.label, "근거 없음", "이유가 없으면 근거 없음으로 본다");
+  assert.match(none.detail, /어디에서도 근거를 찾을 수 없습니다/);
+  assert.match(none.detail, /사실로 쓰지 마세요/);
 });
 
-test("사실과 다름이 있으면 확인되지 않은 주장 수도 함께 알린다", () => {
+test("공개 기록으로 확인할 수 없는 종류는 '근거 없음'과 따로 말한다", () => {
+  // 와인 평점처럼 사실이어도 공개 웹에 없는 것 — 없다는 게 아무것도 말해 주지 않는다.
+  const r = buildOverallVerdict([{ text: "A", verdict: "uncertain", uncertain_reason: "not_public" }]);
+  assert.equal(r.label, "확인되지 않음");
+  assert.match(r.detail, /공개 기록으로 확인할 수 없는 종류/);
+  assert.doesNotMatch(r.detail, /근거 없음/);
+});
+
+test("사실과 다름이 있으면 근거 없는 주장 수도 함께 알린다", () => {
   const r = buildOverallVerdict([
     { text: "A", verdict: "false" },
-    { text: "B", verdict: "uncertain" },
+    { text: "B", verdict: "uncertain", uncertain_reason: "no_evidence" },
     { text: "C", verdict: "confirmed" },
   ]);
   assert.equal(r.tone, "false");
-  assert.match(r.detail, /1개는 근거를 찾지 못해 확인되지 않았습니다/);
+  assert.match(r.detail, /1개는 공개된 자료 어디에서도 근거를 찾을 수 없습니다\(근거 없음\)/);
 });
 
 test("두 번 거쳐도 설명이 중복으로 덧씌워지지 않는다", () => {

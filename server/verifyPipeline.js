@@ -11,7 +11,7 @@ import { dropStaleFix, sanitizeClaim } from "./claimGuard.js";
 import { buildOverallVerdict } from "./overallVerdict.js";
 import { resolveProductLinks } from "./coupang.js";
 import { logError } from "./errorLog.js";
-import { logApiCost, newLedger, summarize } from "./apiCost.js";
+import { logApiCost, newLedger, searchesLeft, summarize } from "./apiCost.js";
 import {
   ENGINE_VERSION,
   completeVerification,
@@ -34,6 +34,19 @@ export const MAX_INPUT_CHARS = 10_000;
 // 주장을 그대로 내보내면, 처음 것은 5~8초에 보이고 나머지가 그 위에서 채워진다.
 // 기다리는 시간 자체는 그대로지만 기다리는 경험이 달라진다 — 빈 화면을 보는 것과
 // 결과가 하나씩 쌓이는 것을 보는 것은 다른 일이다.
+// '확인되지 않음'의 이유를 남긴다(resolveUncertain.js). 판정이 난 주장에는 붙이지 않는다.
+//   no_evidence  — 공개 자료 어디에도 뒷받침하는 근거가 없다(말한 쪽이 근거 없이 단정했다)
+//   not_public   — 비공개·유료·개인 경험처럼 공개 기록으로 확인할 수 없는 종류다
+//   check_failed — 공식 자료 조회 자체가 실패했다(유메 쪽 사정)
+function withUncertainReason(c) {
+  if (c.verdict !== "uncertain") {
+    const { uncertain_reason: _u, ...rest } = c;
+    return rest;
+  }
+  if (c.uncertain_reason) return c;
+  return { ...c, uncertain_reason: c.verified_via === "unavailable" ? "check_failed" : "no_evidence" };
+}
+
 // 같은 글이라도 결과가 달라지는 조건 — 기준 자료·자사명, 엄격 모드. 결과 캐시를 이 값으로 나눈다.
 const scopeOf = ({ references = [], organization = "", strict = false }) =>
   [referenceScope(references, organization), strict ? "strict" : ""].filter(Boolean).join("|");
@@ -88,6 +101,15 @@ async function processVerification({ id, text, source, onProgress = () => {}, on
     // 근거 잠금: 웹·리서치 판정의 근거 문장을 출처 페이지에서 직접 확인하고, 처음 판정을 모르는
     // 검토자에게 다시 묻는다. 통과하지 못한 판정은 저장(캐시)되기 전에 여기서 거둔다.
     claims = await lockEvidence(claims, { onProgress, ledger, strict });
+    // 근거 잠금에서 거둔 판정은 "유메가 댄 근거가 가짜였다"는 뜻이지, 주장이 맞다는 뜻이 아니다.
+    // 그대로 '확인되지 않음'으로 두지 않고 부존재 검증을 한 번 더 태운다 — 사실이라면 기록이
+    // 있어야 할 주장인데 진짜 근거가 어디에도 없으면, 그건 지어낸 것이다(사실과 다름).
+    const lockedOut = claims.map((c, i) => ({ c, i })).filter(({ c }) => c.locked_out_verdict && c.verdict === "uncertain");
+    if (lockedOut.length && searchesLeft(ledger) > 0) {
+      const redone = await resolveUncertainClaims(lockedOut.map(({ c }) => c), { onProgress, ledger, organization });
+      const relocked = await lockEvidence(redone.map(sanitizeClaim), { onProgress, ledger, strict });
+      lockedOut.forEach(({ i }, k) => { claims[i] = relocked[k]; });
+    }
     // 이번에 새로 판단한 것만 캐시에 넣는다(확인되지 않음은 저장하지 않는다).
     await storeAll(claims);
     // 내부 표시는 여기서 뗀다. 중간에 떼면 지목 재확인과 저장이 캐시된 주장을 구분하지
@@ -107,7 +129,7 @@ async function processVerification({ id, text, source, onProgress = () => {}, on
       });
     }
     // 내부 표시는 내보내지 않는다(기준 자료로 판정했다는 사실은 verified_via: "reference"가 말한다).
-    claims = claims.map(dropStaleFix).map(({ from_reference: _r, ...rest }) => rest);
+    claims = claims.map(dropStaleFix).map(({ from_reference: _r, ...rest }) => rest).map(withUncertainReason);
     const overall = buildOverallVerdict(claims);
     // 기업 API 응답에는 상품 링크를 싣지 않는다(publicVerification이 빼고 보낸다). 쿠팡 조회도 하지 않는다.
     const relatedProducts = source === "api" ? [] : await resolveProductLinks(extracted.related_products);

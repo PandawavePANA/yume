@@ -19,24 +19,33 @@ export function buildOverallVerdict(claims) {
   if (falseClaims.length === 0 && uncertainClaims.length === 0) {
     return { label: "전체 확인됨", detail: `${total}개 주장 모두 사실과 일치합니다.`, tone: "confirmed" };
   }
+  // '확인되지 않음'은 중립이 아니다. 그리고 두 가지가 섞여 있다(verifyPipeline withUncertainReason).
+  //   근거 없음 — 공개 기록에 있어야 할 내용인데 뒷받침하는 근거가 없다. 말한 쪽이 근거 없이 단정했다.
+  //   공개 기록 밖 — 비공개·유료·개인 경험처럼 원래 공개 자료로 확인할 수 없다.
+  // 앞의 것은 분명하게 "근거 없음"이라고 말한다. 같은 말로 뭉개면 유메가 못 찾은 것처럼 들린다.
+  const noEvidence = uncertainClaims.filter((c) => (c.uncertain_reason || "no_evidence") === "no_evidence");
+  const notPublic = uncertainClaims.length - noEvidence.length;
   if (falseClaims.length === 0) {
-    // '확인되지 않음'은 중립이 아니다. 유메가 근거를 확보하지 못했다는 뜻이고,
-    // 사용자 입장에서는 그대로 믿으면 안 되는 부분이다. 총평에서도 그렇게 말한다.
     const allUnverified = confirmedCount === 0;
     const list = uncertainClaims.map((c) => `"${c.text}"`).join(", ");
+    const why = noEvidence.length
+      ? `${noEvidence.length}개는 공개된 자료 어디에서도 근거를 찾을 수 없습니다(근거 없음)${notPublic ? `, ${notPublic}개는 공개 기록으로 확인할 수 없는 종류입니다` : ""}`
+      : `${notPublic}개는 공개 기록으로 확인할 수 없는 종류입니다`;
     return {
-      label: allUnverified ? "확인되지 않음" : "일부 확인되지 않음",
+      label: noEvidence.length ? (allUnverified ? "근거 없음" : "근거 없는 주장 있음") : (allUnverified ? "확인되지 않음" : "일부 확인되지 않음"),
       detail: allUnverified
-        ? `${total}개 주장 모두 뒷받침할 근거를 찾지 못했습니다. 사실이라고도, 틀렸다고도 볼 수 없으니 그대로 인용하지 마세요 — ${list}`
-        : `${total}개 중 ${confirmedCount}개는 확인됐지만, ${uncertainClaims.length}개는 근거를 찾지 못했습니다. 이 부분은 그대로 믿으면 안 됩니다 — ${list}`,
+        ? `${total}개 주장 중 ${why}. 사실로 쓰지 마세요 — ${list}`
+        : `${total}개 중 ${confirmedCount}개는 확인됐지만, ${why}. 이 부분은 그대로 믿으면 안 됩니다 — ${list}`,
       tone: "unverified",
     };
   }
   const wrongList = falseClaims.map((c) => `"${c.text}"`).join(", ");
   const majorityWrong = falseClaims.length >= Math.ceil(total / 2);
-  const unverifiedNote = uncertainClaims.length
-    ? ` 그리고 ${uncertainClaims.length}개는 근거를 찾지 못해 확인되지 않았습니다.`
-    : "";
+  const unverifiedNote = noEvidence.length
+    ? ` 그리고 ${noEvidence.length}개는 공개된 자료 어디에서도 근거를 찾을 수 없습니다(근거 없음).${notPublic ? ` ${notPublic}개는 공개 기록으로 확인할 수 없는 종류입니다.` : ""}`
+    : notPublic
+      ? ` 그리고 ${notPublic}개는 공개 기록으로 확인할 수 없는 종류입니다.`
+      : "";
   return {
     label: majorityWrong ? "대부분 부정확" : "부분적으로 부정확",
     detail: `${total}개 중 ${falseClaims.length}개가 사실과 다릅니다 — ${wrongList}.${unverifiedNote}`,

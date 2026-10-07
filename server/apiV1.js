@@ -88,6 +88,9 @@ function publicClaim(c) {
   // 판정의 확신도(근거 잠금): high = 공식 원문·기준 자료·부존재 판정, 또는 근거 문장을 출처에서 직접 확인하고
   // 독립 검토도 같은 결론 / medium = 판정은 있으나 근거 페이지를 직접 열어 보지 못함. 확인되지 않음이면 없음.
   if (c.confidence) out.confidence = c.confidence;
+  // uncertain의 이유: no_evidence(공개 자료 어디에도 근거 없음 — 말한 쪽이 근거 없이 단정) /
+  // not_public(비공개·유료·개인 경험처럼 공개 기록으로 확인할 수 없는 종류) / check_failed(조회 실패)
+  if (c.verdict === "uncertain" && c.uncertain_reason) out.uncertain_reason = c.uncertain_reason;
   if (c.evidence?.status === "verified") out.evidence = { verified: true, url: c.evidence.url, quote: c.evidence.quote };
   if (c.effective_date) out.effective_date = c.effective_date;
   if (c.legal_ref) out.legal_ref = c.legal_ref;

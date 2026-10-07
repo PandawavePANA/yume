@@ -25,6 +25,9 @@ const VERDICT = {
   confirmed: { label: "확인됨", fg: "#2E7D56", bg: "rgba(46,125,86,0.12)" },
 };
 
+// 확인 불가의 이유(서버 uncertain_reason). 근거 없음 = 공개 자료 어디에도 근거가 없다.
+const UNCERTAIN_LABEL = { no_evidence: "근거 없음", not_public: "공개 기록 밖", check_failed: "조회 실패" };
+
 const ACCEPT = ".txt,.md,.csv,.docx,.hwpx,.pdf";
 const MAX_FILE = 10 * 1024 * 1024;
 
@@ -282,10 +285,11 @@ export default function DocumentPanel() {
           <div style={{ marginTop: 14, border: `1px solid ${UI.line}`, borderRadius: 12, overflow: "hidden" }}>
             {claims.map((c, i) => {
               const v = VERDICT[c.verdict] || VERDICT.uncertain;
+              const label = c.verdict === "uncertain" ? UNCERTAIN_LABEL[c.uncertain_reason] || v.label : v.label;
               return (
                 <div key={i} onClick={() => setActive(i)} style={{ padding: "12px 14px", borderTop: i ? `1px solid ${UI.line}` : "none", cursor: "pointer", background: active === i ? UI.soft : "#fff" }}>
                   <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-                    <span style={{ flexShrink: 0, fontSize: 11.5, fontWeight: 700, padding: "3px 9px", borderRadius: 999, background: v.bg, color: v.fg }}>{t(v.label)}</span>
+                    <span style={{ flexShrink: 0, fontSize: 11.5, fontWeight: 700, padding: "3px 9px", borderRadius: 999, background: v.bg, color: v.fg }}>{t(label)}</span>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 13.5, fontWeight: 600, color: UI.ink, lineHeight: 1.55 }}>{c.text}</div>
                       {c.explanation && <div style={{ fontSize: 13, color: UI.ink2, lineHeight: 1.6, marginTop: 4 }}>{c.explanation}</div>}

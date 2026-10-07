@@ -134,6 +134,12 @@ const VERDICT = {
   // 확인되지 않음은 중립이 아니라 경고다. 같은 붉은 계열에 두되 톤을 달리한다.
   uncertain: { label: "확인되지 않음", bg: "#FCF0EA", color: "#9A4318", glyph: "?" },
 };
+// '확인되지 않음'은 이유에 따라 다르게 부른다(서버 withUncertainReason).
+//   근거 없음 — 공개 자료 어디에도 뒷받침하는 근거가 없다. 말한 쪽(대개 AI)이 근거 없이 단정했다.
+//   공개 기록 밖 — 비공개·유료·개인 경험처럼 원래 공개 자료로 확인할 수 없는 종류다.
+const UNCERTAIN_LABEL = { no_evidence: "근거 없음", not_public: "공개 기록 밖", check_failed: "조회 실패" };
+const verdictLabel = (c) =>
+  c?.verdict === "uncertain" ? UNCERTAIN_LABEL[c.uncertain_reason] || "확인되지 않음" : VERDICT[c?.verdict]?.label || "확인되지 않음";
 const VBORDER = { confirmed: "#C6E2D2", false: "#EEC3B9", uncertain: "#EBCDBA" };
 const VBG = { confirmed: "#FCFDFC", false: "#FFFBFA", uncertain: "#FFFCFA" };
 const PLANS = {
@@ -148,7 +154,7 @@ const HALLUCINATION_CAUSES = [
   { title: "저빈도 값 붕괴", problem: "조문 번호·수치처럼 드문 값은 AI가 비슷한 값과 섞습니다.", fix: "원문을 항목 단위까지 펼쳐 문자열로 직접 대조" },
   { title: "시점 붕괴", problem: "개정 전·후 버전이 둘 다 학습돼 어느 게 최신인지 AI는 모릅니다.", fix: "지금 유효한 버전만 기준으로 판정" },
   { title: "자기회귀적 오류 전파", problem: "한 번 부정확한 표현이 나오면 뒤이어 계속 틀립니다.", fix: "답변 전체가 아니라 주장 단위로 쪼개 독립 검증" },
-  { title: "확신 편향", problem: "근거가 약해도, 아예 없는 사실이어도 AI의 말투는 항상 자신 있게 나옵니다.", fix: "확인됨·사실과 다름·확인되지 않음, 3단계로 정직하게 판정" },
+  { title: "확신 편향", problem: "근거가 약해도, 아예 없는 사실이어도 AI의 말투는 항상 자신 있게 나옵니다.", fix: "확인됨·사실과 다름·근거 없음으로 정직하게 판정 — 있어야 할 기록이 없으면 사실과 다름" },
   { title: "유사 개체 혼동", problem: "이름이나 맥락이 비슷한 두 개념이 서로 섞입니다.", fix: "유사도가 아니라 원문 일치 여부로 최종 판정" },
 ];
 
@@ -1767,7 +1773,7 @@ export default function YumeDashboard() {
                           <DrawnMark verdict={c.verdict} play={i < revealed} delay={0.08} />
                           <div style={{ minWidth: 0 }}>
                             <div style={{ fontSize: 12.5, fontWeight: 600, color: UI.ink3, marginBottom: 6, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                              <span>{c.domain} · <span style={{ color: (VERDICT[c.verdict] || VERDICT.uncertain).color }}>{t(VERDICT[c.verdict]?.label || "확인되지 않음")}</span></span>
+                              <span>{c.domain} · <span style={{ color: (VERDICT[c.verdict] || VERDICT.uncertain).color }}>{t(verdictLabel(c))}</span></span>
                               {c.verified_via === "official" && (
                                 <span style={{ fontSize: 11, fontWeight: 600, color: UI.ink2, border: `1px solid ${UI.hairlineStrong}`, borderRadius: 999, padding: "2px 9px" }}>
                                   법제처 공식 확인{c.effective_date ? ` · ${c.effective_date} 시행 기준` : ""}
@@ -1793,6 +1799,11 @@ export default function YumeDashboard() {
                               )}
                             </div>
                             <div style={{ fontSize: 15.5, fontWeight: 600, color: UI.ink, lineHeight: 1.6, marginBottom: 6, letterSpacing: "-0.015em" }}>{c.text}</div>
+                            {c.verdict === "uncertain" && c.uncertain_reason === "no_evidence" && (
+                              <div style={{ fontSize: 13, fontWeight: 600, color: "#9A4318", marginBottom: 4 }}>
+                                {t("공개된 자료 어디에서도 근거를 찾을 수 없습니다. 근거 없이 단정한 내용이니 사실로 쓰지 마세요.")}
+                              </div>
+                            )}
                             <div style={{ fontSize: 14, color: UI.ink2, lineHeight: 1.7 }}>{c.explanation}</div>
                             {/* 틀린 문장을 어떻게 고치면 되는지. 판정 근거의 실제 값으로만 고친 문장이다. */}
                             {c.verdict === "false" && c.suggested_fix && (

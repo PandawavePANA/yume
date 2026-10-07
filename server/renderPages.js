@@ -595,6 +595,12 @@ while job["status"] == "pending":
 <li><code>medium</code> — 판정은 있지만 출처 페이지를 직접 열어 확인하지 못한 경우(접속 차단·동적 페이지 등).</li>
 </ul>
 <p>근거로 제시된 문장이 출처 페이지에 실제로 없거나, 독립 검토가 처음 판정과 다르게 보면 판정을 내리지 않고 <code>uncertain</code>으로 둡니다. 요청에 <code>"strict": true</code>를 주면 <b>엄격 모드</b>로, <code>high</code>만 판정하고 나머지는 모두 <code>uncertain</code>입니다 — 유메가 단정하는 말은 원문으로 확인된 것뿐이어야 하는 곳(광고 심의·공시·법무 검토)에 쓰세요.</p>
+<p><code>uncertain</code>인 주장에는 이유를 알려 주는 <code>uncertain_reason</code>이 붙습니다.</p>
+<ul>
+<li><code>no_evidence</code> — <b>근거 없음.</b> 공개된 자료 어디에서도 근거를 찾지 못했습니다. 근거 없이 단정한 내용이니 사실로 쓰면 안 됩니다. (공개 기록이 반드시 있어야 하는 종류인데 없으면 이 단계가 아니라 <code>false</code>로 판정합니다.)</li>
+<li><code>not_public</code> — 공개 기록 밖. 유료 평점·개인 경험·비공개 내부 정보처럼 사실이어도 공개 웹에 없을 수 있는 종류라, 없다는 사실만으로 틀렸다고 하지 않습니다.</li>
+<li><code>check_failed</code> — 조회 실패. 일시적 오류로 확인을 끝내지 못했습니다. 다시 요청해 주세요.</li>
+</ul>
 
 <h2>원문 속 위치와 고친 문장</h2>
 <ul>

@@ -233,7 +233,7 @@ async function runCase(c, runVerification, newVerificationId) {
       usd: cost?.usd || 0,
       searches: cost?.searches || 0,
       byLabel: cost?.byLabel || {},
-      claims: (result?.claims || []).map((x) => ({ verdict: x.verdict, via: x.verified_via, text: x.text?.slice(0, 50) })),
+      claims: (result?.claims || []).map((x) => ({ verdict: x.verdict, via: x.verified_via, reason: x.uncertain_reason, text: x.text?.slice(0, 50) })),
     };
   } catch (e) {
     return { ...c, got: "ERROR", pass: false, error: e.message, elapsedMs: Date.now() - started, usd: 0, searches: 0, byLabel: {} };
@@ -278,7 +278,7 @@ async function main() {
     if (!r.pass) {
       console.log(`     ${r.why}`);
       if (r.error) console.log(`     오류: ${r.error}`);
-      for (const cl of r.claims || []) console.log(`     · [${cl.verdict}/${cl.via}] ${cl.text}`);
+      for (const cl of r.claims || []) console.log(`     · [${cl.verdict}/${cl.via}${cl.reason ? "/" + cl.reason : ""}] ${cl.text}`);
       for (const row of r.claimScore?.rows || []) if (!row.ok) console.log(`     ✗ 주장 "${row.match}" 기대 ${row.expect} 결과 ${row.got}`);
     }
     return r;

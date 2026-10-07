@@ -189,7 +189,12 @@ export default {
   "확신 편향": "Confidence bias",
   "근거가 약해도, 아예 없는 사실이어도 AI의 말투는 항상 자신 있게 나옵니다.":
     "The tone stays certain whether the evidence is thin or the fact doesn't exist at all.",
-  "확인됨·사실과 다름·확인되지 않음, 3단계로 정직하게 판정": "Reports one of three honest verdicts, including \"unverified\"",
+  "확인됨·사실과 다름·근거 없음으로 정직하게 판정 — 있어야 할 기록이 없으면 사실과 다름": "Honest verdicts — confirmed, false, or no evidence; if a record that must exist is missing, it's false",
+  "근거 없음": "No evidence",
+  "공개 기록 밖": "Not in public records",
+  "조회 실패": "Lookup failed",
+  "공개된 자료 어디에서도 근거를 찾을 수 없습니다. 근거 없이 단정한 내용이니 사실로 쓰지 마세요.": "Nothing public supports this. It was stated without evidence — don't use it as fact.",
+  "근거 없는 주장 있음": "Some claims lack evidence",
   "유사 개체 혼동": "Lookalike confusion",
   "이름이나 맥락이 비슷한 두 개념이 서로 섞입니다.": "Two concepts with similar names or contexts get merged.",
   "유사도가 아니라 원문 일치 여부로 최종 판정": "Decides on an exact source match, not on similarity",
