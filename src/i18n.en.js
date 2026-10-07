@@ -812,4 +812,27 @@ export default {
     "Filled {a}. Please check the remaining {b} below.",
   "{a}개를 모두 나눠 넣었어요. 아래에서 한 번 확인해주세요.":
     "Filled all {a}. Please give them a look below.",
+  // 일괄 검증 (components/yume/BatchPanel.jsx)
+  "일괄 검증": "Batch check",
+  "여러 건을 한 번에 확인합니다. 한 줄에 하나씩 넣거나, 빈 줄로 나눠 넣으세요. CSV 파일을 올리면 가장 긴 칸을 본문으로 읽습니다.":
+    "Check many items at once. Put one per line, or separate them with a blank line. Upload a CSV and the longest column is read as the text.",
+  "확인할 내용을 넣으세요. 예: 상담 답변, 상품 설명, 보도자료 문단":
+    "Paste what you want checked — support replies, product copy, press-release paragraphs",
+  "CSV·텍스트 파일 올리기": "Upload a CSV or text file",
+  "{n}개 항목을 읽었어요. 아래에서 확인하고 시작하세요.": "Read {n} items. Look them over below, then start.",
+  "항목 {n}개 · 약 {c}크레딧": "{n} items · about {c} credits",
+  "아직 넣은 내용이 없어요": "Nothing to check yet",
+  "{n}건 확인 시작": "Check {n} items",
+  "확인 중… {a} / {b}": "Checking… {a} / {b}",
+  "멈추기": "Stop",
+  "결과 CSV 내려받기": "Download results as CSV",
+  "{n}건을 모두 확인했어요.": "Checked all {n}.",
+  "{n}번째에서 멈췄어요: {m}": "Stopped at item {n}: {m}",
+  "멈췄어요. 그때까지의 결과는 내려받을 수 있어요.": "Stopped. You can still download what finished.",
+  "확인 {n}건": "{n} checked",
+  "사실 아님 {n}건": "{n} not true",
+  "주장 {t}개 · 사실 아님 {b} · 확인 불가 {u}": "{t} claims · {b} not true · {u} unverified",
+  "확인할 사실 주장이 없었어요": "No checkable claims here",
+  "오류": "Error",
+  "주장 없음": "No claims",
 };
