@@ -169,11 +169,12 @@ export default function BusinessPage() {
             AI가 쓴 글이든 사람이 쓴 글이든 같습니다.
           </p>
           <p style={{ fontSize: "clamp(14px, 1.4vw, 16px)", color: UI.ink3, lineHeight: 1.7, margin: "10px 0 0", maxWidth: "52ch" }}>
-            API로 한 건씩, 또는 한 번에 여러 건. 자체 AI를 운영하신다면 먼저 무료로 점검해 보세요.
+            문서를 올리면 틀린 곳을 표시하고 고친 본문까지 드립니다. 개발팀이 있다면 API로 붙이세요.
           </p>
 
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 26 }}>
-            <button type="button" onClick={ask()} style={btn}>도입 문의</button>
+            <a href={`${YUME_URL}/?open=docs`} style={btn}>문서 올려서 검사하기</a>
+            <button type="button" onClick={ask()} style={btnGhost}>도입 문의</button>
             <button onClick={() => setShowAudit(true)} style={btnGhost}>우리 AI 무료로 점검받기</button>
           </div>
 
@@ -192,6 +193,31 @@ export default function BusinessPage() {
             근거 없이 파는 건 이 점검의 신뢰를 스스로 깎는 일이니까요.
           </div>
         </header>
+
+        {/* ── 문서 검사(개발자 없이) ─────────────────────────────────
+            도입을 정하는 사람은 대개 실무자고, 그 사람이 가진 건 HWPX·DOCX 파일 한 개다.
+            API보다 먼저 보여 준다 — 써 보고 맞다고 느껴야 개발팀에 넘긴다. */}
+        <Section
+          eyebrow="문서 검사"
+          title="파일을 올리면, 틀린 곳과 고친 본문이 나옵니다"
+          lede="보도자료·상품 설명서·약관·보고서를 그대로 올리세요(HWPX·DOCX·PDF·TXT, 10만 자까지). 유메가 문장마다 사실을 확인해 원문에 표시하고, 틀린 문장을 근거의 실제 값으로 고친 본문을 내려받게 합니다."
+        >
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12, marginTop: 20 }}>
+            {[
+              ["원문에 바로 표시", "어느 문장이 틀렸는지 원문 위에 색으로 표시합니다. 판정마다 근거와 출처가 붙습니다."],
+              ["고친 본문까지", "틀린 문장을 근거에 적힌 실제 값으로 고친 문장으로 바꾼 본문을 내려받습니다."],
+              ["우리 회사 기준으로", "회사 소개·상품 정보를 함께 넣으면, 자사 이야기는 공개 웹이 아니라 그 자료와 대조합니다. 자료는 저장하지 않습니다."],
+            ].map(([h, d]) => (
+              <div key={h} style={{ padding: "16px 18px", borderRadius: 16, background: "rgba(255,255,255,0.85)", border: `1px solid ${UI.hairline}` }}>
+                <div style={{ fontSize: 14.5, fontWeight: 700, color: UI.ink, marginBottom: 6 }}>{h}</div>
+                <div style={{ fontSize: 13.5, color: UI.ink2, lineHeight: 1.65 }}>{d}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 18 }}>
+            <a href={`${YUME_URL}/?open=docs`} style={btn}>문서 올려서 검사하기</a>
+          </div>
+        </Section>
 
         {/* ── API ─────────────────────────────────────────────────── */}
         <Section
@@ -219,7 +245,7 @@ Authorization: Bearer <API_KEY>
           </div>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 18 }}>
             <a href={`${YUME_URL}/docs/api`} style={btn}>API 문서 보기</a>
-            <a href={YUME_URL} style={btnGhost}>가입하고 키 발급받기</a>
+            <a href={`${YUME_URL}/?open=api`} style={btnGhost}>가입하고 키 발급받기</a>
           </div>
         </Section>
 

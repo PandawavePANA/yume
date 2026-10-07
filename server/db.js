@@ -99,7 +99,7 @@ const TABLES = [
   "credit_ledger", "bounty_claims", "redemptions", "referrals", "contribution_ledger", "quarter_awards", "claim_cache",
   "credit_orders", "inquiries", "audit_sessions", "audit_reports", "projects", "product_tasks",
   "threads", "thread_messages", "thread_quotes", "lobby_messages", "api_costs", "verdict_corrections",
-  "api_idempotency",
+  "api_idempotency", "documents",
 ];
 const TABLE_REF = new RegExp(`\\b(FROM|JOIN|INTO|UPDATE)\\s+(${TABLES.join("|")})\\b`, "gi");
 const qualify = (sql) => sql.replace(TABLE_REF, (_m, kw, table) => `${kw} ${SCHEMA}.${table}`);
@@ -938,6 +938,27 @@ const MIGRATIONS = [
   );
   CREATE INDEX idx_api_idem_created ON api_idempotency(created_at);
   ALTER TABLE api_idempotency ENABLE ROW LEVEL SECURITY;
+  `,
+
+  // ── 긴 문서 검사(documents.js) ──
+  //
+  // 문서 하나가 조각 여러 개(검증 행 여러 개)로 나뉜다. 원문 전체를 여기 둬야 조각 결과를
+  // 원문 위치로 다시 합치고, 고친 문장을 반영한 "고친 본문"을 만들 수 있다.
+  // 보존 기간은 API 검증과 같다(1년, maintenance).
+  `
+  CREATE TABLE documents (
+    id TEXT PRIMARY KEY,
+    api_key_id BIGINT REFERENCES api_keys(id) ON DELETE SET NULL,
+    user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
+    source TEXT NOT NULL,
+    title TEXT,
+    input TEXT NOT NULL,
+    chunks_json TEXT NOT NULL,
+    created_at BIGINT NOT NULL
+  );
+  CREATE INDEX idx_documents_key ON documents(api_key_id, created_at);
+  CREATE INDEX idx_documents_user ON documents(user_id, created_at);
+  ALTER TABLE documents ENABLE ROW LEVEL SECURITY;
   `,
 ];
 

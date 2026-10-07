@@ -7,6 +7,8 @@ import { kstMonthStart, one } from "./db.js";
 import { normalizeReferences, MAX_REFERENCES, MAX_REFERENCE_CHARS } from "./referenceCheck.js";
 import { bodyHash, claimKey, readIdempotencyKey, releaseKey } from "./idempotency.js";
 import { deliverWebhook, validateCallback } from "./webhooks.js";
+import { documentInput, documentPayload, getDocumentView, newDocumentId, startDocument } from "./documents.js";
+import { FileTextError } from "./fileText.js";
 
 // 유메 검증 API(/v1) — AI 서비스를 운영하는 기업이 자기 서비스의 답변을 유메로 검증하는
 // 공개 API. 계정의 "API 키" 메뉴에서 발급한 키로 인증한다(키는 해시로만 저장).
@@ -361,6 +363,82 @@ router.post("/verify/batch", requireApiKey, async (req, res) => {
   res.status(pending ? 202 : 200).json({ count: results.length, pending, results, usage: await usageInfo(key) });
 });
 
+// ── 긴 문서 (documents.js) ────────────────────────────────────────────────────
+// 1만 자를 넘는 문서·파일(DOCX·HWPX·PDF·TXT)을 받아 문단 경계로 나눠 검사하고, 원문 기준
+// 위치와 "고친 본문"을 돌려준다. 과금은 조각 수만큼. 이 경로만 큰 본문을 받는다(app.js BIG_BODY).
+const docJson = express.json({ limit: "16mb" });
+
+router.post("/documents", docJson, requireApiKey, async (req, res) => {
+  const key = req.apiKey;
+  const endpoint = "POST /v1/documents";
+  let input;
+  try {
+    input = await documentInput(req.body);
+  } catch (e) {
+    if (!(e instanceof FileTextError)) throw e;
+    await recordApiUsage(key.id, { endpoint, statusCode: 400 });
+    return fail(res, 400, "invalid_file", e.message);
+  }
+  if (input.error) {
+    await recordApiUsage(key.id, { endpoint, statusCode: 400 });
+    return fail(res, 400, "invalid_request", input.error);
+  }
+  const ctx = normalizeReferences(req.body?.references, req.body?.organization);
+  if (ctx.error) {
+    await recordApiUsage(key.id, { endpoint, statusCode: 400 });
+    return fail(res, 400, "invalid_references", ctx.error);
+  }
+  const extras = await readExtras(req, res, key, endpoint);
+  if (!extras) return;
+
+  const docId = newDocumentId();
+  const hash = bodyHash({ text: input.text, references: req.body?.references ?? null, organization: req.body?.organization ?? null, callback_url: req.body?.callback_url ?? null });
+  if (extras.idemKey) {
+    const claim = await claimKey(key.id, extras.idemKey, { hash, kind: "document", refs: [{ ref: null, id: docId }] });
+    if (!claim.fresh) {
+      if (!claim.row) return fail(res, 409, "idempotency_in_progress", "같은 Idempotency-Key 요청을 처리하는 중입니다. 잠시 후 다시 보내주세요.");
+      if (claim.row.body_hash !== hash) {
+        await recordApiUsage(key.id, { endpoint, statusCode: 422 });
+        return fail(res, 422, "idempotency_conflict", "같은 Idempotency-Key로 다른 내용을 보냈습니다. 새 요청이면 새 키를 쓰세요.");
+      }
+      const got = await getDocumentView(claim.row.refs[0].id);
+      if (!got) return fail(res, 409, "idempotency_in_progress", "같은 Idempotency-Key 요청을 아직 시작하는 중입니다. 잠시 후 다시 보내주세요.");
+      await recordApiUsage(key.id, { endpoint, statusCode: 200 });
+      res.set("Idempotent-Replayed", "true");
+      return res.status(got.view.status === "pending" ? 202 : 200).json({ ...got.view, poll_url: `/v1/documents/${got.view.id}`, replayed: true, usage: await usageInfo(key) });
+    }
+  }
+
+  const started = await startDocument({
+    key, text: input.text, title: input.title, refs: ctx.refs, organization: ctx.organization, endpoint, source: "api", docId,
+    onAllDone: extras.callback
+      ? async (id) => {
+          const payload = await documentPayload(id);
+          if (payload) await deliverWebhook({ url: extras.callback.url, secret: extras.callback.secret, event: "document.completed", payload });
+        }
+      : null,
+  });
+  if (started.error) {
+    if (extras.idemKey) await releaseKey(key.id, extras.idemKey);
+    const { status, code, message, extra } = started.error;
+    return fail(res, status, code, code === "quota_exceeded" ? `${message} 한도 올리기: ${UPGRADE_URL}` : message, { ...(extra || {}), ...(code === "quota_exceeded" ? { upgrade_url: UPGRADE_URL } : {}) });
+  }
+
+  const waitSec = req.body?.wait === true ? MAX_WAIT_SEC : Math.min(MAX_WAIT_SEC, Math.max(0, Number(req.body?.wait) || 0));
+  await Promise.race([started.all, new Promise((r) => setTimeout(r, waitSec > 0 ? waitSec * 1000 : 300))]);
+  const { view } = await getDocumentView(started.id);
+  res.status(view.status === "pending" ? 202 : 200).json({ ...view, poll_url: `/v1/documents/${view.id}`, usage: await usageInfo(key) });
+});
+
+router.get("/documents/:id", requireApiKey, async (req, res) => {
+  const got = await getDocumentView(String(req.params.id));
+  // 같은 계정의 키로 만든 문서만 조회할 수 있다.
+  const owner = got?.doc.api_key_id ? await one("SELECT user_id FROM api_keys WHERE id = :id", { id: got.doc.api_key_id }) : null;
+  if (!got || owner?.user_id !== req.apiKey.user_id) return fail(res, 404, "not_found", "문서를 찾을 수 없습니다.");
+  await recordApiUsage(req.apiKey.id, { endpoint: "GET /v1/documents/:id", statusCode: 200 });
+  res.json(got.view);
+});
+
 router.get("/verify/:id", requireApiKey, async (req, res) => {
   const v = await getVerification(String(req.params.id));
   // 같은 계정이 발급한 키로 요청한 검증만 조회할 수 있다.
@@ -394,6 +472,12 @@ router.get("/", (req, res) => {
         returns: "claims[]: verdict, explanation, sources, quote·span(원문 속 위치), suggested_fix(사실과 다름일 때 고친 문장)",
       },
       { method: "POST", path: "/v1/verify/batch", body: { items: "[{ ref?, text }] (최대 20건)", references: "선택, 묶음 전체에 적용", organization: "선택", wait: "boolean | 초(최대 60)" }, desc: "여러 건을 한 번에. 한도가 모자라면 한 건도 시작하지 않는다" },
+      {
+        method: "POST", path: "/v1/documents",
+        body: { text: "string (최대 100,000자)", file: "{ name, content_base64 } — TXT·MD·CSV·DOCX·HWPX·PDF, 10MB까지", title: "선택", references: "선택", organization: "선택", callback_url: "선택", wait: "선택" },
+        desc: "긴 문서·파일 검사. 문단 경계로 나눠 조각 수만큼 과금, 원문 기준 위치와 고친 본문(corrected_text)을 돌려준다",
+      },
+      { method: "GET", path: "/v1/documents/:id", desc: "문서 검사 결과 조회" },
       { method: "GET", path: "/v1/verify/:id", desc: "검증 결과 조회" },
       { method: "GET", path: "/v1/usage", desc: "이번 달 사용량·한도" },
     ],

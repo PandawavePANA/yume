@@ -545,3 +545,62 @@ test("API 웹훅은 서명해서 보내고, 같은 Idempotency-Key는 처음 결
     delete process.env.YUME_WEBHOOK_ALLOW_PRIVATE;
   }
 });
+
+// ── 긴 문서 검사 ──
+test("문서 검사 — API와 웹 화면이 같은 한도로, 원문 위치와 고친 본문을 돌려준다", async () => {
+  const owner = client();
+  await owner("POST", "/api/auth/signup", signupBody("doc@yume.test", { company: "문서AI" }));
+  const key = (await owner("POST", "/api/account/api-keys", { label: "문서" })).data.key;
+  const auth = { Authorization: `Bearer ${key}`, "Content-Type": "application/json" };
+
+  const text = "문서 시험: 대한민국의 수도는 부산입니다.";
+  const quote = "대한민국의 수도는 부산입니다.";
+  const span = { start: text.indexOf(quote), end: text.indexOf(quote) + quote.length };
+  await seedVerification({
+    id: "seeddoc0000000001",
+    input: text,
+    claims: [{ text: "대한민국의 수도는 부산이다", quote, span, domain: "일반", verdict: "false", verified_via: "web", explanation: "실제로는 서울", suggested_fix: "대한민국의 수도는 서울입니다.", sources: [{ title: "t", url: "https://e.x" }] }],
+  });
+
+  const r = await fetch(`${base}/v1/documents`, { method: "POST", headers: auth, body: JSON.stringify({ text, title: "보도자료", wait: 10 }) });
+  assert.equal(r.status, 200);
+  const doc = await r.json();
+  assert.equal(doc.object, "document");
+  assert.equal(doc.status, "done");
+  assert.equal(doc.parts.total, 1);
+  assert.equal(doc.result.counts.false, 1);
+  assert.deepEqual(doc.result.claims[0].span, span, "원문 전체 기준 위치");
+  assert.equal(doc.result.corrected_text, "문서 시험: 대한민국의 수도는 서울입니다.");
+  assert.equal(doc.result.fixes_applied, 1);
+  assert.equal(doc.usage.used, 1, "조각 수만큼 과금");
+
+  // 다른 계정은 조회할 수 없다
+  const other = client();
+  await other("POST", "/api/auth/signup", signupBody("doc-other@yume.test"));
+  const otherKey = (await other("POST", "/api/account/api-keys", { label: "남" })).data.key;
+  assert.equal((await fetch(`${base}/v1/documents/${doc.id}`, { headers: { Authorization: `Bearer ${otherKey}` } })).status, 404);
+  assert.equal((await fetch(`${base}/v1/documents/${doc.id}`, { headers: auth })).status, 200);
+
+  // 파일 형식 오류는 400(과금 없음)
+  const badFile = await fetch(`${base}/v1/documents`, { method: "POST", headers: auth, body: JSON.stringify({ file: { name: "옛문서.hwp", content_base64: Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 1, 2, 3, 4]).toString("base64") } }) });
+  assert.equal(badFile.status, 400);
+  assert.equal((await badFile.json()).error.code, "invalid_file");
+
+  // 웹 화면: 로그인 필요. 키가 없는 계정은 "웹 문서 검사" 키를 만들어 그 한도를 쓴다.
+  assert.equal((await client()("POST", "/api/documents", { text })).status, 401);
+  const web = client();
+  await web("POST", "/api/auth/signup", signupBody("docweb@yume.test"));
+  const started = await web("POST", "/api/documents", { text });
+  assert.equal(started.status, 202);
+  let view;
+  for (let i = 0; i < 40; i++) {
+    view = await web("GET", `/api/documents/${started.data.id}`);
+    if (view.data.status !== "pending") break;
+    await new Promise((res) => setTimeout(res, 50));
+  }
+  assert.equal(view.data.status, "done");
+  assert.equal(view.data.result.corrected_text, "문서 시험: 대한민국의 수도는 서울입니다.");
+  const keys = await web("GET", "/api/account/api-keys");
+  assert.ok(JSON.stringify(keys.data).includes("웹 문서 검사"), "과금용 키가 목록에 보인다(숨은 지갑 없음)");
+  assert.equal((await owner("GET", `/api/documents/${started.data.id}`)).status, 404, "남의 문서는 웹에서도 안 보인다");
+});

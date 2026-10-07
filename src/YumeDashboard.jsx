@@ -767,9 +767,11 @@ export default function YumeDashboard() {
     if (ref) {
       try { localStorage.setItem("yume:ref", ref.slice(0, 20)); } catch { /* 저장이 막혀도 이번 방문 주소에는 남아 있다 */ }
     }
-    if (q.get("open") === "api") {
-      if (user) setAccountTab("api");
-      else { afterAuth.current = "api"; setAuthModal("signup"); }
+    // 기업용 사이트가 "?open=docs"(문서 검사)·"?open=api"(키 발급)로 바로 그 화면을 연다.
+    const open = q.get("open");
+    if (["api", "docs", "batch"].includes(open)) {
+      if (user) setAccountTab(open);
+      else { afterAuth.current = open; setAuthModal("signup"); }
       q.delete("open");
       const clean = `${window.location.pathname}${q.toString() ? `?${q}` : ""}${window.location.hash}`;
       window.history.replaceState({}, "", clean);
@@ -858,9 +860,10 @@ export default function YumeDashboard() {
     setLimitReached(null);
     setToast(`${u.name || u.email}님, 반가워요.`);
     await refreshSession();
-    if (afterAuth.current === "api") {
+    if (["api", "docs", "batch"].includes(afterAuth.current)) {
+      const next = afterAuth.current;
       afterAuth.current = null;
-      setAccountTab("api");
+      setAccountTab(next);
     } else if (afterAuth.current === "credits") {
       afterAuth.current = null;
       openStore("credits");
@@ -1392,6 +1395,7 @@ export default function YumeDashboard() {
                       {[
                         ...(IS_STORE_BUILD ? [] : [[t("크레딧 충전"), () => openStore("credits")]]),
                         [t("계정 설정"), () => setAccountTab("profile")],
+                        [t("문서 검사"), () => setAccountTab("docs")],
                         [t("일괄 검증"), () => setAccountTab("batch")],
                         [t("API 키"), () => setAccountTab("api")],
                         [t("데이터 · 개인정보"), () => setAccountTab("data")],

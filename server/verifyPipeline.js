@@ -150,6 +150,38 @@ export async function runVerification(args) {
   return processVerification(args);
 }
 
+// 여러 건을 한꺼번에 시작하되 동시에 도는 수를 묶는다(긴 문서를 나눈 조각들).
+//
+// 조각 13개를 한 번에 돌리면 Claude 호출과 검색이 한순간에 몰려 분당 한도에 걸리고,
+// 같은 시간에 들어온 다른 사람의 검증까지 느려진다. 행은 전부 먼저 만들어 두고(조회하면
+// pending으로 보인다) 일꾼 몇 개가 차례로 처리한다. 돌려주는 건 조각마다의 완료 약속이다.
+export async function startVerificationsLimited(list, limit = 3) {
+  for (const args of list) await create(args);
+  const slots = list.map(() => {
+    let resolve;
+    let reject;
+    const promise = new Promise((res, rej) => {
+      resolve = res;
+      reject = rej;
+    });
+    promise.catch(() => {});
+    return { promise, resolve, reject };
+  });
+  let next = 0;
+  const worker = async () => {
+    while (next < list.length) {
+      const i = next++;
+      try {
+        slots[i].resolve(await processVerification(list[i]));
+      } catch (e) {
+        slots[i].reject(e);
+      }
+    }
+  };
+  for (let w = 0; w < Math.min(limit, list.length); w++) worker();
+  return slots.map((s) => s.promise);
+}
+
 // 카카오·외부 API처럼 id부터 먼저 돌려주고 결과는 나중에 조회하게 하는 경로.
 // DB에 행이 만들어진 뒤에 돌아오므로, 호출한 쪽은 곧바로 그 id로 조회할 수 있다.
 // done이 실패하면 실패 자체는 DB·오류 로그에 기록되어 있다.

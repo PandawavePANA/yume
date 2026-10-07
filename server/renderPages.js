@@ -599,6 +599,24 @@ while job["status"] == "pending":
   "references": [ { "title": "상품 설명서", "text": "…" } ], "wait": 60 }
 → { "count": 2, "pending": 0, "results": [ { "ref": "faq-01", "id": "…", "status": "done", "result": { … } }, … ] }</pre>
 
+<h2>POST /v1/documents — 긴 문서·파일</h2>
+<p>1만 자를 넘는 문서나 파일(<b>DOCX·HWPX·PDF·TXT·MD·CSV</b>, 10MB까지)을 그대로 보냅니다. 유메가 문단 경계로 나눠 검사하고, 결과를 <b>원문 전체 기준 위치</b>로 합쳐 돌려줍니다. 틀린 문장을 고친 문장으로 바꾼 <code>corrected_text</code>(고친 본문)도 함께 줍니다.</p>
+<ul>
+<li>본문: <code>text</code>(최대 100,000자) 또는 <code>file: { "name": "보도자료.hwpx", "content_base64": "…" }</code>. <code>title</code>·<code>references</code>·<code>organization</code>·<code>callback_url</code>·<code>wait</code>·<code>Idempotency-Key</code>는 단건과 같습니다.</li>
+<li>과금: 약 7,000자 조각 1개 = 검증 1건. 남은 한도가 조각 수보다 적으면 한 조각도 시작하지 않습니다(<code>429</code>, <code>needed</code>·<code>remaining</code> 포함).</li>
+<li>한글(HWP)은 HWPX로 저장해 보내 주세요. 스캔 이미지 PDF는 글자가 없어 읽을 수 없습니다.</li>
+<li>웹훅 이벤트는 <code>document.completed</code>입니다(원문 <code>text</code>는 빼고 보냅니다).</li>
+</ul>
+<pre>{ "id": "doc_3f…", "object": "document", "status": "done",   // pending | done | partial | error
+  "parts": { "total": 3, "done": 3, "failed": 0 },
+  "result": {
+    "verdict": { "label": "부분적으로 부정확", … },
+    "counts": { "claims": 18, "false": 2, "uncertain": 3, "confirmed": 13 },
+    "claims": [ { "quote": "…", "span": { "start": 10432, "end": 10471 }, "verdict": "false", "suggested_fix": "…", … } ],
+    "corrected_text": "…고친 문장이 반영된 전체 본문…", "fixes_applied": 2 },
+  "text": "…원문…" }</pre>
+<p><code>GET /v1/documents/:id</code>로 진행 상황과 결과를 조회합니다(같은 계정의 키로 만든 문서만).</p>
+
 <h2>웹훅</h2>
 <p><code>callback_url</code>을 주면 검증이 끝날 때 아래처럼 보냅니다. 묶음 요청은 항목마다 <code>ref</code>를 붙여 하나씩 보냅니다. 2xx를 받지 못하면 최대 4번까지 다시 보냅니다(0초·2초·10초·60초).</p>
 <pre>POST https://고객사/yume-hook

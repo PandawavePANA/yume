@@ -5,10 +5,12 @@ import { copyText } from "../../clipboard.js";
 import CreditsTab from "./CreditsTab";
 import { t } from "../../i18n.js";
 import BatchPanel from "./BatchPanel.jsx";
+import DocumentPanel from "./DocumentPanel.jsx";
 
 const TABS = [
   ["profile", "프로필"],
   ["credits", "크레딧"],
+  ["docs", "문서 검사"],
   ["batch", "일괄 검증"],
   ["api", "API 키"],
   ["data", "데이터"],
@@ -257,7 +259,7 @@ export default function AccountModal({ user, usage, initialTab = "profile", onCl
       <motion.div
         onClick={(e) => e.stopPropagation()}
         initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}
-        style={{ width: tab === "batch" ? "min(820px, 100%)" : "min(560px, 100%)", background: "#fff", borderRadius: 20, padding: 28, boxShadow: "0 20px 60px rgba(75,55,120,0.22)", position: "relative" }}
+        style={{ width: tab === "batch" || tab === "docs" ? "min(860px, 100%)" : "min(560px, 100%)", background: "#fff", borderRadius: 20, padding: 28, boxShadow: "0 20px 60px rgba(75,55,120,0.22)", position: "relative" }}
       >
         <button onClick={onClose} aria-label={t("닫기")} style={{ position: "absolute", top: 14, right: 16, border: "none", background: "transparent", color: "#9C8FC2", fontSize: 18, cursor: "pointer" }}>×</button>
         <div style={{ fontSize: 19, fontWeight: 700, marginBottom: 2 }}>{t("계정 설정")}</div>
@@ -272,6 +274,7 @@ export default function AccountModal({ user, usage, initialTab = "profile", onCl
         </div>
         {tab === "profile" && <ProfileTab user={user} usage={usage} onUserChange={onUserChange} />}
         {tab === "credits" && <CreditsTab />}
+        {tab === "docs" && <DocumentPanel />}
         {tab === "batch" && <BatchPanel />}
         {tab === "api" && <ApiTab />}
         {tab === "data" && <DataTab user={user} onUserChange={onUserChange} />}

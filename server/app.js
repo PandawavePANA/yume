@@ -26,6 +26,7 @@ import { auditRouter, getAuditReport, renderAuditReport } from "./auditApi.js";
 import { inquiryRouter } from "./inquiryApi.js";
 import { threadRouter } from "./threadApi.js";
 import screenshotRouter from "./screenshotApi.js";
+import documentsWebRouter from "./documentsWeb.js";
 import { creditReferralOnActivity } from "./referral.js";
 import { awardForVerification } from "./contribution.js";
 import apiV1Router from "./apiV1.js";
@@ -82,7 +83,8 @@ app.use("/api", portoneWebhookRouter);
 const jsonBody = express.json({ limit: "256kb" });
 // 캡처 업로드와 의뢰 대화 사진만 큰 본문을 받는다. 전역 상한을 올리면 모든 엔드포인트가
 // 같이 열리므로 이 경로들만 비켜 가게 하고, 각자 자기 파서를 따로 붙인다.
-const BIG_BODY = /^\/api\/(screenshot|thread\/photo|admin\/desk\/\d+\/photo)$/;
+// 문서 검사(파일 첨부)도 큰 본문을 받는다 — /v1/documents(API)와 /api/documents(웹).
+const BIG_BODY = /^\/(api\/(screenshot|thread\/photo|admin\/desk\/\d+\/photo|documents)|v1\/documents)$/;
 app.use((req, res, next) => (BIG_BODY.test(req.path) ? next() : jsonBody(req, res, next)));
 
 // 외부 개발자용 공개 API — 자체 CORS·키 인증을 쓰므로 쿠키 세션 미들웨어보다 먼저 붙인다.
@@ -102,6 +104,8 @@ app.use("/api", attachUser, sameOriginGuard);
 app.use("/api", authRouter);
 app.use("/api", accountRouter);
 app.use("/api", creditsRouter);
+// 문서 검사(웹). 파일을 받으므로 자기 파서를 단다(BIG_BODY).
+app.use("/api", documentsWebRouter);
 // 캡처 읽기. 본문이 크므로 자기 파서를 달고 들어온다(위 전역 파서는 이 경로를 건너뛴다).
 app.use("/api", express.json({ limit: "28mb" }), screenshotRouter);
 
@@ -517,6 +521,7 @@ export async function maintenance() {
     await run("DELETE FROM verifications WHERE source = 'api' AND created_at < :t", { t: now() - 365 * DAY_MS });
     await run("DELETE FROM api_usage WHERE created_at < :t", { t: now() - 365 * DAY_MS });
     await run("DELETE FROM api_idempotency WHERE created_at < :t", { t: now() - DAY_MS });
+    await run("DELETE FROM documents WHERE created_at < :t", { t: now() - 365 * DAY_MS });
     await run("DELETE FROM chat_messages WHERE created_at < :t", { t: now() - 180 * DAY_MS });
     await run("DELETE FROM error_logs WHERE created_at < :t", { t: now() - 90 * DAY_MS });
     await run("DELETE FROM usage_daily WHERE day < :d", { d: new Date(now() - 40 * 24 * 3600 * 1000).toISOString().slice(0, 10) });
