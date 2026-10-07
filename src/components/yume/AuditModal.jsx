@@ -3,7 +3,7 @@
 // 자격 증명을 받지 않는 게 이 화면의 설계 전제다. 무료 진단을 받자고 사내 AI의 API 키를
 // 넘길 기업은 없다. 그래서 두 단계로 나눈다 — 유메가 문항을 주고, 기업이 자기 AI에
 // 넣어본 답변을 붙여넣는다. 붙여넣기가 번거로우니 문항 복사를 최대한 쉽게 만든다.
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { copyText } from "../../clipboard.js";
 import { apiJson, apiUrl, safeUrl, CONTACT_EMAIL } from "./api.js";
 import { t } from "../../i18n.js";
@@ -74,6 +74,19 @@ export default function AuditModal({ onClose }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState("");
+
+  // 뒤로 가기로 돌아오면 브라우저가 화면을 통째로 되살린다(bfcache). 떠날 때 끊긴 요청의
+  // 오류와 "만드는 중…" 상태가 그대로 붙어 있어서, 아무것도 안 했는데 빨간 글이 떠 있다.
+  // 되살아난 순간에 지운다 — 그 오류는 지금 상태가 아니라 떠날 때의 흔적이다.
+  useEffect(() => {
+    const onShow = (e) => {
+      if (!e.persisted) return;
+      setError("");
+      setBusy(false);
+    };
+    window.addEventListener("pageshow", onShow);
+    return () => window.removeEventListener("pageshow", onShow);
+  }, []);
 
   async function issue() {
     setBusy(true);
