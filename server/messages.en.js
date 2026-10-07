@@ -225,4 +225,6 @@ export default {
   "합칠 일감을 다시 골라주세요.": "Pick the jobs to merge again.",
   "일감을 찾을 수 없어요.": "That job could not be found.",
   "같은 의뢰에서 나온 일감만 합칠 수 있어요.": "Only jobs from the same inquiry can be merged.",
+  // 묶음 검증 (apiV1.js)
+  "검증을 시작하지 못했습니다. 다시 보내주세요.": "Could not start this verification. Please send it again.",
 };

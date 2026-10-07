@@ -159,19 +159,22 @@ export default function BusinessPage() {
 
         {/* ── 히어로: 주장 대신 점검 ───────────────────────────────── */}
         <header style={{ marginTop: "clamp(40px, 6vw, 68px)" }}>
-          <div style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: UI.ink3 }}>무료 · 가입 불필요</div>
+          <div style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: UI.ink3 }}>기업용 팩트체크</div>
           <h1 style={{ fontSize: "clamp(30px, 5vw, 52px)", fontWeight: 700, letterSpacing: "-0.035em", color: UI.ink, margin: "14px 0 0", lineHeight: 1.18, textWrap: "balance" }}>
-            우리 회사 AI, 거짓말을 할까?
+            밖으로 나가기 전에, 사실인지 확인합니다
           </h1>
           <p style={{ fontSize: "clamp(16px, 1.7vw, 19px)", color: UI.ink2, lineHeight: 1.7, margin: "18px 0 0", maxWidth: "52ch" }}>
-            유메가 필요하다고 설득하는 대신, 필요한지 먼저 확인해 드립니다.
-            <b> 정답을 미리 아는 질문 8개</b>를 만들어 드리니 귀사 AI에 넣어보세요.
-            지어낸 답이 얼마나 나오는지 채점해 드립니다.
+            고객에게 나갈 답변, 상담 스크립트, 상품 설명, 보도자료.
+            유메가 문장 속 사실 주장을 하나씩 떼어 <b>법령 원문과 공식 레지스트리에 직접 대조</b>합니다.
+            AI가 쓴 글이든 사람이 쓴 글이든 같습니다.
+          </p>
+          <p style={{ fontSize: "clamp(14px, 1.4vw, 16px)", color: UI.ink3, lineHeight: 1.7, margin: "10px 0 0", maxWidth: "52ch" }}>
+            API로 한 건씩, 또는 한 번에 여러 건. 자체 AI를 운영하신다면 먼저 무료로 점검해 보세요.
           </p>
 
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 26 }}>
-            <button onClick={() => setShowAudit(true)} style={btn}>무료로 점검받기</button>
-            <button type="button" onClick={ask()} style={btnGhost}>도입 문의</button>
+            <button type="button" onClick={ask()} style={btn}>도입 문의</button>
+            <button onClick={() => setShowAudit(true)} style={btnGhost}>우리 AI 무료로 점검받기</button>
           </div>
 
           <div style={{ marginTop: 28, padding: "18px 20px", borderRadius: 18, background: "rgba(255,255,255,0.8)", border: `1px solid ${UI.hairline}` }}>

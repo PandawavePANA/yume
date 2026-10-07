@@ -273,6 +273,56 @@ test("API 키 발급 → 캐시 경로로 검증 → 소유권·한도", async (
   assert.equal(raised.month.used, 0, "계약 키는 자기 사용량만");
   assert.equal(raised.month.quota, 500);
 
+  // ── 묶음 검증 (계약 키로) ──
+  const batchAuth = { Authorization: `Bearer ${secondKey}` };
+
+
+  // ── 묶음 검증 ──
+  // 한도가 모자라면 한 건도 시작하지 않는다. 절반만 돌려주면 고객사가 무엇이 빠졌는지
+  // 맞춰 봐야 하고, 그게 가장 흔한 지원 문의가 된다.
+  const short = await fetch(`${base}/v1/verify/batch`, {
+    method: "POST", headers: { ...auth, "Content-Type": "application/json" },
+    body: JSON.stringify({ items: [{ text }, { text }] }),
+  });
+  assert.equal(short.status, 429, "남은 한도보다 많이 요청하면 한 건도 시작하지 않는다");
+  assert.equal((await short.json()).error.code, "quota_exceeded");
+
+
+  const empty = await fetch(`${base}/v1/verify/batch`, {
+    method: "POST", headers: { ...batchAuth, "Content-Type": "application/json" }, body: JSON.stringify({ items: [] }),
+  });
+  assert.equal(empty.status, 400);
+
+  const tooMany = await fetch(`${base}/v1/verify/batch`, {
+    method: "POST", headers: { ...batchAuth, "Content-Type": "application/json" },
+    body: JSON.stringify({ items: Array.from({ length: 21 }, () => ({ text })) }),
+  });
+  assert.equal(tooMany.status, 400);
+  assert.equal((await tooMany.json()).error.code, "too_many_items");
+
+  // 어느 항목이 잘못됐는지 ref로 알려준다
+  const badItem = await fetch(`${base}/v1/verify/batch`, {
+    method: "POST", headers: { ...batchAuth, "Content-Type": "application/json" },
+    body: JSON.stringify({ items: [{ ref: "ok", text }, { ref: "비어있음", text: "  " }] }),
+  });
+  assert.equal(badItem.status, 400);
+  assert.ok((await badItem.json()).error.message.includes("비어있음"), "문제가 된 ref를 알려줘야 함");
+
+  const usedBefore = (await (await fetch(`${base}/v1/usage`, { headers: batchAuth })).json()).month.used;
+
+  const batch = await fetch(`${base}/v1/verify/batch`, {
+    method: "POST", headers: { ...batchAuth, "Content-Type": "application/json" },
+    body: JSON.stringify({ items: [{ ref: "a", text }, { ref: "b", text }] }),
+  });
+  assert.equal(batch.status, 200, "캐시된 같은 텍스트라 바로 끝난다");
+  const bb = await batch.json();
+  assert.equal(bb.count, 2);
+  assert.deepEqual(bb.results.map((r) => r.ref), ["a", "b"], "보낸 순서와 ref가 그대로 돌아와야 함");
+  assert.equal(bb.results[0].status, "done");
+  assert.equal(bb.results[0].result.claims[0].verified_via, "nec");
+  assert.equal(bb.usage.used, usedBefore + 2, "항목 수만큼 과금");
+  assert.ok(bb.results[0].poll_url.startsWith("/v1/verify/"));
+
   // 폐기된 키는 즉시 거절
   await owner("DELETE", `/api/account/api-keys/${keyId}`);
   assert.equal((await fetch(`${base}/v1/usage`, { headers: auth })).status, 401);

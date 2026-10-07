@@ -5,7 +5,7 @@
 // 발급 때 만든 문항은 서버에 세션으로 두고, 채점 때 세션 id로 다시 꺼내 쓴다.
 import { Router } from "express";
 import { randomToken, clientIp, createLimiter, limitMiddleware, crossOriginGate } from "./security.js";
-import { buildProbeSet, runAudit } from "./audit/index.js";
+import { buildProbeSet, runAudit, AUDIT_DOMAINS } from "./audit/index.js";
 import { logError } from "./errorLog.js";
 import { now, run, one } from "./db.js";
 import { renderAuditReport } from "./renderAuditReport.js";
@@ -100,7 +100,8 @@ auditRouter.post(
   cors,
   limitMiddleware(issueLimiter, (req) => `audit:issue:${clientIp(req)}`),
   async (req, res) => {
-    const domain = ["법률", "의료", "금융", "일반"].includes(req.body?.domain) ? req.body.domain : "법률";
+    // 업종 목록은 probeBank의 DOMAIN_LAWS와 같아야 한다 — 없는 업종이 오면 법률 문항으로 떨어진다.
+      const domain = AUDIT_DOMAINS.includes(req.body?.domain) ? req.body.domain : "법률";
     const size = Math.min(Math.max(Number(req.body?.size) || 8, 4), 10);
     try {
       const probes = await buildProbeSet({ domain, size });
