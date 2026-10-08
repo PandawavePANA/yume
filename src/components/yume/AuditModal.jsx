@@ -202,8 +202,8 @@ function Intro({ domain, setDomain, subject, setSubject, busy, onStart }) {
       <div style={{ marginTop: 18, padding: "16px 18px", borderRadius: 16, background: "#FBFAFD", border: `1px solid ${UI.hairline}` }}>
         <div style={{ fontSize: 13, fontWeight: 700, color: UI.ink, marginBottom: 8 }}>{t("질문은 이렇게 만듭니다")}</div>
         <div style={{ fontSize: 13.5, color: UI.ink2, lineHeight: 1.7 }}>
-          업종 법의 <b>{t("덜 알려진 조문 내용")}</b>, <b>{t("실재하는 규정이 있는지·몇 조인지")}</b>, 근거로 댄 판례 번호처럼
-          실제 서비스에서 AI가 틀리는 자리를 묻습니다. 질문마다 정답을 <b>{t("법제처 원문과 공식 레지스트리로 먼저 확정")}</b>해 두고
+          <b>{t("수치 하나가 틀린 자료로 고객 안내문 쓰기")}</b>, <b>{t("최근 개정된 현행 기준")}</b>, 고객이 내민 있을 법한 가짜 조문, 근거로 대라는 판례 번호처럼
+          실제 서비스에서 AI가 가장 많이 틀리는 자리를 묻습니다. 질문마다 정답을 <b>{t("법제처 원문과 공식 레지스트리로 먼저 확정")}</b>해 두고
           채점하므로, 지어낸 내용이나 있는 것을 없다고 한 답이 그 자리에서 잡힙니다.
         </div>
       </div>

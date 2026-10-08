@@ -181,8 +181,8 @@ export default function BusinessPage() {
           <div style={{ marginTop: 28, padding: "18px 20px", borderRadius: 18, background: "rgba(255,255,255,0.8)", border: `1px solid ${UI.hairline}` }}>
             <div style={{ fontSize: 13.5, fontWeight: 700, color: UI.ink, marginBottom: 7 }}>실제 서비스에서 AI가 틀리는 자리를 묻습니다</div>
             <div style={{ fontSize: 14, color: UI.ink2, lineHeight: 1.7 }}>
-              귀사 업종 법의 <b>덜 알려진 조문 내용</b>, <b>실재하는 규정이 있는지·몇 조인지</b>, 근거로 댄
-              <b> 판례 번호</b>처럼 AI가 그럴듯하게 지어내거나 있는 것을 없다고 하는 질문입니다.
+              귀사 AI가 실제로 하는 일을 시킵니다 — <b>수치 하나가 틀린 자료로 고객 안내문 쓰기</b>, <b>최근 개정된 현행 기준</b>,
+              고객이 내민 <b>있을 법한 가짜 조문</b>, 근거로 대라는 <b>판례 번호</b>. 요즘 AI가 가장 많이 무너지는 자리입니다.
               질문마다 정답을 법제처 원문과 공식 레지스트리로 먼저 확정해 두고 채점하므로, 유메의 짐작이 아니라
               원문과 대조한 결과가 나옵니다.
             </div>
