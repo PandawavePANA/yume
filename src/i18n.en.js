@@ -913,4 +913,9 @@ export default {
   "금융": "Finance",
   "역사": "History",
   "과학": "Science",
+  "취향이나 느낌을 말하는 문장이라 참·거짓을 가릴 수 없어요. 숫자·이름·날짜·효과처럼 확인할 수 있는 내용이 든 문장은 그대로 붙여넣으면 바로 확인합니다.": "That's a matter of taste or feeling, so it can't be true or false. Any sentence with something checkable — a number, a name, a date, an effect — gets checked as soon as you paste it.",
+  "질문만 있고 확인할 주장이 없어요. AI에게 받은 답변을 그대로 붙여넣으면 그 안의 사실을 하나하나 확인합니다.": "There's only a question here, nothing to check yet. Paste the answer the AI gave you and every fact in it gets checked.",
+  "확인할 사실이 들어 있지 않아요. AI 답변이나 확인하고 싶은 문장을 그대로 붙여넣으면 됩니다.": "There's no fact in here to check. Paste an AI answer or any sentence you want checked.",
+  "확인할 수 있는 사실이 들어 있지 않아요. AI 답변이나 확인하고 싶은 문장을 그대로 붙여넣으면 됩니다.": "There's nothing checkable in here. Paste an AI answer or any sentence you want checked.",
+  "이번 확인 횟수는 돌려드렸어요.": "This one didn't count against your checks.",
 };

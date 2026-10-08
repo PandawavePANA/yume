@@ -174,6 +174,8 @@ async function processVerification({ id, text, source, onProgress = () => {}, on
       overall_domain: extracted.overall_domain || claims[0]?.domain || "일반",
       summary: verdictsChanged ? null : extracted.summary || null,
       claims,
+      // 확인할 주장이 없었을 때 그 까닭(취향·질문·인사) — 화면이 "무엇을 넣으면 되는지"를 그에 맞게 말한다.
+      ...(claims.length ? {} : { no_claim_kind: extracted.no_claim_kind || "other" }),
       overall,
       related_products: relatedProducts,
       engine: ENGINE_VERSION,

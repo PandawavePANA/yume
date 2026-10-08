@@ -638,6 +638,8 @@ export default function YumeDashboard() {
   const [result, setResult] = useState(null);
   const [revealed, setRevealed] = useState(0);
   const [errMsg, setErrMsg] = useState("");
+  // 오류가 아니라 안내일 때(확인할 주장이 없던 입력) — 빨간 상자로 보이면 사용자가 뭔가 잘못한 것처럼 읽힌다.
+  const [errInfo, setErrInfo] = useState(false);
   const [progressMsg, setProgressMsg] = useState("");
   // 검증이 끝나기 전에 도착하는 중간 결과. 주장 목록은 첫 단계가 끝나면 이미 알 수 있어서,
   // 끝까지 쥐고 있다가 한 번에 보여 줄 이유가 없다. 중앙값 15.6초, 꼬리 47초를 빈 화면으로
@@ -1016,7 +1018,7 @@ export default function YumeDashboard() {
   const runCheck = async () => {
     if (!input.trim()) return;
     clearRevealTimers();
-    setStage("loading"); setResult(null); setRevealed(0); setErrMsg(""); setLimitReached(null); setTab("result");
+    setStage("loading"); setResult(null); setRevealed(0); setErrMsg(""); setErrInfo(false); setLimitReached(null); setTab("result");
     setProgressMsg(t("사실 주장을 추출하고 실시간으로 검색 중…"));
     setLiveClaims([]);
 
@@ -1094,12 +1096,21 @@ export default function YumeDashboard() {
       // 결과도 오류도 없이 스트림이 끝났다면 중간에 연결이 끊긴 것이다. "주장을 못 찾았다"고
       // 하면 입력 탓으로 오해하므로 따로 안내한다.
       if (!finalResult) throw new Error(t("서버와 연결이 끊겼어요. 잠시 후 다시 시도해주세요."));
-      // 확인할 주장이 없는 입력. 한 줄 질문을 열면서 흔해진 경우라("대한민국의 수도는
-      // 어디야?"), "못 찾았습니다" 한 줄로 끝내면 처음 온 사람은 무엇을 고쳐야 할지
-      // 모른 채 막힌다. 무엇을 넣으면 되는지 예시로 말해 준다. 이때 확인 횟수는
-      // 서버가 돌려준다(server/app.js).
+      // 확인할 주장이 없던 입력. 예전에는 무엇이 왔든 "○○라던데 사실이야?처럼 적어 달라"고 했는데,
+      // 평서문("사과는 맛있다")을 넣은 사람에게 질문 꼴로 바꿔 오라는 말이 되어 버렸다. 사용자는 무엇이든
+      // 그대로 붙여넣는다 — 바꿔 오라고 하지 않고, 왜 확인할 게 없었는지만 그 까닭대로 말한다.
+      // 확인 횟수는 서버가 돌려준다(server/app.js).
       if (!Array.isArray(finalResult.claims) || finalResult.claims.length === 0) {
-        throw new Error(t("확인할 사실 주장이 없어요. 묻기만 하면 유메가 대조할 내용이 없습니다 — \"○○라던데 사실이야?\"처럼 확인하고 싶은 내용을 함께 적어주세요. 이번 확인 횟수는 돌려드렸어요."));
+        const why = {
+          opinion: t("취향이나 느낌을 말하는 문장이라 참·거짓을 가릴 수 없어요. 숫자·이름·날짜·효과처럼 확인할 수 있는 내용이 든 문장은 그대로 붙여넣으면 바로 확인합니다."),
+          question: t("질문만 있고 확인할 주장이 없어요. AI에게 받은 답변을 그대로 붙여넣으면 그 안의 사실을 하나하나 확인합니다."),
+          greeting: t("확인할 사실이 들어 있지 않아요. AI 답변이나 확인하고 싶은 문장을 그대로 붙여넣으면 됩니다."),
+        }[finalResult.no_claim_kind] || t("확인할 수 있는 사실이 들어 있지 않아요. AI 답변이나 확인하고 싶은 문장을 그대로 붙여넣으면 됩니다.");
+        setErrMsg(`${why} ${t("이번 확인 횟수는 돌려드렸어요.")}`);
+        setErrInfo(true);
+        if (finalResult.usage) setUsage(finalResult.usage);
+        setStage("error");
+        return;
       }
       setElapsedSec(Math.floor((Date.now() - startTimeRef.current) / 1000));
       setResult(finalResult);
@@ -1563,7 +1574,9 @@ export default function YumeDashboard() {
                   </div>
                 </div>
               ) : stage === "error" && (
-                <div style={{ fontSize: 14, color: "#B3372A", background: "#FDF1EF", border: "1px solid #F5D3CD", borderRadius: 14, padding: "12px 16px", marginBottom: 16 }}>{errMsg}</div>
+                <div style={errInfo
+                  ? { fontSize: 14, lineHeight: 1.6, color: UI.ink2, background: "#F6F3FB", border: `1px solid ${UI.hairline}`, borderRadius: 14, padding: "12px 16px", marginBottom: 16 }
+                  : { fontSize: 14, color: "#B3372A", background: "#FDF1EF", border: "1px solid #F5D3CD", borderRadius: 14, padding: "12px 16px", marginBottom: 16 }}>{errMsg}</div>
               )}
               {/* 좁은 화면에서는 주 버튼이 눌려 글자가 여러 줄로 깨진다. 그때는 줄을 나눠
                   주 버튼이 한 줄을 다 쓰게 하고, 보조 버튼 둘을 아래 줄에 나란히 둔다. */}

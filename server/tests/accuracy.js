@@ -125,6 +125,31 @@ const CASES = [
     why: "주장이 없는 순수한 질문이다. 억지로 주장을 만들어내면 안 된다.",
     critical: true,
   },
+  // 평서문 한 줄 (2026-10-08) — "사실이야?"를 붙이지 않아도 검증돼야 한다. 사용자는 무엇이든 그대로 붙여넣는다.
+  {
+    id: "plain-short-false",
+    text: "에베레스트산은 한국에 있다.",
+    expect: "false",
+    claimCount: 1,
+    why: "질문 꼴이 아닌 평서문 한 줄도 그 자체로 주장이다.",
+    critical: true,
+  },
+  {
+    id: "plain-evaluative",
+    text: "사과는 몸에 좋다.",
+    expect: "not-false",
+    claimCount: 1,
+    why: "평가하는 말이어도 건강 효과라는 확인할 핵심이 있다. 빼면 안 된다.",
+    critical: true,
+  },
+  {
+    id: "plain-taste",
+    text: "사과는 맛있다",
+    expect: "none",
+    claimCount: 0,
+    why: "순수한 취향이다. 판정을 붙이면 안 된다(대신 화면이 까닭을 말한다).",
+    critical: true,
+  },
   // ── 실제로 가장 많이 들어오는 모양: 긴 AI 답변 한 덩어리 (2026-09-29) ──
   //
   // 운영 원가를 재 보니 짧은 질문은 약 210원, 300~2,000자 답변은 약 1,330원이었다. 비용을
