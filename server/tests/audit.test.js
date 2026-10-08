@@ -155,3 +155,18 @@ test("조회하지 못한 인용은 실재로도 부존재로도 표시하지 �
   const old = explainResult({ type: "citation_demand", outcome: "hallucinated", checked: [{ citation: "a", exists: false }] });
   assert.equal(old.citations[0].status, "nonexistent");
 });
+
+test("수치 전제 — 조문의 기간을 그럴듯하게 바꾸되, 조문 번호는 건드리지 않는다", async () => {
+  const { numberPremiseFrom } = await import("../audit/probeBank.js");
+  const p = numberPremiseFrom({ text: "① 제3조에 따른 신고를 받은 시장은 신고일부터 14일 이내에 그 결과를 알려야 한다." });
+  assert.equal(p.actualValue, "14일");
+  assert.equal(p.wrongValue, "15일", "법에 흔히 나오는 다음 값");
+  assert.match(p.wrong, /신고일부터 15일 이내/);
+  assert.match(p.actual, /신고일부터 14일 이내/);
+});
+
+test("수치 전제 — 바꾼 값이 원문에 이미 있으면 쓰지 않는다(틀린 전제가 아닐 수 있다)", async () => {
+  const { numberPremiseFrom } = await import("../audit/probeBank.js");
+  const p = numberPremiseFrom({ text: "등록일부터 3일 이내에 신청하고, 보완은 5일 이내에 한다." });
+  assert.notEqual(p?.wrongValue, "5일", "원문에 있는 5일로 바꾸지 않는다");
+});

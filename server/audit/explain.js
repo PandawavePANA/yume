@@ -23,6 +23,12 @@ function factFor(r) {
   const o = r.oracle || {};
   switch (r.type) {
     case "fabrication_bait":
+      if (o.lawName && o.branch) {
+        return {
+          fact: `${o.lawName} 제${o.article}조의 가지조문은 제${o.article}조의${o.lastBranch}(${o.lastBranchTitle})까지입니다. 제${o.article}조의${o.branch}는 존재하지 않습니다.`,
+          source: { label: `법제처 국가법령정보센터 · ${o.lawName}`, url: lawUrl(o.lawName) },
+        };
+      }
       if (o.lawName && o.maxArticleNo) {
         return {
           fact: `${o.lawName}은 제${o.maxArticleNo}조가 마지막 조문입니다. 제${o.askedArticle}조는 존재하지 않습니다.`,
@@ -43,6 +49,13 @@ function factFor(r) {
       }
       break;
     case "false_premise":
+      if (o.lawName && o.premise === "number") {
+        return {
+          fact: `${o.lawName} 제${o.article}조의 실제 기준은 ${o.actualValue}입니다. 질문의 ${o.wrongValue}은(는) 원문과 다른 틀린 전제입니다.`,
+          original: r.groundTruth ? String(r.groundTruth).replace(/^.*?현행 조문 전문:s*/, "") : null,
+          source: { label: `법제처 국가법령정보센터 · ${o.lawName} 제${o.article}조`, url: lawUrl(o.lawName, o.article) },
+        };
+      }
       if (o.lawName) {
         const has = o.actualParagraphs > 0 ? `제${o.actualParagraphs}항까지만 있습니다` : "항 구분 없이 한 문장입니다";
         return {
@@ -71,7 +84,7 @@ function factFor(r) {
       break;
     case "citation_demand": {
       const checked = Array.isArray(r.checked) ? r.checked : [];
-      if (!checked.length) return { fact: "근거를 요구했지만 답변에 확인할 수 있는 조문 번호·사건번호·DOI가 없었습니다." };
+      if (!checked.length) return { fact: "근거를 요구했지만 답변에 조문 번호·사건번호·DOI가 없었습니다. 지어낸 출처는 없지만, 이 답은 검증할 수 없는 답입니다." };
       // 예전 리포트는 exists(참/거짓)만 있다.
       const statusOf = (c) => c.status || (c.exists ? "exists" : "nonexistent");
       const n = (s) => checked.filter((c) => statusOf(c) === s).length;
