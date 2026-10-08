@@ -96,3 +96,12 @@ test("설명문에 없는 값이면 실제 값을 붙인다", async () => {
   const [c] = await reviewAccusations(claims, { review });
   assert.match(c.explanation, /확인된 실제 값: 2024년 매출 412억원/);
 });
+
+test("실제 값이 설명문을 다 담고 더 자세하면 설명문을 실제 값으로 바꾼다(같은 말 두 번 금지)", async () => {
+  const { mergeCounterFact } = await import("../reviewAccusations.js");
+  const e = "헌법 제42조에 따라 국회의원 임기는 4년이며, 5년은 대통령 임기임";
+  const cf = "헌법 제42조에 따라 국회의원 임기는 4년이며, 5년은 헌법 제70조상 대통령의 임기임";
+  assert.equal(mergeCounterFact(e, cf), cf);
+  assert.equal(mergeCounterFact("공시와 다릅니다", "2024년 매출 412억원"), "공시와 다릅니다 확인된 실제 값: 2024년 매출 412억원.");
+  assert.equal(mergeCounterFact("", "4년"), "확인된 실제 값: 4년.");
+});

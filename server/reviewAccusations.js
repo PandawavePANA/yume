@@ -54,7 +54,7 @@ export async function reviewAccusations(claims, { review = defaultReview, onProg
           out[i] = {
             ...c,
             counter_fact: counterFact,
-            explanation: mentions(c.explanation, counterFact) ? c.explanation : `${c.explanation ? `${c.explanation} ` : ""}확인된 실제 값: ${counterFact}.`,
+            explanation: mergeCounterFact(c.explanation, counterFact),
           };
           return;
         }
@@ -90,6 +90,23 @@ function groundsAccusation(counterFact) {
   return !restsOnAbsence(t);
 }
 
+const numbersOf = (s) => (String(s).match(/\d[\d,.]*\d|\d/g) || []).map((n) => n.replace(/,/g, "").replace(/\.$/, ""));
+
+// 설명문과 실제 값을 한 문단으로 합친다.
+//   실제 값이 설명문에 이미 있으면 → 설명문 그대로
+//   실제 값이 설명문의 숫자를 다 담고 더 자세하면 → 실제 값으로 바꾼다
+//     ("국회의원 임기는 4년, 5년은 대통령 임기" 뒤에 "…4년…5년은 헌법 제70조상 대통령 임기"를 붙이면 같은 말이 두 번이다)
+//   둘 다 아니면 → 뒤에 붙인다
+export function mergeCounterFact(explanation, counterFact) {
+  const e = String(explanation || "").trim();
+  if (!e) return `확인된 실제 값: ${counterFact}.`;
+  if (mentions(e, counterFact)) return e;
+  const en = numbersOf(e);
+  const cn = new Set(numbersOf(counterFact));
+  if (en.length > 0 && en.every((n) => cn.has(n)) && counterFact.length >= e.length * 0.6) return counterFact;
+  return `${e} 확인된 실제 값: ${counterFact}.`;
+}
+
 // 실제 값이 이미 설명문에 들어 있으면 두 번 쓰지 않는다.
 // 문장이 똑같지 않아도 값(숫자)이 모두 들어 있으면 같은 말이다 — "8,848.86m(2020년 측량)"을
 // 설명문이 이미 말했는데 검토자가 같은 값을 다른 문장으로 내면 화면에 같은 말이 두 번 붙었다.
@@ -97,9 +114,8 @@ export function mentions(explanation, counterFact) {
   const e = String(explanation || "").replace(/\s+/g, "");
   const c = String(counterFact || "").replace(/\s+/g, "");
   if (c.length > 0 && e.includes(c)) return true;
-  const nums = (s) => (String(s).match(/\d[\d,.]*\d|\d/g) || []).map((n) => n.replace(/,/g, "").replace(/\.$/, ""));
-  const want = nums(counterFact);
+  const want = numbersOf(counterFact);
   if (want.length === 0) return false;
-  const have = new Set(nums(explanation));
+  const have = new Set(numbersOf(explanation));
   return want.every((n) => have.has(n));
 }
