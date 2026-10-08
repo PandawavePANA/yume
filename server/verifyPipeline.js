@@ -81,39 +81,62 @@ async function processVerification({ id, text, source, onProgress = () => {}, on
     if (reused > 0) onProgress(`전에 확인한 주장 ${reused}개는 그 결과를 그대로 씁니다…`);
 
     // 중간 상태를 내보낸다. 내부 표시(from_claim_cache)는 떼고 보낸다 — 화면이 볼 것이 아니다.
-    const show = () => onClaims(claims.map(({ from_claim_cache: _c, ...rest }) => rest));
+    const current = [...claims];
+    const show = () => onClaims(current.map(({ from_claim_cache: _c, ...rest }) => rest));
+    const put = (idx, list) => idx.forEach((i, k) => { current[i] = list[k]; });
     show();
 
-    claims = await resolveLegalClaims(claims, { onProgress, ledger });
-    show();
-    claims = await resolveIdentifierClaims(claims, { onProgress });
-    // 대상이 있다/없다는 확인을 주장의 방향과 맞춘다 — "그런 판례는 없다"가 맞는 말이면 확인됨,
-    // 실재하는 조문을 "없다"고 했으면 사실과 다름(claimStance.js).
-    claims = claims.map(applyStance);
-    show();
-    // 심층 재확인 '전에' 한 번 거른다. 출처 없이 confirmed로 온 주장을 여기서 내려놓아야
-    // 아래 재확인 대상에 포함된다 — 거르는 순서가 반대면 근거를 찾아볼 기회 없이 강등만 된다.
-    claims = claims.map(sanitizeClaim);
-    // 결론이 안 난 주장을 도메인별로 한 번 더 판다. 근거를 찾으면 판정이 살아 돌아온다.
-    claims = await resolveUncertainClaims(claims, { onProgress, ledger, organization });
-    show();
-    // 재확인이 만들어낸 판정도 같은 잣대로 다시 거른다(이미 강등된 건 건드리지 않는다).
-    claims = claims.map(sanitizeClaim);
-    // 마지막으로 "사실과 다름" 지목만 다시 본다. 맞는 정보를 거짓이라 부르는 게
-    // 유메가 낼 수 있는 가장 해로운 오류라, 여기에만 따로 비용을 쓴다.
-    claims = await reviewAccusations(claims, { onProgress, ledger });
-    // 근거 잠금: 웹·리서치 판정의 근거 문장을 출처 페이지에서 직접 확인하고, 처음 판정을 모르는
-    // 검토자에게 다시 묻는다. 통과하지 못한 판정은 저장(캐시)되기 전에 여기서 거둔다.
-    claims = await lockEvidence(claims, { onProgress, ledger, strict });
-    // 근거 잠금에서 거둔 판정은 "유메가 댄 근거가 가짜였다"는 뜻이지, 주장이 맞다는 뜻이 아니다.
-    // 그대로 '확인되지 않음'으로 두지 않고 부존재 검증을 한 번 더 태운다 — 사실이라면 기록이
-    // 있어야 할 주장인데 진짜 근거가 어디에도 없으면, 그건 지어낸 것이다(사실과 다름).
-    const lockedOut = claims.map((c, i) => ({ c, i })).filter(({ c }) => c.locked_out_verdict && c.verdict === "uncertain");
-    if (lockedOut.length && searchesLeft(ledger) > 0) {
-      const redone = await resolveUncertainClaims(lockedOut.map(({ c }) => c), { onProgress, ledger, organization });
-      const relocked = await lockEvidence(redone.map(sanitizeClaim), { onProgress, ledger, strict });
-      lockedOut.forEach(({ i }, k) => { claims[i] = relocked[k]; });
-    }
+    // 법률 주장과 나머지는 서로의 판정에 기대지 않는다. 예전에는 한 줄로 돌려 법제처 대조가
+    // 끝나야 웹 주장의 재확인·근거 잠금이 시작됐고, 법률 주장이 섞인 4개짜리 글이 78초 걸렸다.
+    // 두 갈래로 나눠 동시에 돌리고, 각 갈래 안의 순서(아래 settle)는 그대로 지킨다.
+    const settle = async (idx, list) => {
+      let cs = await resolveIdentifierClaims(list, { onProgress });
+      // 대상이 있다/없다는 확인을 주장의 방향과 맞춘다 — "그런 판례는 없다"가 맞는 말이면 확인됨,
+      // 실재하는 조문을 "없다"고 했으면 사실과 다름(claimStance.js).
+      cs = cs.map(applyStance);
+      put(idx, cs);
+      show();
+      // 심층 재확인 '전에' 한 번 거른다. 출처 없이 confirmed로 온 주장을 여기서 내려놓아야
+      // 아래 재확인 대상에 포함된다 — 거르는 순서가 반대면 근거를 찾아볼 기회 없이 강등만 된다.
+      cs = cs.map(sanitizeClaim);
+      // 결론이 안 난 주장을 도메인별로 한 번 더 판다. 근거를 찾으면 판정이 살아 돌아온다.
+      cs = await resolveUncertainClaims(cs, { onProgress, ledger, organization });
+      put(idx, cs);
+      show();
+      // 재확인이 만들어낸 판정도 같은 잣대로 다시 거른다(이미 강등된 건 건드리지 않는다).
+      cs = cs.map(sanitizeClaim);
+      // 마지막으로 "사실과 다름" 지목만 다시 본다. 맞는 정보를 거짓이라 부르는 게
+      // 유메가 낼 수 있는 가장 해로운 오류라, 여기에만 따로 비용을 쓴다.
+      cs = await reviewAccusations(cs, { onProgress, ledger });
+      // 근거 잠금: 웹·리서치 판정의 근거 문장을 출처 페이지에서 직접 확인하고, 처음 판정을 모르는
+      // 검토자에게 다시 묻는다. 통과하지 못한 판정은 저장(캐시)되기 전에 여기서 거둔다.
+      cs = await lockEvidence(cs, { onProgress, ledger, strict });
+      // 근거 잠금에서 거둔 판정은 "유메가 댄 근거가 가짜였다"는 뜻이지, 주장이 맞다는 뜻이 아니다.
+      // 그대로 '확인되지 않음'으로 두지 않고 부존재 검증을 한 번 더 태운다 — 사실이라면 기록이
+      // 있어야 할 주장인데 진짜 근거가 어디에도 없으면, 그건 지어낸 것이다(사실과 다름).
+      const lockedOut = cs.map((c, i) => ({ c, i })).filter(({ c }) => c.locked_out_verdict && c.verdict === "uncertain");
+      if (lockedOut.length && searchesLeft(ledger) > 0) {
+        const redone = await resolveUncertainClaims(lockedOut.map(({ c }) => c), { onProgress, ledger, organization });
+        const relocked = await lockEvidence(redone.map(sanitizeClaim), { onProgress, ledger, strict });
+        lockedOut.forEach(({ i }, k) => { cs[i] = relocked[k]; });
+      }
+      put(idx, cs);
+      show();
+    };
+    const isLegal = (c) => c.domain === "법률" && !c.from_claim_cache && !c.from_reference;
+    const legalIdx = claims.map((c, i) => (isLegal(c) ? i : -1)).filter((i) => i >= 0);
+    const otherIdx = claims.map((c, i) => (isLegal(c) ? -1 : i)).filter((i) => i >= 0);
+    await Promise.all([
+      legalIdx.length
+        ? resolveLegalClaims(legalIdx.map((i) => claims[i]), { onProgress, ledger }).then((cs) => {
+            put(legalIdx, cs);
+            show();
+            return settle(legalIdx, cs);
+          })
+        : null,
+      otherIdx.length ? settle(otherIdx, otherIdx.map((i) => claims[i])) : null,
+    ]);
+    claims = current;
     // 이번에 새로 판단한 것만 캐시에 넣는다(확인되지 않음은 저장하지 않는다).
     await storeAll(claims);
     // 내부 표시는 여기서 뗀다. 중간에 떼면 지목 재확인과 저장이 캐시된 주장을 구분하지

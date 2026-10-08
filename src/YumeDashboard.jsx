@@ -432,7 +432,7 @@ function CountUp({ to, suffix = "", duration = 1.4 }) {
         requestAnimationFrame(tick);
       }}
       viewport={{ once: true, amount: 0.8 }}
-    >{value}{suffix}</motion.span>
+    >{value.toLocaleString()}{suffix}</motion.span>
   );
 }
 
@@ -473,7 +473,7 @@ function HallucinationStatCard() {
       >
         <div style={{ fontSize: "clamp(40px, 6vw, 60px)", fontWeight: 700, letterSpacing: "-0.04em", display: "flex", alignItems: "center", justifyContent: "center", gap: 14 }}>
           <motion.span variants={rise} style={{ display: "inline-block", color: UI.ink3 }}>
-            <CountUp to={10} suffix={t("건")} />
+            <CountUp to={712} suffix={t("건")} />
           </motion.span>
           <motion.span variants={arrow} style={{ display: "inline-block", color: UI.ink3, fontWeight: 400 }}>→</motion.span>
           <motion.span variants={rise} style={{ display: "inline-block", position: "relative" }}>
@@ -486,12 +486,13 @@ function HallucinationStatCard() {
               }}
             />
             <span style={{ background: UI.brandText, WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" }}>
-              <CountUp to={73} suffix={t("건")} />
+              <CountUp to={1600} suffix={t("건")} />
             </span>
           </motion.span>
         </div>
         <motion.div variants={rise} style={{ fontSize: 14, color: UI.ink2, marginTop: 10, lineHeight: 1.6 }}>
-          {t("법정 문서에서 발견된 AI 할루시네이션")}<br />{t("2023년 → 2025년 상반기")}
+          {t("전 세계 법원 문서에서 확인된 AI 할루시네이션 사례")}<br />{t("2025년 12월 → 2026년 6월")}
+          <div style={{ fontSize: 11.5, color: UI.ink3, marginTop: 6 }}>{t("Damien Charlotin AI Hallucination Cases 데이터베이스 · Bloomberg Law(2025.12)·2026년 6월 보도 기준")}</div>
         </motion.div>
       </motion.div>
     </motion.div>

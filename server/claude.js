@@ -1,4 +1,5 @@
 // Anthropic Messages API 호출 (서버 전용 — API 키는 절대 클라이언트로 내려가지 않음).
+import { restoreConditions } from "./claimFidelity.js";
 import { RECORDEDNESS } from "./nec/searchSpace.js";
 import { classifyUpstream, noteUpstreamFailure, noteUpstreamSuccess } from "./upstream.js";
 import { record, searchesLeft } from "./apiCost.js";
@@ -479,7 +480,9 @@ async function extractAndVerifySplit(text, onProgress, { ledger, references = []
   if (!extracted.claims.length) {
     return { overall_domain: extracted.overall_domain, summary: extracted.note || "확인할 사실 주장이 없습니다.", claims: [], related_products: [] };
   }
-  let claims = [...extracted.claims];
+  // 옮겨 적다가 "누구에게"·숫자·"확실히/모든" 같은 조건을 잃은 주장은 원문 조건을 되살린다.
+  // 웹 판정보다 먼저 해야 한다 — 판정하는 쪽이 고쳐 쓴 (대개 더 순한) 문장을 확인하게 된다(claimFidelity.js).
+  let claims = await restoreConditions([...extracted.claims], { call: callClaudeJson, ledger });
   // 기업이 기준 자료를 함께 보냈으면, 그 자료가 다루는 주장은 웹보다 먼저 그 자료와 대조한다.
   // 대조가 끝난 주장은 웹 판정에서 빼서 검색 비용도 아낀다. 실패하면 기준 자료 없이 계속한다.
   if (references.length) {

@@ -686,10 +686,12 @@ export default {
     "context recap prompt",
 
   // ── 본문 문단 ──────────────────────────────────────────────────
-  "법정 문서에서 발견된 AI 할루시네이션":
-    "AI hallucinations found in court filings",
-  "2023년 → 2025년 상반기":
-    "2023 → first half of 2025",
+  "전 세계 법원 문서에서 확인된 AI 할루시네이션 사례":
+    "AI hallucinations found in court documents worldwide",
+  "2025년 12월 → 2026년 6월":
+    "Dec 2025 → Jun 2026",
+  "Damien Charlotin AI Hallucination Cases 데이터베이스 · Bloomberg Law(2025.12)·2026년 6월 보도 기준":
+    "Damien Charlotin's AI Hallucination Cases database, as reported by Bloomberg Law (Dec 2025) and press reports (Jun 2026)",
   "민법 제750조: 고의·과실로 손해를 가하면 배상 책임이 있다":
     "Civil Act art. 750: harm caused intentionally or negligently carries liability",
   "법제처 국가법령정보에서 실제 조문을 대조해, 짐작이 아니라 확인된 사실만 보여드립니다.":
