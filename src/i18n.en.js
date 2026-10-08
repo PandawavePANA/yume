@@ -906,4 +906,11 @@ export default {
   "부존재 신뢰도": "Non-existence confidence",
   "존재하지 않을 가능성 높음": "Very likely doesn't exist",
   "확인 불가": "Can't confirm",
+  "민원담당자": "Complaints contact",
+  "법제처 공식 대조 · OFFICIAL SOURCE · 짐작이 아니라 확인 · ": "CHECKED AGAINST OFFICIAL LAW DATA · OFFICIAL SOURCE · VERIFIED, NOT GUESSED · ",
+  "법률": "Law",
+  "의료": "Health",
+  "금융": "Finance",
+  "역사": "History",
+  "과학": "Science",
 };

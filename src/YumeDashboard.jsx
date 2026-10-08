@@ -12,13 +12,13 @@ import ContextRepairCard from "@/components/yume/ContextRepairCard";
 import { BountyPrompt } from "@/components/yume/BountyModal";
 import { CorrectionPrompt } from "@/components/yume/CorrectionModal";
 import { apiJson, safeUrl, CONTACT_EMAIL } from "@/components/yume/api";
-import { BUSINESS, COMPLAINT_NOTICE, COMPLAINT_OFFICER, telHref, COPYRIGHT, businessLine } from "@/businessInfo";
+import { BUSINESS, COMPLAINT_NOTICE, COMPLAINT_CONTACT, telHref, COPYRIGHT, businessLine } from "@/businessInfo";
 import BusinessInfo from "@/components/yume/BusinessInfo";
 import { IS_NATIVE_APP, onNativeBack, shareLink } from "./native.js";
 import { IS_STORE_BUILD } from "./storeBuild.js";
 import { orderPack, resumeFromRedirect, verifyIdentity } from "./payments.js";
 import SidePanel, { PANEL_WIDTH } from "@/components/yume/SidePanel";
-import { t, useLang } from "./i18n.js";
+import { t, useLang, getLang } from "./i18n.js";
 import { useMediaQuery } from "./useMedia.js";
 
 // 기업용 사이트 주소. 별도 도메인에 따로 배포되므로 코드에 박지 않고 빌드 환경변수로 받는다.
@@ -531,7 +531,7 @@ function RotatingShowcaseCard() {
     <div ref={ref} style={{ perspective: 1600, display: "flex", justifyContent: "center", padding: "20px 0" }}>
       {/* 카드 모서리에 "법제처 공식 대조" 인장. 카드는 잘라내기(overflow)를 쓰므로 인장은 바깥 틀에 둔다. */}
       <div style={{ position: "relative", width: "min(440px, 88vw)" }}>
-      <div style={{ position: "absolute", top: -48, right: -8, zIndex: 2 }}><SealRing size={104} /></div>
+      <div style={{ position: "absolute", top: -48, right: -8, zIndex: 2 }}><SealRing size={104} label={t("법제처 공식 대조 · OFFICIAL SOURCE · 짐작이 아니라 확인 · ")} /></div>
       <motion.div style={{
         rotateX, scale, opacity, transformStyle: "preserve-3d", transformOrigin: "50% 100%",
         width: "100%", background: UI.surface, backdropFilter: UI.glass, WebkitBackdropFilter: UI.glass,
@@ -1265,7 +1265,7 @@ export default function YumeDashboard() {
               >
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontSize: 13.5, color: UI.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", letterSpacing: "-0.01em" }}>{h.preview}</div>
-                  <div style={{ fontSize: 11.5, color: UI.ink3, marginTop: 2 }}>{h.domain} · {new Date(h.timestamp).toLocaleDateString("ko-KR", { month: "short", day: "numeric" })}</div>
+                  <div style={{ fontSize: 11.5, color: UI.ink3, marginTop: 2 }}>{t(h.domain)} · {new Date(h.timestamp).toLocaleDateString(getLang() === "ko" ? "ko-KR" : "en-US", { month: "short", day: "numeric" })}</div>
                 </div>
                 <span onClick={(e) => deleteHistoryItem(h.id, e)} aria-label={t("삭제")} style={{
                   fontSize: 14, color: UI.ink3, cursor: "pointer", padding: "2px 6px", flexShrink: 0
@@ -1745,7 +1745,7 @@ export default function YumeDashboard() {
                           <DrawnMark verdict={c.verdict} play={i < revealed} delay={0.08} />
                           <div style={{ minWidth: 0 }}>
                             <div style={{ fontSize: 12.5, fontWeight: 600, color: UI.ink3, marginBottom: 6, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                              <span>{c.domain} · <span style={{ color: (VERDICT[c.verdict] || VERDICT.uncertain).color }}>{t(verdictLabel(c))}</span></span>
+                              <span>{t(c.domain)} · <span style={{ color: (VERDICT[c.verdict] || VERDICT.uncertain).color }}>{t(verdictLabel(c))}</span></span>
                               {c.verified_via === "official" && (
                                 <span style={{ fontSize: 11, fontWeight: 600, color: UI.ink2, border: `1px solid ${UI.hairlineStrong}`, borderRadius: 999, padding: "2px 9px" }}>
                                   법제처 공식 확인{c.effective_date ? ` · ${c.effective_date} 시행 기준` : ""}
@@ -2156,7 +2156,7 @@ export default function YumeDashboard() {
                 이메일 <a href={`mailto:${BUSINESS.email}`} className="yume-footer-link" style={{ color: UI.ink3, textDecoration: "none" }}>{BUSINESS.email}</a>
               </div>
               {/* 이니시스 포인트충전 조건 — 거래 책임과 민원 담당자를 하단에 늘 적는다. */}
-              <div>{t(COMPLAINT_NOTICE)} {COMPLAINT_OFFICER}</div>
+              <div>{t(COMPLAINT_NOTICE)} {t("민원담당자")} {COMPLAINT_CONTACT}</div>
               <div style={{ marginTop: 6 }}>{COPYRIGHT}</div>
             </address>
             <span style={{ display: "flex", gap: 0 }}>

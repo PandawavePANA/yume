@@ -30,7 +30,8 @@ export const BUSINESS = {
 // 민원 책임 고지 — KG이니시스 포인트충전 입점 조건으로 사이트 하단에 늘 보여야 한다.
 // 서버 페이지(server/renderPages.js)에도 같은 문장이 있다. 바꾸면 둘 다 고칠 것.
 export const COMPLAINT_NOTICE = "모든 거래에 대한 책임과 환불, 민원 등은 리머에서 진행합니다.";
-export const COMPLAINT_OFFICER = `민원담당자 ${BUSINESS.ceo} · ${BUSINESS.tel} · ${BUSINESS.email}`;
+export const COMPLAINT_CONTACT = `${BUSINESS.ceo} · ${BUSINESS.tel} · ${BUSINESS.email}`;
+export const COMPLAINT_OFFICER = `민원담당자 ${COMPLAINT_CONTACT}`;
 
 // tel: 링크에는 하이픈이 없어야 일부 단말에서 제대로 걸린다.
 export const telHref = BUSINESS.tel ? `tel:${BUSINESS.tel.replace(/[^0-9+]/g, "")}` : "";
