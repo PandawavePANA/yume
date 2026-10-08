@@ -15,6 +15,7 @@ import { documentInput, getDocumentView, listUserDocuments, startDocument } from
 import { FileTextError } from "./fileText.js";
 import { normalizeReferences } from "./referenceCheck.js";
 import { createLimiter, limitMiddleware } from "./security.js";
+import { issueMark, listUserMarks, markBase, markStateForDocument, publicMark, revokeMark } from "./trustMarks.js";
 
 const router = patchAsync(express.Router());
 const docJson = express.json({ limit: "16mb" });
@@ -82,7 +83,32 @@ router.get("/documents/:id", async (req, res) => {
   if (needLogin(req, res)) return;
   const got = await getDocumentView(String(req.params.id));
   if (!got || Number(got.doc.user_id) !== Number(req.user.id)) return res.status(404).json({ error: "문서를 찾을 수 없어요." });
-  res.json(got.view);
+  // 검사가 끝났으면 검증 마크를 받을 수 있는지(못 받으면 무엇 때문인지)와 같은 글로 받은 마크를 함께 준다.
+  const mark = got.view.status === "pending" ? null : await markStateForDocument(got.view, req.user.id, markBase(req));
+  res.json({ ...got.view, mark });
+});
+
+// ── YUME 검증 마크 ──
+// 모든 주장이 원문으로 확인된 문서에만 발급한다(trustMarkRules.js). 발급하면 글과 근거가 공개
+// 검증 페이지에 실리므로, 화면에서 공개 동의를 받은 요청(publish: true)만 받는다.
+router.post("/documents/:id/mark", async (req, res) => {
+  if (needLogin(req, res)) return;
+  const r = await issueMark(String(req.params.id), { userId: req.user.id }, { publish: req.body?.publish === true, base: markBase(req) });
+  if (r.error) return res.status(r.error.status).json({ error: r.error.message, code: r.error.code, blockers: r.error.blockers || [] });
+  res.status(r.renewed ? 200 : 201).json(r);
+});
+
+router.get("/marks", async (req, res) => {
+  if (needLogin(req, res)) return;
+  const base = markBase(req);
+  res.json({ marks: (await listUserMarks(req.user.id)).map((m) => publicMark(m, base)) });
+});
+
+router.post("/marks/:id/revoke", async (req, res) => {
+  if (needLogin(req, res)) return;
+  const r = await revokeMark(String(req.params.id), { userId: req.user.id, reason: req.body?.reason, base: markBase(req) });
+  if (r.error) return res.status(404).json({ error: r.error });
+  res.json(r);
 });
 
 export default router;

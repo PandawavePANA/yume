@@ -9,6 +9,7 @@ import { bodyHash, claimKey, readIdempotencyKey, releaseKey } from "./idempotenc
 import { deliverWebhook, validateCallback } from "./webhooks.js";
 import { documentInput, documentPayload, getDocumentView, newDocumentId, startDocument } from "./documents.js";
 import { FileTextError } from "./fileText.js";
+import { getMark, issueMark, markBase, publicMark, revokeMark } from "./trustMarks.js";
 
 // 유메 검증 API(/v1) — AI 서비스를 운영하는 기업이 자기 서비스의 답변을 유메로 검증하는
 // 공개 API. 계정의 "API 키" 메뉴에서 발급한 키로 인증한다(키는 해시로만 저장).
@@ -450,6 +451,28 @@ router.get("/documents/:id", requireApiKey, async (req, res) => {
   res.json(got.view);
 });
 
+// YUME 검증 마크 — 모든 주장이 원문으로 확인된 문서에 발급한다. 글과 근거가 공개 검증 페이지에
+// 실리므로 publish: true(공개 동의)가 있어야 한다. 같은 글로 다시 받으면 같은 주소의 마크를 갱신한다.
+router.post("/documents/:id/mark", requireApiKey, async (req, res) => {
+  const r = await issueMark(String(req.params.id), { userId: req.apiKey.user_id }, { publish: req.body?.publish === true, base: markBase(req) });
+  await recordApiUsage(req.apiKey.id, { endpoint: "POST /v1/documents/:id/mark", statusCode: r.error ? r.error.status : 201 });
+  if (r.error) return fail(res, r.error.status, r.error.code, r.error.message, r.error.blockers ? { blockers: r.error.blockers } : {});
+  res.status(r.renewed ? 200 : 201).json({ ...r.mark, renewed: r.renewed });
+});
+
+router.get("/marks/:id", requireApiKey, async (req, res) => {
+  const m = await getMark(String(req.params.id));
+  if (!m || Number(m.user_id) !== Number(req.apiKey.user_id)) return fail(res, 404, "not_found", "마크를 찾을 수 없습니다.");
+  res.json(publicMark(m, markBase(req)));
+});
+
+router.post("/marks/:id/revoke", requireApiKey, async (req, res) => {
+  const m = await getMark(String(req.params.id));
+  if (!m || Number(m.user_id) !== Number(req.apiKey.user_id)) return fail(res, 404, "not_found", "마크를 찾을 수 없습니다.");
+  const r = await revokeMark(m.id, { userId: req.apiKey.user_id, reason: req.body?.reason, base: markBase(req) });
+  res.json(r.mark);
+});
+
 router.get("/verify/:id", requireApiKey, async (req, res) => {
   const v = await getVerification(String(req.params.id));
   // 같은 계정이 발급한 키로 요청한 검증만 조회할 수 있다.
@@ -490,6 +513,9 @@ router.get("/", (req, res) => {
         desc: "긴 문서·파일 검사. 문단 경계로 나눠 조각 수만큼 과금, 원문 기준 위치와 고친 본문(corrected_text)을 돌려준다",
       },
       { method: "GET", path: "/v1/documents/:id", desc: "문서 검사 결과 조회" },
+      { method: "POST", path: "/v1/documents/:id/mark", body: { publish: "true (필수) — 글과 검증 결과가 공개 검증 페이지에 게시되는 데 동의" }, desc: "YUME 검증 마크 발급. 모든 주장이 원문으로 확인(confidence: high)된 문서만. 검증 페이지·A4 검증서·배지·삽입 코드를 돌려준다" },
+      { method: "GET", path: "/v1/marks/:id", desc: "검증 마크 상태(valid · expired · revoked)" },
+      { method: "POST", path: "/v1/marks/:id/revoke", desc: "검증 마크 철회" },
       { method: "GET", path: "/v1/verify/:id", desc: "검증 결과 조회" },
       { method: "GET", path: "/v1/usage", desc: "이번 달 사용량·한도" },
     ],

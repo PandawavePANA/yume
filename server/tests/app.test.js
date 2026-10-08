@@ -606,3 +606,98 @@ test("문서 검사 — API와 웹 화면이 같은 한도로, 원문 위치와 
   assert.ok(JSON.stringify(keys.data).includes("웹 문서 검사"), "과금용 키가 목록에 보인다(숨은 지갑 없음)");
   assert.equal((await owner("GET", `/api/documents/${started.data.id}`)).status, 404, "남의 문서는 웹에서도 안 보인다");
 });
+
+// ── YUME 검증 마크 ──
+test("검증 마크 — 모두 원문으로 확인된 문서에만, 공개 동의를 받고 발급하며 누구나 확인할 수 있다", async () => {
+  const owner = client();
+  await owner("POST", "/api/auth/signup", signupBody("mark@yume.test", { company: "마크AI" }));
+  const key = (await owner("POST", "/api/account/api-keys", { label: "마크" })).data.key;
+  const auth = { Authorization: `Bearer ${key}`, "Content-Type": "application/json" };
+
+  const text = "마크 시험: 대한민국의 수도는 서울입니다.";
+  const quote = "대한민국의 수도는 서울입니다.";
+  await seedVerification({
+    id: "seedmark000000001",
+    input: text,
+    claims: [{
+      text: "대한민국의 수도는 서울이다", quote, span: { start: text.indexOf(quote), end: text.indexOf(quote) + quote.length },
+      domain: "일반", verdict: "confirmed", confidence: "high", verified_via: "web", explanation: "헌법재판소 결정과 정부 자료",
+      sources: [{ title: "정부 자료", url: "https://www.korea.kr/x", quote: "대한민국의 수도는 서울" }],
+      evidence: { status: "verified", url: "https://www.korea.kr/x", quote: "대한민국의 수도는 서울" },
+    }],
+  });
+  const doc = await (await fetch(`${base}/v1/documents`, { method: "POST", headers: auth, body: JSON.stringify({ text, title: "회사 소개", wait: 10 }) })).json();
+  assert.equal(doc.status, "done");
+
+  // 공개 동의 없이는 발급하지 않는다
+  const noConsent = await fetch(`${base}/v1/documents/${doc.id}/mark`, { method: "POST", headers: auth, body: "{}" });
+  assert.equal(noConsent.status, 400);
+  assert.equal((await noConsent.json()).error.code, "publish_consent_required");
+
+  const issued = await fetch(`${base}/v1/documents/${doc.id}/mark`, { method: "POST", headers: auth, body: JSON.stringify({ publish: true }) });
+  assert.equal(issued.status, 201);
+  const mark = await issued.json();
+  assert.equal(mark.status, "valid");
+  assert.match(mark.embed_html, /data-yume-mark/);
+
+  // 누구나(로그인 없이) 확인한다 — 검증 페이지, 상태(다른 출처에서도), 배지, 검증서
+  const page = await (await fetch(`${base}/v/${mark.id}`)).text();
+  assert.match(page, /검증됨/);
+  assert.match(page, /대한민국의 수도는 서울/);
+  const st = await fetch(`${base}/v/${mark.id}/status.json`);
+  assert.equal(st.headers.get("access-control-allow-origin"), "*");
+  assert.equal((await st.json()).status, "valid");
+  assert.match(await (await fetch(`${base}/v/${mark.id}/badge.svg`)).text(), /<svg/);
+  const cert = await (await fetch(`${base}/v/${mark.id}/certificate`)).text();
+  assert.match(cert, /사 실 검 증 서/);
+  assert.match(cert, /<svg[^>]*viewBox/, "진위 확인 QR");
+  assert.match(await (await fetch(`${base}/v/embed.js`)).text(), /data-yume-mark/);
+  assert.equal((await fetch(`${base}/v/ymnotreal00`)).status, 404);
+
+  // 같은 글로 다시 받으면 새 마크가 아니라 같은 주소를 갱신한다(홈페이지에 붙은 코드가 살아 있어야 한다)
+  const again = await (await fetch(`${base}/v1/documents/${doc.id}/mark`, { method: "POST", headers: auth, body: JSON.stringify({ publish: true }) })).json();
+  assert.equal(again.id, mark.id);
+  assert.equal(again.renewed, true);
+
+  // 웹 화면도 같은 상태를 본다
+  const webView = await owner("GET", "/api/marks");
+  assert.equal(webView.data.marks[0].id, mark.id);
+
+  // 다른 계정은 발급·철회할 수 없다
+  const other = client();
+  await other("POST", "/api/auth/signup", signupBody("mark-other@yume.test"));
+  assert.equal((await other("POST", `/api/documents/${doc.id}/mark`, { publish: true })).status, 404);
+  assert.equal((await other("POST", `/api/marks/${mark.id}/revoke`, {})).status, 404);
+
+  // 철회하면 페이지에 철회로 남고, 원문 공개는 멈추며, 검증서는 나오지 않는다
+  const revoked = await owner("POST", `/api/marks/${mark.id}/revoke`, { reason: "글을 내렸습니다" });
+  assert.equal(revoked.data.mark.status, "revoked");
+  const after = await (await fetch(`${base}/v/${mark.id}`)).text();
+  assert.match(after, /철회됨/);
+  assert.doesNotMatch(after, /마크 시험/, "철회하면 원문 공개를 멈춘다");
+  assert.doesNotMatch(await (await fetch(`${base}/v/${mark.id}/certificate`)).text(), /사 실 검 증 서/);
+});
+
+test("검증 마크 — 사실과 다른 주장이 있는 문서는 무엇 때문에 안 되는지 알려 준다", async () => {
+  const owner = client();
+  await owner("POST", "/api/auth/signup", signupBody("mark-no@yume.test"));
+  const text = "거절 시험: 대한민국의 수도는 부산입니다.";
+  const quote = "대한민국의 수도는 부산입니다.";
+  await seedVerification({
+    id: "seedmark000000002",
+    input: text,
+    claims: [{ text: "대한민국의 수도는 부산이다", quote, span: { start: text.indexOf(quote), end: text.indexOf(quote) + quote.length }, domain: "일반", verdict: "false", confidence: "high", verified_via: "web", explanation: "서울", suggested_fix: "대한민국의 수도는 서울입니다.", sources: [{ title: "t", url: "https://e.x" }] }],
+  });
+  const started = await owner("POST", "/api/documents", { text });
+  let view;
+  for (let i = 0; i < 40; i++) {
+    view = await owner("GET", `/api/documents/${started.data.id}`);
+    if (view.data.status !== "pending") break;
+    await new Promise((r) => setTimeout(r, 50));
+  }
+  assert.equal(view.data.mark.ok, false);
+  assert.equal(view.data.mark.blockers.length, 1);
+  const r = await owner("POST", `/api/documents/${started.data.id}/mark`, { publish: true });
+  assert.equal(r.status, 422);
+  assert.equal(r.data.code, "not_eligible");
+});

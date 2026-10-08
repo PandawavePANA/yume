@@ -27,6 +27,9 @@ import { inquiryRouter } from "./inquiryApi.js";
 import { threadRouter } from "./threadApi.js";
 import screenshotRouter from "./screenshotApi.js";
 import documentsWebRouter from "./documentsWeb.js";
+import { getMark, markBase, publicMark } from "./trustMarks.js";
+import { badgeSvg, markStatus, validMarkId } from "./trustMarkRules.js";
+import { embedScript, renderCertificatePage, renderMarkPage } from "./renderMarkPage.js";
 import { creditReferralOnActivity } from "./referral.js";
 import { awardForVerification } from "./contribution.js";
 import apiV1Router from "./apiV1.js";
@@ -420,6 +423,38 @@ app.get("/privacy", (req, res) => html(res, renderPrivacyPage()));
 app.get("/extension-privacy", (req, res) => html(res, renderExtensionPrivacyPage()));
 app.get("/refund", (req, res) => html(res, renderRefundPage()));
 app.get("/products", (req, res) => html(res, renderProductsPage()));
+
+// ── YUME 검증 마크 — 공개 화면(trustMarks.js) ──
+// 누구나 확인할 수 있어야 마크가 의미가 있으므로 로그인 없이 연다. 상태(JSON)·배지·스크립트는
+// 고객 홈페이지에서 불러가므로 다른 출처에도 열어 둔다(읽기 전용, 쿠키를 쓰지 않는다).
+const HTML2PDF = path.join(__dirname, "..", "node_modules", "html2pdf.js", "dist", "html2pdf.bundle.min.js");
+const crossOrigin = (res) => res.set("Access-Control-Allow-Origin", "*").set("Cross-Origin-Resource-Policy", "cross-origin");
+const markOrNull = async (id) => (validMarkId(id) ? getMark(id) : null);
+app.get("/v/embed.js", (req, res) => {
+  crossOrigin(res).set("Content-Type", "application/javascript; charset=utf-8").set("Cache-Control", "public, max-age=3600").send(embedScript(markBase(req)));
+});
+app.get("/v/assets/html2pdf.js", (req, res, next) => res.set("Cache-Control", "public, max-age=604800").sendFile(HTML2PDF, (err) => (err ? next() : undefined)));
+app.get("/v/:id/status.json", async (req, res) => {
+  crossOrigin(res).set("Cache-Control", "public, max-age=60");
+  const m = await markOrNull(String(req.params.id));
+  if (!m) return res.status(404).json({ status: "missing" });
+  const { id, status, title, claims, text_hash, issued_at, expires_at, url } = publicMark(m, markBase(req));
+  res.json({ id, status, title, claims, text_hash, issued_at, expires_at, url });
+});
+app.get("/v/:id/badge.svg", async (req, res) => {
+  const m = await markOrNull(String(req.params.id));
+  crossOrigin(res).set("Content-Type", "image/svg+xml; charset=utf-8").set("Cache-Control", "public, max-age=300").send(badgeSvg(m ? markStatus(m) : "missing"));
+});
+app.get("/v/:id/certificate", async (req, res) => {
+  const m = await markOrNull(String(req.params.id));
+  res.status(m ? 200 : 404).set("Cache-Control", "no-cache");
+  html(res, await renderCertificatePage(m, markBase(req)));
+});
+app.get("/v/:id", async (req, res) => {
+  const m = await markOrNull(String(req.params.id));
+  res.status(m ? 200 : 404).set("Cache-Control", "no-cache");
+  html(res, renderMarkPage(m));
+});
 app.get("/account-deletion", (req, res) => html(res, renderAccountDeletionPage()));
 app.get("/docs/api", (req, res) => html(res, renderApiDocsPage(process.env.PUBLIC_BASE_URL || `${req.protocol}://${req.get("host")}`)));
 // 서비스 소개 릴(화면 녹화용) — 빌드에 포함된 정적 파일을 확장자 없는 주소로도 열어준다.

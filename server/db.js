@@ -99,7 +99,7 @@ const TABLES = [
   "credit_ledger", "bounty_claims", "redemptions", "referrals", "contribution_ledger", "quarter_awards", "claim_cache",
   "credit_orders", "inquiries", "audit_sessions", "audit_reports", "projects", "product_tasks",
   "threads", "thread_messages", "thread_quotes", "lobby_messages", "api_costs", "verdict_corrections",
-  "api_idempotency", "documents",
+  "api_idempotency", "documents", "trust_marks",
 ];
 const TABLE_REF = new RegExp(`\\b(FROM|JOIN|INTO|UPDATE)\\s+(${TABLES.join("|")})\\b`, "gi");
 const qualify = (sql) => sql.replace(TABLE_REF, (_m, kw, table) => `${kw} ${SCHEMA}.${table}`);
@@ -965,6 +965,30 @@ const MIGRATIONS = [
   // 엄격 모드가 캐시 적중분을 일괄로 '확인 못 함'으로 내리지 않는다.
   `
   ALTER TABLE claim_cache ADD COLUMN confidence TEXT;
+  `,
+
+  // YUME 검증 마크(trustMarks.js). 공개 검증 페이지(/v/:id)에 원문과 주장별 근거를 싣는다.
+  // 원문은 발급자가 공개에 동의한 것이므로 문서 보관 기간(1년)과 따로 둔다. 계정을 지우면 함께 지운다.
+  `
+  CREATE TABLE trust_marks (
+    id TEXT PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    document_id TEXT,
+    title TEXT,
+    text TEXT NOT NULL,
+    text_hash TEXT NOT NULL,
+    claims_json TEXT NOT NULL,
+    first_issued_at BIGINT NOT NULL,
+    issued_at BIGINT NOT NULL,
+    expires_at BIGINT NOT NULL,
+    renewals INTEGER NOT NULL DEFAULT 0,
+    revoked_at BIGINT,
+    revoked_reason TEXT,
+    created_at BIGINT NOT NULL
+  );
+  CREATE INDEX idx_trust_marks_user ON trust_marks(user_id, created_at);
+  CREATE INDEX idx_trust_marks_hash ON trust_marks(user_id, text_hash);
+  ALTER TABLE trust_marks ENABLE ROW LEVEL SECURITY;
   `,
 ];
 

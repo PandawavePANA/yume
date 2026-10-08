@@ -94,6 +94,142 @@ function Annotated({ text, claims, active, onPick }) {
   );
 }
 
+const MARK_STATUS = {
+  valid: { label: "검증됨", fg: "#2E7D56" },
+  expired: { label: "재확인 필요", fg: "#B4690E" },
+  revoked: { label: "철회됨", fg: "#8B8694" },
+};
+
+async function copy(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// YUME 검증 마크 — 모든 주장이 원문으로 확인된 문서에 발급한다(server/trustMarkRules.js).
+// 받을 수 없으면 무엇 때문인지 주장별로 보여 준다. 고친 본문으로 다시 검사하면 받을 수 있다.
+function MarkBox({ doc }) {
+  const state = doc.mark;
+  const [agree, setAgree] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+  const [issued, setIssued] = useState(null);
+  if (!state) return null;
+  const mark = issued || state.existing;
+
+  async function issue() {
+    setBusy(true);
+    setMsg("");
+    try {
+      const r = await apiJson(`/api/documents/${doc.id}/mark`, { method: "POST", body: { publish: true } });
+      setIssued(r.mark);
+      if (r.renewed) setMsg(t("같은 주소로 마크를 갱신했어요."));
+    } catch (e) {
+      setMsg(e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const box = { marginTop: 18, borderRadius: 16, padding: "16px 18px", border: `1.5px solid ${state.ok ? "#BFE3CF" : UI.line}`, background: state.ok ? "#F5FBF7" : "#FBFAFD" };
+  if (!state.ok) {
+    return (
+      <div style={box}>
+        <div style={{ fontSize: 14.5, fontWeight: 700, color: UI.ink }}>{t("YUME 검증 마크")}</div>
+        <div style={{ fontSize: 13, color: UI.ink2, lineHeight: 1.65, marginTop: 6 }}>{t(state.reason || "")}</div>
+        {state.blockers?.length > 0 && (
+          <ul style={{ margin: "8px 0 0", paddingLeft: 18, fontSize: 12.5, color: UI.ink2, lineHeight: 1.7 }}>
+            {state.blockers.slice(0, 6).map((b) => (
+              <li key={b.index}><b style={{ color: UI.ink }}>{b.text}</b> — {t(b.why)}</li>
+            ))}
+          </ul>
+        )}
+        <div style={{ fontSize: 12.5, color: UI.ink3, marginTop: 8 }}>{t("모든 주장이 원문으로 확인된 글에만 검증 마크와 검증서를 발급해요. 고친 본문으로 다시 검사해 보세요.")}</div>
+      </div>
+    );
+  }
+  return (
+    <div style={box}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        <span style={{ fontSize: 12, fontWeight: 800, color: "#fff", background: "#2E7D56", borderRadius: 999, padding: "4px 10px" }}>✓ {t("모두 사실로 확인")}</span>
+        <b style={{ fontSize: 14.5, color: UI.ink }}>{t("YUME 검증 마크를 받을 수 있어요")}</b>
+      </div>
+      <div style={{ fontSize: 13, color: UI.ink2, lineHeight: 1.65, marginTop: 8 }}>
+        {t("홈페이지·보도자료에 마크를 붙이면 누구나 눌러서 주장별 근거 원문을 확인할 수 있어요. A4 검증서(PDF)도 함께 발급돼요. 유효기간은 90일이고, 글이 바뀌면 마크가 원문 변경됨으로 바뀌어요.")}
+      </div>
+      {mark ? (
+        <div style={{ marginTop: 12 }}>
+          <div style={{ fontSize: 13, color: UI.ink2 }}>
+            <b style={{ color: (MARK_STATUS[mark.status] || MARK_STATUS.valid).fg }}>{t((MARK_STATUS[mark.status] || MARK_STATUS.valid).label)}</b>
+            {" · "}{t("{d}까지 유효", { d: new Date(mark.expires_at).toLocaleDateString() })}
+          </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+            <a href={mark.certificate_url} target="_blank" rel="noreferrer" style={{ ...btn(true, false), textDecoration: "none" }}>{t("검증서 PDF")}</a>
+            <a href={mark.url} target="_blank" rel="noreferrer" style={{ ...btn(false, false), textDecoration: "none" }}>{t("공개 검증 페이지")}</a>
+            <button onClick={async () => setMsg((await copy(mark.embed_html)) ? t("삽입 코드를 복사했어요.") : t("복사하지 못했어요."))} style={btn(false, false)}>{t("홈페이지 삽입 코드 복사")}</button>
+            <button onClick={async () => setMsg((await copy(mark.badge_html)) ? t("배지 코드를 복사했어요.") : t("복사하지 못했어요."))} style={btn(false, false)}>{t("배지 이미지 코드 복사")}</button>
+          </div>
+          <img src={mark.badge_url} alt="YUME 검증" height="30" style={{ display: "block", marginTop: 12 }} />
+          {!issued && state.existing && (
+            <button onClick={issue} disabled={busy} style={{ ...btn(false, busy), marginTop: 12 }}>{busy ? t("갱신 중…") : t("이번 검사 결과로 마크 갱신 (주소 그대로)")}</button>
+          )}
+          <div style={{ fontSize: 12, color: UI.ink3, marginTop: 10, lineHeight: 1.6 }}>
+            {t("삽입 코드는 검증받은 글을 감싸고, 글자가 바뀌면 마크가 자동으로 원문 변경됨으로 바뀌어요. 배지 이미지는 블로그·메일처럼 스크립트를 못 쓰는 곳용이에요.")}
+          </div>
+        </div>
+      ) : (
+        <div style={{ marginTop: 12 }}>
+          <label style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 13, color: UI.ink2, lineHeight: 1.6, cursor: "pointer" }}>
+            <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} style={{ marginTop: 3 }} />
+            <span>{t("이 글과 주장별 근거가 공개 검증 페이지에 게시되는 것에 동의합니다. 마크는 언제든 철회할 수 있어요.")}</span>
+          </label>
+          <button onClick={issue} disabled={!agree || busy} style={{ ...btn(true, !agree || busy), marginTop: 10 }}>{busy ? t("발급 중…") : t("검증 마크 발급")}</button>
+        </div>
+      )}
+      {msg && <div style={{ fontSize: 12.5, color: UI.ink2, marginTop: 8 }}>{msg}</div>}
+    </div>
+  );
+}
+
+function MyMarks() {
+  const [marks, setMarks] = useState([]);
+  const load = () => apiJson("/api/marks").then((d) => setMarks(d.marks || [])).catch(() => {});
+  useEffect(() => {
+    load();
+  }, []);
+  if (!marks.length) return null;
+  return (
+    <div style={{ marginTop: 16 }}>
+      <div style={{ fontSize: 12.5, fontWeight: 700, color: UI.ink3, marginBottom: 6 }}>{t("내 검증 마크")}</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        {marks.slice(0, 8).map((m) => {
+          const st = MARK_STATUS[m.status] || MARK_STATUS.revoked;
+          return (
+            <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 10, border: `1px solid ${UI.line}`, borderRadius: 10, padding: "8px 12px", fontSize: 13 }}>
+              <b style={{ color: st.fg, flexShrink: 0 }}>{t(st.label)}</b>
+              <a href={m.url} target="_blank" rel="noreferrer" style={{ color: UI.ink, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.title || m.id}</a>
+              {m.status === "valid" && <a href={m.certificate_url} target="_blank" rel="noreferrer" style={{ color: UI.accent, fontSize: 12.5, flexShrink: 0 }}>{t("검증서")}</a>}
+              {m.status !== "revoked" && (
+                <button
+                  onClick={async () => {
+                    if (!window.confirm(t("이 마크를 철회할까요? 붙여 둔 곳에는 철회됨으로 보여요."))) return;
+                    await apiJson(`/api/marks/${m.id}/revoke`, { method: "POST", body: {} }).catch(() => {});
+                    load();
+                  }}
+                  style={{ border: "none", background: "none", color: UI.ink3, fontSize: 12, cursor: "pointer", flexShrink: 0 }}
+                >{t("철회")}</button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function DocumentPanel() {
   const [raw, setRaw] = useState("");
   const [file, setFile] = useState(null);
@@ -311,8 +447,10 @@ export default function DocumentPanel() {
             })}
             {!claims.length && <div style={{ padding: 14, fontSize: 13, color: UI.ink3 }}>{t("확인할 사실 주장이 없었어요")}</div>}
           </div>
+          <MarkBox key={doc.id} doc={doc} />
         </div>
       )}
+      {!busy && !doc && <MyMarks />}
     </div>
   );
 }

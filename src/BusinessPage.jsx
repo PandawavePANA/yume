@@ -219,6 +219,35 @@ export default function BusinessPage() {
           </div>
         </Section>
 
+        {/* ── YUME 검증 마크 ─────────────────────────────────────────
+            기업이 사는 건 결국 "우리 글은 확인을 받았다"는 신뢰다. 보증이 아니라 검증 —
+            무엇을 언제 어떤 원문으로 확인했는지 공개하는 것이 마크의 값어치다. */}
+        <Section
+          eyebrow="YUME 검증 마크"
+          title="모두 사실로 확인된 글에, 누구나 확인할 수 있는 마크를"
+          lede="문서 검사에서 모든 사실 주장이 출처 원문으로 확인되면 YUME 검증 마크와 A4 검증서(PDF)를 발급합니다. 홈페이지·보도자료·광고에 붙이면, 읽는 사람이 마크를 눌러 주장별 근거 문장과 출처를 직접 확인합니다."
+        >
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12, marginTop: 20 }}>
+            {[
+              ["엄격한 발급 기준", "모든 주장이 '확인됨'이고, 서버가 출처 페이지에서 근거 문장을 직접 확인한 경우에만 발급합니다. 사실과 다름·근거 없음이 하나라도 있으면 고칠 곳을 알려 드립니다."],
+              ["공개 검증 페이지", "마크를 누르면 원문, 주장별 근거 문장과 출처, 검증 일시, 원문 지문이 열립니다. 붙여 넣은 글이 검증받은 원문과 같은지도 그 자리에서 대조합니다."],
+              ["바뀌면 바로 표시", "삽입 코드는 검증받은 글을 감쌉니다. 글자가 하나라도 바뀌면 마크가 '원문 변경됨'으로, 90일이 지나면 '재확인 필요'로 바뀝니다."],
+              ["A4 검증서", "검증서 번호, 원문 지문, 확인한 주장과 출처, 진위 확인 QR을 담은 검증서를 PDF로 받아 결재·심의·투자 자료에 첨부합니다."],
+            ].map(([h, d]) => (
+              <div key={h} style={{ padding: "16px 18px", borderRadius: 16, background: "rgba(255,255,255,0.85)", border: `1px solid ${UI.hairline}` }}>
+                <div style={{ fontSize: 14.5, fontWeight: 700, color: UI.ink, marginBottom: 6 }}>{h}</div>
+                <div style={{ fontSize: 13.5, color: UI.ink2, lineHeight: 1.65 }}>{d}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{ marginTop: 14, fontSize: 13, color: UI.ink3, lineHeight: 1.65 }}>
+            검증 마크는 글 속 <b>사실 주장</b>을 검증 시점 기준으로 확인한 기록이며, 회사·상품의 품질을 보증하지 않습니다.
+          </div>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 18 }}>
+            <a href={`${YUME_URL}/?open=docs`} style={btn}>문서 검사하고 마크 받기</a>
+          </div>
+        </Section>
+
         {/* ── API ─────────────────────────────────────────────────── */}
         <Section
           eyebrow="검증 API"

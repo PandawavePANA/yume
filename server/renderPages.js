@@ -32,9 +32,9 @@ import { PLANS } from "./plans.js";
 import { CREDIT_PACKS, PLAN_CREDITS, CHARS_PER_CREDIT } from "./credits.js";
 import { CREDIT_VALID_DAYS } from "./creditExpiry.js";
 
-const esc = (s = "") => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+export const esc = (s = "") => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
-function layout(title, body, { narrow = false, script = "" } = {}) {
+export function layout(title, body, { narrow = false, script = "" } = {}) {
   return `<!doctype html>
 <html lang="ko"><head>
 <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -645,6 +645,26 @@ while job["status"] == "pending":
     "corrected_text": "…고친 문장이 반영된 전체 본문…", "fixes_applied": 2 },
   "text": "…원문…" }</pre>
 <p><code>GET /v1/documents/:id</code>로 진행 상황과 결과를 조회합니다(같은 계정의 키로 만든 문서만).</p>
+
+<h2>YUME 검증 마크</h2>
+<p>문서 검사에서 <b>모든 사실 주장이 출처 원문으로 확인(<code>confidence: "high"</code>)</b>되면 검증 마크를 발급할 수 있습니다. 마크를 받으면 글과 주장별 근거가 공개 검증 페이지에 실리므로 <code>publish: true</code>(공개 동의)가 필요합니다.</p>
+<pre>POST /v1/documents/:id/mark
+{ "publish": true }
+
+→ 201
+{ "id": "ym…", "object": "mark", "status": "valid",
+  "url": "https://www.yume-reamer.com/v/ym…",            // 공개 검증 페이지
+  "certificate_url": "https://www.yume-reamer.com/v/ym…/certificate",  // A4 검증서(PDF)
+  "badge_url": "https://www.yume-reamer.com/v/ym…/badge.svg",
+  "embed_html": "&lt;div data-yume-mark=\\"ym…\\"&gt;…&lt;/div&gt;&lt;script src=\\"…/v/embed.js\\" async&gt;&lt;/script&gt;",
+  "text_hash": "…", "issued_at": "…", "expires_at": "…" }</pre>
+<ul>
+<li>사실과 다름·확인되지 않음이 있거나 근거 원문을 직접 확인하지 못한 주장이 있으면 <code>422 not_eligible</code>과 함께 <code>blockers</code>(주장별 이유)를 돌려줍니다.</li>
+<li>같은 계정이 같은 글(원문 지문이 같은 글)로 다시 받으면 새 마크를 만들지 않고 <b>같은 주소의 마크를 갱신</b>합니다(<code>200</code>, <code>renewed: true</code>). 이미 붙여 둔 삽입 코드가 그대로 살아 있습니다.</li>
+<li>유효기간은 검증일부터 90일입니다. 지나면 <code>status: "expired"</code>(재확인 필요)가 됩니다. <code>POST /v1/marks/:id/revoke</code>로 철회할 수 있습니다.</li>
+<li><code>embed_html</code>은 검증받은 글을 감싸는 요소와 스크립트입니다. 감싼 글의 글자를 원문 지문(공백을 뺀 SHA-256)과 대조해, 글이 바뀌면 마크가 "원문 변경됨"으로 표시됩니다.</li>
+<li>누구나 <code>GET /v/:id/status.json</code>으로 상태를 조회할 수 있습니다(인증 없음, CORS 허용).</li>
+</ul>
 
 <h2>웹훅</h2>
 <p><code>callback_url</code>을 주면 검증이 끝날 때 아래처럼 보냅니다. 묶음 요청은 항목마다 <code>ref</code>를 붙여 하나씩 보냅니다. 2xx를 받지 못하면 최대 4번까지 다시 보냅니다(0초·2초·10초·60초).</p>
