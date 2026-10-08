@@ -56,3 +56,12 @@ test("공식 대조·부존재·심층 재확인은 예전처럼 잡힌다", () 
     assert.equal(summaryWentStale([{ text: "x", verdict: "confirmed", verified_via: via }]), true, via);
   }
 });
+
+test("총평은 판정보다 세게 말하지 않는다 — 4개 중 2개는 '대부분'이 아니라 '절반'", async () => {
+  const { buildOverallVerdict } = await import("../overallVerdict.js");
+  const c = (verdict) => ({ text: "x", verdict });
+  assert.equal(buildOverallVerdict([c("confirmed"), c("confirmed"), c("false"), c("false")]).label, "절반이 부정확");
+  assert.equal(buildOverallVerdict([c("confirmed"), c("false"), c("false")]).label, "대부분 부정확");
+  assert.equal(buildOverallVerdict([c("confirmed"), c("confirmed"), c("false")]).label, "부분적으로 부정확");
+  assert.equal(buildOverallVerdict([c("false")]).label, "사실과 다름", "전부 틀렸으면 그렇게 말한다");
+});

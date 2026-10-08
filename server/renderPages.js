@@ -505,17 +505,18 @@ export function renderApiDocsPage(baseUrl) {
 <li>유메에 가입하고 계정 메뉴의 <b>API 키</b>에서 키를 발급받습니다. 키는 발급할 때 한 번만 보여주므로 안전한 곳에 보관하세요.</li>
 <li>모든 요청에 <code>Authorization: Bearer &lt;API 키&gt;</code> 헤더를 붙입니다.</li>
 <li>키는 서버에서만 사용하세요. 브라우저·앱에 넣으면 누구나 키를 볼 수 있습니다.</li>
+<li>OpenAPI 3.1 명세: <a href="/v1/openapi.json"><code>GET /v1/openapi.json</code></a> — 인증 없이 받을 수 있습니다. Postman·코드 생성기에 그대로 넣으세요.</li>
 </ol>
 
 <h2>POST /v1/verify</h2>
-<p>텍스트 하나를 검증합니다. 검증에는 보통 10~40초가 걸립니다. <code>wait</code>를 주면 결과가 나올 때까지(최대 60초) 연결을 유지하고, 주지 않으면 즉시 <code>202</code>와 id를 돌려주므로 <code>GET /v1/verify/:id</code>로 조회하세요.</p>
+<p>텍스트 하나를 검증합니다. 주장마다 출처 원문을 직접 열어 확인하므로 보통 30~90초가 걸립니다. <code>wait</code>를 주면 결과가 나올 때까지(최대 120초) 연결을 유지하고, 주지 않으면 즉시 <code>202</code>와 id를 돌려주므로 <code>GET /v1/verify/:id</code>로 조회하세요.</p>
 <table>
 <tr><th>필드</th><th>타입</th><th>설명</th></tr>
 <tr><td><code>text</code></td><td>string</td><td>검증할 텍스트. 최대 10,000자</td></tr>
 <tr><td><code>references</code></td><td>array</td><td>선택. 자사 기준 자료 <code>[{ "title": "요금 안내", "text": "…" }]</code>. 최대 5개, 합계 20,000자. 이 자료가 다루는 주장은 웹보다 먼저 이 자료와 대조해 <code>verified_via: "reference"</code>로 판정하고, 근거 문장을 <code>sources[].quote</code>로 돌려줍니다. 자료에 없는 근거로는 판정하지 않습니다.</td></tr>
 <tr><td><code>strict</code></td><td>boolean</td><td>선택. 엄격 모드 — 근거를 출처 원문에서 직접 확인한 판정(<code>confidence: "high"</code>)만 내립니다(아래 "확신도와 엄격 모드").</td></tr>
 <tr><td><code>organization</code></td><td>string</td><td>선택. 자사명. 자사에 관한 주장은 "공개 기록이 없다"는 이유만으로 <code>false</code>가 되지 않습니다(기준 자료가 있으면 그 자료로 판정).</td></tr>
-<tr><td><code>wait</code></td><td>boolean | number</td><td>선택. <code>true</code>면 최대 60초, 숫자면 그 초만큼 기다림</td></tr>
+<tr><td><code>wait</code></td><td>boolean | number</td><td>선택. <code>true</code>면 최대 120초, 숫자면 그 초만큼 기다림</td></tr>
 <tr><td><code>callback_url</code></td><td>string</td><td>선택. 검증이 끝나면(실패 포함) 결과를 이 https 주소로 POST합니다. 폴링이 필요 없습니다. 공인 주소만 가능</td></tr>
 <tr><td><code>callback_secret</code></td><td>string</td><td>선택. 주면 웹훅에 서명합니다(아래 "웹훅"). 저장하지 않습니다</td></tr>
 </table>
@@ -528,7 +529,7 @@ export function renderApiDocsPage(baseUrl) {
 <pre>const res = await fetch("${base}/v1/verify", {
   method: "POST",
   headers: { Authorization: \`Bearer \${process.env.YUME_API_KEY}\`, "Content-Type": "application/json" },
-  body: JSON.stringify({ text, wait: 30 }),
+  body: JSON.stringify({ text, wait: 90 }),
 });
 let job = await res.json();
 while (job.status === "pending") {
@@ -538,7 +539,7 @@ while (job.status === "pending") {
 <h3>Python</h3>
 <pre>import os, time, requests
 H = {"Authorization": f"Bearer {os.environ['YUME_API_KEY']}"}
-job = requests.post("${base}/v1/verify", json={"text": text, "wait": 30}, headers=H).json()
+job = requests.post("${base}/v1/verify", json={"text": text, "wait": 90}, headers=H).json()
 while job["status"] == "pending":
     time.sleep(3)
     job = requests.get(f"${base}/v1/verify/{job['id']}", headers=H).json()</pre>
@@ -620,7 +621,8 @@ while job["status"] == "pending":
 <h2>원문 속 위치와 고친 문장</h2>
 <ul>
 <li><code>quote</code>·<code>span</code> — 그 주장이 나온 원문 부분과 위치입니다. <code>text.slice(span.start, span.end)</code>가 <code>quote</code>와 같습니다. 원문에서 정확히 찾지 못한 주장에는 붙지 않습니다.</li>
-<li><code>suggested_fix</code> — 판정이 <code>false</code>일 때만, 판정 근거에 적힌 실제 값으로 그 부분을 고친 문장입니다. 근거에 실제 값이 없으면 붙지 않습니다. 원문의 문체는 그대로 두고 틀린 부분만 바꿉니다.</li>
+<li><code>suggested_fix</code> — 판정이 <code>false</code>일 때만, 판정 근거에 적힌 실제 값으로 그 부분을 고친 문장입니다. 근거에 실제 값이 없으면 붙지 않습니다. 원문의 문체는 그대로 두고 틀린 부분만 바꿉니다. 바꿀 실제 대상이 없는 인용(존재하지 않는 판례 등)은 인용만 지우지 않고 "확인되지 않는다"는 문장으로 바꿉니다.</li>
+<li><code>counter_fact</code> — 판정이 <code>false</code>일 때, 다시 확인해서 찾은 실제 값입니다(예: "8,848.86m(2020년 네팔·중국 공동측량)").</li>
 </ul>
 
 <h2>POST /v1/verify/batch</h2>

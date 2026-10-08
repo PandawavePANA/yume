@@ -297,7 +297,7 @@ export function DocumentScan({ found = 0, width = 320 }) {
 // 기한은 빨간 줄과 고친 내용(민법 제766조), 실재하지 않는 사건번호는 글자가 흩어진다.
 const SCENE_BEATS = [
   { at: 0.0, label: "찾기", desc: "답변에서 사실 주장을 하나씩 골라냅니다" },
-  { at: 0.34, label: "대조", desc: "법제처 조문과 법원 기록에 직접 맞춰 봅니다" },
+  { at: 0.34, label: "대조", desc: "법제처 조문과 공개 판례에 직접 맞춰 봅니다" },
   { at: 0.8, label: "판정", desc: "근거와 함께 결론을 찍습니다" },
 ];
 
@@ -431,7 +431,7 @@ export function FactCheckScene({ t = (s) => s, compact = false }) {
           <div style={{ display: "grid", gap: 8, marginTop: 16, position: "relative" }}>
             <Note p={pp} range={[0.42, 0.48]} tone="ok" t={t}>법제처 조문과 일치 · 민법 제750조</Note>
             <Note p={pp} range={[0.56, 0.62]} tone="bad" t={t}>기한이 틀렸습니다 — 손해와 가해자를 안 날부터 3년, 사고일부터 10년 (민법 제766조)</Note>
-            <Note p={pp} range={[0.72, 0.78]} tone="gone" t={t}>법원 기록에서 찾을 수 없는 사건번호입니다</Note>
+            <Note p={pp} range={[0.72, 0.78]} tone="gone" t={t}>공개 판례 어디에서도 찾을 수 없는 사건번호입니다</Note>
           </div>
 
           {/* 훑는 빛 */}

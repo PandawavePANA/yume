@@ -1633,7 +1633,7 @@ export default function YumeDashboard() {
                   </motion.div>
                 </AnimatePresence>
               </div>
-              <div style={{ fontSize: 12.5, color: UI.ink3 }}>{t("내용이 길면 최대 30초 정도 걸릴 수 있어요")}</div>
+              <div style={{ fontSize: 12.5, color: UI.ink3 }}>{t("주장마다 원문을 직접 열어 확인해서 1~2분 걸릴 수 있어요")}</div>
 
               {/* 먼저 끝난 것부터 보여준다. 기다리는 시간 자체는 같지만, 빈 화면을 보는 것과
                   결과가 하나씩 쌓이는 것을 보는 것은 다른 일이다. 아직 판정이 안 난 주장은
@@ -2015,11 +2015,11 @@ export default function YumeDashboard() {
               <Eyebrow>{t("무엇이 다른가")}</Eyebrow>
             </Reveal>
             <h2 style={{ ...UI.sectionTitle, fontSize: "clamp(30px, 4.2vw, 46px)", margin: "0 0 22px" }}>
-              <WordReveal lines={[t("AI에게 AI를"), t("검증하게 하지 않습니다.")]} />
+              <WordReveal lines={[t("AI의 짐작으로"), t("판정하지 않습니다.")]} />
             </h2>
             <Reveal delay={0.1}>
               <p style={{ ...UI.lead, margin: 0 }}>
-                {t("일반적인 팩트체크는 또 다른 AI의 짐작에 의존합니다. 유메는 법률 도메인에서 먼저 검증한 \"공식 원천 데이터와 직접 대조하는 구조\"를 도메인마다 반복합니다. 짐작이 아니라, 확인입니다.")}
+                {t("다른 AI에게 \"맞는 것 같아?\"라고 다시 묻는 건 검증이 아닙니다. 유메는 판정마다 원문 근거를 요구합니다 — 법률은 법제처 조문을 직접 받아 오고, 그 밖의 주장은 출처 페이지를 직접 열어 그 문장이 실제로 있는지 확인합니다. 근거를 대지 못한 판정은 \"확인되지 않음\"으로 내립니다.")}
               </p>
             </Reveal>
           </div>

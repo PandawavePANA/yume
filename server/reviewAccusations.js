@@ -91,8 +91,15 @@ function groundsAccusation(counterFact) {
 }
 
 // 실제 값이 이미 설명문에 들어 있으면 두 번 쓰지 않는다.
-function mentions(explanation, counterFact) {
+// 문장이 똑같지 않아도 값(숫자)이 모두 들어 있으면 같은 말이다 — "8,848.86m(2020년 측량)"을
+// 설명문이 이미 말했는데 검토자가 같은 값을 다른 문장으로 내면 화면에 같은 말이 두 번 붙었다.
+export function mentions(explanation, counterFact) {
   const e = String(explanation || "").replace(/\s+/g, "");
-  const c = counterFact.replace(/\s+/g, "");
-  return c.length > 0 && e.includes(c);
+  const c = String(counterFact || "").replace(/\s+/g, "");
+  if (c.length > 0 && e.includes(c)) return true;
+  const nums = (s) => (String(s).match(/\d[\d,.]*\d|\d/g) || []).map((n) => n.replace(/,/g, "").replace(/\.$/, ""));
+  const want = nums(counterFact);
+  if (want.length === 0) return false;
+  const have = new Set(nums(explanation));
+  return want.every((n) => have.has(n));
 }

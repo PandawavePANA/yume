@@ -26,6 +26,14 @@ function Meter({ label, value, hint, invert = false }) {
   );
 }
 
+// 등급 이름(nonexistent "부존재 확실")은 특허 청구항의 용어다. 화면에서 0.75에 "확실"을
+// 붙이면 바로 아래 설명("가능성이 높습니다")과 말이 어긋나고, 실제로 있는 판결을 법제처가
+// 수록하지 않았을 가능성도 남아 있다. 사람이 읽는 말은 점수 크기대로 고른다.
+function gradeText(nec) {
+  if (nec.grade !== "nonexistent") return t(nec.gradeLabel || "확인 불가");
+  return Number(nec.score) >= 0.9 ? t("존재하지 않음") : t("존재하지 않을 가능성 높음");
+}
+
 export default function NecPanel({ nec }) {
   const [open, setOpen] = useState(false);
   if (!nec) return null;
@@ -50,7 +58,7 @@ export default function NecPanel({ nec }) {
         }}>{Number(nec.score).toFixed(2)}</span>
         <span style={{ flex: 1, minWidth: 0 }}>
           <span style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#141118" }}>
-            부존재 신뢰도 · {nec.gradeLabel}
+            {t("부존재 신뢰도")} · {gradeText(nec)}
           </span>
           <span style={{ display: "block", fontSize: 11.5, color: "#8B8694", lineHeight: 1.5 }}>
             <span style={{ whiteSpace: "nowrap", fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace', fontSize: "0.95em", color: "#54505E" }}>{nec.identifier?.value || nec.identifier?.canonical}</span> — {nec.identifier?.searchSpace}

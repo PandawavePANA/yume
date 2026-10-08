@@ -40,14 +40,16 @@ export function buildOverallVerdict(claims) {
     };
   }
   const wrongList = falseClaims.map((c) => `"${c.text}"`).join(", ");
-  const majorityWrong = falseClaims.length >= Math.ceil(total / 2);
+  // 4개 중 2개가 틀렸는데 "대부분"이라고 하면 총평이 판정보다 세게 말한다. 절반은 절반이라고 쓴다.
+  const majorityWrong = falseClaims.length * 2 > total;
+  const halfWrong = total > 1 && falseClaims.length * 2 === total;
   const unverifiedNote = noEvidence.length
     ? ` 그리고 ${noEvidence.length}개는 공개된 자료 어디에서도 근거를 찾을 수 없습니다(근거 없음).${notPublic ? ` ${notPublic}개는 공개 기록으로 확인할 수 없는 종류입니다.` : ""}`
     : notPublic
       ? ` 그리고 ${notPublic}개는 공개 기록으로 확인할 수 없는 종류입니다.`
       : "";
   return {
-    label: majorityWrong ? "대부분 부정확" : "부분적으로 부정확",
+    label: falseClaims.length === total ? "사실과 다름" : majorityWrong ? "대부분 부정확" : halfWrong ? "절반이 부정확" : "부분적으로 부정확",
     detail: `${total}개 중 ${falseClaims.length}개가 사실과 다릅니다 — ${wrongList}.${unverifiedNote}`,
     tone: "false",
   };

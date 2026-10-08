@@ -5,6 +5,7 @@ import { getVerification, newVerificationId } from "./verificationStore.js";
 import { startVerification, MAX_INPUT_CHARS } from "./verifyPipeline.js";
 import { kstMonthStart, one } from "./db.js";
 import { normalizeReferences, MAX_REFERENCES, MAX_REFERENCE_CHARS } from "./referenceCheck.js";
+import { openApiSpec } from "./openapi.js";
 import { bodyHash, claimKey, readIdempotencyKey, releaseKey } from "./idempotency.js";
 import { deliverWebhook, validateCallback } from "./webhooks.js";
 import { documentInput, documentPayload, getDocumentView, newDocumentId, startDocument } from "./documents.js";
@@ -22,7 +23,9 @@ import { getMark, issueMark, markBase, publicMark, revokeMark } from "./trustMar
 // 과금 단위는 "받아들여진 검증 요청 1건"이다(캐시 재사용 포함). 인증 실패·한도 초과·
 // 입력 오류로 거절된 요청은 과금하지 않는다.
 const router = patchAsync(express.Router());
-const MAX_WAIT_SEC = 60;
+// 실제 검증은 주장마다 출처 원문을 열어 확인해서 30~90초 걸린다. 60초로 자르면 동기 호출의
+// 대부분이 202로 떨어져 결국 폴링을 짜야 했다.
+const MAX_WAIT_SEC = 120;
 
 router.use((req, res, next) => {
   res.set("Access-Control-Allow-Origin", "*");
@@ -86,6 +89,8 @@ function publicClaim(c) {
   }
   // "사실과 다름"일 때만: 판정 근거의 실제 값으로 고친 문장.
   if (c.verdict === "false" && c.suggested_fix) out.suggested_fix = c.suggested_fix;
+  // "사실과 다름"일 때 재확인에서 확인된 실제 값. 고친 문장을 직접 쓰는 고객사가 값만 따로 쓴다.
+  if (c.verdict === "false" && c.counter_fact) out.counter_fact = c.counter_fact;
   // 판정의 확신도(근거 잠금): high = 공식 원문·기준 자료·부존재 판정, 또는 근거 문장을 출처에서 직접 확인하고
   // 독립 검토도 같은 결론 / medium = 판정은 있으나 근거 페이지를 직접 열어 보지 못함. 확인되지 않음이면 없음.
   if (c.confidence) out.confidence = c.confidence;
@@ -489,11 +494,18 @@ router.get("/usage", requireApiKey, async (req, res) => {
   res.json({ key: { label: req.apiKey.label, prefix: `${req.apiKey.prefix}…` }, rate_per_min: req.apiKey.rate_per_min, month: await usageInfo(req.apiKey) });
 });
 
+// 명세는 키 없이 읽을 수 있어야 한다 — 코드 생성기와 Postman이 인증 없이 가져간다.
+router.get("/openapi.json", (req, res) => {
+  res.set("Cache-Control", "public, max-age=3600");
+  res.json(openApiSpec(markBase(req)));
+});
+
 router.get("/", (req, res) => {
   res.json({
     service: "YUME Fact-Check API",
     version: "v1",
     docs: "/docs/api",
+    openapi: "/v1/openapi.json",
     auth: "Authorization: Bearer <API 키> (유메 계정 > API 키에서 발급)",
     idempotency: "Idempotency-Key 헤더 — 같은 키로 다시 보내면 처음 결과를 과금 없이 돌려줌(24시간)",
     endpoints: [
@@ -505,11 +517,11 @@ router.get("/", (req, res) => {
           organization: "string (선택) — 자사명. 자사에 관한 주장은 공개 기록이 없다는 이유로 '사실과 다름'이 되지 않는다",
           callback_url: "https 주소 (선택) — 끝나면 결과를 POST(웹훅). callback_secret을 주면 X-Yume-Signature로 서명",
           strict: "boolean (선택) — 엄격 모드. 근거를 출처 원문에서 직접 확인한(confidence: high) 판정만 내리고, 나머지는 uncertain",
-          wait: "boolean | 초(최대 60) — 결과가 나올 때까지 기다림",
+          wait: "boolean | 초(최대 120) — 결과가 나올 때까지 기다림",
         },
         returns: "claims[]: verdict, explanation, sources, quote·span(원문 속 위치), suggested_fix(사실과 다름일 때 고친 문장)",
       },
-      { method: "POST", path: "/v1/verify/batch", body: { items: "[{ ref?, text }] (최대 20건)", references: "선택, 묶음 전체에 적용", organization: "선택", wait: "boolean | 초(최대 60)" }, desc: "여러 건을 한 번에. 한도가 모자라면 한 건도 시작하지 않는다" },
+      { method: "POST", path: "/v1/verify/batch", body: { items: "[{ ref?, text }] (최대 20건)", references: "선택, 묶음 전체에 적용", organization: "선택", wait: "boolean | 초(최대 120)" }, desc: "여러 건을 한 번에. 한도가 모자라면 한 건도 시작하지 않는다" },
       {
         method: "POST", path: "/v1/documents",
         body: { text: "string (최대 100,000자)", file: "{ name, content_base64 } — TXT·MD·CSV·DOCX·HWPX·PDF, 10MB까지", title: "선택", references: "선택", organization: "선택", callback_url: "선택", wait: "선택" },

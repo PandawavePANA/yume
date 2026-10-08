@@ -9,7 +9,7 @@ import AuditModal from "./components/yume/AuditModal.jsx";
 import InquiryModal from "./components/business/InquiryModal.jsx";
 import { CONTACT_EMAIL } from "./components/yume/api.js";
 import { YUME_URL } from "./businessConfig.js";
-import { BUSINESS, telHref, COPYRIGHT, businessLine } from "./businessInfo.js";
+import { BUSINESS, telHref, COPYRIGHT, businessLine, COMPLAINT_NOTICE, COMPLAINT_OFFICER } from "./businessInfo.js";
 import { API_RATES } from "../server/apiRates.js";
 
 const UI = {
@@ -108,7 +108,7 @@ const PRICE_CARDS = [
     key: "trial", label: API_RATES.trial.label, price: "0원", period: "",
     detail: `매달 ${API_RATES.trial.calls}회. 가입하면 바로 키를 받아 응답 형식을 확인할 수 있습니다.`,
     unit: "계정당 한도 · 키는 여러 개 만들어도 함께 씁니다",
-    cta: "가입하고 키 발급받기", href: YUME_URL,
+    cta: "가입하고 키 발급받기", href: `${YUME_URL}/?open=api`,
   },
   {
     key: "metered", label: API_RATES.metered.label, price: won(API_RATES.metered.unitKrw), period: " / 회 · VAT 별도",
@@ -325,7 +325,7 @@ Authorization: Bearer <API_KEY>
         </Section>
 
         {/* ── 기술 ────────────────────────────────────────────────── */}
-        <Section eyebrow="어떻게 다른가" title="“AI가 한 번 더 확인했습니다”와는 다릅니다" lede="검증하는 쪽도 AI면 같은 실수를 반복합니다. 유메는 공식 기록을 직접 조회하고, 못 찾았다는 사실 자체를 정량화합니다.">
+        <Section eyebrow="어떻게 다른가" title="“AI가 한 번 더 확인했습니다”와는 다릅니다" lede="AI에게 한 번 더 물으면 같은 기억에서 같은 답이 나옵니다. 유메는 판정마다 공식 기록과 출처 원문을 직접 대조하고, 못 찾았다는 사실 자체를 정량화합니다.">
           <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 22 }}>
             {TECH.map((t) => (
               <div key={t.k} style={{ padding: "18px 22px", borderRadius: 18, background: "rgba(255,255,255,0.86)", border: `1px solid ${UI.hairline}` }}>
@@ -356,6 +356,8 @@ Authorization: Bearer <API_KEY>
             <a href={`mailto:${CONTACT_EMAIL}`} style={{ color: UI.ink3, textDecoration: "none" }}>{CONTACT_EMAIL}</a>
             <a href={`${YUME_URL}/terms`} style={{ color: UI.ink3, textDecoration: "none" }}>이용약관</a>
             <a href={`${YUME_URL}/privacy`} style={{ color: UI.ink3, textDecoration: "none" }}>개인정보처리방침</a>
+            <a href={`${YUME_URL}/refund`} style={{ color: UI.ink3, textDecoration: "none" }}>환불정책</a>
+            <a href={`${YUME_URL}/products`} style={{ color: UI.ink3, textDecoration: "none" }}>상품 안내</a>
           </div>
           {/* 기업용도 같은 사업자가 운영하므로 신원정보를 같이 싣는다. */}
           <address style={{ fontStyle: "normal", fontSize: 12, lineHeight: 1.85, color: UI.ink3 }}>
@@ -373,6 +375,8 @@ Authorization: Bearer <API_KEY>
                 대표전화 <a href={telHref} style={{ color: UI.ink3, textDecoration: "none" }}>{BUSINESS.tel}</a>
               </div>
             )}
+            <div>이메일 {BUSINESS.email}</div>
+            <div>{COMPLAINT_NOTICE} {COMPLAINT_OFFICER}</div>
             <div style={{ marginTop: 6 }}>{COPYRIGHT}</div>
           </address>
         </footer>

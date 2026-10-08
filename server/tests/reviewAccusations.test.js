@@ -81,3 +81,18 @@ test("순서를 지킨다", async () => {
   assert.deepEqual(out.map((c) => c.text), ["A", "B", "C"]);
   assert.deepEqual(out.map((c) => c.verdict), ["uncertain", "confirmed", "uncertain"]);
 });
+
+test("문장이 달라도 실제 값(숫자)이 설명문에 다 있으면 덧붙이지 않는다", async () => {
+  const claims = [{ text: "에베레스트산의 높이는 9,848m이다", verdict: "false", verified_via: "web", explanation: "에베레스트 높이는 9,848m가 아니라 8,848.86m(2020년 네팔·중국 공동측량 기준)이다" }];
+  const review = async () => ({ upheld: true, counterFact: "에베레스트 실제 높이는 8,848.86m(2020년 네팔·중국 공동측량 기준)이며, 자릿수가 바뀐 오류" });
+  const [c] = await reviewAccusations(claims, { review });
+  assert.equal(c.explanation, claims[0].explanation, "같은 값을 두 번 말하지 않는다");
+  assert.match(c.counter_fact, /8,848\.86m/);
+});
+
+test("설명문에 없는 값이면 실제 값을 붙인다", async () => {
+  const claims = [{ text: "A사 2024년 매출은 300억원이다", verdict: "false", verified_via: "web", explanation: "공시와 다릅니다" }];
+  const review = async () => ({ upheld: true, counterFact: "2024년 매출 412억원(DART 사업보고서)" });
+  const [c] = await reviewAccusations(claims, { review });
+  assert.match(c.explanation, /확인된 실제 값: 2024년 매출 412억원/);
+});

@@ -54,7 +54,7 @@ export default {
   // ── 검증 진행 · 결과 ────────────────────────────────────────────
   "사실 주장을 추출하고 실시간으로 검색 중…": "Pulling out factual claims and searching…",
   "내용을 분석하는 중…": "Reading the text…",
-  "내용이 길면 최대 30초 정도 걸릴 수 있어요": "Longer answers can take up to 30 seconds",
+  "주장마다 원문을 직접 열어 확인해서 1~2분 걸릴 수 있어요": "Each claim is checked against its source, so this can take 1–2 minutes",
   "검증 결과": "Result",
   "유메 검증 결과": "Yume result",
   "확인됨": "Confirmed",
@@ -161,8 +161,8 @@ export default {
   "틀린 말을 합니다.": "and gets things wrong.",
   "확인된 사실": "verified facts",
   "무엇이 다른가": "WHAT'S DIFFERENT",
-  "AI에게 AI를": "We don't ask one AI",
-  "검증하게 하지 않습니다.": "to grade another.",
+  "AI의 짐작으로": "We don't rule",
+  "판정하지 않습니다.": "on an AI's hunch.",
   "공식 원천 데이터와 직접 대조하는 구조": "comparing claims against primary sources",
   "할루시네이션의 원인": "WHY IT HAPPENS",
   "AI는 왜 틀릴까요,": "Why AI gets it wrong,",
@@ -599,16 +599,16 @@ export default {
     "Matches the official statute · Civil Act Article 750",
   "기한이 틀렸습니다 — 손해와 가해자를 안 날부터 3년, 사고일부터 10년 (민법 제766조)":
     "Wrong deadline: 3 years from learning of the damage and who caused it, 10 years from the accident (Civil Act Article 766)",
-  "법원 기록에서 찾을 수 없는 사건번호입니다":
-    "No such case number exists in court records",
+  "공개 판례 어디에서도 찾을 수 없는 사건번호입니다":
+    "This case number appears in no published ruling",
   "찾기":
     "Find",
   "답변에서 사실 주장을 하나씩 골라냅니다":
     "Pull every factual claim out of the answer",
   "대조":
     "Compare",
-  "법제처 조문과 법원 기록에 직접 맞춰 봅니다":
-    "Check each one against official statutes and court records",
+  "법제처 조문과 공개 판례에 직접 맞춰 봅니다":
+    "Check each one against official statutes and published rulings",
   "판정":
     "Rule",
   "근거와 함께 결론을 찍습니다":
@@ -695,9 +695,9 @@ export default {
   "법제처 국가법령정보에서 실제 조문을 대조해, 짐작이 아니라 확인된 사실만 보여드립니다.":
     "Matched against the actual article text in the National Law Information Center — verified, not inferred.",
   "유메는 창업자가 실제로 겪은 법정 분쟁에서 시작됐습니다. AI가 알려준 정보를 그대로 믿었다가 피해를 입은 경험이, \"확인된 사실\"만 전달하는 서비스를 만들게 했습니다.":
-    "Yume started with a lawsuit its founder lived through. Trusting what an AI told him cost him — and that is why this service passes on only what it has verified.",
-  "일반적인 팩트체크는 또 다른 AI의 짐작에 의존합니다. 유메는 법률 도메인에서 먼저 검증한 \"공식 원천 데이터와 직접 대조하는 구조\"를 도메인마다 반복합니다. 짐작이 아니라, 확인입니다.":
-    "Most fact-checkers just ask a second model what it thinks. Yume compares every claim against a primary source — the method we proved on Korean law first, then carried into every other domain. Checking, not guessing.",
+    "Yume started with a lawsuit its founder lived through. Trusting what an AI said turned out to be costly — and that is why this service passes on only what it has verified.",
+  "다른 AI에게 \"맞는 것 같아?\"라고 다시 묻는 건 검증이 아닙니다. 유메는 판정마다 원문 근거를 요구합니다 — 법률은 법제처 조문을 직접 받아 오고, 그 밖의 주장은 출처 페이지를 직접 열어 그 문장이 실제로 있는지 확인합니다. 근거를 대지 못한 판정은 \"확인되지 않음\"으로 내립니다.":
+    "Asking another AI \"does this look right?\" is not checking. Yume demands source evidence for every verdict: statutes are pulled straight from Korea's official law database, and for everything else the source page is opened to confirm the sentence is really there. A verdict that can't show its evidence is downgraded to \"unverified\".",
   "할루시네이션은 우연이 아니라, AI가 답을 만드는 방식 자체에서 반복되는 구조적 현상입니다. 유메는 이 원인 다섯 가지를 각각 뜯어보고, 원인마다 다른 검증 로직을 붙였습니다.":
     "Hallucination is not bad luck. It falls out of how these models produce text. Yume separates five causes and runs different logic against each one.",
   "AI 답변, {x} 믿으세요.":
@@ -901,4 +901,7 @@ export default {
   "확인할 사실 주장이 없었어요": "No checkable claims here",
   "오류": "Error",
   "주장 없음": "No claims",
+  "부존재 신뢰도": "Non-existence confidence",
+  "존재하지 않을 가능성 높음": "Very likely doesn't exist",
+  "확인 불가": "Can't confirm",
 };
