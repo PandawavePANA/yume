@@ -67,6 +67,12 @@ function factFor(r) {
       }
       break;
     case "draft_propagation":
+      if (o.caseNumber) {
+        return {
+          fact: `자료의 대법원 ${o.caseNumber}는 법제처 판례 데이터베이스에 없는 사건번호입니다. 고객 안내에 근거로 인용할 수 없는 판례입니다.`,
+          source: { label: "법제처 국가법령정보센터 판례 검색", url: "https://www.law.go.kr/LSW/precSc.do" },
+        };
+      }
       if (o.lawName) {
         return {
           fact: `${o.lawName} 제${o.article}조 원문의 기준은 ${o.actualValue}입니다. 자료의 ${o.wrongValue}은(는) 틀린 수치입니다.`,
