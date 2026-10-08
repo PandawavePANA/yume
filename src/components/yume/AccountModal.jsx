@@ -52,7 +52,7 @@ function ProfileTab({ user, usage, onUserChange }) {
     <>
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
         <div style={{ flex: 1, minWidth: 150, background: "#F7F1FE", borderRadius: 12, padding: "12px 14px" }}>
-          <div style={{ fontSize: 11.5, color: "#8577A8", fontWeight: 600 }}>{t("요금제")}</div>
+          <div style={{ fontSize: 11.5, color: "#8577A8", fontWeight: 600 }}>{t("이용 등급")}</div>
           <div style={{ fontSize: 17, fontWeight: 700, color: "#3B3159" }}>{user.planLabel}</div>
           {user.planExpiresAt && <div style={{ fontSize: 11.5, color: "#A99BC9" }}>{fmt(user.planExpiresAt)}까지</div>}
         </div>

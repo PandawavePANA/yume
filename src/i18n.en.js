@@ -630,6 +630,10 @@ export default {
     "Top up",
   "크레딧 · 요금제":
     "Credits · Plans",
+  "크레딧 · 충전":
+    "Credits · Top up",
+  "이용 등급":
+    "Plan",
   "월 요금제":
     "Monthly plans",
   "앱에서는 무료 플랜을 이용할 수 있어요. 결제는 웹사이트에서 할 수 있어요.":

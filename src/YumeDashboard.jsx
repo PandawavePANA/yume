@@ -1344,7 +1344,7 @@ export default function YumeDashboard() {
             <CreditCoin value={usage?.credits ?? 0} />
             {user
               ? <><RollingNumber value={usage?.credits ?? 0} />{!tightNav && <span style={{ opacity: 0.55, fontWeight: 600 }}>·</span>}<span>{t("충전")}</span></>
-              : <span>{tightNav ? t("충전") : t("크레딧 · 요금제")}</span>}
+              : <span>{tightNav ? t("충전") : t("크레딧 · 충전")}</span>}
           </motion.button>}
           {user ? (
             <div style={{ position: "relative" }}>
