@@ -16,6 +16,7 @@ import { searchesLeft } from "./apiCost.js";
 import { coverageFor } from "./nec/searchSpace.js";
 import { buildNecReport, NEC_WEIGHTS } from "./nec/nec.js";
 import { mentionsOrganization } from "./referenceCheck.js";
+import { isDenial } from "./claimStance.js";
 
 const W = NEC_WEIGHTS.assertion;
 // 공개 기록으로 확인할 수 없는 종류(searchSpace.js의 기록 가능성).
@@ -114,6 +115,25 @@ export async function resolveUncertainClaims(claims, { research = defaultResearc
               (r.explanation ? ` (확인 경과: ${r.explanation})` : ""),
             sources,
             uncertain_reason: "not_public",
+          },
+        };
+      }
+      // "그런 통계는 발표된 적 없다"처럼 없다고 말한 주장이면, 기록이 어디에도 없다는 확인은
+      // 주장이 맞다는 뜻이다(claimStance.js). 같은 계산을 거꾸로 읽으면 맞는 정정을 거짓이라 부른다.
+      if (nec && nec.grade === "nonexistent" && isDenial(c)) {
+        return {
+          i,
+          claim: {
+            ...c,
+            verdict: "confirmed",
+            verified_via: "nec",
+            stance: "denies",
+            explanation:
+              `${nec.identifier.searchSpace}를 통틀어 이 대상의 기록을 찾지 못했습니다(부존재 신뢰도 ${nec.score}). ` +
+              `사실이라면 남아 있어야 할 기록이 없으므로 "없다"는 이 주장은 맞습니다.` +
+              (r.explanation ? ` (확인 경과: ${r.explanation})` : ""),
+            sources,
+            nec,
           },
         };
       }

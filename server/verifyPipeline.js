@@ -8,6 +8,7 @@ import { resolveUncertainClaims } from "./resolveUncertain.js";
 import { reviewAccusations } from "./reviewAccusations.js";
 import { applyCache, storeAll } from "./claimCache.js";
 import { dropStaleFix, sanitizeClaim } from "./claimGuard.js";
+import { applyStance } from "./claimStance.js";
 import { buildOverallVerdict } from "./overallVerdict.js";
 import { resolveProductLinks } from "./coupang.js";
 import { logError } from "./errorLog.js";
@@ -86,6 +87,9 @@ async function processVerification({ id, text, source, onProgress = () => {}, on
     claims = await resolveLegalClaims(claims, { onProgress, ledger });
     show();
     claims = await resolveIdentifierClaims(claims, { onProgress });
+    // 대상이 있다/없다는 확인을 주장의 방향과 맞춘다 — "그런 판례는 없다"가 맞는 말이면 확인됨,
+    // 실재하는 조문을 "없다"고 했으면 사실과 다름(claimStance.js).
+    claims = claims.map(applyStance);
     show();
     // 심층 재확인 '전에' 한 번 거른다. 출처 없이 confirmed로 온 주장을 여기서 내려놓아야
     // 아래 재확인 대상에 포함된다 — 거르는 순서가 반대면 근거를 찾아볼 기회 없이 강등만 된다.

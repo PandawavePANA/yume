@@ -12,6 +12,7 @@
 //
 // DB를 물고 오지 않도록 파이프라인에서 떼어 두었다. 이 규율만 따로 테스트할 수 있어야 한다.
 import { restsOnAbsence } from "./counterEvidence.js";
+import { isDenial } from "./claimStance.js";
 
 const VERDICTS = new Set(["confirmed", "false", "uncertain"]);
 // 추출 모델이 가끔 목록에 없는 도메인을 만들어 낸다(예: "환경"). 통계·데이터셋·요금제
@@ -51,6 +52,20 @@ export function sanitizeClaim(c) {
       `'사실과 다름'으로 단정하지 않고 '확인되지 않음'으로 표시합니다.` +
       (claim.explanation ? ` (검토 내용: ${claim.explanation})` : "");
     dropStaleFix(claim);
+    return claim;
+  }
+
+  // 거꾸로도 같다. "그런 판례는 없다", "그 평점은 받은 적 없다"처럼 없다고 말한 주장을 "검색에
+  // 안 나온다"는 이유로 '확인됨'이라 하면, 못 찾은 것을 없다는 증거로 쓴 것이다. 유료 DB에 있는
+  // 평점, 공개되지 않은 판결은 검색에 안 나와도 실재한다. 없다는 것을 확정하는 경로는 부존재
+  // 신뢰도(nec)뿐이다 — 여기서 내려두면 심층 재확인이 검색공간을 따져 판정한다.
+  if (!SELF_GROUNDED.has(claim.verified_via) && claim.verdict === "confirmed" && isDenial(claim) && restsOnAbsence(claim.explanation)) {
+    claim.unbacked_verdict = "confirmed";
+    claim.verdict = "uncertain";
+    claim.explanation =
+      `"없다"는 주장을 검색에 나오지 않는다는 이유만으로 맞다고 할 수는 없습니다. ` +
+      `검색에 걸리지 않는 기록도 있어, 있어야 할 곳을 얼마나 확인했는지 따져 본 뒤에 판정합니다.` +
+      (claim.explanation ? ` (검토 내용: ${claim.explanation})` : "");
     return claim;
   }
 

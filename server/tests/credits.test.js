@@ -109,6 +109,8 @@ test("제보 자격: NEC가 '부존재 확실'로 본 인용만", () => {
   assert.equal(bountyEligibility({ text: "x", verdict: "false", verified_via: "web" }).eligible, false);
   // 확인 불가는 아직 없다고 단정한 게 아니므로 대상이 아니다
   assert.equal(bountyEligibility(necClaim("2019다999992", "unverifiable")).eligible, false);
+  // AI가 "그런 판례는 없다"고 맞게 말한 주장은 지어낸 인용이 아니다 — 부존재가 확인돼도 대상이 아니다
+  assert.equal(bountyEligibility({ ...necClaim("2019다999991"), text: "2019다999991이라는 판례는 없다", verdict: "confirmed" }).eligible, false);
 });
 
 test("공유 링크는 그 플랫폼의 https 주소만 받는다", () => {

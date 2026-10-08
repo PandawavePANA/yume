@@ -2,7 +2,9 @@ import crypto from "node:crypto";
 import { all, now, one, run, tx } from "./db.js";
 
 // 판정 로직이 바뀌면 예전 결과를 캐시로 재사용하면 안 되므로 해시에 엔진 버전을 섞는다.
-export const ENGINE_VERSION = "2026.09-nec1";
+// 판정 로직을 바꾸면 반드시 올린다 — 결과 캐시와 주장 캐시가 이 값으로 갈린다. 9월 값 그대로 두는 바람에
+// 근거 잠금·근거 없음·방향 판정 이후에도 옛 엔진 판정이 재사용될 수 있었다(2026-10-08 점검).
+export const ENGINE_VERSION = "2026.10-audit1";
 const CACHE_TTL_MS = 7 * 24 * 3600 * 1000;
 
 export const newVerificationId = () => crypto.randomBytes(8).toString("hex");

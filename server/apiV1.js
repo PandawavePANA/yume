@@ -92,6 +92,9 @@ function publicClaim(c) {
   // uncertain의 이유: no_evidence(공개 자료 어디에도 근거 없음 — 말한 쪽이 근거 없이 단정) /
   // not_public(비공개·유료·개인 경험처럼 공개 기록으로 확인할 수 없는 종류) / check_failed(조회 실패)
   if (c.verdict === "uncertain" && c.uncertain_reason) out.uncertain_reason = c.uncertain_reason;
+  // 주장의 방향: "무엇이 존재하지 않는다"고 말한 주장이면 그 대상. 판정은 이 방향 기준이다 —
+  // 없는 것을 없다고 했으면 confirmed, 있는 것을 없다고 했으면 false.
+  if (c.absence_of) out.absence_of = c.absence_of;
   if (c.evidence?.status === "verified") out.evidence = { verified: true, url: c.evidence.url, quote: c.evidence.quote };
   if (c.effective_date) out.effective_date = c.effective_date;
   if (c.legal_ref) out.legal_ref = c.legal_ref;

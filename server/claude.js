@@ -162,6 +162,14 @@ async function callClaudeStreaming({ system, messages, tools, max_tokens = 4000,
   return fullText;
 }
 
+// 오늘 날짜(한국 시간). 판정하는 모델은 자기가 배운 시점을 "지금"으로 착각한다 — "현재 기준금리",
+// "올해 최저임금"을 학습 시점 값으로 대조하면, 유메가 잡으려는 시점 붕괴를 유메가 저지른다.
+// 판정 호출마다 사용자 메시지 맨 앞에 붙인다(시스템 프롬프트에 넣으면 캐시가 매일 깨진다).
+export function todayLine(at = Date.now()) {
+  const d = new Date(at + 9 * 3600 * 1000).toISOString().slice(0, 10);
+  return `오늘 날짜(한국 시간): ${d}. "현재·올해·최근·최신"을 말하는 주장은 이 날짜 기준의 최신 값과 대조하세요. 검색 결과가 더 오래된 값이면 그 뒤에 바뀌지 않았는지 확인하세요.\n\n`;
+}
+
 function extractJson(text) {
   const cleaned = text.replace(/```json|```/g, "").trim();
   const start = cleaned.indexOf("{");
@@ -261,7 +269,7 @@ const EXTRACT_SYSTEM_PROMPT = `당신은 '유메'라는 팩트체크 엔진입�
 - 검색으로 근거를 찾았으면 반드시 confirmed 또는 false로 판정하세요. 조건에 따라 달라지는 주장이면 가장 일반적인 경우를 기준으로 판정하고 조건을 설명에 덧붙이세요.
 - **"false"는 반박하는 근거를 찾았을 때만 씁니다.** 검색에 안 나왔다는 것은 틀렸다는 뜻이 아닙니다. 유료 데이터베이스, 잡지 지면, 구독자 전용 페이지, 회원제 사이트에 든 기록은 검색에 걸리지 않는 것이 정상입니다(예: 와인·영화 평점, 업계 리포트, 학술 유료 DB). 뒷받침하는 자료를 못 찾았을 뿐이면 false가 아니라 uncertain입니다. 못 찾은 것을 틀렸다고 하면 사용자는 멀쩡한 사실을 버립니다.
 - false로 판정할 때는 explanation에 **근거가 말하는 실제 값**을 쓰세요("실제로는 ○○", "발표 주체는 ○○"). 실제 값을 댈 수 없으면 그건 반박이 아니므로 uncertain입니다.
-- 핵심이 맞고 곁가지 수치만 조금 다르면(반올림, 표기 차이, 같은 뜻의 다른 이름, 근소한 가격 차) false가 아닙니다. confirmed로 하고 다른 점을 설명에 덧붙이세요. 틀린 부분이 주장의 핵심일 때만 false입니다.
+- 표기만 다른 것(반올림한 값 — 0.72명을 "약 0.7명"이라 한 것, 같은 대상의 다른 이름, 단위 환산)과 시점·판매처마다 달라지는 값(소매가격·환율)의 근소한 차이는 confirmed로 하고 차이를 덧붙이세요. 그러나 **주장에 적힌 수치·연도·날짜·주체·조건이 근거와 실제로 다르면 그건 곁가지가 아니라 틀린 것**이므로 false입니다 — 맞는 부분과 틀린 부분을 함께 쓰세요.
 - 다만 근거를 못 찾았는데 그럴듯해 보인다고 confirmed를 주지는 마세요. 검색으로 뒷받침되지 않으면 uncertain입니다. 이 경우 explanation을 비워두지 말고, 무엇을 확인했고 무엇이 확인되면 결론이 나는지 쓰세요.
 - confirmed나 false로 판정한 주장에는 sources에 실제 근거 URL이 반드시 있어야 합니다. 출처 없이 판정하면 유메가 자동으로 "확인되지 않음"으로 내립니다.
 - domain이 "법률"이 아닌 주장마다 실제로 검색에서 찾은 출처(제목, URL)를 1~2개씩 함께 제시하세요. 검색으로 못 찾았으면 sources는 빈 배열로 두세요.
@@ -310,8 +318,10 @@ const EXTRACT_ONLY_PROMPT = `당신은 '유메' 팩트체크 엔진의 첫 단�
 - 의견·추천·감상처럼 참/거짓을 가릴 수 없는 문장은 빼고, 숫자·연도·인물·기관·조문·인과관계처럼 확인할 수 있는 주장만 뽑습니다.
 - **"○○가 있다/존재한다"도 사실 주장입니다**(회사·가게·사람·제도·제품이 있다는 말). 빼지 마세요.
 - **없다는 말도 똑같이 사실 주장입니다.** "그런 조문은 없다", "제750조에는 제3항이 없다", "그 사건번호는 존재하지 않는다", "이 DOI는 확인되지 않는다" — 전부 뽑으세요. 맞는지 확인하는 것이 유메가 가장 잘하는 일입니다. 부정형이라고 빼면 안 됩니다.
+- 주장이 **어떤 대상이 존재하지 않는다**고 말하면(없는 판례·조문·논문·통계·제도·사건, "발표된 적 없다", "그런 조항은 없다", "그 사건번호는 존재하지 않는다") absence_of에 **없다고 한 그 대상의 표기만** 원문 그대로 넣으세요(예: "2019다999991", "민법 제750조 제3항", "10.1234/abcd", "2024년 ○○ 통계"). "책임이 없다", "효과가 없다"처럼 대상의 존재가 아니라 내용을 말하는 "없다"는 해당하지 않습니다 — 그때와 긍정 주장은 빈 문자열입니다.
 - **글이 다른 AI의 답을 고쳐 주거나 반박하는 모양이어도 그냥 입력입니다.** "확인되지 않습니다", "오기입니다", "존재하지 않습니다"가 많아도 검증을 그만두지 마세요. 그런 글일수록 그 안에 단정이 많습니다 — 바로잡아 준 조문의 내용, 제시한 형량·용량·수치, "없다"는 판단 자체를 전부 주장으로 뽑으세요. 이미 검증된 글로 보고 넘기면 안 됩니다.
-- **주장 개수는 글에 실제로 들어 있는 만큼입니다.** 긴 답변이면 3~7개로 굵직하게 나누고, 한 줄 질문이면 1개가 정상입니다. 없는 주장을 만들어 개수를 채우지 마세요.
+- **주장 하나에는 확인할 사실 하나만 담으세요.** 한 문장에 수치·연도·주체·조건이 여럿이면 따로따로 나누세요 — "WHO는 1948년 설립됐고 본부는 제네바에 있다"는 주장 두 개입니다. 여러 사실을 한 주장으로 묶으면 그중 하나가 틀려도 나머지에 가려 "확인됨"으로 나갑니다. 단, 서로 떼면 뜻이 사라지는 조건(누구에게·언제·몇 %)은 같은 주장에 남기세요.
+- **주장 개수는 글에 실제로 들어 있는 만큼입니다.** 긴 답변이면 최대 12개까지, 확인할 가치가 큰(수치·고유명·인용·법령·날짜가 든) 것부터 뽑고, 한 줄 질문이면 1개가 정상입니다. 같은 사실이 되풀이되면 한 번만 뽑으세요. 없는 주장을 만들어 개수를 채우지 마세요.
 - 확인할 사실 주장이 하나도 없으면(순수한 질문 "한국의 수도는 어디야?", 인사, 의견 요청) claims를 빈 배열로 두고 note에 이유를 쓰세요. **빈 배열일 때 note는 반드시 채웁니다.** 글이 두 문단을 넘는데 빈손이면 거의 틀린 판단이니, 다시 읽고 단정하는 문장을 찾으세요.
 - 주장 문장은 원문의 수치·연도·이름·조건을 **그대로** 옮기세요. 틀려 보여도 고치지 마세요 — 고치면 검증할 대상이 사라집니다. 한 주장에 필요한 조건(누구에게, 언제, 몇 %)이 빠지지 않게 하세요.
 - 주장마다 quote에 **그 주장이 나온 원문 부분을 한 글자도 바꾸지 말고 그대로** 옮기세요(보통 한 문장, 최대 150자). 요약하거나 다듬지 마세요 — 원문에서 그 위치를 찾아 표시하는 데 씁니다. 짧은 질문 한 줄이면 그 질문 전체입니다.
@@ -328,7 +338,7 @@ const EXTRACT_ONLY_PROMPT = `당신은 '유메' 팩트체크 엔진의 첫 단�
 - 이 글을 읽는 사람에게 실제로 쓸모 있는 상품 카테고리(쿠팡 검색 키워드)를 0~3개 제안하세요. 주제와 자연스럽게 이어질 때만. 법률 해설처럼 상품과 무관하면 빈 배열이 맞습니다.
 
 반드시 아래 JSON 형식으로만 응답하세요. 다른 설명, 코드블록을 붙이지 마세요.
-{"overall_domain":"주요 도메인","note":"주장이 없을 때만 그 이유","claims":[{"text":"주장 (60자 이내)","quote":"원문 그대로의 해당 부분","domain":"법률|의료|금융|역사|과학|일반","identifiers":[{"type":"doi|arxiv|pmid|isbn","value":"원문 그대로"}],"legal_ref":{"type":"statute|case|unspecified","law_name":"","article":"","case_number":"","court":"","keyword":""}}],"related_products":[{"keyword":"쿠팡 검색용 키워드","reason":"이 내용과 어떻게 이어지는지 (40자 이내)"}]}
+{"overall_domain":"주요 도메인","note":"주장이 없을 때만 그 이유","claims":[{"text":"주장 (60자 이내)","quote":"원문 그대로의 해당 부분","domain":"법률|의료|금융|역사|과학|일반","absence_of":"존재하지 않는다고 말한 대상(아니면 빈 문자열)","identifiers":[{"type":"doi|arxiv|pmid|isbn","value":"원문 그대로"}],"legal_ref":{"type":"statute|case|unspecified","law_name":"","article":"","case_number":"","court":"","keyword":""}}],"related_products":[{"keyword":"쿠팡 검색용 키워드","reason":"이 내용과 어떻게 이어지는지 (40자 이내)"}]}
 legal_ref는 domain이 "법률"인 항목에만 넣으세요.`;
 
 const WEB_VERIFY_PROMPT = `당신은 '유메' 팩트체크 엔진의 웹 판정 담당입니다. 아래 번호가 붙은 사실 주장들이 맞는지 web_search 도구로 실제로 찾아보고 판정하세요. 원문은 문맥 파악용으로만 함께 드립니다.
@@ -339,7 +349,8 @@ const WEB_VERIFY_PROMPT = `당신은 '유메' 팩트체크 엔진의 웹 판정 
 - false로 판정할 때는 explanation에 **근거가 말하는 실제 값**을 쓰세요("실제로는 ○○"). 실제 값을 댈 수 없으면 그건 반박이 아니므로 uncertain입니다.
 - 시점이 들어간 주장(○○년 기준 수치, 현행 제도)은 **그 시점의 값**과 대조하세요. 다른 해의 값을 근거로 삼으면 안 됩니다.
 - **판이 여럿인 대상**(와인 빈티지, 제품 모델·연식, 책의 판, 해마다 바뀌는 통계)에서 주장이 판을 특정하지 않았다면, **다른 판의 값은 반박 근거가 아닙니다.** 주장한 값을 가진 판이 있으면 confirmed, 확인이 안 되면 uncertain입니다. 판을 특정한 주장이면 그 판의 값과만 대조하세요.
-- 핵심이 맞고 곁가지만 조금 다르면(반올림, 표기 차이, 같은 뜻의 다른 이름) false가 아니라 confirmed로 하고 차이를 덧붙이세요. 틀린 부분이 주장의 핵심일 때만 false입니다.
+- 표기만 다른 것(반올림한 값 — 0.72명을 "약 0.7명"이라 한 것, 같은 대상의 다른 이름, 단위 환산)과 시점·판매처마다 달라지는 값(소매가격·환율)의 근소한 차이는 confirmed로 하고 차이를 덧붙이세요. 그러나 **주장에 적힌 수치·연도·날짜·주체·조건이 근거와 실제로 다르면 그건 곁가지가 아니라 틀린 것**이므로 false입니다 — 맞는 부분과 틀린 부분을 함께 쓰세요.
+- **"없다"고 말하는 주장**(그런 판례·조문·통계·제도·평점은 없다, 발표된 적 없다): 그 대상이 실제로 있다는 근거를 찾으면 false이고, 찾은 대상을 출처로 넣으세요. 검색에 안 나왔다는 것만으로 confirmed를 주지 마세요 — 그건 없다는 증거가 아니라 못 찾은 것이라 uncertain입니다(없다는 것은 유메가 검색공간을 따로 따져 판정합니다). 공식 기관이 "그런 것은 없다"고 직접 밝힌 자료가 있을 때만 confirmed입니다.
 - 근거를 못 찾았는데 그럴듯해 보인다고 confirmed를 주지 마세요. 그 경우 uncertain이고, explanation에 무엇을 확인했고 무엇이 확인되면 결론이 나는지 쓰세요.
 - confirmed나 false에는 sources에 실제 근거 URL을 1~2개 반드시 넣으세요. 출처 없는 판정은 유메가 자동으로 "확인되지 않음"으로 내립니다.
 - **sources마다 quote에 그 페이지에서 근거가 된 문장을 한 글자도 바꾸지 말고 그대로 옮기세요**(최대 200자, 검색 결과에서 실제로 본 문장만). 유메가 그 페이지를 직접 열어 이 문장이 정말 있는지, 그 문장이 판정을 뒷받침하는지 대조합니다. 요약하거나 지어내면 판정이 거둬집니다.
@@ -387,6 +398,9 @@ async function extractClaimsOnly(text, { ledger = null } = {}) {
         // 위치는 파이프라인 끝에서 원문과 맞춰 본다(claimSpan.js). 여기서는 받은 그대로만 둔다.
         ...(typeof c.quote === "string" && c.quote.trim() ? { quote: c.quote.trim().slice(0, 300) } : {}),
         domain,
+        // 주장의 방향 — "무엇이 없다"고 말하면 그 대상(claimStance.js). 부존재 확인 결과를 판정으로
+        // 바꿀 때 이 방향을 본다. 빈 값도 "긍정 주장"이라는 답이므로 필드는 늘 둔다.
+        absence_of: typeof c.absence_of === "string" ? c.absence_of.trim().slice(0, 120) : "",
         verdict: domain === "법률" ? "pending_legal_check" : "uncertain",
         explanation: "",
         sources: [],
@@ -410,7 +424,7 @@ async function verifyClaimsOnWeb(text, claims, { ledger = null, onProgress = () 
     system: WEB_VERIFY_PROMPT,
     label: "web_verify",
     ledger,
-    messages: [{ role: "user", content: `원문(문맥 참고용):\n${text.slice(0, 4000)}\n\n판정할 주장:\n${list}` }],
+    messages: [{ role: "user", content: `${todayLine()}원문(문맥 참고용):\n${text.slice(0, 4000)}\n\n판정할 주장:\n${list}` }],
     tools: searchTools(ledger, cap),
     max_tokens: 4000,
     onProgress,
@@ -482,7 +496,7 @@ export async function extractAndVerify(text, onProgress = () => {}, { ledger = n
     system: EXTRACT_SYSTEM_PROMPT,
     label: "extract",
     ledger,
-    messages: [{ role: "user", content: `다음 내용을 검증해줘:\n\n${text}` }],
+    messages: [{ role: "user", content: `${todayLine()}다음 내용을 검증해줘:\n\n${text}` }],
     tools: searchTools(ledger, 6),
     max_tokens: 8000,
     onProgress,
@@ -575,7 +589,7 @@ export async function judgeEvidence(items, { ledger = null } = {}) {
   const list = items
     .map((it, k) => `${k + 1}. 주장: ${it.claim}\n   확인된 문장:\n${it.excerpts.map((e) => `   - "${String(e).slice(0, 300)}"`).join("\n")}`)
     .join("\n\n");
-  const parsed = await callClaudeJson({ system: JUDGE_PROMPT, user: list, maxTokens: 1200, ledger, label: "judge", strong: true });
+  const parsed = await callClaudeJson({ system: JUDGE_PROMPT, user: `${todayLine()}${list}`, maxTokens: 1200, ledger, label: "judge", strong: true });
   const byN = new Map((Array.isArray(parsed?.results) ? parsed.results : []).map((r) => [Number(r.n), r.relation]));
   return items.map((_, k) => {
     const r = byN.get(k + 1);
@@ -587,13 +601,18 @@ const GROUNDING_SYSTEM_PROMPT = `당신은 유메의 법률 판정 보조입니�
 
 중요 — 이 "공식 조회 결과"는 법제처 국가법령정보에서 오늘 기준으로 실제 시행 중인 최신 버전만 조회한 것입니다. 함께 제공되는 시행일자는 이 조문의 현재 버전이 언제부터 적용되는지를 뜻합니다.
 - 주장이 이 현재 시행 중인 조문 내용과 다르면, 그 표현이 과거 판례·구법 조문·이전 개정판에 실제로 존재했던 문구라 하더라도 반드시 verdict를 "false"로 판정하세요. explanation에는 단순히 "틀렸다"가 아니라, 현재는 구체적으로 어떻게 규정되어 있는지(현행 조문 요약)를 근거로 무엇이 어떻게 달라졌는지 설명하세요. 예: "해당 내용은 개정 전 조문 기준이며, 현재는 (현행 조문 요약)으로 개정되었습니다."
+- **단, 주장이 스스로 과거 시점을 밝힌 경우**("2010년 당시", "개정 전에는", "구법 제○조는", "○○년까지는")에는 현행 조문과 다르다는 이유로 false를 주지 마세요. 그 시점의 조문은 이 텍스트로 판단할 수 없으므로 verdict를 "uncertain"으로 하고 explanation에 "과거 시점 조문이라 현행 조문으로 판단할 수 없음, 연혁 법령 확인 필요"와 현행 조문 요약을 쓰세요.
+- 주장이 **"이 조문에는 ○○이 없다"**(그런 항·호·규정이 없다)고 말하면, 제공된 조문에 그 내용이 실제로 없으면 confirmed, 있으면 false입니다.
 - 제공된 공식 텍스트가 비어 있거나 주장과 관련된 부분을 전혀 포함하지 않아 판단 근거로 삼을 수 없다면, 추측하지 말고 verdict를 "uncertain"으로 하고 explanation에 "개정 이력 확인 불가, 최신 조문과의 일치 여부 미확인"이라고 정직하게 표시하세요.
 
 반드시 아래 JSON 형식으로만 응답하세요. 다른 설명을 추가하지 마세요.
 {"verdict": "confirmed|false|uncertain", "explanation": "100자 이내, 공식 텍스트의 어느 부분과 왜 일치/불일치하는지 구체적으로"}`;
 
 export async function groundLegalClaim(claimText, officialText, meta = {}) {
-  const dateLine = meta.effectiveDate ? `\n(이 조문의 현재 버전 시행일자: ${meta.effectiveDate})` : "";
+  const dateLine =
+    (meta.effectiveDate ? `\n(이 조문의 현재 버전 시행일자: ${meta.effectiveDate})` : "") +
+    // 현행이 아닌 조문을 넘길 때 그 사실을 함께 알린다(legalPipeline.resolveFoundStatute).
+    (meta.notice ? `\n(주의: ${meta.notice})` : "");
   const raw = await callClaude({
     system: GROUNDING_SYSTEM_PROMPT,
     // 여기는 Haiku로 내리지 않는다. "주어진 조문과 주장을 비교하는 기계적인 일"처럼
@@ -605,7 +624,7 @@ export async function groundLegalClaim(claimText, officialText, meta = {}) {
     messages: [
       {
         role: "user",
-        content: `주장: ${claimText}\n\n공식 조회 결과 (${meta.label || "법제처 국가법령정보 공동활용 API"}):${dateLine}\n${officialText}`,
+        content: `${todayLine()}주장: ${claimText}\n\n공식 조회 결과 (${meta.label || "법제처 국가법령정보 공동활용 API"}):${dateLine}\n${officialText}`,
       },
     ],
     max_tokens: 500,
@@ -619,7 +638,12 @@ const WEB_FALLBACK_SYSTEM_PROMPT = `당신은 유메의 법률 리서치 보조�
 
 판단 원칙:
 - 검색 결과가 명확히 뒷받침하거나 반박하면 confirmed/false로 판정하고, 실제로 찾은 출처를 제시하세요.
+- **"false"는 반박하는 근거를 찾았을 때만** 씁니다. explanation에 **근거가 말하는 실제 내용**(실제 요건·기간·금액·조문)을 쓰세요. 실제 내용을 댈 수 없으면 반박이 아니라 uncertain입니다. 검색에 안 나왔다는 것은 틀렸다는 뜻이 아닙니다.
+- 법령은 개정됩니다. **오늘 날짜 기준 현행 규정**과 대조하세요. 오래된 해설·블로그가 옛 규정을 설명하고 있을 수 있으니, 시행일·개정 여부를 확인할 수 있는 출처(법제처·정부 발표)를 우선하세요. 주장이 스스로 과거 시점을 밝혔으면 그 시점의 규정과 대조하세요.
+- **"없다"고 말하는 주장**(그런 판례·조항·제도는 없다)은 그 대상이 실제로 있다는 근거를 찾으면 false입니다. 못 찾았다는 것만으로 confirmed를 주지 마세요 — uncertain입니다.
+- 표기만 다른 것(조문 번호 표기, 같은 제도의 다른 이름)은 confirmed입니다. 그러나 요건·기간·금액·대상·처벌 수위가 다르면 false입니다.
 - 검색해도 신뢰할 만한 근거를 전혀 찾지 못했을 때만 uncertain으로 하되, 이 경우에도 무엇을 검색해봤는지 explanation에 간단히 남기세요.
+- sources마다 quote에 그 페이지에서 근거가 된 문장을 한 글자도 바꾸지 말고 그대로 옮기세요. 유메가 그 페이지를 직접 열어 확인합니다.
 
 식별자 확인이 함께 요청된 경우(요청에 "인용된 식별자"가 적혀 있으면):
 - 그 판례 사건번호·법령·조문이 실제로 존재하는지도 검색으로 확인하세요. 법원·정부·언론·법률 전문 사이트처럼 신뢰할 만한 출처에서 그 식별자가 실제 사건·법령을 가리키는 것이 확인될 때만 identifier_found를 true로 하세요. AI가 만든 글이나 출처 없는 요약에만 나오면 false입니다.
@@ -634,7 +658,7 @@ export async function verifyLegalClaimViaWeb(claimText, onProgress = () => {}, {
     system: WEB_FALLBACK_SYSTEM_PROMPT,
     label: "legal_web",
     ledger,
-    messages: [{ role: "user", content: `다음 법률 관련 주장을 검색해서 검증해줘:\n\n${claimText}${idLine}` }],
+    messages: [{ role: "user", content: `${todayLine()}다음 법률 관련 주장을 검색해서 검증해줘:\n\n${claimText}${idLine}` }],
     tools: searchTools(ledger, 4),
     max_tokens: 2000,
     onProgress,
@@ -673,7 +697,8 @@ const RESEARCH_SYSTEM_PROMPT = `당신은 유메의 심층 리서치 담당입�
 판정 기준:
 - 신뢰할 만한 출처가 주장을 뒷받침하면 "confirmed".
 - 주장이 사실과 다르거나, 숫자·연도·주체·인과관계가 틀렸으면 "false". 무엇이 어떻게 다른지 정확한 내용을 함께 쓰세요 — **근거가 말하는 실제 값을 반드시 적으세요.** 실제 값을 댈 수 없으면 그건 반박이 아니라 미확인이므로 "uncertain"입니다.
-- 주장의 핵심이 맞고 곁가지만 조금 다르면(반올림, 표기 차이, 근소한 가격 차) "false"가 아닙니다. "confirmed"로 하고 다른 점을 설명에 덧붙이세요. 틀린 부분이 핵심일 때만 "false"로 하고, 맞는 부분과 틀린 부분을 구분해 설명하세요.
+- 표기만 다른 것(반올림한 값 — 0.72명을 "약 0.7명"이라 한 것, 같은 대상의 다른 이름, 단위 환산)과 시점·판매처마다 달라지는 값(소매가격·환율)의 근소한 차이는 "confirmed"로 하고 차이를 덧붙이세요. 그러나 **주장에 적힌 수치·연도·날짜·주체·조건이 근거와 실제로 다르면 그건 곁가지가 아니라 틀린 것**이므로 "false"입니다 — 맞는 부분과 틀린 부분을 함께 쓰세요.
+- **"없다"고 말하는 주장**(그런 판례·통계·제도는 없다, 발표된 적 없다)이면 판단 대상이 뒤집힙니다. 그 대상이 실제로 있다는 근거를 찾으면 "false"(찾은 대상을 출처로). 못 찾았으면 confirmed가 아니라 "uncertain"으로 두고, recordedness에는 **그 대상이 있다면** 어디에 기록돼 있어야 하는지를 고르세요 — 유메가 그 공간을 얼마나 덮었는지로 "없다"가 맞는지 판정합니다.
 - 주장이 애초에 조건에 따라 달라지는 것이라면(예: 지역·시점·대상에 따라 다름) "uncertain"이 아니라, 어떤 조건에서 맞고 어떤 조건에서 틀린지를 설명한 뒤 가장 일반적인 경우를 기준으로 판정하세요.
 
 "uncertain"을 쓸 때는 explanation에 반드시 이 세 가지를 담으세요:
@@ -727,7 +752,7 @@ export async function researchClaim(claimText, { domain = "일반", priorExplana
     system: RESEARCH_SYSTEM_PROMPT,
     label: "research",
     ledger,
-    messages: [{ role: "user", content: `도메인: ${domain}\n주장: ${claimText}${prior}${seen}` }],
+    messages: [{ role: "user", content: `${todayLine()}도메인: ${domain}\n주장: ${claimText}${prior}${seen}` }],
     tools: searchTools(ledger, 3),
     max_tokens: 3000,
     onProgress,
@@ -792,7 +817,7 @@ export async function reviewAccusation({ claimText, explanation, sources = [], l
     messages: [
       {
         role: "user",
-        content: [`주장: ${claimText}`, `지목 사유: ${explanation}`, "제시된 근거:", evidence].join(String.fromCharCode(10, 10)),
+        content: todayLine() + [`주장: ${claimText}`, `지목 사유: ${explanation}`, "제시된 근거:", evidence].join(String.fromCharCode(10, 10)),
       },
     ],
     tools: searchTools(ledger, 2),
