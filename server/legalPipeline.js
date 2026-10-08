@@ -421,6 +421,14 @@ async function resolveCase(claim, ref, ctx) {
   return necOutcome(claim, nec, ctx, { spaceKey, searched, similar, identifier: ident });
 }
 
+// 판례 부존재 판정에는 사람이 한 번 더 확인할 길을 붙인다. 법제처 DB는 공개 판례만 싣고,
+// 법원 판결서 인터넷열람은 더 넓지만 공개 API가 없어 유메가 직접 조회하지 못한다.
+// 공개 범위(형사 2013년·민사 등 2015년 이후 확정분)도 함께 적어 둔다 — 오래된 사건은 거기에도 없을 수 있다.
+function recheckTip(nec) {
+  if (nec?.identifier?.type !== "case" || nec.formatError?.skippedSearch) return "";
+  return " 실제 판결서는 대법원 사법정보공개포털 ‘판결서 인터넷열람’에서 사건번호로 한 번 더 확인할 수 있습니다(형사 2013년·민사 등 2015년 이후 확정 판결 수록).";
+}
+
 // ───────────────────────── 판정 결합 ─────────────────────────
 // 1차 NEC가 부존재 확실이면 바로 false. 확인 불가면 웹 탐색으로 검색공간을 넓혀(청구항 1의
 // "하나 이상의 외부 참조 DB") 다시 산출한다. 웹에서 실재 흔적이 나오면 근접도 P=1로 반영.
@@ -433,7 +441,7 @@ async function necOutcome(claim, nec, ctx, widen = null) {
       ...claim,
       verdict: "false",
       verified_via: "nec",
-      explanation: `인용된 ‘${cited}’은(는) 존재하지 않을 가능성이 높습니다(부존재 신뢰도 ${nec.score}). ${nec.summary}`,
+      explanation: `인용된 ‘${cited}’은(는) 존재하지 않을 가능성이 높습니다(부존재 신뢰도 ${nec.score}). ${nec.summary}${recheckTip(nec)}`,
       sources: widen?.sources || [],
       nec,
       existence: { status: "absent", target: cited, label: cited, score: nec.score },
@@ -458,7 +466,7 @@ async function necOutcome(claim, nec, ctx, widen = null) {
       ...webRest,
       verdict: "false",
       verified_via: "nec",
-      explanation: `인용된 ‘${cited}’은(는) 공식 DB·인용 기록·웹 어디에서도 확인되지 않아 존재하지 않을 가능성이 높습니다(부존재 신뢰도 ${nec2.score}).`,
+      explanation: `인용된 ‘${cited}’은(는) 공식 DB·인용 기록·웹 어디에서도 확인되지 않아 존재하지 않을 가능성이 높습니다(부존재 신뢰도 ${nec2.score}).${recheckTip(nec2)}`,
       sources: [...(widen.sources || []), ...(web.sources || [])],
       nec: nec2,
       existence: { status: "absent", target: cited, label: cited, score: nec2.score },

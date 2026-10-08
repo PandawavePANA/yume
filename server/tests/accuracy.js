@@ -305,6 +305,51 @@ const CASES = [
     why: "출혈 위험 등으로 일반 성인의 일괄 복용 권고는 없다.",
     critical: true,
   },
+
+  // ── 그 밖에 AI가 자주 틀리는 모양 ──
+  {
+    id: "misattributed-quote",
+    text: "아인슈타인은 '복리는 세계 8대 불가사의'라고 말했습니다.",
+    expect: "not-confirmed",
+    why: "널리 퍼진 오귀속 — 아인슈타인이 그렇게 말했다는 1차 기록이 없다. 유명하다는 이유로 확인됨을 주면 안 된다.",
+    critical: true,
+  },
+  {
+    id: "pure-opinion",
+    text: "제주도는 한국에서 가장 아름다운 섬이에요.",
+    expect: "none",
+    why: "취향이다. 참·거짓이 없는 문장에 판정을 붙이면 안 된다.",
+    critical: true,
+  },
+  {
+    id: "denied-real-event",
+    text: "2002년 한일 월드컵에서 한국 대표팀은 4강에 오르지 못했습니다.",
+    expect: "false",
+    why: "4강에 올랐다. 실제로 일어난 일을 부정한 문장이다.",
+    critical: true,
+  },
+  {
+    id: "long-mixed-answer",
+    text:
+      "서울특별시의 인구는 약 1억 명입니다. 대한민국 국회의원 정수는 300명입니다. " +
+      "반도체는 대한민국의 최대 수출 품목입니다. 한글날은 매년 10월 9일입니다.",
+    expect: "false",
+    claims: [
+      { match: "서울", expect: "false" },
+      { match: "국회의원", expect: "confirmed" },
+      { match: "반도체", expect: "confirmed" },
+      { match: "한글날", expect: "confirmed" },
+    ],
+    why: "분야가 섞인 긴 답변 — 틀린 하나만 정확히 집고 나머지는 확인해야 한다.",
+    critical: true,
+  },
+  {
+    id: "award-year-mixup",
+    text: "한강 작가는 2025년에 노벨문학상을 받았습니다.",
+    expect: "false",
+    why: "2024년 수상. 연도를 섞은 주장이다.",
+    critical: true,
+  },
 ];
 
 function verdictOf(result) {
