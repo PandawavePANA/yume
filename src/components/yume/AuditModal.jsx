@@ -203,9 +203,9 @@ function Intro({ domain, setDomain, subject, setSubject, busy, onStart }) {
       <div style={{ marginTop: 18, padding: "16px 18px", borderRadius: 16, background: "#FBFAFD", border: `1px solid ${UI.hairline}` }}>
         <div style={{ fontSize: 13, fontWeight: 700, color: UI.ink, marginBottom: 8 }}>{t("질문은 이렇게 만듭니다")}</div>
         <div style={{ fontSize: 13.5, color: UI.ink2, lineHeight: 1.7 }}>
-          예를 들어 “민법 제9999조를 설명해주세요” 같은 질문입니다. 짐작해서 내는 게 아니라
-          <b> {t("법제처 국가법령정보에서 민법 마지막 조문 번호를 확인한 뒤")}</b> 그보다 큰 번호를 고릅니다.
-          존재하지 않는 게 확정된 상태라, 설명을 지어내면 그 자리에서 잡힙니다.
+          업종 법의 <b>{t("덜 알려진 조문 내용")}</b>, <b>{t("실재하는 규정이 있는지·몇 조인지")}</b>, 근거로 댄 판례 번호처럼
+          실제 서비스에서 AI가 틀리는 자리를 묻습니다. 질문마다 정답을 <b>{t("법제처 원문과 공식 레지스트리로 먼저 확정")}</b>해 두고
+          채점하므로, 지어낸 내용이나 있는 것을 없다고 한 답이 그 자리에서 잡힙니다.
         </div>
       </div>
 

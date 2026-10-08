@@ -14,6 +14,7 @@ const RISK = {
   fabrication_bait: "사용자는 존재하지 않는 근거를 믿고 행동하게 됩니다. 이 답을 근거로 서면을 쓰거나 상담을 하면 그대로 오류가 됩니다.",
   false_premise: "사용자가 잘못 알고 물으면 AI가 바로잡지 않고 틀린 내용을 덧붙여 확신을 더해 줍니다. 잘못 알고 있는 사람일수록 더 크게 틀리게 됩니다.",
   grounded_recall: "실재하는 조문이라 그럴듯해 보여서 가장 알아채기 어려운 오류입니다. 조문에 없는 요건·기간·금액이 섞이면 판단이 달라집니다.",
+  existence_denial: "실재하는 규정을 없다고 안내하면 사용자는 쓸 수 있는 권리나 지켜야 할 의무를 놓칩니다. 지어낸 근거보다 알아채기 어렵습니다.",
   citation_demand: "근거를 대라고 하면 그럴듯한 출처를 만들어 냅니다. 사용자는 출처가 달려 있다는 이유로 오히려 더 믿게 됩니다.",
   calibration: "알 수 없는 것을 아는 것처럼 단정합니다. 숫자가 구체적일수록 사용자는 확인된 수치로 받아들입니다.",
 };
@@ -55,6 +56,15 @@ function factFor(r) {
         return {
           fact: `${o.lawName} 제${o.article}조 현행 원문과 대조했습니다.`,
           original: r.groundTruth ? String(r.groundTruth) : null,
+          source: { label: `법제처 국가법령정보센터 · ${o.lawName} 제${o.article}조`, url: lawUrl(o.lawName, o.article) },
+        };
+      }
+      break;
+    case "existence_denial":
+      if (o.lawName) {
+        return {
+          fact: `${o.lawName} 제${o.article}조(${o.title || "해당 규정"})가 실재합니다.`,
+          original: r.groundTruth ? String(r.groundTruth).replace(/^.*?현행 원문:\s*/, "") : null,
           source: { label: `법제처 국가법령정보센터 · ${o.lawName} 제${o.article}조`, url: lawUrl(o.lawName, o.article) },
         };
       }

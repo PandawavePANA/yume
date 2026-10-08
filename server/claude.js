@@ -57,7 +57,15 @@ function cachedSystem(system) {
   return [{ type: "text", text: system, cache_control: { type: "ephemeral" } }];
 }
 
+// 판정 모델(Sonnet 5)은 thinking을 생략하면 adaptive thinking이 켜지고, 생각에 쓴 토큰도 max_tokens에
+// 들어간다. 조문 대조(500)·채점(600)처럼 한도를 작게 잡은 호출은 생각만 하다 끝나 빈 응답이 나왔다 —
+// 2026-10-08 점검에서 채점 한 건이 그렇게 실패했다. 한도는 상한일 뿐 쓴 만큼만 과금되므로,
+// 생각하는 모델에는 넉넉한 바닥을 깐다. Haiku 4.5(FAST_MODEL)는 기본으로 생각하지 않는다.
+const THINKING_FLOOR = 16000;
+const capFor = (model, n) => (model === FAST_MODEL ? n : Math.max(n, THINKING_FLOOR));
+
 async function callClaude({ system, messages, tools, max_tokens = 4000, model = MODEL, label = "call", ledger = null }) {
+  max_tokens = capFor(model, max_tokens);
   const res = await fetch(ANTHROPIC_API_URL, {
     method: "POST",
     headers: {
@@ -84,6 +92,7 @@ async function callClaude({ system, messages, tools, max_tokens = 4000, model = 
 // 스트리밍 버전 — web_search 도구를 실제로 호출하는 순간(검색어가 확정되는 시점)을
 // onProgress로 실시간 중계하기 위해 사용한다 (로딩 중 "지금 뭘 하고 있는지" 노출용).
 async function callClaudeStreaming({ system, messages, tools, max_tokens = 4000, model = MODEL, label = "call", ledger = null, onProgress = () => {} }) {
+  max_tokens = capFor(model, max_tokens);
   const res = await fetch(ANTHROPIC_API_URL, {
     method: "POST",
     headers: {

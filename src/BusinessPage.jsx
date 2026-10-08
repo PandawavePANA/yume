@@ -179,12 +179,12 @@ export default function BusinessPage() {
           </div>
 
           <div style={{ marginTop: 28, padding: "18px 20px", borderRadius: 18, background: "rgba(255,255,255,0.8)", border: `1px solid ${UI.hairline}` }}>
-            <div style={{ fontSize: 13.5, fontWeight: 700, color: UI.ink, marginBottom: 7 }}>질문을 지어내지 않고, 검증해서 만듭니다</div>
+            <div style={{ fontSize: 13.5, fontWeight: 700, color: UI.ink, marginBottom: 7 }}>실제 서비스에서 AI가 틀리는 자리를 묻습니다</div>
             <div style={{ fontSize: 14, color: UI.ink2, lineHeight: 1.7 }}>
-              “민법 제9999조를 설명해주세요” 같은 질문입니다. 짐작해서 내는 게 아니라
-              <b> 법제처에서 민법의 마지막 조문 번호를 확인한 뒤</b> 그보다 큰 번호를 고릅니다.
-              존재하지 않는 것이 확정된 상태라, 설명을 지어내면 그 자리에서 잡힙니다.
-              사건번호와 논문 DOI도 레지스트리에 없음을 확인한 것만 씁니다.
+              귀사 업종 법의 <b>덜 알려진 조문 내용</b>, <b>실재하는 규정이 있는지·몇 조인지</b>, 근거로 댄
+              <b> 판례 번호</b>처럼 AI가 그럴듯하게 지어내거나 있는 것을 없다고 하는 질문입니다.
+              질문마다 정답을 법제처 원문과 공식 레지스트리로 먼저 확정해 두고 채점하므로, 유메의 짐작이 아니라
+              원문과 대조한 결과가 나옵니다.
             </div>
           </div>
 
