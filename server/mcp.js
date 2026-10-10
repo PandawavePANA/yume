@@ -32,7 +32,7 @@ const router = patchAsync(express.Router());
 
 // 클라이언트가 붙을 때 한 번 주고받는 값. 프로토콜 버전은 요청한 것을 그대로 돌려준다 —
 // 우리가 아는 버전을 우기면 최신 클라이언트가 붙지 못한다.
-const SERVER_INFO = { name: "yume", title: "유메 — AI 답변 팩트체크", version: "1.0.0" };
+const SERVER_INFO = { name: "yume", title: "유메 — AI 할루시네이션 검사", version: "1.0.0" };
 const FALLBACK_PROTOCOL = "2025-06-18";
 
 // 판정이 나올 때까지 기다리는 상한.

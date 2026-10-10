@@ -21,7 +21,7 @@ const REASON = {
   purchase: "크레딧 충전",
   purchase_cancelled: "충전 결제 취소",
   referral: "친구 추천 보상",
-  verify: "사용 · 유메 팩트체크(사실 검증)",
+  verify: "사용 · 유메 할루시네이션 검사",
   refund: "환급 · 검증 실패",
   expire: "소멸 · 유효기간 1년 만료",
   admin: "운영자 지급",

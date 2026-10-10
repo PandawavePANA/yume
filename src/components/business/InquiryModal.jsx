@@ -18,6 +18,8 @@ const UI = {
 
 const won = (n) => `${n.toLocaleString("ko-KR")}원`;
 export const PLAN_CHOICES = [
+  { key: "trial10", label: "실제 문서 10건 무료 검사" },
+  { key: "poc", label: "2주 PoC (문서 검사 + 정확도 보고서)" },
   { key: "metered", label: `종량제 (호출당 ${won(API_RATES.metered.unitKrw)})` },
   ...API_RATES.tiers.map((t) => ({ key: t.key, label: `${t.label} (월 ${won(t.monthlyKrw)} · ${t.calls.toLocaleString("ko-KR")}회)` })),
   { key: "custom", label: "맞춤 견적 (더 큰 물량 · 계약서)" },
@@ -36,6 +38,8 @@ export default function InquiryModal({ plan = "unsure", note = "", onClose }) {
   const [error, setError] = useState("");
   const [threadUrl, setThreadUrl] = useState("");
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+  // 무료 검사·PoC는 호출 수가 아니라 문서로 이야기한다.
+  const docs = form.plan === "trial10" || form.plan === "poc";
 
   useEffect(() => {
     const onKey = (e) => e.key === "Escape" && onClose();
@@ -50,9 +54,9 @@ export default function InquiryModal({ plan = "unsure", note = "", onClose }) {
     const planLabel = PLAN_CHOICES.find((p) => p.key === form.plan)?.label || form.plan;
     // 데스크에서 한눈에 읽히도록 머리에 요약을 붙인다. 운영자는 이 한 덩어리를 보고 견적을 낸다.
     const message = [
-      "[유메 API 도입 문의]",
+      "[유메 도입 문의]",
       `원하는 플랜: ${planLabel}`,
-      form.volume ? `예상 월 호출: ${form.volume}` : null,
+      form.volume ? `${docs ? "문서 종류·분량" : "예상 월 호출"}: ${form.volume}` : null,
       "",
       form.message.trim(),
     ].filter((x) => x !== null).join("\n");
@@ -106,7 +110,9 @@ export default function InquiryModal({ plan = "unsure", note = "", onClose }) {
             <div>
               <div style={{ fontSize: 20, fontWeight: 700, color: UI.ink, letterSpacing: "-0.02em" }}>도입 문의</div>
               <p style={{ margin: "6px 0 0", fontSize: 13.5, color: UI.ink3, lineHeight: 1.6 }}>
-                보내시면 바로 대화 화면이 열립니다. 견적서와 결제도 그 자리에서 진행됩니다.
+                {docs
+                  ? "보내시면 바로 대화 화면이 열립니다. 검사할 문서는 답장 메일로 받고, 결과도 같은 곳으로 보내 드립니다. 공개해도 되는 문서로 시작하셔도 됩니다."
+                  : "보내시면 바로 대화 화면이 열립니다. 견적서와 결제도 그 자리에서 진행됩니다."}
               </p>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 12 }}>
@@ -127,13 +133,13 @@ export default function InquiryModal({ plan = "unsure", note = "", onClose }) {
                   {PLAN_CHOICES.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
                 </select>
               </label>
-              <label style={labelStyle}>예상 월 호출 수
-                <input id="bq-volume" maxLength={40} value={form.volume} onChange={set("volume")} style={field} placeholder="예: 1,200건" />
+              <label style={labelStyle}>{docs ? "문서 종류·분량" : "예상 월 호출 수"}
+                <input id="bq-volume" maxLength={40} value={form.volume} onChange={set("volume")} style={field} placeholder={docs ? "예: 상품 안내문 10건" : "예: 1,200건"} />
               </label>
             </div>
             <label style={labelStyle}>어디에 쓰실 건가요? *
               <textarea id="bq-message" required minLength={10} maxLength={3000} rows={4} value={form.message} onChange={set("message")}
-                style={{ ...field, resize: "vertical", lineHeight: 1.6 }} placeholder="예: 법률 상담 챗봇이 고객에게 보내는 답변을 발송 전에 검증하고 싶습니다." />
+                style={{ ...field, resize: "vertical", lineHeight: 1.6 }} placeholder={docs ? "예: AI로 쓴 보험 상품 안내문의 수치를 약관과 대조해 보고 싶습니다." : "예: 법률 상담 챗봇이 고객에게 보내는 답변을 발송 전에 검증하고 싶습니다."} />
             </label>
             {/* 사람 눈에는 안 보이는 칸. 자동 제출 봇만 채운다. */}
             <input tabIndex={-1} autoComplete="off" value={form.website} onChange={set("website")} aria-hidden="true"

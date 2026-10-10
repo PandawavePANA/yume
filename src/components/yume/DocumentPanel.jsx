@@ -386,6 +386,10 @@ export default function DocumentPanel() {
               {t("고친 본문 내려받기 ({n}곳 반영)", { n: doc.result.fixes_applied })}
             </button>
             <button onClick={downloadCsv} style={btn(false, false)}>{t("결과 CSV")}</button>
+            {/* 고친 본문은 생성형 AI가 쓴 문장이 섞인 결과물이다(AI 기본법 표시). */}
+            <div style={{ flexBasis: "100%", fontSize: 12, color: UI.ink3, lineHeight: 1.6 }}>
+              {t("고친 본문의 수정 문장은 생성형 AI가 근거의 값으로 고쳐 쓴 것입니다. 내보내기 전에 한 번 읽어 확인하세요.")}
+            </div>
           </>
         )}
       </div>
@@ -431,7 +435,7 @@ export default function DocumentPanel() {
                       {c.explanation && <div style={{ fontSize: 13, color: UI.ink2, lineHeight: 1.6, marginTop: 4 }}>{c.explanation}</div>}
                       {c.suggested_fix && (
                         <div style={{ fontSize: 13, color: "#1F7A52", lineHeight: 1.6, marginTop: 6 }}>
-                          <b>{t("고친 문장")}:</b> {c.suggested_fix}
+                          <b>{t("고친 문장")}</b> <span style={{ color: UI.ink3, fontWeight: 500 }}>({t("AI 생성")})</span>: {c.suggested_fix}
                         </div>
                       )}
                       {c.verified_via === "reference" && <div style={{ fontSize: 12, color: UI.accent, marginTop: 4 }}>{t("회사 기준 자료와 대조")}</div>}

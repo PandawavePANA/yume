@@ -502,7 +502,7 @@ router.get("/openapi.json", (req, res) => {
 
 router.get("/", (req, res) => {
   res.json({
-    service: "YUME Fact-Check API",
+    service: "YUME Hallucination Check API",
     version: "v1",
     docs: "/docs/api",
     openapi: "/v1/openapi.json",

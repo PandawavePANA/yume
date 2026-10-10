@@ -36,7 +36,7 @@ export function openApiSpec(base = "https://www.yume-reamer.com") {
   return {
     openapi: "3.1.0",
     info: {
-      title: "YUME Fact-Check API",
+      title: "YUME Hallucination Check API",
       version: "1.0.0",
       description:
         "글 속 사실 주장을 하나씩 떼어 법령 원문·공식 레지스트리·출처 원문과 대조합니다. " +

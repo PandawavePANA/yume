@@ -33,8 +33,9 @@ export default {
   "로 확인하세요": "then check it with",
   "AI 답변 확인하기": "Check an AI answer",
   "사실인지 확인하기": "Check if it's true",
-  "\"이렇다던데 사실이야?\" 한 줄이면 됩니다. AI 답변을 통째로 붙여넣어도 되고요. 법률·의료·금융·역사·과학 — 어떤 주제든 유메가 하나하나 확인합니다.":
-    "One line is enough — \"I heard X, is that true?\" Or paste a whole AI answer. Law, medicine, finance, history, science: YUME checks every claim in it.",
+  "AI 할루시네이션 검사": "AI hallucination check",
+  "AI가 쓴 글의 근거를 공식 원문과 한 줄씩 대조합니다. AI 답변을 통째로 붙여넣어도 되고, \"이렇다던데 사실이야?\" 한 줄이어도 됩니다.":
+    "YUME checks what an AI wrote against the official source, line by line. Paste a whole AI answer, or just one line like \"I heard X, is that true?\"",
   "유메로 확인하기": "Verify with Yume",
   "붙여넣기": "Paste",
   "복사한 내용 붙여넣기": "Paste from clipboard",
@@ -213,7 +214,7 @@ export default {
   "월 기본 지급": "Monthly free credits",
   "충전 결제 취소": "Top-up cancelled",
   "친구 추천 보상": "Referral reward",
-  "사용 · 유메 팩트체크(사실 검증)": "Used · Yume fact-check",
+  "사용 · 유메 할루시네이션 검사": "Used · Yume hallucination check",
   "환급 · 검증 실패": "Returned · check failed",
   "소멸 · 유효기간 1년 만료": "Expired · 1-year limit",
   "운영자 지급": "Granted by Yume",
@@ -267,8 +268,8 @@ export default {
   "무료로 점검하기 →": "Run a free audit →",
   "개발자 · 데이터 · 파트너십": "Developers · data · partnerships",
   "유메 검증 API": "Yume Verification API",
-  "AI 기능이 있는 서비스에 팩트체크를 API로 붙일 수 있습니다. 주장별 판정·근거와 부존재 신뢰도를 그대로 받아 쓰세요. 호출량 기반 종량제.":
-    "Add fact checking to any product with AI in it. You get a verdict, the evidence and a non-existence confidence score for every claim. Pay per call.",
+  "AI 기능이 있는 서비스에 할루시네이션 검사를 API로 붙일 수 있습니다. 주장별 판정·근거와 부존재 신뢰도를 그대로 받아 쓰세요. 호출량 기반 종량제.":
+    "Add a hallucination check to any product with AI in it. You get a verdict, the evidence and a non-existence confidence score for every claim. Pay per call.",
   "가입하고 키 받기": "Sign up for a key",
   "API 문서 보기 ›": "Read the API docs ›",
   "API 문서": "API docs",
@@ -918,4 +919,19 @@ export default {
   "확인할 사실이 들어 있지 않아요. AI 답변이나 확인하고 싶은 문장을 그대로 붙여넣으면 됩니다.": "There's no fact in here to check. Paste an AI answer or any sentence you want checked.",
   "확인할 수 있는 사실이 들어 있지 않아요. AI 답변이나 확인하고 싶은 문장을 그대로 붙여넣으면 됩니다.": "There's nothing checkable in here. Paste an AI answer or any sentence you want checked.",
   "이번 확인 횟수는 돌려드렸어요.": "This one didn't count against your checks.",
+  // ── AI 기본법 고지 · 자문 아님 ───────────────────────────────────
+  "AI가 근거의 값으로 고친 문장": "rewritten by AI using the value in the evidence",
+  "AI 생성": "AI-generated",
+  "고친 본문의 수정 문장은 생성형 AI가 근거의 값으로 고쳐 쓴 것입니다. 내보내기 전에 한 번 읽어 확인하세요.":
+    "Corrected sentences in this text were rewritten by generative AI using the values in the evidence. Read it once before you send it out.",
+  "유메는 검증 과정에 생성형 AI를 사용합니다. 판정은 공개 원문과 대조한 검증 정보이며 법률·의료·금융 자문이나 보증이 아닙니다.":
+    "YUME uses generative AI in its checking process. Verdicts are verification information based on public sources, not legal, medical or financial advice, and not a guarantee.",
+  "이 결과는 인용된 법령·판례가 실재하고 원문과 맞는지 확인한 정보이며, 법률 자문이 아닙니다. 개별 사안은 변호사와 상담하세요.":
+    "This result checks whether the cited statutes and cases exist and match the official text. It is not legal advice; consult a lawyer about your own case.",
+  "의료 정보는 진단이나 처방이 아닙니다. 치료와 복약은 의사·약사와 상담하세요.":
+    "Medical information here is not a diagnosis or prescription. Ask a doctor or pharmacist about treatment and medication.",
+  "금융 정보는 투자 권유나 자문이 아닙니다. 상품 가입 전에는 약관과 설명서를 직접 확인하세요.":
+    "Financial information here is not investment advice. Read the terms and product documents yourself before you sign up.",
+  "유메는 주장 추출과 고친 문장 작성에 생성형 AI를 사용합니다. 판정은 출처 원문과 대조한 결과이며, '확인되지 않음'은 거짓이라는 뜻이 아니라 근거를 찾지 못했다는 뜻입니다. 중요한 결정은 출처 링크로 직접 확인하세요.":
+    "YUME uses generative AI to pull out claims and write corrections. Verdicts come from comparing against source texts, and 'Unverified' means no evidence was found, not that the claim is false. For important decisions, open the source links yourself.",
 };

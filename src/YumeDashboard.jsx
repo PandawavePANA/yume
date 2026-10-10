@@ -621,6 +621,21 @@ function StepsSection() {
   );
 }
 
+// 결과 아래 고지. 법률 주장이 있으면 "법률 자문이 아니다"를, 의료·금융이면 그 분야 문장을 먼저 둔다.
+function ResultNotice({ claims }) {
+  const domains = new Set(claims.map((c) => c.domain));
+  const lines = [];
+  if (domains.has("법률")) lines.push(t("이 결과는 인용된 법령·판례가 실재하고 원문과 맞는지 확인한 정보이며, 법률 자문이 아닙니다. 개별 사안은 변호사와 상담하세요."));
+  if (domains.has("의료")) lines.push(t("의료 정보는 진단이나 처방이 아닙니다. 치료와 복약은 의사·약사와 상담하세요."));
+  if (domains.has("금융")) lines.push(t("금융 정보는 투자 권유나 자문이 아닙니다. 상품 가입 전에는 약관과 설명서를 직접 확인하세요."));
+  lines.push(t("유메는 주장 추출과 고친 문장 작성에 생성형 AI를 사용합니다. 판정은 출처 원문과 대조한 결과이며, '확인되지 않음'은 거짓이라는 뜻이 아니라 근거를 찾지 못했다는 뜻입니다. 중요한 결정은 출처 링크로 직접 확인하세요."));
+  return (
+    <div style={{ marginTop: 16, padding: "12px 14px", borderRadius: 12, background: "rgba(139,111,216,0.06)", fontSize: 12.5, color: UI.ink3, lineHeight: 1.7 }}>
+      {lines.map((l) => <div key={l}>{l}</div>)}
+    </div>
+  );
+}
+
 function Eyebrow({ children }) {
   return (
     <motion.div initial="off" whileInView="on" viewport={{ once: true, amount: 0.8 }}
@@ -1457,6 +1472,10 @@ export default function YumeDashboard() {
                   히어로 한 화면이 거의 비어 있었다. 로고를 글자 크기에 맞춰 문장 안으로
                   되돌리고 글로우를 없앴다. */}
               {/* 스크롤하면 두 줄이 서로 반대로 비켜난다 — 질문과 확인은 다른 일이다. */}
+              {/* 서비스 이름은 "AI 팩트체크"가 아니라 "AI 할루시네이션 검사" — 같은 말을 쓰는 서비스가 여럿이라 겹치지 않게 한다. */}
+              <motion.div {...heroEnter(0)} style={{ fontSize: 13.5, fontWeight: 700, letterSpacing: "0.08em", color: UI.accentSoft, marginBottom: 18 }}>
+                {t("AI 할루시네이션 검사")}
+              </motion.div>
               <motion.div style={{ x: heroX1 }}>
                 <motion.div {...heroEnter(0.05)} style={heroLine}>{t("AI에게 질문하고")}</motion.div>
               </motion.div>
@@ -1470,7 +1489,7 @@ export default function YumeDashboard() {
                 </motion.div>
               </motion.div>
               <motion.p {...heroEnter(0.38)} style={{ ...UI.lead, maxWidth: 560, margin: "26px auto 0" }}>
-                {t("\"이렇다던데 사실이야?\" 한 줄이면 됩니다. AI 답변을 통째로 붙여넣어도 되고요. 법률·의료·금융·역사·과학 — 어떤 주제든 유메가 하나하나 확인합니다.")}
+                {t("AI가 쓴 글의 근거를 공식 원문과 한 줄씩 대조합니다. AI 답변을 통째로 붙여넣어도 되고, \"이렇다던데 사실이야?\" 한 줄이어도 됩니다.")}
               </motion.p>
             </motion.div>
           </motion.header>
@@ -1793,7 +1812,7 @@ export default function YumeDashboard() {
                             {/* 틀린 문장을 어떻게 고치면 되는지. 판정 근거의 실제 값으로만 고친 문장이다. */}
                             {c.verdict === "false" && c.suggested_fix && (
                               <div style={{ marginTop: 10, padding: "10px 13px", borderRadius: 12, background: "rgba(40,160,100,0.07)", border: "1px solid rgba(40,160,100,0.22)" }}>
-                                <div style={{ fontSize: 11.5, fontWeight: 700, color: "#1F7A52", marginBottom: 4 }}>{t("이렇게 고치면 맞습니다")}</div>
+                                <div style={{ fontSize: 11.5, fontWeight: 700, color: "#1F7A52", marginBottom: 4 }}>{t("이렇게 고치면 맞습니다")} <span style={{ fontWeight: 500, color: UI.ink3 }}>· {t("AI가 근거의 값으로 고친 문장")}</span></div>
                                 <div style={{ fontSize: 14, color: UI.ink, lineHeight: 1.65 }}>{c.suggested_fix}</div>
                               </div>
                             )}
@@ -1812,6 +1831,8 @@ export default function YumeDashboard() {
                         </motion.div>
                       ))}
                     </div>
+                    {/* AI 기본법 고지 + 자문이 아니라는 선(변호사법). 법률 주장이 있으면 그 문장을 먼저 적는다. */}
+                    <ResultNotice claims={result.claims || []} />
                   </>
                 )}
 
@@ -2170,6 +2191,7 @@ export default function YumeDashboard() {
               </div>
               {/* 이니시스 포인트충전 조건 — 거래 책임과 민원 담당자를 하단에 늘 적는다. */}
               <div>{t(COMPLAINT_NOTICE)} {t("민원담당자")} {COMPLAINT_CONTACT}</div>
+              <div style={{ marginTop: 6 }}>{t("유메는 검증 과정에 생성형 AI를 사용합니다. 판정은 공개 원문과 대조한 검증 정보이며 법률·의료·금융 자문이나 보증이 아닙니다.")}</div>
               <div style={{ marginTop: 6 }}>{COPYRIGHT}</div>
             </address>
             <span style={{ display: "flex", gap: 0 }}>
@@ -2331,7 +2353,7 @@ export default function YumeDashboard() {
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
                   <div>
                     <div style={{ fontSize: 15, fontWeight: 600, color: UI.ink, marginBottom: 4, letterSpacing: "-0.01em" }}>{t("유메 검증 API")}</div>
-                    <div style={{ fontSize: 13, color: UI.ink2, lineHeight: 1.55 }}>{t("AI 기능이 있는 서비스에 팩트체크를 API로 붙일 수 있습니다. 주장별 판정·근거와 부존재 신뢰도를 그대로 받아 쓰세요. 호출량 기반 종량제.")}</div>
+                    <div style={{ fontSize: 13, color: UI.ink2, lineHeight: 1.55 }}>{t("AI 기능이 있는 서비스에 할루시네이션 검사를 API로 붙일 수 있습니다. 주장별 판정·근거와 부존재 신뢰도를 그대로 받아 쓰세요. 호출량 기반 종량제.")}</div>
                   </div>
                   <button onClick={openApiKeys} style={{
                     flexShrink: 0, padding: "8px 15px", borderRadius: 999, border: "none",

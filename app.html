@@ -4,10 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 
-    <title>AI 답변 팩트체크 | 유메 — 법률·의료·금융 사실 확인</title>
+    <title>AI 할루시네이션 검사 | 유메 — AI가 쓴 글을 공식 원문과 대조</title>
     <meta
       name="description"
-      content="ChatGPT·클로드·제미나이 답변을 붙여넣으면 사실 주장만 골라 교차 검증합니다. 법률은 법제처 국가법령정보 API로 조문·판례 원문까지 대조하고, 확인되지 않은 것은 확인되지 않았다고 알려드립니다."
+      content="AI가 쓴 글의 근거를 공식 원문과 한 줄씩 대조합니다. ChatGPT·클로드·제미나이 답변을 붙여넣으면 사실 주장만 골라 원문과 맞춰 보고, 법령·판례는 법제처 원문, 논문은 DOI 등록처와 대조합니다. 없는 판례·조문을 지어냈으면 부존재 신뢰도로 알려 드립니다."
     />
     <meta name="robots" content="noindex, nofollow" />
     <link rel="icon" type="image/png" sizes="64x64" href="/favicon-64.png" />
@@ -19,10 +19,10 @@
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="유메 YUME" />
     <meta property="og:locale" content="ko_KR" />
-    <meta property="og:title" content="AI 답변, 사실인지 확인하고 쓰세요 — 유메" />
+    <meta property="og:title" content="AI 할루시네이션 검사 — AI의 짐작이 아니라, 원문으로 판정합니다 | 유메" />
     <meta
       property="og:description"
-      content="AI 답변 속 사실 주장을 공식 데이터와 실시간 웹으로 교차 검증합니다. 법률은 법제처 공식 조문까지 대조합니다."
+      content="AI가 쓴 글의 근거를 공식 원문과 한 줄씩 대조합니다. 법령·판례는 법제처 원문까지 대조합니다."
     />
     <meta property="og:url" content="https://www.yume-reamer.com/" />
     <meta property="og:image" content="https://www.yume-reamer.com/og-yume.png" />
@@ -30,15 +30,15 @@
     <meta property="og:image:height" content="630" />
 
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="AI 답변, 사실인지 확인하고 쓰세요 — 유메" />
+    <meta name="twitter:title" content="AI 할루시네이션 검사 — AI의 짐작이 아니라, 원문으로 판정합니다 | 유메" />
     <meta
       name="twitter:description"
-      content="AI 답변 속 사실 주장을 공식 데이터와 실시간 웹으로 교차 검증합니다."
+      content="AI가 쓴 글의 근거를 공식 원문과 한 줄씩 대조합니다. 법령·판례는 법제처 원문까지 대조합니다."
     />
     <meta name="twitter:image" content="https://www.yume-reamer.com/og-yume.png" />
 
     <!-- 구조화 데이터. 지어낸 값(별점·후기 수)은 넣지 않는다 — 리치 결과는 나오지만
-         없는 사실이고, 구글은 그걸 제재한다. 가격은 plans.js의 실제 값과 같아야 한다. -->
+         없는 사실이고, 구글은 그걸 제재한다. 가격은 server/credits.js의 크레딧 팩과 같아야 한다(월 요금제는 판매 종료). -->
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
@@ -49,11 +49,12 @@
         "applicationCategory": "UtilitiesApplication",
         "operatingSystem": "Web",
         "inLanguage": "ko",
-        "description": "AI 답변 속 사실 주장을 공식 데이터와 실시간 웹으로 교차 검증하는 팩트체크 서비스.",
+        "description": "AI가 쓴 글의 근거를 공식 원문과 한 줄씩 대조하는 AI 할루시네이션 검사 서비스.",
         "offers": [
-          { "@type": "Offer", "name": "무료", "price": "0", "priceCurrency": "KRW" },
-          { "@type": "Offer", "name": "스탠다드", "price": "9900", "priceCurrency": "KRW" },
-          { "@type": "Offer", "name": "전문가", "price": "29000", "priceCurrency": "KRW" }
+          { "@type": "Offer", "name": "무료(하루 3회)", "price": "0", "priceCurrency": "KRW" },
+          { "@type": "Offer", "name": "20 크레딧", "price": "12000", "priceCurrency": "KRW" },
+          { "@type": "Offer", "name": "60 크레딧", "price": "33000", "priceCurrency": "KRW" },
+          { "@type": "Offer", "name": "90 크레딧", "price": "45000", "priceCurrency": "KRW" }
         ],
         "publisher": {
           "@type": "Organization",

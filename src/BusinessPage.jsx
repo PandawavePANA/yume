@@ -20,42 +20,77 @@ const UI = {
   hairline: "rgba(60, 40, 110, 0.10)",
 };
 
+// 업종 순서가 곧 영업 우선순위다(학습서 40장). 확인 의무와 담당자·예산이 이미 있는 광고 심의 업종이 먼저,
+// 그다음 정정 보도 위험이 있는 보도자료, 챗봇, 법률, 교육·리서치. 제목은 그 업종 실무자에게 하는 한 문장이다.
 const SECTOR = [
   {
+    tag: "보험·금융 광고 심의",
+    title: "심의 전에 수치 오류를 먼저 잡습니다",
+    body: "AI로 쓴 상품 안내문과 광고 문구의 금리·보장 범위·조건 수치를 약관과 대조합니다. 약관을 기준 자료로 넣으면 회사 고유 수치까지 맞춰 보고, 틀린 문장은 약관에 적힌 값으로 고친 문장까지 드립니다.",
+    who: "보험사 · 은행 · 카드 · 증권 · 협회 광고 심의 조직",
+  },
+  {
+    tag: "건강기능식품·제약",
+    title: "효능 주장과 인용 연구를 심의 전에",
+    body: "상세페이지와 광고에 붙은 연구 인용은 DOI·PMID를 공식 레지스트리에 조회해 논문이 실제로 있는지 확인합니다. 받은 적 없는 수상·인증, 출처 없는 수치는 공표 기록이 있어야 할 곳을 탐색해 없으면 부존재 신뢰도로 알려 드립니다.",
+    who: "건강기능식품 · 제약 · 의료기기 · 헬스케어 플랫폼",
+  },
+  {
+    tag: "보도자료·홍보",
+    title: "AI로 작성, 유메로 사실 확인",
+    body: "틀린 보도자료는 정정 보도로 돌아옵니다. 배포 전에 문서를 올리면 수치·연도·기관명을 출처 원문과 대조하고, 모든 주장이 확인되면 읽는 사람이 근거를 직접 열어 보는 YUME 검증 마크를 붙일 수 있습니다.",
+    who: "공공기관 · 대학 · 스타트업 홍보팀",
+  },
+  {
+    tag: "상담 챗봇",
+    title: "고객에게 나가기 전, 마지막 확인",
+    body: "챗봇의 말은 회사의 말입니다. 청약철회 기간이나 보증 범위를 AI가 어림으로 답하면 그 안내가 분쟁의 근거가 됩니다. 답변 생성과 고객 노출 사이에 API를 두면 해당 조문을 법제처에서 직접 받아 대조합니다.",
+    who: "금융 · 통신 · 유통 · 공공 상담 서비스",
+  },
+  {
     tag: "법률",
-    title: "존재하지 않는 판례가 서면에 들어가는 일",
-    body: "AI가 만든 사건번호는 형식이 완벽해서 눈으로는 걸러지지 않습니다. 유메는 인용된 사건번호·조문을 법제처 국가법령정보에 직접 조회해, 실재하지 않으면 부존재 신뢰도와 함께 표시합니다.",
-    who: "로펌 · 기업 법무팀 · 법률 상담 서비스",
+    title: "제출 전 1분, 인용 전체를 확인하세요",
+    body: "AI가 만든 사건번호는 형식이 완벽해서 눈으로는 걸러지지 않습니다. 번호를 하나씩 조회하기 전에, 문서 전체의 인용을 한 번에 법제처 원문과 대조하고 실재하지 않으면 부존재 신뢰도와 함께 표시합니다. 유메는 인용을 확인하는 변호사의 업무 도구이며, 개별 사안에 대한 법률 판단은 하지 않습니다.",
+    who: "로펌 · 기업 법무팀 · 리걸테크",
   },
   {
-    tag: "의료·제약",
-    title: "환자 안내자료에 실린 근거가 실재하는지",
-    body: "인용된 DOI·PMID를 공식 레지스트리에 조회해 논문이 실제로 있는지 확인합니다. 지어낸 출처로 작성된 교육자료는 배포 전에 걸러집니다.",
-    who: "병원 · 제약사 · 헬스케어 플랫폼",
+    tag: "교육·리서치",
+    title: "참고문헌이 진짜인지 확인하세요",
+    body: "\"업계 평균 18.7%\" 같은 수치와 그럴듯한 참고문헌은 출처 없이도 자연스럽게 읽힙니다. 유메는 그 주장이 사실이라면 어디에 기록돼 있어야 하는지를 기준으로 탐색하고, 기록이 없으면 지어낸 것으로 판정합니다.",
+    who: "대학 · 연구기관 · 보고서·제안서 작성",
+  },
+];
+
+// 도입 순서. 처음 두 단계는 비용도 결재도 없다 — 증거를 먼저 보여 주고, 증거로 계약한다(학습서 40장 퍼널).
+const STEPS = [
+  { n: "1", k: "무료 AI 점검", v: "5분. 질문을 받아 귀사 AI에 넣고 답을 붙여 넣으면 할루시네이션 지수와 리포트 링크가 나옵니다. API 키를 넘기지 않아도 됩니다.", cta: "audit" },
+  { n: "2", k: "실제 문서 10건 무료 검사", v: "귀사가 실제로 내보내는 문서 10건을 보내 주시면 유메로 검사해 틀린 곳과 고친 문장을 돌려 드립니다. 공개해도 되는 문서로 시작하셔도 됩니다.", cta: "trial10" },
+  { n: "3", k: "2주 PoC", v: "합의한 문서 수만큼 2주 동안 검사하고 보고서를 드립니다. 검사 건수, 오류 유형별 건수, 고치기 전·후 사례 3개, 처리 시간, 사람 검수와의 비용 비교가 들어갑니다.", cta: "poc" },
+  { n: "4", k: "월 약정", v: "PoC 결과를 보고 물량에 맞는 약정이나 종량제를 고릅니다. 결과가 기대에 못 미치면 계약하지 않으셔도 됩니다.", cta: "unsure" },
+];
+
+// 기업이 유메를 믿을 근거. 할 수 있는 것보다 할 수 없는 것을 먼저 말한다. 여기 적은 문장은 전부
+// 실제 동작이어야 한다 — 기준 자료 미저장은 server/apiV1.js, 보관 기간은 개인정보처리방침과 같다.
+const TRUST = [
+  {
+    k: "생성형 AI를 쓰고, 그 사실을 숨기지 않습니다",
+    v: "주장 추출, 검색어 작성, 고친 문장 제안에 생성형 AI(Anthropic Claude)를 씁니다. 다만 판정은 AI의 기억으로 확정하지 않습니다. 출처를 대지 못하는 '확인됨'과 '사실과 다름'은 자동으로 '확인되지 않음'으로 내려갑니다.",
   },
   {
-    tag: "금융",
-    title: "응대 스크립트가 현행 규정과 맞는지",
-    body: "법령은 개정됩니다. 유메는 오늘 시행 중인 조문만 조회해 대조하므로, 개정 전 기준으로 쓰인 설명을 사실과 다름으로 잡아냅니다.",
-    who: "은행 · 증권 · 보험 · 핀테크",
+    k: "모르면 모른다고 합니다",
+    v: "100% 정확하다고 말하지 않습니다. '확인되지 않음'은 거짓이라는 뜻이 아니라 근거를 찾지 못했다는 뜻이고, 그때 어디까지 찾았고 무엇을 못 봤는지를 함께 보여 드립니다. 중요한 결정은 판정에 붙은 원문 링크로 직접 확인하세요.",
   },
   {
-    tag: "커머스·마케팅",
-    title: "받은 적 없는 수상과 없는 인증",
-    body: "AI가 쓴 상품 설명에는 그럴듯한 수상 이력·인증 마크·점유율 수치가 섞여 들어갑니다. 공표된 기록이 있어야 할 주장인데 어디에도 없으면 유메가 지어낸 것으로 판정합니다. 표시·광고 문구는 사실과 다르면 그대로 법적 문제가 됩니다.",
-    who: "이커머스 · 브랜드 · 광고대행",
+    k: "사람 검수자를 대체하지 않습니다",
+    v: "유메는 사람 검수자의 1차 필터입니다. 검수자는 문서 전체를 처음부터 다시 읽는 대신 유메가 표시한 '사실과 다름'과 '확인되지 않음'부터 보면 됩니다. 최종 판단과 규제 준수 책임은 귀사에 있습니다.",
   },
   {
-    tag: "고객 응대",
-    title: "고객에게 잘못 알려준 환불 규정",
-    body: "청약철회 기간이나 보증 범위처럼 법으로 정해진 내용을 AI가 어림으로 답하면, 그 안내 자체가 분쟁의 근거가 됩니다. 유메는 해당 조문을 법제처에서 직접 받아 대조합니다.",
-    who: "CS 챗봇 · 상담 스크립트 · 도움말 센터",
+    k: "귀사 자료는 그 검사에만 씁니다",
+    v: "함께 넣은 기준 자료(약관·상품 정보)는 저장하지 않고, 그 자료로 낸 판정은 다른 고객과 공유하는 캐시에 넣지 않습니다. API로 보낸 텍스트는 과금·분쟁 대응을 위해 1년 보관하며 데이터셋 제공 대상에 넣지 않습니다. 유메가 쓰는 Claude API에 들어간 입력은 모델 학습에 쓰이지 않습니다.",
   },
   {
-    tag: "리서치·콘텐츠",
-    title: "본 적 없는 통계를 인용하는 일",
-    body: "\"업계 평균 18.7%\" 같은 수치는 출처 없이도 자연스럽게 읽힙니다. 유메는 이런 주장이 사실이라면 어디에 기록돼 있어야 하는지를 기준으로 탐색하고, 그 기록이 없으면 부존재 신뢰도로 판정합니다.",
-    who: "보고서 · 제안서 · 콘텐츠 제작",
+    k: "판정이 틀리면 고칩니다",
+    v: "결과 화면의 '이 판정이 틀렸나요?'나 이메일로 알려 주시면 검토해 판정을 바로잡고, 같은 실수가 반복되지 않도록 정확도 시험에 넣습니다. 보증이 아니라 확인입니다 — 유메는 무엇을 언제 어떤 원문으로 확인했는지를 기록으로 남깁니다.",
   },
 ];
 
@@ -65,7 +100,7 @@ const TECH = [
     v: "법률 주장은 웹 검색이 아니라 법제처 국가법령정보 공동활용 API로 조문 원문을 받아 대조합니다. 오늘 시행 중인 버전만 조회하므로 개정 전 내용을 현행으로 착각하지 않습니다.",
   },
   {
-    k: "부존재 신뢰도 (특허 출원)",
+    k: "부존재 신뢰도 (특허 출원 10-2026-0194281)",
     v: "못 찾았다고 곧바로 없다고 하지 않습니다. 탐색 커버리지(C)·식별자 형식오류(F)·유사 실재 항목과의 근접도(P)로 부존재 신뢰도를 산출하고, 임계값을 넘을 때만 지어낸 것으로 판정합니다.",
   },
   {
@@ -159,14 +194,20 @@ export default function BusinessPage() {
 
         {/* ── 히어로: 주장 대신 점검 ───────────────────────────────── */}
         <header style={{ marginTop: "clamp(40px, 6vw, 68px)" }}>
-          <div style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: UI.ink3 }}>기업용 팩트체크</div>
+          <div style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: UI.ink3 }}>기업용 AI 할루시네이션 검사</div>
           <h1 style={{ fontSize: "clamp(30px, 5vw, 52px)", fontWeight: 700, letterSpacing: "-0.035em", color: UI.ink, margin: "14px 0 0", lineHeight: 1.18, textWrap: "balance" }}>
             밖으로 나가기 전에, 사실인지 확인합니다
           </h1>
+          <div style={{ fontSize: "clamp(16px, 1.8vw, 20px)", fontWeight: 600, color: UI.accent, margin: "12px 0 0", letterSpacing: "-0.015em" }}>
+            AI의 짐작이 아니라, 원문으로 판정합니다.
+          </div>
           <p style={{ fontSize: "clamp(16px, 1.7vw, 19px)", color: UI.ink2, lineHeight: 1.7, margin: "18px 0 0", maxWidth: "52ch" }}>
             고객에게 나갈 답변, 상담 스크립트, 상품 설명, 보도자료.
             유메가 문장 속 사실 주장을 하나씩 떼어 <b>법령 원문과 공식 레지스트리에 직접 대조</b>합니다.
             AI가 쓴 글이든 사람이 쓴 글이든 같습니다.
+          </p>
+          <p style={{ fontSize: "clamp(14px, 1.4vw, 16px)", color: UI.ink2, lineHeight: 1.7, margin: "10px 0 0", maxWidth: "52ch" }}>
+            검수자를 대신하지 않습니다. <b>사람 검수자의 1차 필터</b>로, 검수자가 볼 곳을 먼저 표시합니다.
           </p>
           <p style={{ fontSize: "clamp(14px, 1.4vw, 16px)", color: UI.ink3, lineHeight: 1.7, margin: "10px 0 0", maxWidth: "52ch" }}>
             문서를 올리면 틀린 곳을 표시하고 고친 본문까지 드립니다. 개발팀이 있다면 API로 붙이세요.
@@ -324,6 +365,42 @@ Authorization: Bearer <API_KEY>
           </div>
         </Section>
 
+        {/* ── 도입 순서 ──────────────────────────────────────────── */}
+        <Section id="start" eyebrow="도입 순서" title="증거를 먼저 보시고, 그다음에 정하세요" lede="처음 두 단계는 비용이 들지 않고 결재도 필요 없습니다. 결과가 기대에 못 미치면 거기서 멈추시면 됩니다.">
+          <ol style={{ listStyle: "none", padding: 0, margin: "22px 0 0", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 12 }}>
+            {STEPS.map((st) => (
+              <li key={st.n} style={{ padding: "18px 20px", borderRadius: 18, background: "rgba(255,255,255,0.86)", border: `1px solid ${UI.hairline}`, display: "flex", flexDirection: "column", gap: 8 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: UI.accent, letterSpacing: "0.08em" }}>STEP {st.n}</div>
+                <div style={{ fontSize: 15.5, fontWeight: 700, color: UI.ink, letterSpacing: "-0.015em" }}>{st.k}</div>
+                <div style={{ fontSize: 13.5, color: UI.ink2, lineHeight: 1.65, flex: 1 }}>{st.v}</div>
+                {st.cta === "audit" ? (
+                  <button type="button" onClick={() => setShowAudit(true)} style={{ ...btnGhost, padding: "9px 14px", fontSize: 13, marginTop: 4 }}>무료 점검 시작</button>
+                ) : (
+                  <button type="button" onClick={ask(st.cta)} style={{ ...btnGhost, padding: "9px 14px", fontSize: 13, marginTop: 4 }}>
+                    {st.cta === "trial10" ? "10건 무료 검사 신청" : st.cta === "poc" ? "PoC 문의" : "약정 상담"}
+                  </button>
+                )}
+              </li>
+            ))}
+          </ol>
+        </Section>
+
+        {/* ── 신뢰 ────────────────────────────────────────────────── */}
+        <Section id="trust" eyebrow="신뢰와 데이터" title="할 수 있는 것과 할 수 없는 것을 먼저 말씀드립니다" lede="확인을 파는 서비스가 스스로를 과장하면 그 자체로 신뢰를 잃습니다. 유메가 어떻게 판정하고 귀사 자료를 어떻게 다루는지 그대로 적었습니다.">
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12, marginTop: 22 }}>
+            {TRUST.map((t) => (
+              <div key={t.k} style={{ padding: "18px 20px", borderRadius: 18, background: "rgba(255,255,255,0.86)", border: `1px solid ${UI.hairline}` }}>
+                <div style={{ fontSize: 15, fontWeight: 700, color: UI.ink, letterSpacing: "-0.015em" }}>{t.k}</div>
+                <div style={{ fontSize: 13.5, color: UI.ink2, lineHeight: 1.7, marginTop: 6 }}>{t.v}</div>
+              </div>
+            ))}
+          </div>
+          <p style={{ fontSize: 13, color: UI.ink3, lineHeight: 1.7, margin: "14px 2px 0" }}>
+            업종별 문구는 규제 준수를 보장한다는 뜻이 아닙니다. 유메는 준수를 돕는 확인 도구이고, 판정은 법률·의료·금융 자문이 아닙니다.
+            자세한 내용은 <a href={`${YUME_URL}/terms`} style={{ color: UI.accent }}>이용약관</a>과 <a href={`${YUME_URL}/privacy`} style={{ color: UI.accent }}>개인정보처리방침</a>에 있습니다.
+          </p>
+        </Section>
+
         {/* ── 기술 ────────────────────────────────────────────────── */}
         <Section eyebrow="어떻게 다른가" title="“AI가 한 번 더 확인했습니다”와는 다릅니다" lede="AI에게 한 번 더 물으면 같은 기억에서 같은 답이 나옵니다. 유메는 판정마다 공식 기록과 출처 원문을 직접 대조하고, 못 찾았다는 사실 자체를 정량화합니다.">
           <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 22 }}>
@@ -343,11 +420,11 @@ Authorization: Bearer <API_KEY>
           </h2>
           <p style={{ fontSize: 15.5, color: "#CFC9DE", lineHeight: 1.7, margin: "12px 0 0", maxWidth: "48ch" }}>
             5분이면 됩니다. 질문을 받아 귀사 AI에 넣고, 답변을 붙여넣으면 끝입니다.
-            결과는 사내에 공유할 수 있는 리포트 링크로 나옵니다.
+            결과는 사내에 공유할 수 있는 리포트 링크로 나옵니다. 실제 문서로 보고 싶으시면 10건을 무료로 검사해 드립니다.
           </p>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 22 }}>
             <button onClick={() => setShowAudit(true)} style={btn}>무료로 점검받기</button>
-            <button type="button" onClick={ask()} style={{ ...btn, background: "rgba(255,255,255,0.14)" }}>도입 문의</button>
+            <button type="button" onClick={ask("trial10")} style={{ ...btn, background: "rgba(255,255,255,0.14)" }}>문서 10건 무료 검사</button>
           </div>
         </section>
 
@@ -377,6 +454,7 @@ Authorization: Bearer <API_KEY>
             )}
             <div>이메일 {BUSINESS.email}</div>
             <div>{COMPLAINT_NOTICE} {COMPLAINT_OFFICER}</div>
+            <div style={{ marginTop: 6 }}>유메는 검증 과정에 생성형 AI를 사용합니다. 판정은 공개 원문과 대조한 검증 정보이며 법률·의료·금융 자문이나 보증이 아닙니다.</div>
             <div style={{ marginTop: 6 }}>{COPYRIGHT}</div>
           </address>
         </footer>
