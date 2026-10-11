@@ -23,7 +23,8 @@ import { t, useLang, getLang } from "./i18n.js";
 import { useMediaQuery } from "./useMedia.js";
 
 // 기업용 사이트 주소. 별도 도메인에 따로 배포되므로 코드에 박지 않고 빌드 환경변수로 받는다.
-const BUSINESS_URL = (import.meta.env?.VITE_BUSINESS_URL || "https://business.yume-reamer.com").replace(/\/+$/, "");
+// 기업용 홈은 같은 서버의 /business에서 열린다(server/app.js). 별도 도메인을 쓰려면 VITE_BUSINESS_URL로 덮는다.
+const BUSINESS_URL = (import.meta.env?.VITE_BUSINESS_URL || "/business").replace(/\/+$/, "");
 
 const EASE_APPLE = [0.22, 1, 0.36, 1];
 
@@ -1348,19 +1349,17 @@ export default function YumeDashboard() {
           )}
         </div>
         <div className="yume-nav-right" style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end", alignItems: "center" }}>
-          {/* 기업용 사이트는 별도 도메인이라 내부 이동이 아니라 바깥 링크다.
-              앱에서는 숨긴다 — 도입 상담을 하려고 앱을 깔지는 않는다. */}
-          {/* 언어. 바꿔 갈 언어를 그 언어로 적는다 — "English"라고 적혀 있으면
-              한국어를 못 읽는 사람도 무슨 버튼인지 안다. "EN/KO" 같은 약자는
-              눌러 보기 전에는 지금이 어느 쪽인지 알 수 없다. */}
-          <motion.button {...navEnter(0.08)}
-            whileHover={{ backgroundColor: "#fff" }} whileTap={{ scale: 0.96 }}
-            onClick={() => setLang(lang === "ko" ? "en" : "ko")}
-            aria-label={lang === "ko" ? "Switch to English" : "한국어로 전환"}
-            className="yume-nav-pill" style={{
-            ...pillBtn, border: `1px solid ${UI.hairline}`,
-            background: "rgba(255,255,255,0.55)", color: UI.ink2, fontWeight: 600,
-          }}>{tightNav ? (lang === "ko" ? "EN" : "한") : (lang === "ko" ? "English" : "한국어")}</motion.button>
+          {/* 기업용 홈(/business) — 검사·감사·지수와 요금·도입 문의가 모여 있다.
+              앱·스토어 빌드에서는 숨긴다 — 도입 상담을 하려고 앱을 깔지는 않는다.
+              언어 전환은 푸터로 옮겼다(상단 자리는 기업 고객의 첫 진입점이 더 급하다). */}
+          {!IS_NATIVE_APP && !IS_STORE_BUILD && (
+            <motion.a {...navEnter(0.08)} href={BUSINESS_URL}
+              whileHover={{ backgroundColor: "#fff" }} whileTap={{ scale: 0.96 }}
+              className="yume-nav-pill" style={{
+              ...pillBtn, border: `1px solid ${UI.hairline}`, textDecoration: "none",
+              background: "rgba(255,255,255,0.55)", color: UI.ink2, fontWeight: 600,
+            }}>{t("기업용")}</motion.a>
+          )}
           {!IS_STORE_BUILD && <motion.button {...navEnter(0.12)}
             whileHover={{ backgroundColor: "#fff" }} whileTap={{ scale: 0.96 }}
             onClick={() => openStore("credits")} className="yume-nav-pill" aria-label={t("크레딧 충전")} style={{
@@ -2166,6 +2165,8 @@ export default function YumeDashboard() {
               {!IS_STORE_BUILD && <button onClick={() => setShowBiz(true)} className="yume-footer-link" style={{ border: "none", background: "transparent", color: UI.ink2, fontSize: 13, cursor: "pointer", padding: 0 }}>{t("비즈니스 · API")}</button>}
               {!IS_STORE_BUILD && <a href="/docs/api" target="_blank" rel="noopener noreferrer" className="yume-footer-link" style={{ color: UI.ink2, fontSize: 13, textDecoration: "none" }}>{t("API 문서")}</a>}
               <a href="/hallucination-index" className="yume-footer-link" style={{ color: UI.ink2, fontSize: 13, textDecoration: "none" }}>{t("할루시네이션 지수")}</a>
+              {/* 언어. 바꿔 갈 언어를 그 언어로 적는다 — "English"라고 적혀 있으면 한국어를 못 읽는 사람도 무슨 버튼인지 안다. */}
+              <button onClick={() => setLang(lang === "ko" ? "en" : "ko")} aria-label={lang === "ko" ? "Switch to English" : "한국어로 전환"} className="yume-footer-link" style={{ border: "none", background: "transparent", color: UI.ink2, fontSize: 13, cursor: "pointer", padding: 0 }}>{lang === "ko" ? "English" : "한국어"}</button>
               {!IS_NATIVE_APP && !IS_STORE_BUILD && (
                 <a href={BUSINESS_URL} className="yume-footer-link" style={{ color: UI.ink2, fontSize: 13, textDecoration: "none" }}>{t("기업용")}</a>
               )}

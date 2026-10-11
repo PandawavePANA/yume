@@ -12,6 +12,11 @@ export default defineConfig({
   },
   build: {
     rollupOptions: {
+      // 기업용 홈(business.html)도 같이 만든다 — 서버가 /business로 연다(server/app.js).
+      input: {
+        index: fileURLToPath(new URL("./index.html", import.meta.url)),
+        business: fileURLToPath(new URL("./business.html", import.meta.url)),
+      },
       output: {
         // 리액트와 애니메이션 라이브러리는 우리가 코드를 고쳐도 그대로다. 따로 떼어 두면
         // 배포할 때마다 다시 내려받지 않는다 — 다시 오는 사람에게는 이게 가장 큰 차이다.

@@ -48,13 +48,15 @@ export default function IndexBand({ businessUrl }) {
         <div>
           <div style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: "0.12em", color: "#A88BEA" }}>{latest ? latest.title : t("창간 준비 중")}</div>
           <div style={{ fontSize: "clamp(52px, 9vw, 88px)", fontWeight: 800, letterSpacing: "-0.045em", lineHeight: 1, marginTop: 10, fontVariantNumeric: "tabular-nums" }}>
-            {has ? pct(h.rate) : latest === undefined ? "…" : t("곧 첫 호")}
+            {has ? pct(h.rate) : latest === undefined ? "…" : latest ? t("창간호 발행") : t("곧 첫 호")}
           </div>
         </div>
         <div style={{ fontSize: 14.5, color: "#CFC9DE", lineHeight: 1.75 }}>
           {has
             ? t("정답이 확정된 질문 {n}건 중 AI가 근거 없이 지어낸 비율 · 95% 신뢰구간 {low}~{high}", { n: Number(h.n).toLocaleString("ko-KR"), low: pct(h.low), high: pct(h.high) })
-            : t("첫 호는 감사와 자가 점검 표본이 공개 기준을 넘으면 발행합니다. 무엇을 어떻게 재는지는 지금 공개되어 있습니다.")}
+            : latest
+              ? t("창간호는 측정 방법과 기준선을 먼저 공개했습니다. 대표 숫자는 사람이 재확인한 감사 표본이 모이는 다음 호부터 싣습니다.")
+              : t("첫 호는 감사와 자가 점검 표본이 공개 기준을 넘으면 발행합니다. 무엇을 어떻게 재는지는 지금 공개되어 있습니다.")}
           <div style={{ marginTop: 12, fontWeight: 700, color: "#A88BEA" }}>{t("지수 보기 →")}</div>
         </div>
       </a>

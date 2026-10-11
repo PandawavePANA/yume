@@ -999,4 +999,6 @@ export default {
   "감사 알아보기 ›": "About audits ›",
   "AI가 근거 없이 지어내는 비율을 같은 방법으로 반복해 재고 주기마다 공개합니다. 표본·신뢰구간·방법을 함께 싣습니다.": "We measure how often AI makes things up, the same way each time, and publish on schedule — with sample sizes, confidence intervals and method.",
   "지수 보기 ›": "View the index ›",
+  "창간호 발행": "First issue out",
+  "창간호는 측정 방법과 기준선을 먼저 공개했습니다. 대표 숫자는 사람이 재확인한 감사 표본이 모이는 다음 호부터 싣습니다.": "The first issue publishes the method and a baseline. The headline number starts with the next issue, once human-rechecked audit samples come in.",
 };

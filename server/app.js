@@ -528,7 +528,9 @@ app.get("/hallucination-index/latest.json", async (req, res) => {
   const i = await latestIssue();
   if (!i) return res.status(404).json({ error: "아직 발행한 지수가 없어요." });
   const d = JSON.parse(i.data_json);
-  res.json({ slug: i.slug, title: i.title, url: `/hallucination-index/${i.slug}`, period_start: Number(i.period_start), period_end: Number(i.period_end), published_at: Number(i.published_at), method_version: i.method_version, sha256: i.sha256, headline: d.headline || null });
+  res.json({ slug: i.slug, title: i.title, url: `/hallucination-index/${i.slug}`, period_start: Number(i.period_start), period_end: Number(i.period_end), published_at: Number(i.published_at), method_version: i.method_version, sha256: i.sha256, headline: d.headline || null,
+    // 대표 숫자가 없는 호(창간호처럼)도 무엇을 쟀는지 말할 수 있게 기준선 숫자를 같이 준다.
+    audits: { services: d.audits?.services || 0 }, engine: { texts: d.engine?.texts || 0, claims: d.engine?.claims || 0 } });
 });
 app.get("/hallucination-index/:slug", async (req, res, next) => {
   const raw = String(req.params.slug);
@@ -605,6 +607,10 @@ if (fs.existsSync(appDir)) {
 }
 
 if (fs.existsSync(distDir)) {
+  // 기업용 홈 — 메인 빌드가 business.html을 함께 만든다(vite.config.js). 별도 도메인(business.)에도
+  // 같은 화면이 배포되지만, 메인 상단의 "기업용" 버튼과 지수 페이지는 같은 도메인의 이 주소로 온다.
+  const businessShell = path.join(distDir, "business.html");
+  app.get(/^\/business\/?$/, (req, res, next) => (fs.existsSync(businessShell) ? sendShell(res, businessShell) : next()));
   app.use(staticFiles(distDir));
   app.get(/^(?!\/(api|v1)\/).*/, (req, res) => sendShell(res, path.join(distDir, "index.html")));
 }
