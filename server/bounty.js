@@ -17,7 +17,9 @@ const MAX_PENDING_PER_USER = 10;
 export function bountyEligibility(claim) {
   if (!claim) return { eligible: false, reason: "주장을 찾을 수 없어요." };
   const nec = claim.nec;
-  if (!nec || nec.grade !== "nonexistent") {
+  // 부존재가 확인됐어도 주장이 "그런 판례는 없다"였다면 AI는 맞게 말한 것이다(claimStance.js).
+  // 지어낸 인용은 판정이 '사실과 다름'인 것뿐이다.
+  if (!nec || nec.grade !== "nonexistent" || claim.verdict !== "false") {
     return { eligible: false, reason: "존재하지 않는 인용(판례·법령·논문)으로 판정된 주장만 제보할 수 있어요." };
   }
   const value = nec.identifier?.canonical || nec.identifier?.value;

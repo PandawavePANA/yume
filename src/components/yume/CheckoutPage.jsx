@@ -90,8 +90,13 @@ export default function CheckoutPage({ order, user, onClose, onDone }) {
               fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace', fontVariantNumeric: "tabular-nums" }}>{won(order?.totalAmount)}</span>
           </div>
           <div style={{ fontSize: 12.5, color: UI.ink3, marginTop: 6, lineHeight: 1.6 }}>
-            부가세 포함 · 배송되는 실물이 없으며 결제가 확인되면 즉시 적용됩니다.
-            {order?.kind === "plan" && " 자동 갱신되지 않습니다."}
+            부가세 포함 · 배송되는 실물이 없으며 결제가 확인되면 즉시 충전됩니다.
+            신용카드·체크카드 일시불 결제입니다.
+          </div>
+          {/* 이니시스 포인트충전 조건 — 소진기한과 환불 방법을 충전하는 화면에 적어야 한다. */}
+          <div style={{ fontSize: 12.5, color: UI.ink2, marginTop: 8, lineHeight: 1.6, padding: "10px 12px", borderRadius: 10, background: "#F7F4FC" }}>
+            <b>{t("충전한 크레딧은 결제한 시점부터 1년 이내에 사용할 수 있으며, 1년 안에 쓰지 않은 크레딧은 소멸합니다.")}</b>{" "}
+            {t("환불은 결제하신 카드의 결제 취소로만 처리됩니다.")}
           </div>
 
           <div style={{ marginTop: 20, paddingTop: 18, borderTop: `1px solid ${UI.line}` }}>

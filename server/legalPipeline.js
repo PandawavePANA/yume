@@ -29,6 +29,7 @@ import {
   checkArticleAgainstLaw,
   normalizeLawName,
   resolveLawAlias,
+  LAW_ALIASES,
 } from "./nec/identifiers.js";
 import { caseSpaceKey, coverageFor } from "./nec/searchSpace.js";
 import { lawNameSimilarity, caseSimilarity, caseVariants } from "./nec/similarity.js";
@@ -48,7 +49,8 @@ const CASE_IN_TEXT = /(\d{2,4})\s?([가-힣]{1,3})\s?(\d{2,7})/;
 export async function resolveLegalClaims(claims, { ground = defaultGround, webVerify = defaultWebVerify, onProgress = () => {}, ledger = null } = {}) {
   return Promise.all(
     // from_claim_cache가 붙은 주장은 이미 판정이 끝난 것이다. 법제처를 다시 부르지 않는다.
-    claims.map((claim) => (claim.domain === "법률" && !claim.from_claim_cache ? resolveOne(claim, { ground, webVerify, onProgress, ledger }) : claim)),
+    // 기업 기준 자료로 판정이 끝난 주장(from_reference)도 다시 부르지 않는다 — 그 회사의 사실은 그 자료가 기준이다.
+    claims.map((claim) => (claim.domain === "법률" && !claim.from_claim_cache && !claim.from_reference ? resolveOne(claim, { ground, webVerify, onProgress, ledger }) : claim)),
   );
 }
 
@@ -103,13 +105,37 @@ export function statuteKind(name) {
   return "statute";
 }
 
+// 원문에 실제로 적힌 인용인가, 추출 단계가 짐작해 채운 것인가.
+//
+// 추출 단계는 "연차휴가 15일"처럼 조문 번호가 없는 주장에도 어느 법 몇 조인지 알면 채운다 —
+// 그래야 법제처 원문과 대조된다. 그런데 그 짐작이 틀리면 사용자가 인용하지도 않은 조문과
+// 대조해 '사실과 다름'이 나가고, 짐작한 번호가 없으면 '부존재'가 나간다. 법제처 판정은
+// 지목 재확인도 거치지 않는다. 남의 짐작으로 주장을 벌하면 안 되므로, 짐작한 인용으로는
+// 부정 판정(사실과 다름·부존재)을 내리지 않고 웹 확인으로 넘긴다. 맞다는 확인은 그대로 쓴다.
+const squash = (s) => String(s || "").replace(/[\s「」『』"'‘’“”·]/g, "");
+export function citationInText(claim, ref) {
+  const body = squash(`${claim.quote || ""} ${claim.text || ""}`);
+  const name = squash(ref.law_name);
+  const official = resolveLawAlias(ref.law_name) || ref.law_name;
+  // 원문은 약칭("근기법"), 추출은 정식 명칭("근로기준법")으로 적는 일이 흔하다. 양쪽 모두 본다.
+  const names = [name, squash(official), ...Object.entries(LAW_ALIASES).filter(([, v]) => v === official).map(([k]) => squash(k))];
+  const law = !!name && names.some((n) => n && body.includes(n));
+  const no = String(ref.article || "").match(/\d+/)?.[0];
+  const article = !no || new RegExp(`(제|^|[^\\d])${no}조`).test(body);
+  return { law, article };
+}
+
 async function resolveStatute(claim, ref, ctx) {
   const alias = resolveLawAlias(ref.law_name);
   const lawName = alias || ref.law_name.trim();
   const aliasNote = alias ? `‘${ref.law_name}’은(는) ‘${alias}’의 약칭이라 정식 명칭으로 조회했습니다. ` : "";
   const ident = checkStatute(lawName, ref.article);
+  const cited = citationInText(claim, ref);
+  ctx = { ...ctx, cited };
 
   if (ident.F > T1_SKIP_SEARCH) {
+    // 형식상 있을 수 없는 인용이라도, 원문이 그렇게 인용한 게 아니면 그건 추출 단계의 짐작이다.
+    if (!cited.law || !cited.article) return webFallback(claim, ctx);
     const nec = buildNecReport({ identifier: ident, spaceKey: "statute", skippedSearch: true, weights: WEIGHTS });
     return necOutcome(claim, nec, ctx);
   }
@@ -125,6 +151,9 @@ async function resolveStatute(claim, ref, ctx) {
   if (search.found) return resolveFoundStatute(claim, ident, search, aliasNote, ctx);
 
   if (kind === "admin_rule") return resolveNonNationalRule(claim, ident, lawName, "admin_rule", searchAdminRule, "law.go.kr:admrul", ctx);
+
+  // 원문에 없는 법령명을 추출 단계가 짐작했는데 그런 법령이 없다 — 그건 주장이 아니라 짐작이 틀린 것이다.
+  if (!cited.law) return webFallback(claim, ctx);
 
   // 공식 DB에 같은 이름의 법령이 없다 → 부분 일치로 걸린 법령들과의 근접도(P)를 본다.
   let candidates = search.candidates || [];
@@ -175,8 +204,15 @@ async function resolveFoundStatute(claim, ident, search, aliasNote, ctx) {
       const art = await getStatuteArticle(search.mst, ident.article.no, ident.article.branch);
       if (art.ok && art.found) {
         const grounded = await ctx.ground(claim.text, art.text, {
+          ledger: ctx.ledger,
           label: `법제처 국가법령정보 - ${search.lawNameOfficial}`,
           effectiveDate: formatDate(art.effectiveDate || search.effectiveDate),
+          // 폐지됐거나 이름이 바뀐 법령의 옛 조문이다. 이걸 말하지 않으면 옛 조문과 내용이 같다는
+          // 이유로 "지금도 그렇다"는 주장에 확인됨이 나간다.
+          notice:
+            search.versionStatus === "upcoming_only"
+              ? "이 조문은 아직 시행되지 않은 개정 예정 조문입니다. 주장이 현재 규정이라고 말하면 시행일 전이라는 점을 따지세요."
+              : "이 법령명으로는 현재 시행 중인 법령이 없습니다(폐지되었거나 다른 이름으로 바뀐 법령의 과거 조문). 주장이 이것을 현재 효력 있는 규정으로 말하면 false입니다. 주장이 스스로 과거 시점을 밝혔으면 그 시점 기준으로 대조하세요.",
         });
         return official(
           claim,
@@ -200,11 +236,14 @@ async function resolveFoundStatute(claim, ident, search, aliasNote, ctx) {
       explanation: `${aliasNote}"${search.lawNameOfficial}" 법령은 법제처에서 실재가 확인됐습니다. 조문 번호가 특정되지 않아 내용은 웹 자료로 확인했습니다 — ${web.explanation}`,
       sources: [...src, ...(web.sources || [])],
       ...dateField(search.effectiveDate),
+      existence: { status: "present", target: search.lawNameOfficial, label: search.lawNameOfficial, sources: src },
     };
   }
   const articleLabel = `제${ident.article.no}조${ident.article.branch ? `의${ident.article.branch}` : ""}`;
   const article = await getStatuteArticle(search.mst, ident.article.no, ident.article.branch);
   if (!article.ok) return webFallback(claim, ctx);
+  // 추출 단계가 짐작한 조문 번호가 없는 것이면 주장 탓이 아니다(citationInText).
+  if (!article.found && ctx.cited && !ctx.cited.article) return webFallback(claim, ctx);
   if (!article.found) {
     // 법령은 있는데 그 조문이 현행 본문에 없다 — 조문 단위로 부존재 신뢰도를 산출한다.
     const artIdent = checkArticleAgainstLaw({ ...ident, canonical: `${search.lawNameOfficial} ${articleLabel}` }, article.maxArticleNo);
@@ -223,6 +262,7 @@ async function resolveFoundStatute(claim, ident, search, aliasNote, ctx) {
         explanation: `${aliasNote}"${search.lawNameOfficial}"에는 현재 시행 중인 ${articleLabel}가 없습니다(부존재 신뢰도 ${nec.score}). 조문이 삭제·이동됐거나 존재하지 않는 조문입니다.`,
         sources,
         nec,
+        existence: { status: "absent", target: `${search.lawNameOfficial} ${articleLabel}`, label: `${search.lawNameOfficial} ${articleLabel}`, score: nec.score, sources },
         ...dateField(search.effectiveDate),
       };
     }
@@ -234,13 +274,16 @@ async function resolveFoundStatute(claim, ident, search, aliasNote, ctx) {
     label: `법제처 국가법령정보 - ${search.lawNameOfficial}`,
     effectiveDate: formatDate(effectiveDate),
   });
-  return official(
-    claim,
-    grounded.verdict || "uncertain",
-    `${aliasNote}${grounded.explanation || article.text}`,
-    [{ title: `${search.lawNameOfficial}${article.title ? " - " + article.title : ""}`, url: search.detailUrl }],
-    effectiveDate,
-  );
+  const artSource = [{ title: `${search.lawNameOfficial}${article.title ? " - " + article.title : ""}`, url: search.detailUrl }];
+  // 짐작한 조문과 어긋난다는 판정은 믿지 않는다 — 주장이 다른 조문 이야기일 수 있다. 웹으로 내용을 확인한다.
+  if (grounded.verdict === "false" && ctx.cited && !ctx.cited.article) {
+    const web = await webFallback(claim, ctx);
+    return { ...web, sources: [...(web.sources || []), ...artSource] };
+  }
+  return {
+    ...official(claim, grounded.verdict || "uncertain", `${aliasNote}${grounded.explanation || article.text}`, artSource, effectiveDate),
+    existence: { status: "present", target: `${search.lawNameOfficial} ${articleLabel}`, label: `${search.lawNameOfficial} ${articleLabel}`, sources: artSource },
+  };
 }
 
 // 발령번호로 인용된 행정규칙(고시·훈령·예규). 법제처가 발령번호를 색인하지 않으므로
@@ -275,13 +318,18 @@ async function resolveAdminRuleByNumber(claim, ident, lawName, ctx) {
     const note = art.deleted
       ? `${articleLabel}는 삭제된 조문입니다.`
       : `${articleLabel}가 없습니다(마지막 조문은 제${art.maxArticleNo}조입니다).`;
-    return official(claim, "false", `${label}는 실재하지만, 여기에는 ${note}`, [source], rule.effectiveDate);
+    return {
+      ...official(claim, "false", `${label}는 실재하지만, 여기에는 ${note}`, [source], rule.effectiveDate),
+      existence: { status: "absent", target: `${lawName} ${articleLabel}`, label: `${rule.name} ${articleLabel}`, sources: [source] },
+    };
   }
 
   ctx.onProgress(`"${short(rule.name)}" ${articleLabel} 조문과 대조 중…`);
   const grounded = await ctx.ground(claim.text, art.text, {
+    ledger: ctx.ledger,
     label: `법제처 국가법령정보 - ${rule.name}`,
     effectiveDate: formatDate(art.effectiveDate || rule.effectiveDate),
+    ...(rule.current ? {} : { notice: `이 ${rule.kind}는 현행이 아닙니다(폐지·개정 전 판). 주장이 이것을 현재 효력 있는 규정으로 말하면 false입니다.` }),
   });
   const stale = rule.current ? "" : ` (이 ${rule.kind}는 현행이 아닙니다.)`;
   return official(
@@ -300,7 +348,8 @@ async function resolveNonNationalRule(claim, ident, name, spaceKey, searchFn, so
   if (!r.ok) return webFallback(claim, ctx);
   if (r.found) {
     const web = await webFallback(claim, ctx);
-    return { ...web, sources: [{ title: r.item.name, url: r.item.url }, ...(web.sources || [])] };
+    const src = [{ title: r.item.name, url: r.item.url }];
+    return { ...web, sources: [...src, ...(web.sources || [])], existence: { status: "present", target: name, label: r.item.name, sources: src } };
   }
   const similar = (r.candidates || [])
     .map((c) => ({ value: c.lawNameOfficial, url: c.detailUrl, similarity: lawNameSimilarity(name, c.lawNameOfficial) }))
@@ -329,14 +378,13 @@ async function resolveCase(claim, ref, ctx) {
     if (!detail.ok || !detail.found || !detail.text) return webFallback(claim, ctx);
     const label = isConstitutional ? `헌법재판소 ${detail.caseNumber}` : `${detail.court || "대법원"} 판례 ${detail.caseNumber}`;
     ctx.onProgress(`${label} 원문과 대조 중…`);
-    const grounded = await ctx.ground(claim.text, detail.text, { label });
+    const grounded = await ctx.ground(claim.text, detail.text, { ledger: ctx.ledger, label });
     const fmtNote = ident.F > 0 ? ` (인용 표기 ‘${ref.case_number}’의 공식 표기는 ‘${caseNo}’입니다.)` : "";
-    return official(
-      claim,
-      grounded.verdict || "uncertain",
-      `${grounded.explanation || detail.text.slice(0, 150)}${fmtNote}`,
-      [{ title: `${isConstitutional ? "헌법재판소" : detail.court} ${detail.caseNumber} ${detail.caseName || ""}`.trim(), url: search.detailUrl }],
-    );
+    const caseSource = [{ title: `${isConstitutional ? "헌법재판소" : detail.court} ${detail.caseNumber} ${detail.caseName || ""}`.trim(), url: search.detailUrl }];
+    return {
+      ...official(claim, grounded.verdict || "uncertain", `${grounded.explanation || detail.text.slice(0, 150)}${fmtNote}`, caseSource),
+      existence: { status: "present", target: caseNo, label: label, sources: caseSource },
+    };
   }
 
   // 공식 DB에 없음 → 인용 기록과 근접 사건번호를 탐색해 커버리지·근접도를 구한다.
@@ -373,6 +421,14 @@ async function resolveCase(claim, ref, ctx) {
   return necOutcome(claim, nec, ctx, { spaceKey, searched, similar, identifier: ident });
 }
 
+// 판례 부존재 판정에는 사람이 한 번 더 확인할 길을 붙인다. 법제처 DB는 공개 판례만 싣고,
+// 법원 판결서 인터넷열람은 더 넓지만 공개 API가 없어 유메가 직접 조회하지 못한다.
+// 공개 범위(형사 2013년·민사 등 2015년 이후 확정분)도 함께 적어 둔다 — 오래된 사건은 거기에도 없을 수 있다.
+function recheckTip(nec) {
+  if (nec?.identifier?.type !== "case" || nec.formatError?.skippedSearch) return "";
+  return " 실제 판결서는 대법원 사법정보공개포털 ‘판결서 인터넷열람’에서 사건번호로 한 번 더 확인할 수 있습니다(형사 2013년·민사 등 2015년 이후 확정 판결 수록).";
+}
+
 // ───────────────────────── 판정 결합 ─────────────────────────
 // 1차 NEC가 부존재 확실이면 바로 false. 확인 불가면 웹 탐색으로 검색공간을 넓혀(청구항 1의
 // "하나 이상의 외부 참조 DB") 다시 산출한다. 웹에서 실재 흔적이 나오면 근접도 P=1로 반영.
@@ -385,9 +441,10 @@ async function necOutcome(claim, nec, ctx, widen = null) {
       ...claim,
       verdict: "false",
       verified_via: "nec",
-      explanation: `인용된 ‘${cited}’은(는) 존재하지 않을 가능성이 높습니다(부존재 신뢰도 ${nec.score}). ${nec.summary}`,
+      explanation: `인용된 ‘${cited}’은(는) 존재하지 않을 가능성이 높습니다(부존재 신뢰도 ${nec.score}). ${nec.summary}${recheckTip(nec)}`,
       sources: widen?.sources || [],
       nec,
+      existence: { status: "absent", target: cited, label: cited, score: nec.score },
     };
   }
   if (!widen?.spaceKey) {
@@ -409,9 +466,10 @@ async function necOutcome(claim, nec, ctx, widen = null) {
       ...webRest,
       verdict: "false",
       verified_via: "nec",
-      explanation: `인용된 ‘${cited}’은(는) 공식 DB·인용 기록·웹 어디에서도 확인되지 않아 존재하지 않을 가능성이 높습니다(부존재 신뢰도 ${nec2.score}).`,
+      explanation: `인용된 ‘${cited}’은(는) 공식 DB·인용 기록·웹 어디에서도 확인되지 않아 존재하지 않을 가능성이 높습니다(부존재 신뢰도 ${nec2.score}).${recheckTip(nec2)}`,
       sources: [...(widen.sources || []), ...(web.sources || [])],
       nec: nec2,
+      existence: { status: "absent", target: cited, label: cited, score: nec2.score },
     };
   }
   return {

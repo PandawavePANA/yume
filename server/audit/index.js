@@ -8,8 +8,52 @@ import { buildProbeSet, PROBE_TYPES, AUDIT_DOMAINS } from "./probeBank.js";
 import { gradeAnswer } from "./grade.js";
 import { scoreAudit, buildRecommendation } from "./score.js";
 import { explainResult } from "./explain.js";
+import { copyInstructions, cutAtStarts, splitByMarkers, splitNumbered } from "./splitAnswers.js";
+import { callClaudeJson } from "../claude.js";
 
-export { buildProbeSet, PROBE_TYPES, AUDIT_DOMAINS, explainResult };
+export { buildProbeSet, PROBE_TYPES, AUDIT_DOMAINS, explainResult, copyInstructions };
+
+const MAX_PASTE_CHARS = 60_000;
+
+// 붙여넣은 답변 한 덩어리를 문항별로 나눈다(splitAnswers.js의 순서대로).
+// 반환: { answers: { [probeId]: 답변 }, matched, method }
+export async function splitAnswerText(raw, probes, { call = callClaudeJson } = {}) {
+  const text = String(raw || "").slice(0, MAX_PASTE_CHARS);
+  const n = probes.length;
+  const toAnswers = (r, method) => {
+    const answers = {};
+    for (const [k, v] of Object.entries(r?.parts || {})) if (probes[Number(k) - 1]) answers[probes[Number(k) - 1].id] = v;
+    return { answers, matched: Object.keys(answers).length, method };
+  };
+  const enough = (r) => r && r.matched >= Math.ceil(n / 2);
+
+  const marked = splitByMarkers(text, n);
+  if (enough(marked)) return toAnswers(marked, "markers");
+
+  // 번호 표시가 없다 — 각 답변이 시작하는 원문 조각만 모델에게 묻는다(답을 옮겨 쓰게 하지 않는다).
+  try {
+    const list = probes.map((p, i) => `${i + 1}. ${p.question}`).join("\n");
+    const r = await call({
+      system:
+        "아래 '답변 전체'는 번호 붙은 질문들에 차례로 답한 글입니다. 각 질문에 대한 답이 **시작되는 부분**을 답변 전체에서 " +
+        "한 글자도 바꾸지 말고 그대로 20~40자 옮기세요. 그 질문에 대한 답이 없으면 빈 문자열로 두세요. 답 내용을 요약하지 마세요.\n" +
+        '반드시 JSON으로만: {"starts":{"1":"원문 그대로","2":"..."}}',
+      user: `질문:\n${list}\n\n답변 전체:\n${text}`,
+      maxTokens: 1500,
+      label: "audit:split",
+    });
+    const cut = cutAtStarts(text, r?.starts || {}, n);
+    if (cut && cut.matched >= 1) return toAnswers(cut, "located");
+  } catch {
+    // 나누기 보조가 실패해도 번호 방식으로 한 번 더 시도한다.
+  }
+  const numbered = splitNumbered(text, n);
+  if (numbered) return toAnswers(numbered, "numbered");
+  if (marked) return toAnswers(marked, "markers");
+  // 질문이 하나뿐이면 전체가 그 답이다.
+  if (n === 1 && text.trim()) return { answers: { [probes[0].id]: text.trim() }, matched: 1, method: "single" };
+  return { answers: {}, matched: 0, method: "none" };
+}
 
 const MAX_ANSWER_CHARS = 8000;
 const CONCURRENCY = 3;

@@ -31,6 +31,13 @@ const OVERALL_TONE = {
   unverified: { bg: "#FDEFEC", border: "#EFC2B6", fg: "#fff", chipBg: "#B23B2B" },
 };
 
+// 등급 이름 "부존재 확실"은 특허 용어다. 0.75에 "확실"을 붙이면 설명("가능성이 높습니다")과 어긋난다.
+// 앱 화면(NecPanel.jsx)과 같은 기준으로 점수 크기대로 고른다.
+function necGradeText(nec) {
+  if (nec.grade !== "nonexistent") return nec.gradeLabel || "확인 불가";
+  return Number(nec.score) >= 0.9 ? "존재하지 않음" : "존재하지 않을 가능성 높음";
+}
+
 function esc(s = "") {
   return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
@@ -67,7 +74,7 @@ export function necPanelHtml(nec) {
   const failing = (nec.formatError?.checks || []).filter((c) => c.score > 0).map((c) => `${c.name}: ${c.note}`).join(" / ");
   return `<details style="margin-top:10px;border:1px solid #E3D9F2;border-radius:12px;background:#FCFAFF;">
     <summary style="cursor:pointer;padding:10px 12px;font-size:12.5px;font-weight:700;color:#5B3FA0;">
-      부존재 신뢰도 ${Number(nec.score).toFixed(2)} · ${esc(nec.gradeLabel)} <span style="font-weight:500;color:#A99BC9;">(기준 ${nec.threshold}) — 판정 근거 보기</span>
+      부존재 신뢰도 ${Number(nec.score).toFixed(2)} · ${esc(necGradeText(nec))} <span style="font-weight:500;color:#A99BC9;">(기준 ${nec.threshold}) — 판정 근거 보기</span>
     </summary>
     <div style="padding:4px 14px 14px;font-size:12.5px;color:#4C5266;line-height:1.6;">
       <div style="margin-bottom:8px;">${esc(nec.summary || "")}</div>
@@ -132,6 +139,17 @@ function cardHeader() {
 // 공유한 사람의 추천 코드. 결과 링크를 받아 들어온 사람이 "직접 확인해보기"로 가입하면 공유한
 // 사람에게 추천이 잡힌다 — 공유가 곧 추천이어야 공유 버튼을 누를 이유가 생긴다.
 let ctaHref = "/";
+// 공유 결과 아래 고지 — 앱 결과 화면(ResultNotice)과 같은 문장. 법률 주장이 있으면 자문이 아니라는 문장을 먼저.
+function resultNotice(claims) {
+  const d = new Set(claims.map((c) => c.domain));
+  return [
+    d.has("법률") && "이 결과는 인용된 법령·판례가 실재하고 원문과 맞는지 확인한 정보이며, 법률 자문이 아닙니다. 개별 사안은 변호사와 상담하세요.",
+    d.has("의료") && "의료 정보는 진단이나 처방이 아닙니다. 치료와 복약은 의사·약사와 상담하세요.",
+    d.has("금융") && "금융 정보는 투자 권유나 자문이 아닙니다. 상품 가입 전에는 약관과 설명서를 직접 확인하세요.",
+    "유메는 주장 추출과 고친 문장 작성에 생성형 AI를 사용합니다. 판정은 출처 원문과 대조한 결과이며, '확인되지 않음'은 거짓이라는 뜻이 아니라 근거를 찾지 못했다는 뜻입니다. 중요한 결정은 출처 링크로 직접 확인하세요.",
+  ].filter(Boolean).join(" ");
+}
+
 function page({ head = "", cardBody, footer = "" }) {
   return `<!doctype html>
 <html lang="ko">
@@ -171,7 +189,7 @@ export function renderResultPage({ id, input, status, result, createdAt, ref = n
             <span style="font-variant-numeric:tabular-nums;">${elapsedSec}초</span> 동안 확인하는 중…
           </div>
           <div style="font-size:14px;color:#9C8FC2;text-align:center;max-width:420px;padding:0 16px;">AI 답변에서 사실 주장을 추출하고 실시간으로 검색하는 중…</div>
-          <div style="font-size:12px;color:#B6A9D6;">내용이 길면 최대 30초 정도 걸릴 수 있어요 · 이 페이지는 4초마다 자동으로 새로고침됩니다</div>
+          <div style="font-size:12px;color:#B6A9D6;">주장마다 원문을 직접 열어 확인해서 1~2분 걸릴 수 있어요 · 이 페이지는 4초마다 자동으로 새로고침됩니다</div>
         </div>`,
       footer: `<div class="footer">${businessLine()}<br/>id: ${esc(id)}</div>`,
     });
@@ -262,7 +280,7 @@ export function renderResultPage({ id, input, status, result, createdAt, ref = n
     : "";
 
   return page({
-    head: `<meta property="og:title" content="유메 검증 결과" />\n<meta property="og:description" content="${esc(result.overall?.detail || result.summary || "AI 답변 팩트체크 결과")}" />`,
+    head: `<meta property="og:title" content="유메 검증 결과" />\n<meta property="og:description" content="${esc(result.overall?.detail || result.summary || "AI 할루시네이션 검사 결과")}" />`,
     cardBody: `
       ${inputBox(input)}
       <div style="padding:16px;border-radius:14px;background:${tone.bg};border:1px solid ${tone.border};margin-bottom:14px;">
@@ -277,7 +295,8 @@ export function renderResultPage({ id, input, status, result, createdAt, ref = n
       ${claimsHtml}
       <div class="section-label">근거 자료 ${sources.length ? `(${sources.length})` : ""}</div>
       ${sourcesHtml}
-      ${productsHtml}`,
+      ${productsHtml}
+      <p style="font-size:12px;color:#8A84A0;line-height:1.7;margin:22px 0 0;">${esc(resultNotice(result.claims || []))}</p>`,
     footer: `<div class="footer">${businessLine()}<br/>id: ${esc(id)}</div>`,
   });
 }

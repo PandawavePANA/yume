@@ -16,17 +16,25 @@ export const COMPANY = {
   // 간이과세자는 통신판매업 신고 면제 대상일 수 있어, 없으면 표시하지 않는다.
   mailOrderNo: process.env.MAIL_ORDER_NO || "",
 };
-const EFFECTIVE_DATE = "2026년 9월 12일";
+
+// 민원 책임 고지 — 이니시스 포인트충전 입점 조건으로 사이트 하단에 늘 보여야 한다.
+// 프런트(src/businessInfo.js)에도 같은 문장이 있다. 바꾸면 둘 다 고칠 것.
+export const COMPLAINT_NOTICE = "모든 거래에 대한 책임과 환불, 민원 등은 리머에서 진행합니다.";
+export const complaintOfficer = () => `민원담당자 ${COMPANY.ceo} · ${COMPANY.tel} · ${COMPANY.email}`;
+// 2026-10-08 개정: 월 요금제 판매 종료, 크레딧 유효기간 1년, 환불은 카드 결제 취소로만(이니시스 포인트충전 조건).
+const EFFECTIVE_DATE = "2026년 10월 8일";
+const EFFECTIVE_PREVIOUS = "2026년 9월 12일";
 // 개인정보처리방침은 약관과 따로 개정된다. 바꿀 때마다 이 날짜와 아래 개정 이력을 함께 고친다.
 const PRIVACY_EFFECTIVE_DATE = "2026년 9월 19일";
 const PRIVACY_PREVIOUS = ["2026년 9월 12일"];
 
 import { PLANS } from "./plans.js";
 import { CREDIT_PACKS, PLAN_CREDITS, CHARS_PER_CREDIT } from "./credits.js";
+import { CREDIT_VALID_DAYS } from "./creditExpiry.js";
 
-const esc = (s = "") => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+export const esc = (s = "") => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
-function layout(title, body, { narrow = false, script = "" } = {}) {
+export function layout(title, body, { narrow = false, script = "" } = {}) {
   return `<!doctype html>
 <html lang="ko"><head>
 <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -53,7 +61,7 @@ function layout(title, body, { narrow = false, script = "" } = {}) {
 <body><div class="wrap">
   <div class="top"><a href="/">← 유메로 돌아가기</a></div>
   <div class="card">${body}</div>
-  <div class="foot">${businessLine()}<br/><a href="/terms">이용약관</a> · <a href="/privacy"><b>개인정보처리방침</b></a> · <a href="/refund">환불정책</a> · <a href="/products">상품 안내</a> · <a href="/docs/api">API 문서</a></div>
+  <div class="foot">${businessLine()}<br/>${esc(COMPLAINT_NOTICE)} ${esc(complaintOfficer())}<br/><a href="/terms">이용약관</a> · <a href="/privacy"><b>개인정보처리방침</b></a> · <a href="/refund">환불정책</a> · <a href="/products">상품 안내</a> · <a href="/docs/api">API 문서</a></div>
 </div>${script}</body></html>`;
 }
 
@@ -110,7 +118,7 @@ export function renderTermsPage() {
     `<h1>유메 이용약관</h1><p class="muted">시행일: ${EFFECTIVE_DATE}</p>
 
 <h2>제1조 (목적)</h2>
-<p>이 약관은 ${esc(COMPANY.name)}(이하 "회사")가 제공하는 팩트체크 서비스 "유메(YUME)"(이하 "서비스")의 이용 조건과 절차, 회사와 이용자의 권리·의무 및 책임 사항을 정합니다.</p>
+<p>이 약관은 ${esc(COMPANY.name)}(이하 "회사")가 제공하는 AI 할루시네이션 검사 서비스 "유메(YUME)"(이하 "서비스")의 이용 조건과 절차, 회사와 이용자의 권리·의무 및 책임 사항을 정합니다.</p>
 
 <h2>제2조 (정의)</h2>
 <ol>
@@ -129,6 +137,8 @@ export function renderTermsPage() {
 <li>회사는 이용자가 입력한 텍스트에서 사실 주장을 추출하고, 법제처 국가법령정보 등 공식 데이터와 웹 자료를 대조해 판정과 근거를 제공합니다.</li>
 <li>인용된 법령·판례·문헌 또는 사실 주장을 공식 데이터와 웹에서 찾지 못한 경우, 회사는 탐색 범위를 바탕으로 산출한 "부존재 신뢰도"와 아직 확인하지 못한 영역을 함께 안내합니다.</li>
 <li>회원에게는 검증 기록 저장, API 키 발급, 개인 데이터 내려받기 기능을 제공합니다.</li>
+<li>회사는 AI 서비스를 운영하는 기업의 서비스 답변을 표본으로 검사(이하 "감사")할 수 있습니다. 감사는 일반 이용자로서 직접 입력한 질문과 받은 답변으로만 하며, 결과는 그 기업에 비공개로 전달합니다. 기업 이름과 감사 결과는 그 기업이 공개에 동의한 경우에만 공개합니다.</li>
+<li>회사는 같은 방법으로 반복해 측정한 "YUME 할루시네이션 지수"를 주기적으로 공개합니다. 지수는 감사·무료 점검·검사 결과를 개인과 기업을 알아볼 수 없게 집계한 숫자이며, 특정 서비스의 품질을 보증하지 않습니다. 발행한 지수는 고치지 않으며, 바로잡을 때에는 사유와 함께 정정 기록을 공개합니다.</li>
 </ol>
 
 <h2>제5조 (판정의 성격과 한계)</h2>
@@ -136,26 +146,34 @@ export function renderTermsPage() {
 <li>판정은 서비스가 확인할 수 있었던 자료를 기준으로 한 <b>참고 정보</b>이며, 법률·의료·금융·세무 등 전문가의 자문을 대신하지 않습니다. 중요한 결정은 반드시 해당 분야 전문가와 원문 자료로 다시 확인하시기 바랍니다.</li>
 <li>공식 데이터베이스와 웹 자료는 모든 사실을 수록하지 않으며, 수록 범위와 최신성에는 한계가 있습니다. "부존재 신뢰도"와 "탐색 커버리지"는 추정값입니다.</li>
 <li>회사는 판정의 정확성을 높이기 위해 노력하지만, 판정이 항상 옳다고 보증하지 않습니다.</li>
+<li>서비스는 주장 추출, 검색어 작성, 고친 문장 제안 등 <b>검증 과정에 생성형 AI를 사용합니다</b>. 서비스가 제시하는 "고친 문장"과 "고친 본문"은 생성형 AI가 판정 근거의 값으로 작성한 결과물입니다.</li>
+<li>"확인되지 않음"은 근거를 찾지 못했다는 뜻이며, 거짓이라는 뜻이 아닙니다. "사실과 다름"은 확인된 근거에 기초한 판정이며 그 근거와 함께 제공됩니다.</li>
+<li>법령·판례에 대한 판정은 인용된 법령·판례가 실재하고 원문과 일치하는지를 확인한 정보이며, 개별 사안에 대한 법률 판단이나 법률 자문이 아닙니다. 개별 사안은 변호사와 상담하시기 바랍니다.</li>
+<li>서비스는 이용자의 광고·표시·설명 등에 관한 법령 준수를 돕는 확인 도구이며, 법령 준수를 보장하지 않습니다. 준수 책임은 해당 글을 작성·게시하는 이용자에게 있습니다.</li>
+<li>중요한 결정에는 판정에 붙은 원문 링크로 직접 확인하시기 바랍니다.</li>
+<li>판정이 틀렸다고 보는 이용자는 결과 화면의 "이 판정이 틀렸나요?" 또는 고객센터 이메일로 정정을 신고할 수 있습니다. 회사는 신고를 검토해 판정을 바로잡고 그 결과를 알려 드립니다.</li>
 </ol>
 
 <h2>제6조 (회원 가입)</h2>
 <p>이용자는 이메일과 비밀번호를 입력하고 이 약관과 개인정보 수집·이용에 동의해 가입합니다. 타인의 정보를 도용하거나 허위 정보를 입력한 경우 회사는 가입을 거절하거나 이용을 제한할 수 있습니다. 만 14세 미만은 가입할 수 없습니다.</p>
 
-<h2>제7조 (요금제와 이용 한도)</h2>
+<h2>제7조 (크레딧과 이용 한도)</h2>
 <ol>
-<li>서비스는 무료 플랜과 유료 플랜으로 제공되며, 플랜별 하루 이용 횟수와 기능은 요금제 화면에 게시합니다.</li>
-<li>유료 플랜에도 서비스 안정성과 공정한 이용을 위해 하루 이용 한도(공정 이용 한도)가 적용됩니다.</li>
-<li>서버 오류로 검증이 완료되지 않은 요청은 이용 횟수에서 차감하지 않습니다.</li>
-<li>유료 플랜과 크레딧의 결제·환불 조건은 <a href="/refund">환불정책</a>에서 정하며, 「전자상거래 등에서의 소비자보호에 관한 법률」 등 관계 법령에 따릅니다.</li>
+<li>서비스는 매일 정해진 횟수의 무료 확인과, 그 이상을 이용하기 위한 크레딧(충전식 이용권)으로 제공됩니다. 무료 횟수와 크레딧 차감 기준은 서비스 화면과 <a href="/products">상품 안내</a>에 게시합니다.</li>
+<li>서비스 안정성과 공정한 이용을 위해 하루 이용 한도(공정 이용 한도)가 적용됩니다.</li>
+<li>서버 오류로 검증이 완료되지 않은 요청은 이용 횟수에서 차감하지 않으며, 차감된 크레딧은 자동으로 환급합니다.</li>
+<li><b>크레딧은 적립(충전)한 날부터 1년 이내에 사용할 수 있으며, 그 기간 안에 사용하지 않은 크레딧은 소멸합니다.</b> 크레딧은 먼저 적립된 것부터 차감됩니다.</li>
+<li>크레딧의 결제·환불 조건은 <a href="/refund">환불정책</a>에서 정하며, 「전자상거래 등에서의 소비자보호에 관한 법률」 등 관계 법령에 따릅니다.</li>
 </ol>
 
 <h2>제7조의2 (결제)</h2>
 <ol>
-<li>유료 상품의 결제 수단은 신용카드·체크카드이며, 결제는 회사가 지정한 전자결제대행사를 통해 이루어집니다.</li>
+<li>유료 상품은 크레딧 충전뿐이며, 결제 수단은 신용카드·체크카드 <b>일시불</b>입니다. 결제는 회사가 지정한 전자결제대행사(주식회사 케이지이니시스)를 통해 이루어집니다.</li>
 <li>서비스 화면과 <a href="/products">상품 안내</a>에 표시되는 금액은 부가가치세가 포함된 최종 결제 금액입니다.</li>
-<li>유료 플랜은 <b>1개월 이용권을 그때마다 결제하는 방식</b>이며, 자동으로 갱신되거나 다시 결제되지 않습니다. 따라서 별도의 정기결제 해지 절차가 없습니다. 이용 기간이 끝나면 무료 플랜으로 돌아갑니다.</li>
+<li>회사는 정기결제(자동 결제) 상품을 판매하지 않습니다. 크레딧은 회원이 필요할 때마다 직접 충전합니다.</li>
 <li>결제 금액은 서버가 확정하며, 회원은 결제 전 주문 화면에서 상품명·금액·판매자 정보와 환불 조건을 확인한 뒤 결제합니다.</li>
-<li>결제가 정상적으로 확인되면 크레딧과 이용 권한은 즉시 계정에 반영됩니다.</li>
+<li>결제가 정상적으로 확인되면 크레딧은 즉시 계정에 반영됩니다. 충전·차감 내역과 잔여 크레딧은 계정 설정의 크레딧 화면에서 확인할 수 있습니다.</li>
+<li>크레딧은 현금으로 환급되지 않으며, 환불은 결제한 카드의 결제 취소로만 처리됩니다.</li>
 </ol>
 
 <h2>제7조의3 (청약철회)</h2>
@@ -206,7 +224,8 @@ export function renderTermsPage() {
 <p>서비스 이용과 관련한 분쟁은 대한민국 법을 따르며, 소송이 제기되는 경우 민사소송법상의 관할 법원에서 해결합니다.</p>
 
 <h2>부칙</h2>
-<p>이 약관은 ${EFFECTIVE_DATE}부터 시행합니다.</p>`,
+<p>이 약관은 ${EFFECTIVE_DATE}부터 시행합니다.</p>
+<p class="muted">개정 이력: 2026년 10월 11일 제4조에 기업 AI 감사와 YUME 할루시네이션 지수 안내를 추가(이용자의 권리·의무 변경 없음) · 2026년 10월 11일 제5조에 생성형 AI 사용·판정의 뜻·법률 자문 아님·정정 신고 안내를 보완(이용자의 권리·의무 변경 없음) · ${EFFECTIVE_DATE} 월 요금제 판매 종료·크레딧 유효기간(1년)·카드 결제 취소 환불 반영 · 이전 약관 ${EFFECTIVE_PREVIOUS} 시행. 개정 전에 적립된 크레딧의 유효기간은 ${EFFECTIVE_DATE}부터 1년입니다.</p>`,
   );
 }
 
@@ -256,23 +275,9 @@ export function renderAccountDeletionPage() {
 const won = (n) => `${Number(n).toLocaleString()}원`;
 
 export function renderProductsPage() {
-  const plans = ["standard", "expert"]
-    .map((k) => ({ key: k, ...PLANS[k], credits: PLAN_CREDITS[k] }))
-    .filter((p) => p.monthlyKrw);
-
-  const planRows = plans
-    .map(
-      (p) => `<tr>
-        <td><b>${esc(p.label)} 플랜 1개월 이용권</b><br/><span class="muted">${p.credits.toLocaleString()}크레딧 지급 · 하루 ${p.dailyLimit}회 공정 이용 한도 · 자동 갱신 없음</span></td>
-        <td>${won(p.monthlyKrw)} (1개월)</td>
-        <td>결제 확인 즉시</td>
-      </tr>`,
-    )
-    .join("");
-
   const packRows = CREDIT_PACKS.map(
     (p) => `<tr>
-      <td><b>${esc(p.label)}</b><br/><span class="muted">추가 구매 · 유효기간 없음</span></td>
+      <td><b>${esc(p.label)} 충전</b><br/><span class="muted">충전일부터 ${CREDIT_VALID_DAYS}일(1년) 이내 사용 · 미사용분 소멸</span></td>
       <td>${won(p.krw)}</td>
       <td>결제 확인 즉시</td>
     </tr>`,
@@ -284,36 +289,41 @@ export function renderProductsPage() {
      <p class="muted">${esc(COMPANY.name)} · 모든 상품은 디지털 콘텐츠이며 배송되는 실물이 없습니다.</p>
 
      <h2>크레딧이란</h2>
-     <p>크레딧은 유메가 AI 답변 속 사실 주장을 검증하는 데 쓰는 이용권입니다.
+     <p>크레딧은 유메가 AI 답변·문서 속 사실 주장을 공식 원문과 대조해 검사하는 데 쓰는 충전식 이용권입니다.
+     매일 3회는 무료로 확인할 수 있고, 그 이상은 크레딧으로 이용합니다.
      검증 1회에 1크레딧이 차감되며, 입력이 길면 <b>${CHARS_PER_CREDIT.toLocaleString()}자마다 1크레딧</b>씩 더 차감됩니다.
-     유효기간은 없고, 서버 오류로 검증이 완료되지 않으면 차감된 크레딧은 자동으로 환급됩니다.</p>
+     서버 오류로 검증이 완료되지 않으면 차감된 크레딧은 자동으로 환급됩니다.</p>
 
-     <h2>요금제 이용권</h2>
-     <table>
-       <tr><th>상품</th><th>판매가격</th><th>제공 시기</th></tr>
-       ${planRows}
-     </table>
-
-     <h2>크레딧 추가 구매</h2>
-     <p class="muted">이용권으로 받은 크레딧을 모두 사용한 경우 추가로 구매할 수 있습니다. 이용권 없이도 구매할 수 있습니다.</p>
+     <h2>크레딧 충전</h2>
      <table>
        <tr><th>상품</th><th>판매가격</th><th>제공 시기</th></tr>
        ${packRows}
      </table>
+     <p class="muted">월 요금제·정기결제(자동 결제) 상품은 없습니다. 필요할 때 직접 충전하시면 됩니다.</p>
 
-     <h2>제공 시기와 배송</h2>
+     <h2>유효기간(소진기한)</h2>
+     <ol>
+     <li><b>충전한 크레딧은 결제한 시점부터 1년 이내에 사용할 수 있으며, 1년 안에 사용하지 않은 크레딧은 소멸합니다.</b></li>
+     <li>크레딧은 먼저 충전한 것부터 차감되고, 소멸 예정 크레딧과 날짜는 계정 설정의 크레딧 화면에 표시됩니다.</li>
+     <li>친구 추천·이벤트 등으로 무상 지급된 크레딧도 지급일부터 1년 이내에 사용할 수 있습니다.</li>
+     </ol>
+
+     <h2>결제 수단</h2>
+     <p>신용카드·체크카드 <b>일시불</b> 결제만 가능합니다(할부·간편결제·계좌이체·가상계좌 미지원). 일부 카드사는 충전 결제에 1일·1회 한도를 두고 있어 한도를 넘는 결제가 거절될 수 있습니다.</p>
+
+     <h2>제공 시기와 충전·차감 내역</h2>
      <ol>
      <li>모든 상품은 디지털 콘텐츠로, <b>배송되는 실물이 없습니다.</b> 별도의 배송비와 배송 기간이 발생하지 않습니다.</li>
-     <li>결제가 확인되면 <b>즉시</b> 회원 계정에 적립되며, 적립 내역은 계정 설정의 크레딧 화면에서 확인할 수 있습니다.</li>
-     <li>요금제 이용권의 크레딧은 결제 확인 즉시 한 번에 지급되며, 이용 기간은 결제일부터 1개월입니다.</li>
-     <li><b>자동으로 갱신되거나 다시 결제되지 않습니다.</b> 계속 이용하시려면 기간이 끝난 뒤 다시 구매하시면 됩니다. 별도로 해지하실 것이 없습니다.</li>
+     <li>결제가 확인되면 <b>즉시</b> 회원 계정에 충전됩니다.</li>
+     <li>계정 설정 → 크레딧 화면의 <b>크레딧 내역</b>에서 충전 내역, 차감 내역(이용한 서비스), 거래마다의 잔여 크레딧을 확인할 수 있습니다.</li>
      </ol>
 
      <h2>교환과 환불</h2>
      <ol>
      <li>디지털 콘텐츠이므로 교환은 제공하지 않으며, 환불로만 처리합니다.</li>
-     <li>사용하지 않은 크레딧은 결제일부터 7일 이내에 환불받을 수 있습니다. 자세한 조건은 <a href="/refund">환불정책</a>을 확인해주세요.</li>
-     <li>환불 문의: <a href="mailto:${esc(COMPANY.email)}">${esc(COMPANY.email)}</a>${COMPANY.tel ? ` · ${esc(COMPANY.tel)}` : ""}</li>
+     <li>환불은 <b>결제하신 카드의 결제 취소로만</b> 처리되며, 크레딧을 현금으로 돌려드리지 않습니다.</li>
+     <li>사용하지 않은 크레딧은 결제일부터 7일 이내에 전액 환불받을 수 있습니다. 자세한 조건은 <a href="/refund">환불정책</a>을 확인해주세요.</li>
+     <li>환불·민원 문의: <a href="mailto:${esc(COMPANY.email)}">${esc(COMPANY.email)}</a>${COMPANY.tel ? ` · ${esc(COMPANY.tel)}` : ""}</li>
      </ol>
 
      <p class="muted">표시된 금액은 부가세를 포함한 최종 결제 금액입니다. 품절되는 상품이 없으며, 가격은 변경 시 이 화면에 먼저 고지합니다.</p>`,
@@ -327,55 +337,67 @@ export function renderRefundPage() {
      <p class="muted">시행일: ${EFFECTIVE_DATE} · ${esc(COMPANY.name)}</p>
 
      <h2>제1조 (적용 범위)</h2>
-     <p>이 정책은 유메가 제공하는 유료 요금제 이용권(1개월)과 크레딧 추가 구매에 적용됩니다. 유메가 판매하는 상품은 모두 디지털 콘텐츠이며 배송되는 실물이 없습니다.</p>
+     <p>이 정책은 유메의 크레딧 충전에 적용됩니다. 유메가 판매하는 상품은 모두 디지털 콘텐츠이며 배송되는 실물이 없습니다. 유메는 월 요금제·정기결제 상품을 판매하지 않습니다.</p>
 
-     <h2>제2조 (청약철회)</h2>
+     <h2>제2조 (환불 방법)</h2>
+     <ol>
+     <li><b>환불은 결제하신 결제수단(신용카드·체크카드)의 결제 취소로만 처리됩니다.</b></li>
+     <li>충전한 크레딧을 현금으로 환급하거나, 계좌로 송금하는 방식의 환불은 하지 않습니다.</li>
+     <li>일부만 환불하는 경우에는 해당 금액만큼 카드 결제를 부분 취소합니다.</li>
+     </ol>
+
+     <h2>제3조 (청약철회)</h2>
      <ol>
      <li>이용자는 결제일부터 <b>7일 이내</b>에 청약철회를 할 수 있습니다.</li>
      <li>다만 「전자상거래 등에서의 소비자보호에 관한 법률」 제17조 제2항 제5호에 따라, <b>이미 사용한 크레딧</b>에 대해서는 청약철회가 제한됩니다. 크레딧은 검증 1회마다 차감되므로 사용 여부와 수량이 기록으로 확인됩니다.</li>
-     <li>크레딧을 한 개도 사용하지 않았다면 결제 금액 <b>전액</b>을 환불합니다.</li>
+     <li>충전한 크레딧을 한 개도 사용하지 않았다면 결제 금액 <b>전액</b>을 카드 결제 취소로 환불합니다.</li>
      </ol>
 
-     <h2>제3조 (요금제 이용권 환불)</h2>
+     <h2>제4조 (일부 사용한 크레딧의 환불)</h2>
      <ol>
-     <li>결제 후 <b>7일 이내</b>이고 해당 월에 지급된 크레딧을 사용하지 않았다면 전액 환불합니다.</li>
-     <li>크레딧을 일부 사용한 경우, 사용한 크레딧에 해당하는 금액을 공제하고 환불합니다. 공제 단가는 <b>결제 금액을 그 달에 지급된 크레딧 수로 나눈 값</b>입니다.</li>
-     <li>결제 후 7일이 지난 경우, 남은 이용 기간에 대해 일할 계산하여 환불합니다. 이때에도 이미 사용한 크레딧에 해당하는 금액은 공제합니다.</li>
-     <li>환불이 이루어지면 해당 요금제는 즉시 종료되고 남은 크레딧은 소멸합니다.</li>
+     <li>충전한 크레딧을 일부 사용한 경우, <b>남은 크레딧 수 × 충전 단가</b>를 카드 결제 부분 취소로 환불합니다. 충전 단가는 결제 금액을 충전 수량으로 나눈 값입니다.</li>
+     <li>크레딧은 먼저 충전한 것부터 차감되며, 어느 충전분이 얼마나 남았는지는 크레딧 내역으로 확인됩니다.</li>
      </ol>
 
-     <h2>제4조 (크레딧 추가 구매 환불)</h2>
+     <h2>제5조 (유효기간과 소멸)</h2>
      <ol>
-     <li>구매한 크레딧을 한 개도 사용하지 않았다면 결제일부터 7일 이내에 전액 환불합니다.</li>
-     <li>일부를 사용한 경우, <b>남은 크레딧 수 × 구매 단가</b>를 환불합니다. 구매 단가는 결제 금액을 구매 수량으로 나눈 값입니다.</li>
-     <li>크레딧은 현금으로 교환되지 않으며, 환불은 결제 수단을 통한 취소로만 처리됩니다.</li>
+     <li><b>충전한 크레딧은 결제한 시점부터 1년 이내에 사용할 수 있으며, 1년이 지나도록 사용하지 않은 크레딧은 소멸합니다.</b></li>
+     <li>소멸한 크레딧은 환불되지 않습니다. 소멸 예정 크레딧과 날짜는 크레딧 화면에서 미리 확인할 수 있습니다.</li>
+     <li>${EFFECTIVE_DATE} 이전에 적립된 크레딧의 유효기간은 ${EFFECTIVE_DATE}부터 1년입니다.</li>
      </ol>
 
-     <h2>제5조 (환불하지 않는 경우)</h2>
+     <h2>제6조 (환불하지 않는 경우)</h2>
      <ol>
      <li>이용약관을 위반하여 이용이 정지된 경우</li>
      <li>이벤트·추천 보상 등 <b>무상으로 지급된 크레딧</b>. 이는 결제 대금이 없으므로 환불 대상이 아닙니다.</li>
      <li>분기 공헌도 보상으로 지급된 크레딧 및 물품</li>
+     <li>유효기간(1년)이 지나 소멸한 크레딧</li>
      </ol>
 
-     <h2>제6조 (서비스 장애와 오류)</h2>
+     <h2>제7조 (서비스 장애와 오류)</h2>
      <ol>
      <li>서버 오류로 검증이 완료되지 않은 경우, 차감된 크레딧은 <b>자동으로 환급</b>됩니다. 별도로 신청하지 않으셔도 됩니다.</li>
-     <li>유메의 귀책으로 서비스를 정상 이용할 수 없었던 기간이 있는 경우, 그 기간에 대해 환불하거나 크레딧으로 보상합니다.</li>
+     <li>유메의 귀책으로 서비스를 정상 이용할 수 없었던 기간이 있는 경우, 그 기간에 대해 카드 결제 취소로 환불하거나 크레딧으로 보상합니다.</li>
      <li>판정 결과에 대한 이견은 환불 사유에 해당하지 않습니다. 유메의 판정은 참고 정보이며, 근거와 조회 시점을 함께 제공하여 이용자가 직접 확인할 수 있도록 하고 있습니다.</li>
      </ol>
 
-     <h2>제7조 (신청 방법과 처리 기한)</h2>
+     <h2>제8조 (신청 방법과 처리 기한)</h2>
      <ol>
-     <li>환불은 <a href="mailto:${esc(COMPANY.email)}">${esc(COMPANY.email)}</a>로 가입 이메일과 결제 내역을 알려주시면 접수됩니다.</li>
-     <li>접수일부터 <b>3영업일 이내</b>에 처리 결과를 회신하고, 환불 사유가 확인되면 <b>3영업일 이내</b>에 결제 취소를 요청합니다.</li>
-     <li>카드 결제의 경우 카드사 사정에 따라 실제 대금 반환까지 영업일 기준 3~5일이 추가로 걸릴 수 있습니다.</li>
+     <li>환불은 <a href="mailto:${esc(COMPANY.email)}">${esc(COMPANY.email)}</a> 또는 ${esc(COMPANY.tel)}로 가입 이메일과 결제 내역을 알려주시면 접수됩니다.</li>
+     <li>접수일부터 <b>3영업일 이내</b>에 처리 결과를 회신하고, 환불 사유가 확인되면 <b>3영업일 이내</b>에 카드 결제 취소를 요청합니다.</li>
+     <li>카드사 사정에 따라 실제 대금 반환(승인 취소 반영)까지 영업일 기준 3~5일이 추가로 걸릴 수 있습니다.</li>
      </ol>
 
-     <h2>제8조 (분쟁 해결)</h2>
+     <h2>제9조 (책임과 민원 처리)</h2>
+     <ol>
+     <li>${esc(COMPLAINT_NOTICE)}</li>
+     <li>${esc(complaintOfficer())}</li>
+     </ol>
+
+     <h2>제10조 (분쟁 해결)</h2>
      <p>환불과 관련하여 이견이 있는 경우 이용자와 협의하여 해결하며, 협의가 되지 않으면 「소비자기본법」에 따른 소비자분쟁조정위원회의 조정을 따를 수 있습니다.</p>
 
-     <p class="muted">이 정책에 정하지 않은 사항은 이용약관과 관계 법령에 따릅니다.</p>`,
+     <p class="muted">이 정책에 정하지 않은 사항은 이용약관과 관계 법령에 따릅니다. 개정 이력: ${EFFECTIVE_DATE} 월 요금제 조항 삭제·유효기간 1년·카드 결제 취소 환불 반영 · 이전 정책 ${EFFECTIVE_PREVIOUS} 시행.</p>`,
   );
 }
 
@@ -389,7 +411,7 @@ export function renderPrivacyPage() {
 <table>
 <tr><th>구분</th><th>항목</th><th>목적</th></tr>
 <tr><td>회원가입(필수)</td><td>이메일, 비밀번호(암호화 저장), 이름(선택 입력)</td><td>회원 식별, 로그인, 비밀번호 재설정, 공지 전달</td></tr>
-<tr><td>서비스 이용(필수)</td><td>검증 요청 텍스트, 판정 결과, 이용 일시, 이용 횟수</td><td>팩트체크 제공, 검증 기록 저장, 이용 한도 관리, 중복 검증 재사용</td></tr>
+<tr><td>서비스 이용(필수)</td><td>검증 요청 텍스트, 판정 결과, 이용 일시, 이용 횟수</td><td>할루시네이션 검사 제공, 검증 기록 저장, 이용 한도 관리, 중복 검증 재사용</td></tr>
 <tr><td>자동 수집</td><td>IP 주소, 브라우저 정보(User-Agent), 로그인 유지 쿠키, 접속 기록, 오류 기록</td><td>부정 이용 방지, 비회원 무료 한도 관리, 보안, 장애 대응</td></tr>
 <tr><td>유입 통계</td><td>브라우저에서 만든 무작위 식별자, 처음 들어온 경로(광고 주소의 출처 표시 또는 들어온 사이트 이름)</td><td>어떤 경로로 들어온 이용자가 서비스를 이용·가입·결제했는지 집계하는 통계. 이름·연락처와 연결하지 않으며 외부 분석 업체에 보내지 않음</td></tr>
 <tr><td>AI 어시스턴트 대화</td><td>대화 내용</td><td>대화 응답, 서비스 품질 확인</td></tr>
@@ -397,6 +419,7 @@ export function renderPrivacyPage() {
 <tr><td>API 이용 기업</td><td>담당자 이메일·회사명, API 호출 기록</td><td>API 제공, 사용량 집계와 과금</td></tr>
 <tr><td>본인확인(통합인증서비스, 해당 기능 이용 시)</td><td>이름, 생년월일, 성별, 휴대전화번호, 연계정보(CI), 중복가입확인정보(DI)</td><td>본인 확인, 만 14세 미만 가입 제한, 중복 가입 및 부정 이용 방지, 유료 서비스 이용 시 본인 확인</td></tr>
 </table>
+<p>판정 결과는 개인을 알아볼 수 없는 집계 숫자(검사한 글·주장의 수, 판정 종류별 비율, 분야)로만 YUME 할루시네이션 지수에 공개될 수 있습니다. 입력한 글의 내용과 이용자 정보는 공개하지 않습니다.</p>
 <p>본인확인은 본인확인기관이 제공하는 통합인증서비스(카카오·네이버·PASS 등 인증서)를 통해 이뤄지며, 회사는 <b>주민등록번호를 수집하지 않습니다</b>. 연계정보(CI)는 본인확인기관이 주민등록번호를 일방향 암호화해 만든 값으로, 이용자를 서비스 간에 동일인으로 확인하는 데에만 쓰입니다.</p>
 <p>유메 모바일 앱(Android·iOS)은 웹사이트와 같은 정보만 처리합니다. 앱은 연락처·위치·사진·카메라·마이크 등 기기 정보에 접근하지 않고, 광고 식별자를 수집하지 않으며, 이용자를 추적하지 않습니다. 앱에서 접속했는지 구분하기 위해 브라우저 정보(User-Agent)에 앱 이름이 포함됩니다.</p>
 
@@ -474,7 +497,7 @@ export function renderPrivacyPage() {
 
 <h2>11. 방침의 변경</h2>
 <p>이 개인정보처리방침은 ${PRIVACY_EFFECTIVE_DATE}부터 적용됩니다. 내용이 바뀌면 시행 7일 전부터 서비스에 공지합니다.</p>
-<p class="muted">개정 이력: ${PRIVACY_EFFECTIVE_DATE} 본인확인(통합인증서비스) 처리 항목·위탁 추가 · 이전 방침 ${PRIVACY_PREVIOUS.join(", ")} 시행</p>`,
+<p class="muted">개정 이력: 2026년 10월 11일 집계 통계(YUME 할루시네이션 지수) 공개 범위를 명시(처리 항목·목적 변경 없음) · ${PRIVACY_EFFECTIVE_DATE} 본인확인(통합인증서비스) 처리 항목·위탁 추가 · 이전 방침 ${PRIVACY_PREVIOUS.join(", ")} 시행</p>`,
   );
 }
 
@@ -483,22 +506,30 @@ export function renderApiDocsPage(baseUrl) {
   return layout(
     "API 문서",
     `<h1>유메 검증 API <span class="muted">v1</span></h1>
-<p>자사 서비스의 AI 답변을 사용자에게 보여주기 전에 유메로 사실 여부를 확인하세요. 응답에는 주장별 판정·근거·출처와, 인용된 법령·판례·문헌이 공식 자료에 없을 때의 <b>부존재 신뢰도</b>가 함께 들어 있습니다.</p>
+<p>고객에게 나갈 답변, 보도자료, 상품 설명, 상담 스크립트 — <b>AI가 쓴 글이든 사람이 쓴 글이든</b> 밖으로 내보내기 전에 유메로 사실 여부를 확인하세요. 응답에는 주장별 판정·근거·출처, <b>원문 속 위치</b>, 틀린 문장의 <b>고친 문장</b>, 그리고 인용된 법령·판례·문헌이 공식 자료에 없을 때의 <b>부존재 신뢰도</b>가 함께 들어 있습니다.</p>
+<p>자사 상품·약관·회사 정보처럼 공개 웹에 없는 사실은 <b>기준 자료</b>(<code>references</code>)로 함께 보내면 그 자료와 먼저 대조합니다.</p>
 
 <h2>시작하기</h2>
 <ol>
 <li>유메에 가입하고 계정 메뉴의 <b>API 키</b>에서 키를 발급받습니다. 키는 발급할 때 한 번만 보여주므로 안전한 곳에 보관하세요.</li>
 <li>모든 요청에 <code>Authorization: Bearer &lt;API 키&gt;</code> 헤더를 붙입니다.</li>
 <li>키는 서버에서만 사용하세요. 브라우저·앱에 넣으면 누구나 키를 볼 수 있습니다.</li>
+<li>OpenAPI 3.1 명세: <a href="/v1/openapi.json"><code>GET /v1/openapi.json</code></a> — 인증 없이 받을 수 있습니다. Postman·코드 생성기에 그대로 넣으세요.</li>
 </ol>
 
 <h2>POST /v1/verify</h2>
-<p>텍스트 하나를 검증합니다. 검증에는 보통 10~40초가 걸립니다. <code>wait</code>를 주면 결과가 나올 때까지(최대 60초) 연결을 유지하고, 주지 않으면 즉시 <code>202</code>와 id를 돌려주므로 <code>GET /v1/verify/:id</code>로 조회하세요.</p>
+<p>텍스트 하나를 검증합니다. 주장마다 출처 원문을 직접 열어 확인하므로 보통 30~90초가 걸립니다. <code>wait</code>를 주면 결과가 나올 때까지(최대 120초) 연결을 유지하고, 주지 않으면 즉시 <code>202</code>와 id를 돌려주므로 <code>GET /v1/verify/:id</code>로 조회하세요.</p>
 <table>
 <tr><th>필드</th><th>타입</th><th>설명</th></tr>
 <tr><td><code>text</code></td><td>string</td><td>검증할 텍스트. 최대 10,000자</td></tr>
-<tr><td><code>wait</code></td><td>boolean | number</td><td>선택. <code>true</code>면 최대 60초, 숫자면 그 초만큼 기다림</td></tr>
+<tr><td><code>references</code></td><td>array</td><td>선택. 자사 기준 자료 <code>[{ "title": "요금 안내", "text": "…" }]</code>. 최대 5개, 합계 20,000자. 이 자료가 다루는 주장은 웹보다 먼저 이 자료와 대조해 <code>verified_via: "reference"</code>로 판정하고, 근거 문장을 <code>sources[].quote</code>로 돌려줍니다. 자료에 없는 근거로는 판정하지 않습니다.</td></tr>
+<tr><td><code>strict</code></td><td>boolean</td><td>선택. 엄격 모드 — 근거를 출처 원문에서 직접 확인한 판정(<code>confidence: "high"</code>)만 내립니다(아래 "확신도와 엄격 모드").</td></tr>
+<tr><td><code>organization</code></td><td>string</td><td>선택. 자사명. 자사에 관한 주장은 "공개 기록이 없다"는 이유만으로 <code>false</code>가 되지 않습니다(기준 자료가 있으면 그 자료로 판정).</td></tr>
+<tr><td><code>wait</code></td><td>boolean | number</td><td>선택. <code>true</code>면 최대 120초, 숫자면 그 초만큼 기다림</td></tr>
+<tr><td><code>callback_url</code></td><td>string</td><td>선택. 검증이 끝나면(실패 포함) 결과를 이 https 주소로 POST합니다. 폴링이 필요 없습니다. 공인 주소만 가능</td></tr>
+<tr><td><code>callback_secret</code></td><td>string</td><td>선택. 주면 웹훅에 서명합니다(아래 "웹훅"). 저장하지 않습니다</td></tr>
 </table>
+<p>헤더 <code>Idempotency-Key: &lt;임의 문자열&gt;</code>를 붙이면, 응답을 못 받아 다시 보내도 처음 시작한 검증을 그대로 돌려주고 <b>다시 과금하지 않습니다</b>(24시간). 같은 키로 다른 내용을 보내면 <code>422 idempotency_conflict</code>.</p>
 <pre>curl -X POST ${base}/v1/verify \\
   -H "Authorization: Bearer yume_live_..." \\
   -H "Content-Type: application/json" \\
@@ -507,7 +538,7 @@ export function renderApiDocsPage(baseUrl) {
 <pre>const res = await fetch("${base}/v1/verify", {
   method: "POST",
   headers: { Authorization: \`Bearer \${process.env.YUME_API_KEY}\`, "Content-Type": "application/json" },
-  body: JSON.stringify({ text, wait: 30 }),
+  body: JSON.stringify({ text, wait: 90 }),
 });
 let job = await res.json();
 while (job.status === "pending") {
@@ -517,7 +548,7 @@ while (job.status === "pending") {
 <h3>Python</h3>
 <pre>import os, time, requests
 H = {"Authorization": f"Bearer {os.environ['YUME_API_KEY']}"}
-job = requests.post("${base}/v1/verify", json={"text": text, "wait": 30}, headers=H).json()
+job = requests.post("${base}/v1/verify", json={"text": text, "wait": 90}, headers=H).json()
 while job["status"] == "pending":
     time.sleep(3)
     job = requests.get(f"${base}/v1/verify/{job['id']}", headers=H).json()</pre>
@@ -535,9 +566,12 @@ while job["status"] == "pending":
     "claims": [
       {
         "text": "대법원 2019다123456 판결은 …",
+        "quote": "실제로 대법원 2019다123456 판결도 같은 취지로 판단했습니다.",  // 원문 그대로의 해당 부분
+        "span": { "start": 118, "end": 152 },   // 원문 속 위치(글자 단위, end 제외)
+        "suggested_fix": "실제로 이 취지의 대법원 판결은 확인되지 않습니다.",  // false일 때만
         "domain": "법률",
         "verdict": "false",           // confirmed | false | uncertain
-        "verified_via": "nec",        // official | nec | web | research | unavailable
+        "verified_via": "nec",        // official | reference | nec | web | research | unavailable
         "explanation": "인용된 ‘2019다123456’은(는) 존재하지 않을 가능성이 높습니다(부존재 신뢰도 0.735). …",
         "sources": [],
         "legal_ref": { "type": "case", "case_number": "2019다123456" },
@@ -560,6 +594,7 @@ while job["status"] == "pending":
 <h2>verified_via</h2>
 <table>
 <tr><td><code>official</code></td><td>법제처 국가법령정보의 현행 조문·판례·헌재 결정 원문과 대조</td></tr>
+<tr><td><code>reference</code></td><td>요청에 함께 보낸 기준 자료(<code>references</code>)와 대조. 근거 문장이 <code>sources[].quote</code>에 있음</td></tr>
 <tr><td><code>nec</code></td><td>인용된 식별자 또는 사실 주장을 공식 자료·웹에서 찾지 못해 부존재 신뢰도로 판정</td></tr>
 <tr><td><code>web</code></td><td>실시간 웹 자료로 교차 확인</td></tr>
 <tr><td><code>research</code></td><td>앞 단계에서 결론이 나지 않아 도메인별 심층 재확인을 거침</td></tr>
@@ -576,6 +611,86 @@ while job["status"] == "pending":
 <li><b>P 유사항목 근접도</b> — 비슷한 실재 항목(한 글자 틀린 사건번호 등)이 있을수록 높음</li>
 </ul>
 <p><code>grade</code>가 <code>nonexistent</code>(NEC ≥ 0.7)이면 해당 주장은 <code>false</code>로, <code>unverifiable</code>이면 <code>uncovered</code>에 아직 확인하지 못한 영역과 확인 방법이 담깁니다. 지원 식별자: 판례 사건번호, 헌법재판소 사건번호, 법령·조문, DOI, arXiv, PMID, ISBN.</p>
+
+<h2>확신도와 엄격 모드</h2>
+<p>유메가 "사실" 또는 "사실과 다름"이라고 단정한 주장마다 <code>confidence</code>가 붙습니다.</p>
+<ul>
+<li><code>high</code> — 법제처 조문 원문 대조, 보내 주신 기준 자료 대조, 부존재 신뢰도 판정, 또는 <b>근거 문장을 출처 페이지에서 서버가 직접 확인</b>하고 처음 판정을 모르는 독립 검토도 같은 결론을 낸 경우. 이때 <code>evidence: { verified: true, url, quote }</code>가 함께 옵니다.</li>
+<li><code>medium</code> — 판정은 있지만 출처 페이지를 직접 열어 확인하지 못한 경우(접속 차단·동적 페이지 등).</li>
+</ul>
+<p>근거로 제시된 문장이 출처 페이지에 실제로 없거나, 독립 검토가 처음 판정과 다르게 보면 판정을 내리지 않고 <code>uncertain</code>으로 둡니다. 요청에 <code>"strict": true</code>를 주면 <b>엄격 모드</b>로, <code>high</code>만 판정하고 나머지는 모두 <code>uncertain</code>입니다 — 유메가 단정하는 말은 원문으로 확인된 것뿐이어야 하는 곳(광고 심의·공시·법무 검토)에 쓰세요.</p>
+<p><b>"없다"고 말하는 주장도 검증합니다.</b> "그런 판례는 존재하지 않는다", "민법에는 제750조가 없다"처럼 대상의 존재를 부정하는 주장에는 <code>absence_of</code>(없다고 한 대상)가 붙고, 판정은 그 방향 기준입니다 — 없는 것을 없다고 했으면 <code>confirmed</code>, 실재하는 것을 없다고 했으면 <code>false</code>(실재 출처 첨부). 검색에 나오지 않는다는 것만으로는 "없다"를 확인하지 않고, 기록이 있어야 할 공간을 충분히 확인했을 때만(부존재 신뢰도) 판정합니다.</p>
+<p><code>uncertain</code>인 주장에는 이유를 알려 주는 <code>uncertain_reason</code>이 붙습니다.</p>
+<ul>
+<li><code>no_evidence</code> — <b>근거 없음.</b> 공개된 자료 어디에서도 근거를 찾지 못했습니다. 근거 없이 단정한 내용이니 사실로 쓰면 안 됩니다. (공개 기록이 반드시 있어야 하는 종류인데 없으면 이 단계가 아니라 <code>false</code>로 판정합니다.)</li>
+<li><code>not_public</code> — 공개 기록 밖. 유료 평점·개인 경험·비공개 내부 정보처럼 사실이어도 공개 웹에 없을 수 있는 종류라, 없다는 사실만으로 틀렸다고 하지 않습니다.</li>
+<li><code>check_failed</code> — 조회 실패. 일시적 오류로 확인을 끝내지 못했습니다. 다시 요청해 주세요.</li>
+</ul>
+
+<h2>원문 속 위치와 고친 문장</h2>
+<ul>
+<li><code>quote</code>·<code>span</code> — 그 주장이 나온 원문 부분과 위치입니다. <code>text.slice(span.start, span.end)</code>가 <code>quote</code>와 같습니다. 원문에서 정확히 찾지 못한 주장에는 붙지 않습니다.</li>
+<li><code>suggested_fix</code> — 판정이 <code>false</code>일 때만, 판정 근거에 적힌 실제 값으로 그 부분을 고친 문장입니다. 근거에 실제 값이 없으면 붙지 않습니다. 원문의 문체는 그대로 두고 틀린 부분만 바꿉니다. 바꿀 실제 대상이 없는 인용(존재하지 않는 판례 등)은 인용만 지우지 않고 "확인되지 않는다"는 문장으로 바꿉니다.</li>
+<li><code>counter_fact</code> — 판정이 <code>false</code>일 때, 다시 확인해서 찾은 실제 값입니다(예: "8,848.86m(2020년 네팔·중국 공동측량)").</li>
+</ul>
+
+<h2>POST /v1/verify/batch</h2>
+<p>여러 건을 한 번에 보냅니다(최대 20건). <code>references</code>·<code>organization</code>은 묶음 전체에 적용됩니다. 남은 한도가 항목 수보다 적으면 <b>한 건도 시작하지 않고</b> <code>429</code>를 돌려줍니다 — 일부만 처리되어 무엇이 빠졌는지 맞춰 보는 일이 없게 하려는 것입니다.</p>
+<pre>{ "items": [ { "ref": "faq-01", "text": "…" }, { "ref": "faq-02", "text": "…" } ],
+  "references": [ { "title": "상품 설명서", "text": "…" } ], "wait": 60 }
+→ { "count": 2, "pending": 0, "results": [ { "ref": "faq-01", "id": "…", "status": "done", "result": { … } }, … ] }</pre>
+
+<h2>POST /v1/documents — 긴 문서·파일</h2>
+<p>1만 자를 넘는 문서나 파일(<b>DOCX·HWPX·PDF·TXT·MD·CSV</b>, 10MB까지)을 그대로 보냅니다. 유메가 문단 경계로 나눠 검사하고, 결과를 <b>원문 전체 기준 위치</b>로 합쳐 돌려줍니다. 틀린 문장을 고친 문장으로 바꾼 <code>corrected_text</code>(고친 본문)도 함께 줍니다.</p>
+<ul>
+<li>본문: <code>text</code>(최대 100,000자) 또는 <code>file: { "name": "보도자료.hwpx", "content_base64": "…" }</code>. <code>title</code>·<code>references</code>·<code>organization</code>·<code>callback_url</code>·<code>wait</code>·<code>Idempotency-Key</code>는 단건과 같습니다.</li>
+<li>과금: 약 7,000자 조각 1개 = 검증 1건. 남은 한도가 조각 수보다 적으면 한 조각도 시작하지 않습니다(<code>429</code>, <code>needed</code>·<code>remaining</code> 포함).</li>
+<li>한글(HWP)은 HWPX로 저장해 보내 주세요. 스캔 이미지 PDF는 글자가 없어 읽을 수 없습니다.</li>
+<li>웹훅 이벤트는 <code>document.completed</code>입니다(원문 <code>text</code>는 빼고 보냅니다).</li>
+</ul>
+<pre>{ "id": "doc_3f…", "object": "document", "status": "done",   // pending | done | partial | error
+  "parts": { "total": 3, "done": 3, "failed": 0 },
+  "result": {
+    "verdict": { "label": "부분적으로 부정확", … },
+    "counts": { "claims": 18, "false": 2, "uncertain": 3, "confirmed": 13 },
+    "claims": [ { "quote": "…", "span": { "start": 10432, "end": 10471 }, "verdict": "false", "suggested_fix": "…", … } ],
+    "corrected_text": "…고친 문장이 반영된 전체 본문…", "fixes_applied": 2 },
+  "text": "…원문…" }</pre>
+<p><code>GET /v1/documents/:id</code>로 진행 상황과 결과를 조회합니다(같은 계정의 키로 만든 문서만).</p>
+
+<h2>YUME 검증 마크</h2>
+<p>문서 검사에서 <b>모든 사실 주장이 출처 원문으로 확인(<code>confidence: "high"</code>)</b>되면 검증 마크를 발급할 수 있습니다. 마크를 받으면 글과 주장별 근거가 공개 검증 페이지에 실리므로 <code>publish: true</code>(공개 동의)가 필요합니다.</p>
+<pre>POST /v1/documents/:id/mark
+{ "publish": true }
+
+→ 201
+{ "id": "ym…", "object": "mark", "status": "valid",
+  "url": "https://www.yume-reamer.com/v/ym…",            // 공개 검증 페이지
+  "certificate_url": "https://www.yume-reamer.com/v/ym…/certificate",  // A4 검증서(PDF)
+  "badge_url": "https://www.yume-reamer.com/v/ym…/badge.svg",
+  "embed_html": "&lt;div data-yume-mark=\\"ym…\\"&gt;…&lt;/div&gt;&lt;script src=\\"…/v/embed.js\\" async&gt;&lt;/script&gt;",
+  "text_hash": "…", "issued_at": "…", "expires_at": "…" }</pre>
+<ul>
+<li>사실과 다름·확인되지 않음이 있거나 근거 원문을 직접 확인하지 못한 주장이 있으면 <code>422 not_eligible</code>과 함께 <code>blockers</code>(주장별 이유)를 돌려줍니다.</li>
+<li>같은 계정이 같은 글(원문 지문이 같은 글)로 다시 받으면 새 마크를 만들지 않고 <b>같은 주소의 마크를 갱신</b>합니다(<code>200</code>, <code>renewed: true</code>). 이미 붙여 둔 삽입 코드가 그대로 살아 있습니다.</li>
+<li>유효기간은 검증일부터 90일입니다. 지나면 <code>status: "expired"</code>(재확인 필요)가 됩니다. <code>POST /v1/marks/:id/revoke</code>로 철회할 수 있습니다.</li>
+<li><code>embed_html</code>은 검증받은 글을 감싸는 요소와 스크립트입니다. 감싼 글의 글자를 원문 지문(공백을 뺀 SHA-256)과 대조해, 글이 바뀌면 마크가 "원문 변경됨"으로 표시됩니다.</li>
+<li>누구나 <code>GET /v/:id/status.json</code>으로 상태를 조회할 수 있습니다(인증 없음, CORS 허용).</li>
+</ul>
+
+<h2>웹훅</h2>
+<p><code>callback_url</code>을 주면 검증이 끝날 때 아래처럼 보냅니다. 묶음 요청은 항목마다 <code>ref</code>를 붙여 하나씩 보냅니다. 2xx를 받지 못하면 최대 4번까지 다시 보냅니다(0초·2초·10초·60초).</p>
+<pre>POST https://고객사/yume-hook
+X-Yume-Event: verification.completed
+X-Yume-Delivery: 3f9a…        // 같은 전달의 재시도는 같은 값
+X-Yume-Timestamp: 1791234567
+X-Yume-Signature: sha256=…    // callback_secret을 줬을 때만
+
+{ "event": "verification.completed", "ref": "faq-01", "id": "…", "status": "done", "result": { … } }</pre>
+<p>서명 확인: <code>hmac_sha256(callback_secret, X-Yume-Timestamp + "." + 원문 본문)</code>의 hex가 <code>sha256=</code> 뒤 값과 같은지 보세요. 시각이 5분 넘게 차이 나면 버리세요(재전송 방지).</p>
+<pre>// Node.js
+const sig = "sha256=" + crypto.createHmac("sha256", SECRET).update(req.headers["x-yume-timestamp"] + "." + rawBody).digest("hex");
+const ok = crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(req.headers["x-yume-signature"]));</pre>
 
 <h2>GET /v1/verify/:id</h2>
 <p>같은 계정의 키로 요청한 검증만 조회할 수 있습니다. 조회는 과금되지 않습니다.</p>
@@ -596,6 +711,10 @@ while job["status"] == "pending":
 <table>
 <tr><th>HTTP</th><th>code</th><th>의미</th></tr>
 <tr><td>400</td><td>invalid_request</td><td>text가 비어 있음</td></tr>
+<tr><td>400</td><td>invalid_references</td><td>기준 자료 형식이 틀림(개수·길이·text 누락)</td></tr>
+<tr><td>400</td><td>invalid_callback / invalid_idempotency_key</td><td>웹훅 주소(https 공인 주소만) 또는 멱등 키 형식이 틀림</td></tr>
+<tr><td>409</td><td>idempotency_in_progress</td><td>같은 키의 첫 요청을 아직 시작하는 중</td></tr>
+<tr><td>422</td><td>idempotency_conflict</td><td>같은 키로 다른 내용을 보냄</td></tr>
 <tr><td>401</td><td>invalid_api_key</td><td>키가 없거나 폐기됨</td></tr>
 <tr><td>404</td><td>not_found</td><td>검증 id가 없거나 다른 계정의 것</td></tr>
 <tr><td>413</td><td>text_too_long</td><td>10,000자 초과</td></tr>
@@ -603,6 +722,7 @@ while job["status"] == "pending":
 </table>
 
 <h2>데이터 처리</h2>
+<p><b>기준 자료(<code>references</code>)는 저장하지 않습니다.</b> 검증 한 건을 처리하는 동안만 쓰고, 그 자료로 낸 판정은 다른 고객에게 재사용되는 캐시에 넣지 않습니다.</p>
 <p>API로 보낸 텍스트는 검증과 과금·분쟁 대응을 위해 1년간 보관되며, 별도 계약으로 허용한 경우를 제외하고 데이터셋 제공 대상에 포함되지 않습니다. 텍스트에 개인정보가 들어간다면 귀사 이용자에게 필요한 고지·동의를 받아주세요. 자세한 내용은 <a href="/privacy">개인정보처리방침</a>과 <a href="/terms">이용약관</a>을 참고하세요.</p>`,
   );
 }
@@ -620,7 +740,7 @@ export function renderExtensionPrivacyPage() {
   return layout(
     "크롬 확장 프로그램 개인정보처리방침",
     `<h1>크롬 확장 프로그램 개인정보처리방침</h1>
-<p class="muted">시행일: ${PRIVACY_EFFECTIVE_DATE} · 대상: 크롬 확장 프로그램 「유메 — AI 답변 팩트체크」</p>
+<p class="muted">시행일: ${PRIVACY_EFFECTIVE_DATE} · 대상: 크롬 확장 프로그램 「유메 — AI 할루시네이션 검사」(이전 이름 「유메 — AI 답변 팩트체크」)</p>
 <p>이 문서는 <b>크롬 확장 프로그램에만</b> 적용됩니다. 유메 웹사이트와 계정에 관한 내용은 <a href="/privacy">유메 개인정보처리방침</a>을 보세요.</p>
 
 <h2>1. 한 줄 요약</h2>

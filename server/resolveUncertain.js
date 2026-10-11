@@ -15,8 +15,12 @@ import { researchClaim as defaultResearch } from "./claude.js";
 import { searchesLeft } from "./apiCost.js";
 import { coverageFor } from "./nec/searchSpace.js";
 import { buildNecReport, NEC_WEIGHTS } from "./nec/nec.js";
+import { mentionsOrganization } from "./referenceCheck.js";
+import { isDenial } from "./claimStance.js";
 
 const W = NEC_WEIGHTS.assertion;
+// 공개 기록으로 확인할 수 없는 종류(searchSpace.js의 기록 가능성).
+const NOT_PUBLIC = new Set(["private", "unrecordable", "niche"]);
 
 const MAX_CONCURRENT = 3;
 
@@ -28,6 +32,12 @@ function needsResearch(claim) {
   // 부존재 신뢰도로 "확인 불가" 등급이 난 식별자는 이미 웹까지 넓혀 본 상태지만,
   // 그 판정은 '식별자가 실재하는가'에 대한 것이라 주장 내용 자체는 아직 미검증이다.
   return true;
+}
+
+// 여러 주체를 묶은 집계·통계 주장. 누군가 집계해 공표했어야 성립하므로 '주체를 못 찾았다'가 변명이 되지 않는다.
+const AGGREGATE = /(평균|집계|통계|비율|점유율|순위|합계|중앙값|조사\s*결과|설문|업계|업종별|지역별|전국\s*\S*\s*(수|규모))/;
+export function isAggregate(text) {
+  return AGGREGATE.test(String(text || ""));
 }
 
 function isUseless(text) {
@@ -43,7 +53,7 @@ async function inBatches(items, size, fn) {
   return out;
 }
 
-export async function resolveUncertainClaims(claims, { research = defaultResearch, onProgress = () => {}, ledger = null } = {}) {
+export async function resolveUncertainClaims(claims, { research = defaultResearch, onProgress = () => {}, ledger = null, organization = "" } = {}) {
   const targets = claims.map((c, i) => ({ c, i })).filter(({ c }) => needsResearch(c));
   if (targets.length === 0) return claims;
 
@@ -82,6 +92,51 @@ export async function resolveUncertainClaims(claims, { research = defaultResearc
       // 모델이 "false"라고 말했다는 사실만으로 ①이라고 믿지 않는다. 검색공간을 얼마나
       // 덮었는지로 따져서, 부존재 신뢰도가 임계값을 넘을 때만 판정으로 인정한다.
       const nec = assertionNec(c, r);
+      // 부존재로 단정하면 안 되는 두 경우. 기록이 없다는 것이 '지어냈다'의 근거가 되려면,
+      // 그 기록이 있어야 할 곳을 뒤졌다는 전제가 서야 한다.
+      //   · 주체 자체를 찾지 못했다 — 주체가 검색에 안 잡히면 그 활동 기록이 없는 것도 당연하다.
+      //   · 요청한 기업 자신에 관한 주장이다 — 자기 회사 이야기는 공개 웹에 거의 없다.
+      //     "리머는 2026년 9월 유메를 출시했습니다"가 실제로 '지어낸 정보'로 판정됐다.
+      //   단, 집계·통계 주장에는 '주체'가 없다. "대구 중구 안경 공방 평균 객단가"를 두고 모델이
+      //   subject_found:false를 내서 지어낸 통계가 빠져나간 적이 있어, 프롬프트에만 맡기지 않는다.
+      const ownClaim = mentionsOrganization(c.text, organization);
+      const subjectMissing = r.subjectFound === false && !isAggregate(c.text);
+      if (nec && nec.grade === "nonexistent" && (ownClaim || subjectMissing)) {
+        return {
+          i,
+          claim: {
+            ...c,
+            verdict: "uncertain",
+            verified_via: "research",
+            explanation:
+              (ownClaim
+                ? `'${organization}'에 관한 내용은 공개 자료에 남지 않는 경우가 많아, 기록을 못 찾았다고 '사실과 다름'으로 단정하지 않습니다. 기준 자료로 보내 주시면 그 자료와 대조합니다.`
+                : `이 주장의 주체를 공개 자료에서 찾지 못했습니다. 주체가 검색에 잡히지 않으면 그 활동 기록이 없는 것도 당연해서, '없다'로 단정하지 않고 확인되지 않음으로 둡니다.`) +
+              (r.explanation ? ` (확인 경과: ${r.explanation})` : ""),
+            sources,
+            uncertain_reason: "not_public",
+          },
+        };
+      }
+      // "그런 통계는 발표된 적 없다"처럼 없다고 말한 주장이면, 기록이 어디에도 없다는 확인은
+      // 주장이 맞다는 뜻이다(claimStance.js). 같은 계산을 거꾸로 읽으면 맞는 정정을 거짓이라 부른다.
+      if (nec && nec.grade === "nonexistent" && isDenial(c)) {
+        return {
+          i,
+          claim: {
+            ...c,
+            verdict: "confirmed",
+            verified_via: "nec",
+            stance: "denies",
+            explanation:
+              `${nec.identifier.searchSpace}를 통틀어 이 대상의 기록을 찾지 못했습니다(부존재 신뢰도 ${nec.score}). ` +
+              `사실이라면 남아 있어야 할 기록이 없으므로 "없다"는 이 주장은 맞습니다.` +
+              (r.explanation ? ` (확인 경과: ${r.explanation})` : ""),
+            sources,
+            nec,
+          },
+        };
+      }
       if (nec && nec.grade === "nonexistent") {
         return {
           i,
@@ -99,7 +154,12 @@ export async function resolveUncertainClaims(claims, { research = defaultResearc
         };
       }
 
-      // 부존재로 단정할 만큼 넓게 뒤지지 못했다 — 정직하게 확인되지 않음으로 남긴다.
+      // 부존재로 단정할 만큼은 아니다. 다만 "왜 단정하지 않는가"는 둘로 갈린다 — 이 둘을 같은
+      // '확인되지 않음'으로 보여 주면, 사용자는 유메가 못 찾은 것인지 원래 확인할 수 없는 것인지 모른다.
+      //   no_evidence — 공개 기록에 있어야 할 종류인데 뒷받침하는 근거가 없다. 말한 쪽(대개 AI)이
+      //                 근거 없이 단정한 것이다. 화면에는 "근거 없음"으로, 쓰지 말라고 분명히 말한다.
+      //   not_public  — 비공개·유료·개인 경험처럼 공개 기록으로 확인할 수 없는 종류다. 없다는 게
+      //                 아무것도 말해 주지 않는다(와인 평점 88점이 실제로 그랬다).
       return {
         i,
         claim: {
@@ -108,6 +168,7 @@ export async function resolveUncertainClaims(claims, { research = defaultResearc
           verified_via: "research",
           explanation: isUseless(r.explanation) ? fallbackNote(c) : r.explanation,
           sources,
+          uncertain_reason: NOT_PUBLIC.has(r.recordedness) ? "not_public" : "no_evidence",
           ...(nec ? { nec } : {}),
         },
       };

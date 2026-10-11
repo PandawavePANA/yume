@@ -2,8 +2,9 @@
 //
 // 자격 증명을 받지 않는 게 이 화면의 설계 전제다. 무료 진단을 받자고 사내 AI의 API 키를
 // 넘길 기업은 없다. 그래서 두 단계로 나눈다 — 유메가 문항을 주고, 기업이 자기 AI에
-// 넣어본 답변을 붙여넣는다. 붙여넣기가 번거로우니 문항 복사를 최대한 쉽게 만든다.
-import { useState } from "react";
+// 넣어본 답변을 붙여넣는다. 복사 한 번, 붙여넣기 한 번으로 끝나야 한다 — 문항별로 여덟 칸에
+// 나눠 넣게 했더니 "0 / 8"에서 멈췄다. 질문별로 나누는 일은 서버가 한다(server/audit/splitAnswers.js).
+import { useEffect, useState } from "react";
 import { copyText } from "../../clipboard.js";
 import { apiJson, apiUrl, safeUrl, CONTACT_EMAIL } from "./api.js";
 import { t } from "../../i18n.js";
@@ -69,11 +70,24 @@ export default function AuditModal({ onClose }) {
   const [domain, setDomain] = useState("법률");
   const [subject, setSubject] = useState("");
   const [session, setSession] = useState(null);
-  const [answers, setAnswers] = useState({});
+  const [answerText, setAnswerText] = useState("");
   const [report, setReport] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState("");
+
+  // 뒤로 가기로 돌아오면 브라우저가 화면을 통째로 되살린다(bfcache). 떠날 때 끊긴 요청의
+  // 오류와 "만드는 중…" 상태가 그대로 붙어 있어서, 아무것도 안 했는데 빨간 글이 떠 있다.
+  // 되살아난 순간에 지운다 — 그 오류는 지금 상태가 아니라 떠날 때의 흔적이다.
+  useEffect(() => {
+    const onShow = (e) => {
+      if (!e.persisted) return;
+      setError("");
+      setBusy(false);
+    };
+    window.addEventListener("pageshow", onShow);
+    return () => window.removeEventListener("pageshow", onShow);
+  }, []);
 
   async function issue() {
     setBusy(true);
@@ -81,7 +95,7 @@ export default function AuditModal({ onClose }) {
     try {
       const data = await apiJson("/api/audit/probes", { method: "POST", body: { domain, subject, size: 8 } });
       setSession(data);
-      setAnswers({});
+      setAnswerText("");
       setStep("answer");
     } catch (e) {
       setError(e.message);
@@ -96,7 +110,7 @@ export default function AuditModal({ onClose }) {
     try {
       const data = await apiJson("/api/audit/grade", {
         method: "POST",
-        body: { session_id: session.session_id, subject, answers },
+        body: { session_id: session.session_id, subject, answer_text: answerText },
       });
       setReport(data);
       setStep("result");
@@ -117,7 +131,6 @@ export default function AuditModal({ onClose }) {
     }
   }
 
-  const filled = session ? session.probes.filter((p) => String(answers[p.id] || "").trim()).length : 0;
 
   return (
     <div
@@ -166,8 +179,7 @@ export default function AuditModal({ onClose }) {
 
         {step === "answer" && session && (
           <AnswerStep
-            session={session} answers={answers} setAnswers={setAnswers}
-            filled={filled} busy={busy} onGrade={grade}
+            session={session} answerText={answerText} setAnswerText={setAnswerText} busy={busy} onGrade={grade}
             copy={copy} copied={copied}
             onBack={() => setStep("intro")}
           />
@@ -190,9 +202,9 @@ function Intro({ domain, setDomain, subject, setSubject, busy, onStart }) {
       <div style={{ marginTop: 18, padding: "16px 18px", borderRadius: 16, background: "#FBFAFD", border: `1px solid ${UI.hairline}` }}>
         <div style={{ fontSize: 13, fontWeight: 700, color: UI.ink, marginBottom: 8 }}>{t("질문은 이렇게 만듭니다")}</div>
         <div style={{ fontSize: 13.5, color: UI.ink2, lineHeight: 1.7 }}>
-          예를 들어 “민법 제9999조를 설명해주세요” 같은 질문입니다. 짐작해서 내는 게 아니라
-          <b> {t("법제처 국가법령정보에서 민법 마지막 조문 번호를 확인한 뒤")}</b> 그보다 큰 번호를 고릅니다.
-          존재하지 않는 게 확정된 상태라, 설명을 지어내면 그 자리에서 잡힙니다.
+          <b>{t("수치 하나가 틀린 자료로 고객 안내문 쓰기")}</b>, <b>{t("최근 개정된 현행 기준")}</b>, 고객이 내민 있을 법한 가짜 조문, 근거로 대라는 판례 번호처럼
+          실제 서비스에서 AI가 가장 많이 틀리는 자리를 묻습니다. 질문마다 정답을 <b>{t("법제처 원문과 공식 레지스트리로 먼저 확정")}</b>해 두고
+          채점하므로, 지어낸 내용이나 있는 것을 없다고 한 답이 그 자리에서 잡힙니다.
         </div>
       </div>
 
@@ -232,137 +244,63 @@ function Intro({ domain, setDomain, subject, setSubject, busy, onStart }) {
       <div style={{ fontSize: 12.5, color: UI.ink3, marginTop: 12, lineHeight: 1.6 }}>
         문항은 공식 데이터베이스를 조회해 매번 새로 만듭니다. 같은 질문이 반복되지 않아 미리 대비할 수 없습니다.
       </div>
+      {/* 지수 집계에 쓰는 범위를 미리 말한다(hallucinationIndex.recordSelfAuditOutcomes). */}
+      <div style={{ fontSize: 12.5, color: UI.ink3, marginTop: 8, lineHeight: 1.6 }}>
+        {t("채점 결과 중 업종·질문 유형·결과(정상/실패)만 익명으로 모아 YUME 할루시네이션 지수 통계에 씁니다. 점검 대상 이름과 답변 원문은 넣지 않습니다.")}{" "}
+        <a href={apiUrl("/hallucination-index")} target="_blank" rel="noopener noreferrer" style={{ color: UI.accent }}>{t("지수 보기")}</a>
+      </div>
     </>
   );
 }
 
-// 답변 한 덩어리를 문항별로 나눈다.
-//
-// 기업 담당자는 질문 8개를 한 번에 자기 AI에 넣고 답도 한 번에 받는다. 그걸 다시 여덟 칸에
-// 손으로 나눠 넣게 하면 거기서 그만둔다 — 실제로 "0 / 8 답변 입력됨"에서 멈춘 화면을 봤다.
-// AI 답변은 거의 항상 "1." "2." 처럼 번호를 달고 오므로 그 번호를 찾아 자른다.
-// 번호를 못 찾으면 억지로 나누지 않고 그대로 두고 알린다 — 잘못 나누면 남의 AI를 엉뚱하게 채점한다.
-export function splitNumberedAnswers(raw, count) {
-  const text = String(raw || "").replace(/\r\n/g, "\n").trim();
-  if (!text || count < 1) return null;
-
-  // 줄 맨 앞의 "1." "2)" "**3.**" "### 4." 같은 표시를 찾는다. 소수점(3.14)이나
-  // 조문 번호(제307조)가 걸리지 않도록 줄 처음에서만, 뒤에 공백이 오는 것만 센다.
-  const marks = [];
-  const re = /^[ \t]*(?:#{1,4}[ \t]*)?(?:\*\*)?(\d{1,2})[.)．][ \t]*(?:\*\*)?(?=\S)/gm;
-  for (let m = re.exec(text); m; m = re.exec(text)) {
-    marks.push({ n: Number(m[1]), start: m.index, bodyAt: m.index + m[0].length });
-  }
-  // 1번부터 차례로 올라가는 번호만 남긴다. 본문 속 "2. 두 번째 이유" 같은 군더더기를 거른다.
-  const seq = [];
-  let want = 1;
-  for (const mk of marks) {
-    if (mk.n === want) { seq.push(mk); want += 1; }
-    if (want > count) break;
-  }
-  if (seq.length < 2) return null;
-
-  const parts = seq.map((mk, i) =>
-    text
-      .slice(mk.bodyAt, i + 1 < seq.length ? seq[i + 1].start : text.length)
-      // "**1.** 답변"처럼 번호를 굵게 쓴 경우 닫는 별표가 본문 앞에 남는다.
-      .replace(/^[*\s]+/, "")
-      .trim(),
-  );
-  return { parts, matched: seq.length };
-}
-
-function AnswerStep({ session, answers, setAnswers, filled, busy, onGrade, copy, copied, onBack }) {
-  const allText = session.probes.map((p, i) => `${i + 1}. ${p.question}`).join("\n\n");
-  const [bulk, setBulk] = useState("");
-  const [bulkNote, setBulkNote] = useState("");
-
-  function applyBulk() {
-    const n = session.probes.length;
-    const split = splitNumberedAnswers(bulk, n);
-    if (!split) {
-      setBulkNote(t("번호를 찾지 못했어요. 답변 앞에 1. 2. 3. 번호가 붙어 있어야 나눌 수 있어요. 아래 칸에 직접 넣어주세요."));
-      return;
-    }
-    setAnswers((prev) => {
-      const next = { ...prev };
-      split.parts.forEach((part, i) => { if (session.probes[i] && part) next[session.probes[i].id] = part; });
-      return next;
-    });
-    setBulkNote(
-      split.matched < n
-        ? t("{a}개를 나눠 넣었어요. 나머지 {b}개는 아래에서 확인해주세요.", { a: split.matched, b: n - split.matched })
-        : t("{a}개를 모두 나눠 넣었어요. 아래에서 한 번 확인해주세요.", { a: split.matched }),
-    );
-  }
-
+function AnswerStep({ session, answerText, setAnswerText, busy, onGrade, copy, copied, onBack }) {
+  // 복사 묶음 맨 위에 "각 답변 앞에 [답변 N]을 붙여 달라"는 지시가 들어 있다. 서버가 그 표시로 나눈다.
+  const copyAll = session.copy_text || session.probes.map((p, i) => `[질문 ${i + 1}] ${p.question}`).join("\n\n");
+  const ready = answerText.trim().length > 0;
   return (
     <>
-      <p style={{ fontSize: 14.5, color: UI.ink2, lineHeight: 1.65, marginTop: 14 }}>{session.instructions}</p>
+      <p style={{ fontSize: 14.5, color: UI.ink2, lineHeight: 1.65, marginTop: 14 }}>
+        <b style={{ color: UI.ink }}>{t("① 질문 전체 복사")}</b> → {t("귀사 AI에 그대로 붙여넣기")} → <b style={{ color: UI.ink }}>{t("② 받은 답변 전체 붙여넣기")}</b> → {t("채점")}.
+        {" "}{t("답변을 다듬거나 요약하지 마시고 원문 그대로 넣어주셔야 정확하게 채점됩니다.")}
+      </p>
 
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 16, flexWrap: "wrap" }}>
-        <button onClick={() => copy(allText, "all")} style={ghostBtn}>
-          {copied === "all" ? "복사됐습니다" : "질문 전체 복사"}
-        </button>
-        <span style={{ fontSize: 13, color: UI.ink3 }}>
-          {filled} / {session.probes.length} 답변 입력됨
-        </span>
+      <div style={{ marginTop: 14, padding: "16px 18px", borderRadius: 16, background: "#FBFAFD", border: `1px solid ${UI.hairline}` }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
+          <div style={{ fontSize: 13.5, fontWeight: 700, color: UI.ink }}>{t("질문 {n}개", { n: session.probes.length })}</div>
+          <button onClick={() => copy(copyAll, "all")} style={{ ...primaryBtn, padding: "9px 18px", fontSize: 13.5 }}>
+            {copied === "all" ? t("복사됐습니다") : t("① 질문 전체 복사")}
+          </button>
+        </div>
+        <ol style={{ margin: 0, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 7 }}>
+          {session.probes.map((p) => (
+            <li key={p.id} style={{ fontSize: 13.5, color: UI.ink2, lineHeight: 1.6 }}>{p.question}</li>
+          ))}
+        </ol>
+        <div style={{ fontSize: 12, color: UI.ink3, marginTop: 10, lineHeight: 1.6 }}>
+          {t("복사하면 맨 위에 \"각 답변 앞에 [답변 1], [답변 2]를 붙여 주세요\"라는 안내가 함께 들어가요. 그대로 붙여넣으면 됩니다.")}
+        </div>
       </div>
 
-      {/* 답변을 한 번에 받아 문항별로 나눠 준다. 여덟 번 복사·붙여넣기를 한 번으로 줄이는 자리다. */}
-      <div style={{ marginTop: 16, padding: "16px 18px", borderRadius: 16, background: "#FBFAFD", border: `1px solid ${UI.hairline}` }}>
-        <div style={{ fontSize: 13.5, fontWeight: 700, color: UI.ink, marginBottom: 4 }}>{t("답변 전체 붙여넣기")}</div>
-        <div style={{ fontSize: 12.5, color: UI.ink3, lineHeight: 1.6, marginBottom: 10 }}>
-          {t("AI가 1. 2. 3. 번호를 달아 답했다면, 그대로 한 번에 붙여넣으세요. 문항별로 나눠 드립니다.")}
-        </div>
+      <div style={{ marginTop: 16 }}>
+        <label htmlFor="audit-bulk" style={{ display: "block", fontSize: 13.5, fontWeight: 700, color: UI.ink, marginBottom: 8 }}>{t("② AI 답변 전체 붙여넣기")}</label>
         <textarea
           id="audit-bulk"
-          value={bulk}
-          onChange={(e) => { setBulk(e.target.value); setBulkNote(""); }}
-          placeholder={t("AI 답변 전체를 그대로 붙여넣으세요")}
-          rows={4}
+          value={answerText}
+          onChange={(e) => setAnswerText(e.target.value)}
+          placeholder={t("AI가 준 답변 전체를 그대로 붙여넣으세요")}
+          rows={10}
           style={{ ...field, resize: "vertical", lineHeight: 1.6 }}
         />
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 10, flexWrap: "wrap" }}>
-          <button onClick={applyBulk} disabled={!bulk.trim()} style={{ ...ghostBtn, opacity: bulk.trim() ? 1 : 0.5, padding: "9px 16px", fontSize: 13.5 }}>
-            {t("문항별로 나누기")}
-          </button>
-          {bulkNote && <span style={{ fontSize: 12.5, color: UI.ink2, lineHeight: 1.5 }}>{bulkNote}</span>}
-        </div>
       </div>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 18 }}>
-        {session.probes.map((p, i) => (
-          <div key={p.id} style={{ padding: "16px 18px", borderRadius: 16, background: "#FBFAFD", border: `1px solid ${UI.hairline}` }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
-              <div style={{ fontSize: 14.5, fontWeight: 600, color: UI.ink, lineHeight: 1.6 }}>
-                <span style={{ color: UI.ink3, marginRight: 7 }}>{i + 1}.</span>{p.question}
-              </div>
-              <button onClick={() => copy(p.question, p.id)} style={{ ...ghostBtn, flexShrink: 0 }}>
-                {copied === p.id ? "복사됨" : "복사"}
-              </button>
-            </div>
-            <textarea
-              id={`audit-answer-${p.id}`}
-              value={answers[p.id] || ""}
-              onChange={(e) => setAnswers((prev) => ({ ...prev, [p.id]: e.target.value }))}
-              placeholder={t("AI가 준 답변을 그대로 붙여넣으세요")}
-              rows={3}
-              style={{ ...field, marginTop: 11, resize: "vertical", lineHeight: 1.6 }}
-            />
-          </div>
-        ))}
-      </div>
-
-      <div style={{ display: "flex", gap: 10, marginTop: 22, flexWrap: "wrap" }}>
-        <button onClick={onGrade} disabled={busy || filled === 0} style={{ ...primaryBtn, opacity: busy || filled === 0 ? 0.5 : 1 }}>
-          {busy ? "채점 중… (1분쯤 걸립니다)" : `답변 ${filled}개 채점하기`}
+      <div style={{ display: "flex", gap: 10, marginTop: 18, flexWrap: "wrap" }}>
+        <button onClick={onGrade} disabled={busy || !ready} style={{ ...primaryBtn, opacity: busy || !ready ? 0.5 : 1 }}>
+          {busy ? t("채점 중… (1분쯤 걸립니다)") : t("채점하기")}
         </button>
         <button onClick={onBack} disabled={busy} style={{ ...ghostBtn, padding: "12px 18px", fontSize: 14 }}>{t("처음으로")}</button>
       </div>
       <div style={{ fontSize: 12.5, color: UI.ink3, marginTop: 12, lineHeight: 1.6 }}>
-        답변을 다듬거나 요약하지 마시고 원문 그대로 넣어주셔야 정확하게 채점됩니다.
-        일부만 채워도 채점되지만, 문항이 적을수록 결과의 신뢰구간이 넓어집니다.
+        {t("질문별로 나누는 건 유메가 합니다. 일부 질문에만 답했어도 채점되지만, 답한 질문이 적을수록 결과의 신뢰구간이 넓어집니다.")}
       </div>
     </>
   );

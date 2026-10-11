@@ -62,6 +62,8 @@ export async function findClaim(claim) {
     sources: row.sources_json ? JSON.parse(row.sources_json) : [],
     ...(row.nec_json ? { nec: JSON.parse(row.nec_json) } : {}),
     ...(row.effective_date ? { effective_date: row.effective_date } : {}),
+    // 처음 판정될 때 근거 잠금(evidenceLock.js)을 거친 확신도. 예전 행에는 없다.
+    ...(row.confidence ? { confidence: row.confidence } : {}),
     from_claim_cache: true,
   };
 }
@@ -69,8 +71,8 @@ export async function findClaim(claim) {
 export async function saveClaim(claim) {
   if (!claim?.text || !cacheable(claim)) return false;
   await run(
-    `INSERT INTO claim_cache (hash, verdict, verified_via, explanation, sources_json, nec_json, effective_date, created_at)
-     VALUES (:hash, :verdict, :via, :explanation, :sources, :nec, :eff, :t)
+    `INSERT INTO claim_cache (hash, verdict, verified_via, explanation, sources_json, nec_json, effective_date, confidence, created_at)
+     VALUES (:hash, :verdict, :via, :explanation, :sources, :nec, :eff, :conf, :t)
      ON CONFLICT (hash) DO NOTHING`,
     {
       hash: claimKey(claim),
@@ -80,6 +82,7 @@ export async function saveClaim(claim) {
       sources: JSON.stringify(claim.sources || []),
       nec: claim.nec ? JSON.stringify(claim.nec) : null,
       eff: claim.effective_date || null,
+      conf: claim.confidence || null,
       t: now(),
     },
   ).catch(() => {});
@@ -91,6 +94,8 @@ export async function saveClaim(claim) {
 export async function applyCache(claims) {
   return Promise.all(
     claims.map(async (c) => {
+      // 기업 기준 자료로 판정한 주장은 공용 캐시가 덮지 않는다. 그 회사의 사실은 그 자료가 기준이다.
+      if (c.from_reference) return c;
       // 법률 주장은 추출 시점에 판정이 없으므로(pending_legal_check) 캐시를 먼저 본다.
       const hit = await findClaim(c).catch(() => null);
       return hit || c;
@@ -99,7 +104,8 @@ export async function applyCache(claims) {
 }
 
 export async function storeAll(claims) {
-  await Promise.all(claims.filter((c) => !c.from_claim_cache).map((c) => saveClaim(c).catch(() => {})));
+  // 기준 자료로 낸 판정은 그 회사에만 맞는 답이라 공용 캐시에 넣지 않는다.
+  await Promise.all(claims.filter((c) => !c.from_claim_cache && !c.from_reference).map((c) => saveClaim(c).catch(() => {})));
 }
 
 // 판정이 틀렸다고 확인된 주장은 캐시에서 지운다.

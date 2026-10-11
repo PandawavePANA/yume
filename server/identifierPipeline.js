@@ -9,7 +9,8 @@ import { SCHOLARLY_LOOKUP } from "./nec/scholarly.js";
 const MAX_PER_CLAIM = 3;
 
 export async function resolveIdentifierClaims(claims, { onProgress = () => {}, lookups = SCHOLARLY_LOOKUP } = {}) {
-  return Promise.all(claims.map((c) => resolveClaim(c, onProgress, lookups)));
+  // 기업 기준 자료로 판정이 끝난 주장은 건드리지 않는다(referenceCheck.js).
+  return Promise.all(claims.map((c) => (c.from_reference ? c : resolveClaim(c, onProgress, lookups))));
 }
 
 async function resolveClaim(claim, onProgress, lookups) {
@@ -56,7 +57,10 @@ async function resolveClaim(claim, onProgress, lookups) {
     .sort((a, b) => b.nec.score - a.nec.score)[0];
   const identifierSummary = results.map(({ nec: _n, ...r }) => r);
 
+  // existence — 대상이 있다/없다는 사실만 남긴다. "없다"고 말한 주장이면 판정은 claimStance.js가
+  // 뒤집는다(없는 걸 없다고 했으면 맞고, 있는 걸 없다고 했으면 틀렸다).
   if (worst && worst.nec.grade === "nonexistent") {
+    const label = `${lookups[worst.type].label} ${worst.value}`;
     return {
       ...base,
       verdict: "false",
@@ -65,12 +69,15 @@ async function resolveClaim(claim, onProgress, lookups) {
       sources: [...foundSources, ...(base.sources || [])],
       nec: worst.nec,
       identifiers: identifierSummary,
+      existence: { status: "absent", target: worst.value, label, score: worst.nec.score },
     };
   }
+  const found = results.find((r) => r.status === "found");
   return {
     ...base,
     sources: [...foundSources, ...(base.sources || [])],
     ...(worst ? { nec: worst.nec } : {}),
     identifiers: identifierSummary,
+    ...(found ? { existence: { status: "present", target: found.value, label: `${lookups[found.type].label} ${found.value}`, sources: foundSources } } : {}),
   };
 }

@@ -99,6 +99,8 @@ const TABLES = [
   "credit_ledger", "bounty_claims", "redemptions", "referrals", "contribution_ledger", "quarter_awards", "claim_cache",
   "credit_orders", "inquiries", "audit_sessions", "audit_reports", "projects", "product_tasks",
   "threads", "thread_messages", "thread_quotes", "lobby_messages", "api_costs", "verdict_corrections",
+  "api_idempotency", "documents", "trust_marks",
+  "ai_audits", "ai_audit_items", "ai_audit_findings", "ai_audit_files", "audit_outcomes", "index_issues",
 ];
 const TABLE_REF = new RegExp(`\\b(FROM|JOIN|INTO|UPDATE)\\s+(${TABLES.join("|")})\\b`, "gi");
 const qualify = (sql) => sql.replace(TABLE_REF, (_m, kw, table) => `${kw} ${SCHEMA}.${table}`);
@@ -917,6 +919,236 @@ const MIGRATIONS = [
   CREATE INDEX idx_events_day ON events(kind, day);
   CREATE INDEX idx_events_user ON events(user_id) WHERE user_id IS NOT NULL;
   ALTER TABLE events ENABLE ROW LEVEL SECURITY;
+  `,
+
+  // ── 같은 요청을 두 번 받아도 한 번만 처리한다(API 멱등 키) ──
+  //
+  // 고객사 서버는 응답을 못 받으면 다시 보낸다(시간 초과, 네트워크 끊김). 그때마다 새 검증을
+  // 시작하면 같은 글을 두 번 과금한다. Idempotency-Key 헤더가 같으면 처음 시작한 검증을
+  // 그대로 돌려준다. 본문이 다른데 키가 같으면 실수이므로 거절한다(body_hash).
+  // 하루가 지나면 지운다 — 재시도는 그 안에 끝난다.
+  `
+  CREATE TABLE api_idempotency (
+    api_key_id BIGINT NOT NULL REFERENCES api_keys(id) ON DELETE CASCADE,
+    idem_key TEXT NOT NULL,
+    body_hash TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    refs_json TEXT NOT NULL,
+    created_at BIGINT NOT NULL,
+    PRIMARY KEY (api_key_id, idem_key)
+  );
+  CREATE INDEX idx_api_idem_created ON api_idempotency(created_at);
+  ALTER TABLE api_idempotency ENABLE ROW LEVEL SECURITY;
+  `,
+
+  // ── 긴 문서 검사(documents.js) ──
+  //
+  // 문서 하나가 조각 여러 개(검증 행 여러 개)로 나뉜다. 원문 전체를 여기 둬야 조각 결과를
+  // 원문 위치로 다시 합치고, 고친 문장을 반영한 "고친 본문"을 만들 수 있다.
+  // 보존 기간은 API 검증과 같다(1년, maintenance).
+  `
+  CREATE TABLE documents (
+    id TEXT PRIMARY KEY,
+    api_key_id BIGINT REFERENCES api_keys(id) ON DELETE SET NULL,
+    user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
+    source TEXT NOT NULL,
+    title TEXT,
+    input TEXT NOT NULL,
+    chunks_json TEXT NOT NULL,
+    created_at BIGINT NOT NULL
+  );
+  CREATE INDEX idx_documents_key ON documents(api_key_id, created_at);
+  CREATE INDEX idx_documents_user ON documents(user_id, created_at);
+  ALTER TABLE documents ENABLE ROW LEVEL SECURITY;
+  `,
+
+  // 근거 잠금(evidenceLock.js)의 확신도. 캐시에서 다시 쓸 때도 처음 확인한 수준을 그대로 알려야
+  // 엄격 모드가 캐시 적중분을 일괄로 '확인 못 함'으로 내리지 않는다.
+  `
+  ALTER TABLE claim_cache ADD COLUMN confidence TEXT;
+  `,
+
+  // YUME 검증 마크(trustMarks.js). 공개 검증 페이지(/v/:id)에 원문과 주장별 근거를 싣는다.
+  // 원문은 발급자가 공개에 동의한 것이므로 문서 보관 기간(1년)과 따로 둔다. 계정을 지우면 함께 지운다.
+  `
+  CREATE TABLE trust_marks (
+    id TEXT PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    document_id TEXT,
+    title TEXT,
+    text TEXT NOT NULL,
+    text_hash TEXT NOT NULL,
+    claims_json TEXT NOT NULL,
+    first_issued_at BIGINT NOT NULL,
+    issued_at BIGINT NOT NULL,
+    expires_at BIGINT NOT NULL,
+    renewals INTEGER NOT NULL DEFAULT 0,
+    revoked_at BIGINT,
+    revoked_reason TEXT,
+    created_at BIGINT NOT NULL
+  );
+  CREATE INDEX idx_trust_marks_user ON trust_marks(user_id, created_at);
+  CREATE INDEX idx_trust_marks_hash ON trust_marks(user_id, text_hash);
+  ALTER TABLE trust_marks ENABLE ROW LEVEL SECURITY;
+  `,
+
+  // ── 감사 데스크(auditDesk.js) — 특정 회사 AI 서비스를 표본 감사하고 비공개로 알리는 영업 도구 ──
+  //
+  // 한 건(ai_audits)이 영업 한 줄이다. 약관 확인 → 질문·답변 기록 → 유메 검사 → 사람이 원문 재확인
+  // → 비공개 보고서 → 메일 → 후속 → 결과까지 같은 행에 시각으로 남는다. 숫자(발송→답장→미팅→
+  // 무료 검사→유료 의향)는 여기서 센다. 회사명은 동의(consent_name)가 있을 때만 밖으로 나간다.
+  //
+  // 문항(ai_audit_items)은 정답을 서버에만 둔다(probe_json) — 무료 점검과 같은 이유다.
+  // 답변은 운영자가 일반 사용자로서 손으로 넣은 것이고, answered_at이 캡처 시각이다.
+  // 재확인 항목(ai_audit_findings)은 유메가 지목한 오류 후보다. 사람이 원문을 직접 열어
+  // confirmed로 바꾼 것만 보고서·지수에 "불일치"로 들어간다.
+  `
+  CREATE TABLE ai_audits (
+    id BIGSERIAL PRIMARY KEY,
+    company TEXT NOT NULL,
+    service_name TEXT NOT NULL DEFAULT '',
+    service_url TEXT NOT NULL DEFAULT '',
+    domain TEXT NOT NULL DEFAULT '법률',
+    category TEXT NOT NULL DEFAULT 'service',
+    stage TEXT NOT NULL DEFAULT 'prospect',
+    contact_name TEXT NOT NULL DEFAULT '',
+    contact_role TEXT NOT NULL DEFAULT '',
+    contact_email TEXT NOT NULL DEFAULT '',
+    found_via TEXT NOT NULL DEFAULT '',
+    tos_url TEXT NOT NULL DEFAULT '',
+    tos_verdict TEXT,
+    tos_note TEXT NOT NULL DEFAULT '',
+    tos_checked_at BIGINT,
+    highlights TEXT NOT NULL DEFAULT '',
+    checklist_json TEXT NOT NULL DEFAULT '{}',
+    mail_subject TEXT,
+    mail_body TEXT,
+    report_token TEXT UNIQUE,
+    report_shared_at BIGINT,
+    sent_at BIGINT,
+    followup_due_at BIGINT,
+    followed_up_at BIGINT,
+    replied_at BIGINT,
+    meeting_at BIGINT,
+    full_audit_at BIGINT,
+    paid_intent_at BIGINT,
+    closed_at BIGINT,
+    outcome TEXT,
+    paid_amount_krw BIGINT,
+    decline_reason TEXT NOT NULL DEFAULT '',
+    price_heard TEXT NOT NULL DEFAULT '',
+    needs TEXT NOT NULL DEFAULT '',
+    notes TEXT NOT NULL DEFAULT '',
+    minutes_spent INTEGER NOT NULL DEFAULT 0,
+    consent_name INTEGER NOT NULL DEFAULT 0,
+    consent_note TEXT NOT NULL DEFAULT '',
+    consent_at BIGINT,
+    public_id TEXT UNIQUE,
+    public_at BIGINT,
+    index_excluded INTEGER NOT NULL DEFAULT 0,
+    created_at BIGINT NOT NULL,
+    updated_at BIGINT NOT NULL
+  );
+  CREATE INDEX idx_ai_audits_stage ON ai_audits(stage, updated_at);
+  ALTER TABLE ai_audits ENABLE ROW LEVEL SECURITY;
+
+  CREATE TABLE ai_audit_items (
+    id BIGSERIAL PRIMARY KEY,
+    audit_id BIGINT NOT NULL REFERENCES ai_audits(id) ON DELETE CASCADE,
+    position INTEGER NOT NULL,
+    kind TEXT NOT NULL,
+    qtype TEXT NOT NULL DEFAULT '',
+    question TEXT NOT NULL,
+    probe_json TEXT,
+    answer TEXT,
+    answered_at BIGINT,
+    status TEXT NOT NULL DEFAULT 'new',
+    check_started_at BIGINT,
+    grade_json TEXT,
+    verification_id TEXT,
+    verify_json TEXT,
+    error TEXT,
+    created_at BIGINT NOT NULL,
+    updated_at BIGINT NOT NULL
+  );
+  CREATE INDEX idx_ai_audit_items_audit ON ai_audit_items(audit_id, position);
+  ALTER TABLE ai_audit_items ENABLE ROW LEVEL SECURITY;
+
+  CREATE TABLE ai_audit_findings (
+    id BIGSERIAL PRIMARY KEY,
+    audit_id BIGINT NOT NULL REFERENCES ai_audits(id) ON DELETE CASCADE,
+    item_id BIGINT NOT NULL REFERENCES ai_audit_items(id) ON DELETE CASCADE,
+    source TEXT NOT NULL,
+    claim_index INTEGER,
+    polarity TEXT NOT NULL,
+    severity TEXT NOT NULL DEFAULT '',
+    claim TEXT NOT NULL DEFAULT '',
+    ai_quote TEXT NOT NULL DEFAULT '',
+    yume_reason TEXT NOT NULL DEFAULT '',
+    truth TEXT NOT NULL DEFAULT '',
+    source_url TEXT NOT NULL DEFAULT '',
+    source_label TEXT NOT NULL DEFAULT '',
+    nec_score DOUBLE PRECISION,
+    review TEXT NOT NULL DEFAULT 'pending',
+    review_note TEXT NOT NULL DEFAULT '',
+    checked_url TEXT NOT NULL DEFAULT '',
+    reviewed_at BIGINT,
+    featured INTEGER NOT NULL DEFAULT 0,
+    in_index INTEGER NOT NULL DEFAULT 0,
+    created_at BIGINT NOT NULL
+  );
+  CREATE INDEX idx_ai_audit_findings_audit ON ai_audit_findings(audit_id, item_id);
+  ALTER TABLE ai_audit_findings ENABLE ROW LEVEL SECURITY;
+
+  CREATE TABLE ai_audit_files (
+    id BIGSERIAL PRIMARY KEY,
+    audit_id BIGINT NOT NULL REFERENCES ai_audits(id) ON DELETE CASCADE,
+    item_id BIGINT NOT NULL REFERENCES ai_audit_items(id) ON DELETE CASCADE,
+    mime TEXT NOT NULL,
+    size INTEGER NOT NULL,
+    data TEXT NOT NULL,
+    created_at BIGINT NOT NULL
+  );
+  CREATE INDEX idx_ai_audit_files_item ON ai_audit_files(item_id);
+  ALTER TABLE ai_audit_files ENABLE ROW LEVEL SECURITY;
+  `,
+
+  // ── 공개 지표 — YUME 할루시네이션 지수(hallucinationIndex.js) ──
+  //
+  // audit_outcomes: 무료 자가 점검의 문항별 결과만 익명으로 남긴다. 회사명·답변 원문·IP는 넣지 않는다
+  // (리포트 자체는 7일 뒤 지워지지만, 지수는 기간을 거슬러 세어야 한다).
+  // index_issues: 발행한 지수 한 호. 발행하면 data_json을 얼리고 SHA-256 지문을 붙인다. 고칠 때는
+  // 조용히 덮어쓰지 않고 revision을 올리고 정정 기록(corrections_json)에 이전 지문을 남긴다.
+  `
+  CREATE TABLE audit_outcomes (
+    id BIGSERIAL PRIMARY KEY,
+    domain TEXT NOT NULL,
+    probe_type TEXT NOT NULL,
+    outcome TEXT NOT NULL,
+    weight DOUBLE PRECISION NOT NULL DEFAULT 1,
+    created_at BIGINT NOT NULL
+  );
+  CREATE INDEX idx_audit_outcomes_created ON audit_outcomes(created_at);
+  ALTER TABLE audit_outcomes ENABLE ROW LEVEL SECURITY;
+
+  CREATE TABLE index_issues (
+    id BIGSERIAL PRIMARY KEY,
+    slug TEXT NOT NULL UNIQUE,
+    title TEXT NOT NULL,
+    period_start BIGINT NOT NULL,
+    period_end BIGINT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'draft',
+    data_json TEXT NOT NULL,
+    commentary TEXT NOT NULL DEFAULT '',
+    method_version TEXT NOT NULL,
+    sha256 TEXT,
+    published_at BIGINT,
+    revision INTEGER NOT NULL DEFAULT 0,
+    corrections_json TEXT NOT NULL DEFAULT '[]',
+    created_at BIGINT NOT NULL,
+    updated_at BIGINT NOT NULL
+  );
+  ALTER TABLE index_issues ENABLE ROW LEVEL SECURITY;
   `,
 ];
 

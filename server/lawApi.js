@@ -358,6 +358,41 @@ function flattenArticleText(unit) {
   return lines.filter(Boolean).join("\n");
 }
 
+// 법령의 조문 목록(가지조문 포함). 무료 AI 점검이 "제23조의3까지 있는 조문"을 찾아
+// 바로 다음 가지번호(제23조의4)를 미끼로 묻는 데 쓴다.
+export async function getStatuteIndex(mst) {
+  const r = await callLawApi("lawService.do", { target: "law", MST: mst });
+  if (!r.ok) return r;
+  const arr = toArray(r.data?.["법령"]?.["조문"]?.["조문단위"]).filter((u) => u["조문여부"] === "조문");
+  return {
+    ok: true,
+    articles: arr.map((u) => ({
+      no: Number(normalizeArticleNo(u["조문번호"])) || 0,
+      branch: Number(u["조문가지번호"]) || 0,
+      title: String(u["조문제목"] || "").trim(),
+      deleted: /삭제/.test(String(u["조문내용"] || "").slice(0, 40)),
+    })),
+  };
+}
+
+// 법령 전체 조문(본문 포함)을 한 번에. 최근 개정된 항을 찾을 때처럼 조문을 훑어야 할 때 쓴다 —
+// getStatuteArticle을 조문마다 부르면 같은 법령을 조문 수만큼 다시 받는다.
+export async function getStatuteArticlesAll(mst) {
+  const r = await callLawApi("lawService.do", { target: "law", MST: mst });
+  if (!r.ok) return r;
+  const arr = toArray(r.data?.["법령"]?.["조문"]?.["조문단위"]).filter((u) => u["조문여부"] === "조문");
+  return {
+    ok: true,
+    articles: arr.map((u) => ({
+      no: Number(normalizeArticleNo(u["조문번호"])) || 0,
+      branch: Number(u["조문가지번호"]) || 0,
+      title: String(u["조문제목"] || "").trim(),
+      text: flattenArticleText(u) || "",
+      effectiveDate: u["조문시행일자"] || "",
+    })),
+  };
+}
+
 // maxArticleNo는 형식 검증(범위 적합성)에 쓴다 — 마지막 조문보다 큰 번호는 존재할 수 없다.
 export async function getStatuteArticle(mst, articleNo, branchNo = null) {
   const r = await callLawApi("lawService.do", { target: "law", MST: mst });

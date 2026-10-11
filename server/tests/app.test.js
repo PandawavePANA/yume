@@ -155,9 +155,11 @@ test("상품 안내에 판매 상품과 가격이 다 나온다", async () => {
   for (const pack of CREDIT_PACKS) {
     assert.ok(t.includes(pack.krw.toLocaleString()), `${pack.label} 가격이 없다`);
   }
-  for (const key of ["standard", "expert"]) {
-    assert.ok(t.includes(PLANS[key].monthlyKrw.toLocaleString()), `${key} 가격이 없다`);
-  }
+  // 이니시스 포인트충전 조건 — 정기결제 상품이 없고, 소진기한(1년)과 카드 취소 환불이 적혀 있어야 한다.
+  for (const key of ["standard", "expert"]) assert.equal(PLANS[key].monthlyKrw, null, `${key} 월 요금제는 판매 종료`);
+  assert.ok(!/1개월 이용권/.test(t), "월 요금제 상품이 남아 있으면 안 된다");
+  assert.match(t, /결제한 시점부터 1년 이내/);
+  assert.match(t, /카드의 결제 취소로만/);
   // "12,000원"에도 "0원"이 들어 있으므로 칸 전체가 그 값일 때만 잡는다.
   assert.ok(!/>\s*0원\s*</.test(t), "판매가가 0원인 상품이 있으면 심사가 반려된다");
   assert.ok(!/>\s*품절\s*</.test(t), "품절 표시가 있으면 심사가 반려된다");
@@ -456,4 +458,246 @@ test("카카오 스킬: 비밀 헤더 확인과 응답 형식", async () => {
   } finally {
     delete process.env.KAKAO_SKILL_SECRET;
   }
+});
+
+// ── 웹훅·멱등 키 ──
+// 고객사가 폴링 코드를 쓰지 않아도 결과를 받고(웹훅), 응답을 못 받아 다시 보내도
+// 두 번 과금되지 않아야(멱등 키) 하루 만에 붙일 수 있다.
+test("API 웹훅은 서명해서 보내고, 같은 Idempotency-Key는 처음 결과를 다시 준다(과금 없이)", async () => {
+  const { signPayload, validateCallback } = await import("../webhooks.js");
+  const http = await import("node:http");
+
+  // 운영에서는 공인 https 주소만 받는다(SSRF 방지).
+  delete process.env.YUME_WEBHOOK_ALLOW_PRIVATE;
+  assert.ok(validateCallback("http://example.com/hook").error, "https만");
+  assert.ok(validateCallback("https://127.0.0.1/hook").error, "루프백 불가");
+  assert.ok(validateCallback("https://10.1.2.3/hook").error, "사설 IP 불가");
+  assert.ok(validateCallback("https://localhost/hook").error, "localhost 불가");
+  assert.ok(validateCallback("https://user:pw@example.com/hook").error, "계정 정보 불가");
+  assert.equal(validateCallback("https://example.com/hook", "s").url, "https://example.com/hook");
+  assert.deepEqual(validateCallback(undefined), { url: null, secret: "" });
+
+  // 테스트에서는 로컬 수신 서버로 보낸다.
+  process.env.YUME_WEBHOOK_ALLOW_PRIVATE = "1";
+  const received = [];
+  const hook = http.createServer((req, res) => {
+    let body = "";
+    req.on("data", (c) => (body += c));
+    req.on("end", () => {
+      received.push({ headers: req.headers, body });
+      res.writeHead(204).end();
+    });
+  });
+  await new Promise((r) => hook.listen(0, "127.0.0.1", r));
+  const hookUrl = `http://127.0.0.1:${hook.address().port}/yume`;
+
+  try {
+    const owner = client();
+    await owner("POST", "/api/auth/signup", signupBody("hook@yume.test", { company: "웹훅AI" }));
+    const key = (await owner("POST", "/api/account/api-keys", { label: "웹훅" })).data.key;
+    const auth = { Authorization: `Bearer ${key}`, "Content-Type": "application/json" };
+
+    const text = "웹훅 시험용 문장: 대법원 2019다123457 판결은 존재한다.";
+    await seedVerification({ id: "seedhook000000001", input: text, claims: [{ text, domain: "법률", verdict: "false", verified_via: "nec", explanation: "부존재", sources: [] }] });
+
+    const body = JSON.stringify({ text, callback_url: hookUrl, callback_secret: "s3cret" });
+    const first = await fetch(`${base}/v1/verify`, { method: "POST", headers: { ...auth, "Idempotency-Key": "order-42" }, body });
+    assert.equal(first.status, 200);
+    const job = await first.json();
+    const usedAfterFirst = job.usage.used;
+
+    // 결과가 수신 서버로 온다(서명 포함).
+    for (let i = 0; i < 40 && received.length === 0; i++) await new Promise((r) => setTimeout(r, 50));
+    assert.equal(received.length, 1, "웹훅 한 번");
+    const got = received[0];
+    const payload = JSON.parse(got.body);
+    assert.equal(payload.event, "verification.completed");
+    assert.equal(payload.id, job.id);
+    assert.equal(payload.status, "done");
+    assert.equal(got.headers["x-yume-signature"], signPayload("s3cret", got.headers["x-yume-timestamp"], got.body), "서명이 맞아야 함");
+
+    // 같은 키·같은 내용으로 다시 → 처음 검증을 그대로, 과금 없이.
+    const again = await fetch(`${base}/v1/verify`, { method: "POST", headers: { ...auth, "Idempotency-Key": "order-42" }, body });
+    assert.equal(again.status, 200);
+    assert.equal(again.headers.get("idempotent-replayed"), "true");
+    const replayed = await again.json();
+    assert.equal(replayed.id, job.id, "같은 검증 id");
+    assert.equal(replayed.replayed, true);
+    assert.equal(replayed.usage.used, usedAfterFirst, "다시 보낸 요청은 과금하지 않음");
+
+    // 같은 키로 다른 내용 → 실수이므로 거절.
+    const conflict = await fetch(`${base}/v1/verify`, { method: "POST", headers: { ...auth, "Idempotency-Key": "order-42" }, body: JSON.stringify({ text: `${text} 다른 글` }) });
+    assert.equal(conflict.status, 422);
+    assert.equal((await conflict.json()).error.code, "idempotency_conflict");
+
+    // 키 형식 검사
+    const badKey = await fetch(`${base}/v1/verify`, { method: "POST", headers: { ...auth, "Idempotency-Key": "has space" }, body });
+    assert.equal(badKey.status, 400);
+
+    // 묶음도 같은 규칙: 두 번째는 같은 id들을 과금 없이.
+    const batchBody = JSON.stringify({ items: [{ ref: "x", text }, { ref: "y", text }] });
+    const b1 = await (await fetch(`${base}/v1/verify/batch`, { method: "POST", headers: { ...auth, "Idempotency-Key": "batch-1" }, body: batchBody })).json();
+    const b2res = await fetch(`${base}/v1/verify/batch`, { method: "POST", headers: { ...auth, "Idempotency-Key": "batch-1" }, body: batchBody });
+    const b2 = await b2res.json();
+    assert.deepEqual(b2.results.map((r) => r.id), b1.results.map((r) => r.id));
+    assert.deepEqual(b2.results.map((r) => r.ref), ["x", "y"]);
+    assert.equal(b2.usage.used, b1.usage.used, "묶음 재시도도 과금 없음");
+  } finally {
+    hook.close();
+    delete process.env.YUME_WEBHOOK_ALLOW_PRIVATE;
+  }
+});
+
+// ── 긴 문서 검사 ──
+test("문서 검사 — API와 웹 화면이 같은 한도로, 원문 위치와 고친 본문을 돌려준다", async () => {
+  const owner = client();
+  await owner("POST", "/api/auth/signup", signupBody("doc@yume.test", { company: "문서AI" }));
+  const key = (await owner("POST", "/api/account/api-keys", { label: "문서" })).data.key;
+  const auth = { Authorization: `Bearer ${key}`, "Content-Type": "application/json" };
+
+  const text = "문서 시험: 대한민국의 수도는 부산입니다.";
+  const quote = "대한민국의 수도는 부산입니다.";
+  const span = { start: text.indexOf(quote), end: text.indexOf(quote) + quote.length };
+  await seedVerification({
+    id: "seeddoc0000000001",
+    input: text,
+    claims: [{ text: "대한민국의 수도는 부산이다", quote, span, domain: "일반", verdict: "false", verified_via: "web", explanation: "실제로는 서울", suggested_fix: "대한민국의 수도는 서울입니다.", sources: [{ title: "t", url: "https://e.x" }] }],
+  });
+
+  const r = await fetch(`${base}/v1/documents`, { method: "POST", headers: auth, body: JSON.stringify({ text, title: "보도자료", wait: 10 }) });
+  assert.equal(r.status, 200);
+  const doc = await r.json();
+  assert.equal(doc.object, "document");
+  assert.equal(doc.status, "done");
+  assert.equal(doc.parts.total, 1);
+  assert.equal(doc.result.counts.false, 1);
+  assert.deepEqual(doc.result.claims[0].span, span, "원문 전체 기준 위치");
+  assert.equal(doc.result.corrected_text, "문서 시험: 대한민국의 수도는 서울입니다.");
+  assert.equal(doc.result.fixes_applied, 1);
+  assert.equal(doc.usage.used, 1, "조각 수만큼 과금");
+
+  // 다른 계정은 조회할 수 없다
+  const other = client();
+  await other("POST", "/api/auth/signup", signupBody("doc-other@yume.test"));
+  const otherKey = (await other("POST", "/api/account/api-keys", { label: "남" })).data.key;
+  assert.equal((await fetch(`${base}/v1/documents/${doc.id}`, { headers: { Authorization: `Bearer ${otherKey}` } })).status, 404);
+  assert.equal((await fetch(`${base}/v1/documents/${doc.id}`, { headers: auth })).status, 200);
+
+  // 파일 형식 오류는 400(과금 없음)
+  const badFile = await fetch(`${base}/v1/documents`, { method: "POST", headers: auth, body: JSON.stringify({ file: { name: "옛문서.hwp", content_base64: Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 1, 2, 3, 4]).toString("base64") } }) });
+  assert.equal(badFile.status, 400);
+  assert.equal((await badFile.json()).error.code, "invalid_file");
+
+  // 웹 화면: 로그인 필요. 키가 없는 계정은 "웹 문서 검사" 키를 만들어 그 한도를 쓴다.
+  assert.equal((await client()("POST", "/api/documents", { text })).status, 401);
+  const web = client();
+  await web("POST", "/api/auth/signup", signupBody("docweb@yume.test"));
+  const started = await web("POST", "/api/documents", { text });
+  assert.equal(started.status, 202);
+  let view;
+  for (let i = 0; i < 40; i++) {
+    view = await web("GET", `/api/documents/${started.data.id}`);
+    if (view.data.status !== "pending") break;
+    await new Promise((res) => setTimeout(res, 50));
+  }
+  assert.equal(view.data.status, "done");
+  assert.equal(view.data.result.corrected_text, "문서 시험: 대한민국의 수도는 서울입니다.");
+  const keys = await web("GET", "/api/account/api-keys");
+  assert.ok(JSON.stringify(keys.data).includes("웹 문서 검사"), "과금용 키가 목록에 보인다(숨은 지갑 없음)");
+  assert.equal((await owner("GET", `/api/documents/${started.data.id}`)).status, 404, "남의 문서는 웹에서도 안 보인다");
+});
+
+// ── YUME 검증 마크 ──
+test("검증 마크 — 모두 원문으로 확인된 문서에만, 공개 동의를 받고 발급하며 누구나 확인할 수 있다", async () => {
+  const owner = client();
+  await owner("POST", "/api/auth/signup", signupBody("mark@yume.test", { company: "마크AI" }));
+  const key = (await owner("POST", "/api/account/api-keys", { label: "마크" })).data.key;
+  const auth = { Authorization: `Bearer ${key}`, "Content-Type": "application/json" };
+
+  const text = "마크 시험: 대한민국의 수도는 서울입니다.";
+  const quote = "대한민국의 수도는 서울입니다.";
+  await seedVerification({
+    id: "seedmark000000001",
+    input: text,
+    claims: [{
+      text: "대한민국의 수도는 서울이다", quote, span: { start: text.indexOf(quote), end: text.indexOf(quote) + quote.length },
+      domain: "일반", verdict: "confirmed", confidence: "high", verified_via: "web", explanation: "헌법재판소 결정과 정부 자료",
+      sources: [{ title: "정부 자료", url: "https://www.korea.kr/x", quote: "대한민국의 수도는 서울" }],
+      evidence: { status: "verified", url: "https://www.korea.kr/x", quote: "대한민국의 수도는 서울" },
+    }],
+  });
+  const doc = await (await fetch(`${base}/v1/documents`, { method: "POST", headers: auth, body: JSON.stringify({ text, title: "회사 소개", wait: 10 }) })).json();
+  assert.equal(doc.status, "done");
+
+  // 공개 동의 없이는 발급하지 않는다
+  const noConsent = await fetch(`${base}/v1/documents/${doc.id}/mark`, { method: "POST", headers: auth, body: "{}" });
+  assert.equal(noConsent.status, 400);
+  assert.equal((await noConsent.json()).error.code, "publish_consent_required");
+
+  const issued = await fetch(`${base}/v1/documents/${doc.id}/mark`, { method: "POST", headers: auth, body: JSON.stringify({ publish: true }) });
+  assert.equal(issued.status, 201);
+  const mark = await issued.json();
+  assert.equal(mark.status, "valid");
+  assert.match(mark.embed_html, /data-yume-mark/);
+
+  // 누구나(로그인 없이) 확인한다 — 검증 페이지, 상태(다른 출처에서도), 배지, 검증서
+  const page = await (await fetch(`${base}/v/${mark.id}`)).text();
+  assert.match(page, /검증됨/);
+  assert.match(page, /대한민국의 수도는 서울/);
+  const st = await fetch(`${base}/v/${mark.id}/status.json`);
+  assert.equal(st.headers.get("access-control-allow-origin"), "*");
+  assert.equal((await st.json()).status, "valid");
+  assert.match(await (await fetch(`${base}/v/${mark.id}/badge.svg`)).text(), /<svg/);
+  const cert = await (await fetch(`${base}/v/${mark.id}/certificate`)).text();
+  assert.match(cert, /사 실 검 증 서/);
+  assert.match(cert, /<svg[^>]*viewBox/, "진위 확인 QR");
+  assert.match(await (await fetch(`${base}/v/embed.js`)).text(), /data-yume-mark/);
+  assert.equal((await fetch(`${base}/v/ymnotreal00`)).status, 404);
+
+  // 같은 글로 다시 받으면 새 마크가 아니라 같은 주소를 갱신한다(홈페이지에 붙은 코드가 살아 있어야 한다)
+  const again = await (await fetch(`${base}/v1/documents/${doc.id}/mark`, { method: "POST", headers: auth, body: JSON.stringify({ publish: true }) })).json();
+  assert.equal(again.id, mark.id);
+  assert.equal(again.renewed, true);
+
+  // 웹 화면도 같은 상태를 본다
+  const webView = await owner("GET", "/api/marks");
+  assert.equal(webView.data.marks[0].id, mark.id);
+
+  // 다른 계정은 발급·철회할 수 없다
+  const other = client();
+  await other("POST", "/api/auth/signup", signupBody("mark-other@yume.test"));
+  assert.equal((await other("POST", `/api/documents/${doc.id}/mark`, { publish: true })).status, 404);
+  assert.equal((await other("POST", `/api/marks/${mark.id}/revoke`, {})).status, 404);
+
+  // 철회하면 페이지에 철회로 남고, 원문 공개는 멈추며, 검증서는 나오지 않는다
+  const revoked = await owner("POST", `/api/marks/${mark.id}/revoke`, { reason: "글을 내렸습니다" });
+  assert.equal(revoked.data.mark.status, "revoked");
+  const after = await (await fetch(`${base}/v/${mark.id}`)).text();
+  assert.match(after, /철회됨/);
+  assert.doesNotMatch(after, /마크 시험/, "철회하면 원문 공개를 멈춘다");
+  assert.doesNotMatch(await (await fetch(`${base}/v/${mark.id}/certificate`)).text(), /사 실 검 증 서/);
+});
+
+test("검증 마크 — 사실과 다른 주장이 있는 문서는 무엇 때문에 안 되는지 알려 준다", async () => {
+  const owner = client();
+  await owner("POST", "/api/auth/signup", signupBody("mark-no@yume.test"));
+  const text = "거절 시험: 대한민국의 수도는 부산입니다.";
+  const quote = "대한민국의 수도는 부산입니다.";
+  await seedVerification({
+    id: "seedmark000000002",
+    input: text,
+    claims: [{ text: "대한민국의 수도는 부산이다", quote, span: { start: text.indexOf(quote), end: text.indexOf(quote) + quote.length }, domain: "일반", verdict: "false", confidence: "high", verified_via: "web", explanation: "서울", suggested_fix: "대한민국의 수도는 서울입니다.", sources: [{ title: "t", url: "https://e.x" }] }],
+  });
+  const started = await owner("POST", "/api/documents", { text });
+  let view;
+  for (let i = 0; i < 40; i++) {
+    view = await owner("GET", `/api/documents/${started.data.id}`);
+    if (view.data.status !== "pending") break;
+    await new Promise((r) => setTimeout(r, 50));
+  }
+  assert.equal(view.data.mark.ok, false);
+  assert.equal(view.data.mark.blockers.length, 1);
+  const r = await owner("POST", `/api/documents/${started.data.id}/mark`, { publish: true });
+  assert.equal(r.status, 422);
+  assert.equal(r.data.code, "not_eligible");
 });

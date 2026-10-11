@@ -17,18 +17,27 @@ export const apiUrl = (path) => API_BASE + path;
 export async function apiJson(path, { method = "GET", body } = {}) {
   // 화면에서 고른 언어를 함께 보낸다. 브라우저 설정(Accept-Language)만으로는
   // 한국에서 영어로 쓰는 사람과 그 반대를 구분하지 못해, 본인이 고른 것과 어긋난다.
-  const res = await fetch(API_BASE + path, {
-    method,
-    credentials: API_BASE ? "omit" : "same-origin",
-    headers: {
-      "X-Yume-Lang": getLang(),
-      // 유입 측정 헤더는 같은 출처일 때만 싣는다. 기업용 사이트처럼 다른 도메인에서 부르면
-      // 이 헤더 때문에 사전 요청(CORS)이 막혀 점검 자체가 안 된다.
-      ...(API_BASE ? null : trackingHeaders()),
-      ...(body ? { "Content-Type": "application/json" } : null),
-    },
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  let res;
+  try {
+    res = await fetch(API_BASE + path, {
+      method,
+      credentials: API_BASE ? "omit" : "same-origin",
+      headers: {
+        "X-Yume-Lang": getLang(),
+        // 유입 측정 헤더는 같은 출처일 때만 싣는다. 기업용 사이트처럼 다른 도메인에서 부르면
+        // 이 헤더 때문에 사전 요청(CORS)이 막혀 점검 자체가 안 된다.
+        ...(API_BASE ? null : trackingHeaders()),
+        ...(body ? { "Content-Type": "application/json" } : null),
+      },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  } catch (e) {
+    // AbortError는 우리가 멈춘 것이라 그대로 올려보낸다(부르는 쪽이 조용히 넘긴다).
+    if (e?.name === "AbortError") throw e;
+    const err = new Error(t("연결이 끊겼어요. 인터넷 상태를 확인하고 다시 눌러주세요."));
+    err.network = true;
+    throw err;
+  }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     const err = new Error(data.error || t("요청을 처리하지 못했어요 ({status})", { status: res.status }));

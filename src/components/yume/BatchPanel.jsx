@@ -197,10 +197,15 @@ export default function BatchPanel({ onClose }) {
   }
 
   function download() {
-    const head = ["번호", "입력", "판정", "주장 수", "사실 아님", "확인 불가", "요약"];
+    // 고칠 부분: 사실과 다른 문장과, 근거의 실제 값으로 고친 문장. 엑셀에서 그대로 보고 고치게 한다.
+    const fixes = (claims = []) => claims
+      .filter((c) => c.verdict === "false")
+      .map((c) => `${c.quote || c.text}${c.suggested_fix ? ` → ${c.suggested_fix}` : ` (${c.explanation || ""})`}`)
+      .join("\n");
+    const head = ["번호", "입력", "판정", "주장 수", "사실 아님", "확인 불가", "고칠 부분", "요약"];
     const body = rows.map((r) => [
       r.n, r.text, r.verdict === "error" ? `오류: ${r.error}` : (VERDICT[r.verdict]?.label || "주장 없음"),
-      r.total ?? 0, r.bad ?? 0, r.unsure ?? 0, r.summary || "",
+      r.total ?? 0, r.bad ?? 0, r.unsure ?? 0, fixes(r.claims), r.summary || "",
     ]);
     // 엑셀이 UTF-8을 알아보게 BOM을 붙인다. 없으면 한글이 깨져 열린다.
     const csv = "﻿" + [head, ...body].map((r) => r.map(csvCell).join(",")).join("\r\n");

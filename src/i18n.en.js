@@ -33,8 +33,9 @@ export default {
   "로 확인하세요": "then check it with",
   "AI 답변 확인하기": "Check an AI answer",
   "사실인지 확인하기": "Check if it's true",
-  "\"이렇다던데 사실이야?\" 한 줄이면 됩니다. AI 답변을 통째로 붙여넣어도 되고요. 법률·의료·금융·역사·과학 — 어떤 주제든 유메가 하나하나 확인합니다.":
-    "One line is enough — \"I heard X, is that true?\" Or paste a whole AI answer. Law, medicine, finance, history, science: YUME checks every claim in it.",
+  "AI 할루시네이션 검사": "AI hallucination check",
+  "AI가 쓴 글의 근거를 공식 원문과 한 줄씩 대조합니다. AI 답변을 통째로 붙여넣어도 되고, \"이렇다던데 사실이야?\" 한 줄이어도 됩니다.":
+    "YUME checks what an AI wrote against the official source, line by line. Paste a whole AI answer, or just one line like \"I heard X, is that true?\"",
   "유메로 확인하기": "Verify with Yume",
   "붙여넣기": "Paste",
   "복사한 내용 붙여넣기": "Paste from clipboard",
@@ -54,7 +55,7 @@ export default {
   // ── 검증 진행 · 결과 ────────────────────────────────────────────
   "사실 주장을 추출하고 실시간으로 검색 중…": "Pulling out factual claims and searching…",
   "내용을 분석하는 중…": "Reading the text…",
-  "내용이 길면 최대 30초 정도 걸릴 수 있어요": "Longer answers can take up to 30 seconds",
+  "주장마다 원문을 직접 열어 확인해서 1~2분 걸릴 수 있어요": "Each claim is checked against its source, so this can take 1–2 minutes",
   "검증 결과": "Result",
   "유메 검증 결과": "Yume result",
   "확인됨": "Confirmed",
@@ -64,6 +65,41 @@ export default {
   "법제처 공식 확인": "Verified against official statutes",
   "부존재 신뢰도 판정": "Non-existence confidence",
   "심층 재확인": "Deep re-check",
+  "이렇게 고치면 맞습니다": "Corrected version",
+  "문서 검사": "Document check",
+  "파일을 읽지 못했어요.": "Couldn't read the file.",
+  "파일은 10MB까지 올릴 수 있어요.": "Files can be up to 10MB.",
+  "검사할 글을 붙여 넣거나 파일을 올려 주세요.": "Paste the text or upload a file to check.",
+  "회사 기준 자료": "Company reference",
+  "문서": "Document",
+  "보도자료·상품 설명서·약관·보고서를 통째로 검사합니다. 틀린 곳을 원문에 표시하고, 고친 문장을 반영한 본문을 내려받을 수 있어요. 파일은 DOCX·HWPX·PDF·TXT를 받아요.": "Check whole press releases, product sheets, terms and reports. Wrong statements are marked in the original, and you can download the text with the corrections applied. Accepts DOCX, HWPX, PDF and TXT.",
+  "검사할 문서를 붙여 넣으세요 (최대 10만 자)": "Paste the document to check (up to 100,000 characters)",
+  "다른 파일 고르기": "Choose another file",
+  "파일 올리기 (DOCX·HWPX·PDF·TXT)": "Upload a file (DOCX, HWPX, PDF, TXT)",
+  "빼기": "Remove",
+  "7천 자 안팎마다 1건으로 계산돼요": "Counted as one check per ~7,000 characters",
+  "우리 회사 기준 자료 함께 넣기 (선택)": "Add your company's reference facts (optional)",
+  "회사 이름과 사실 자료(상품 정보, 요금, 회사 소개)를 넣으면, 자사에 관한 문장은 공개 웹이 아니라 이 자료와 먼저 대조해요. 자료는 저장하지 않아요.": "Add your company name and facts (products, pricing, company profile) and statements about your company are checked against them before the public web. We don't store them.",
+  "회사 이름 (예: 리머)": "Company name",
+  "기준 자료 (최대 2만 자)": "Reference facts (up to 20,000 characters)",
+  "검사 중… {a} / {b}": "Checking… {a} / {b}",
+  "검사 준비 중…": "Preparing…",
+  "문서 검사 시작": "Start document check",
+  "고친 본문 내려받기 ({n}곳 반영)": "Download corrected text ({n} fixes)",
+  "결과 CSV": "Results CSV",
+  "문서를 {n}조각으로 나눠 검사하고 있어요. 이 창을 닫아도 계속 진행돼요.": "Checking the document in {n} parts. It keeps going if you close this window.",
+  "주장 {a}개 · 사실 아님 {b} · 확인 불가 {c} · 확인됨 {d}": "{a} claims · {b} false · {c} unverified · {d} confirmed",
+  "일부 조각은 검사하지 못했어요({n}개).": "Some parts couldn't be checked ({n}).",
+  "고친 문장": "Corrected",
+  "회사 기준 자료와 대조": "Checked against your company reference",
+  "최근 문서": "Recent documents",
+  "근거 원문 확인": "Source text verified",
+  "엄격 모드": "Strict mode",
+  "근거 문장을 출처에서 직접 확인한 판정만 내립니다. 광고 심의·공시처럼 틀리면 안 되는 문서에 쓰세요.": "Only give verdicts whose evidence we read on the source page ourselves. Use it for ad reviews, disclosures and anything that must not be wrong.",
+  "붙여 넣은 문서": "Pasted document",
+  "자": " chars",
+  "문서를 검사하지 못했어요. 잠시 후 다시 시도해 주세요. 사용한 한도는 차감되지 않았어요.": "We couldn't check this document. Please try again shortly. No quota was used.",
+  "기준 자료 대조": "Checked against your reference",
   "공식 자료 조회 실패": "Official lookup failed",
   "인용 문헌 실재 확인": "Checked whether the source exists",
   "⚡ 이전 검증 결과 재사용": "⚡ Reused an earlier result",
@@ -126,8 +162,8 @@ export default {
   "틀린 말을 합니다.": "and gets things wrong.",
   "확인된 사실": "verified facts",
   "무엇이 다른가": "WHAT'S DIFFERENT",
-  "AI에게 AI를": "We don't ask one AI",
-  "검증하게 하지 않습니다.": "to grade another.",
+  "AI의 짐작으로": "We don't rule",
+  "판정하지 않습니다.": "on an AI's hunch.",
   "공식 원천 데이터와 직접 대조하는 구조": "comparing claims against primary sources",
   "할루시네이션의 원인": "WHY IT HAPPENS",
   "AI는 왜 틀릴까요,": "Why AI gets it wrong,",
@@ -154,7 +190,34 @@ export default {
   "확신 편향": "Confidence bias",
   "근거가 약해도, 아예 없는 사실이어도 AI의 말투는 항상 자신 있게 나옵니다.":
     "The tone stays certain whether the evidence is thin or the fact doesn't exist at all.",
-  "확인됨·사실과 다름·확인되지 않음, 3단계로 정직하게 판정": "Reports one of three honest verdicts, including \"unverified\"",
+  "확인됨·사실과 다름·근거 없음으로 정직하게 판정 — 있어야 할 기록이 없으면 사실과 다름": "Honest verdicts — confirmed, false, or no evidence; if a record that must exist is missing, it's false",
+  "근거 없음": "No evidence",
+  "공개 기록 밖": "Not in public records",
+  "조회 실패": "Lookup failed",
+  "공개된 자료 어디에서도 근거를 찾을 수 없습니다. 근거 없이 단정한 내용이니 사실로 쓰지 마세요.": "Nothing public supports this. It was stated without evidence — don't use it as fact.",
+  "근거 없는 주장 있음": "Some claims lack evidence",
+  "충전한 크레딧은 결제한 시점부터 1년 이내에 사용할 수 있으며, 1년 안에 쓰지 않은 크레딧은 소멸합니다.": "Credits can be used for 1 year from the time of payment; credits not used within a year expire.",
+  "환불은 결제하신 카드의 결제 취소로만 처리됩니다.": "Refunds are made only by cancelling the card payment.",
+  "먼저 충전한 크레딧부터 쓰이고, 서버 오류로 확인이 끝나지 않으면 자동으로 돌려드려요. 환불은 결제하신 카드의 결제 취소로만 처리됩니다.": "The oldest credits are used first, and they're returned automatically if a check fails on our side. Refunds are made only by cancelling the card payment.",
+  "신용카드·체크카드 일시불 결제만 가능해요.": "Credit or debit card, single payment only.",
+  "모든 거래에 대한 책임과 환불, 민원 등은 리머에서 진행합니다.": "REAMER is responsible for all transactions, refunds and complaints.",
+  "먼저 충전한 크레딧부터 쓰여요.": "The oldest credits are used first.",
+  "앱에서는 크레딧 충전을 준비 중이에요. 이미 가진 크레딧은 그대로 쓰실 수 있어요.": "Buying credits in the app is coming soon. You can still use the credits you have.",
+  "결제일부터 1년 이내 사용": "Use within 1 year of payment",
+  "{n}크레딧이 {d}에 소멸 예정이에요": "{n} credits expire on {d}",
+  "충전·차감 내역과 거래마다의 잔여 크레딧이에요. 최근 100건까지 보여요.": "Top-ups, usage and the balance after each entry. Shows the latest 100.",
+  "{d}까지 사용 가능": "Usable until {d}",
+  "날짜": "Date",
+  "내용": "Details",
+  "증감": "Change",
+  "잔여": "Balance",
+  "월 기본 지급": "Monthly free credits",
+  "충전 결제 취소": "Top-up cancelled",
+  "친구 추천 보상": "Referral reward",
+  "사용 · 유메 할루시네이션 검사": "Used · Yume hallucination check",
+  "환급 · 검증 실패": "Returned · check failed",
+  "소멸 · 유효기간 1년 만료": "Expired · 1-year limit",
+  "운영자 지급": "Granted by Yume",
   "유사 개체 혼동": "Lookalike confusion",
   "이름이나 맥락이 비슷한 두 개념이 서로 섞입니다.": "Two concepts with similar names or contexts get merged.",
   "유사도가 아니라 원문 일치 여부로 최종 판정": "Decides on an exact source match, not on similarity",
@@ -205,8 +268,8 @@ export default {
   "무료로 점검하기 →": "Run a free audit →",
   "개발자 · 데이터 · 파트너십": "Developers · data · partnerships",
   "유메 검증 API": "Yume Verification API",
-  "AI 기능이 있는 서비스에 팩트체크를 API로 붙일 수 있습니다. 주장별 판정·근거와 부존재 신뢰도를 그대로 받아 쓰세요. 호출량 기반 종량제.":
-    "Add fact checking to any product with AI in it. You get a verdict, the evidence and a non-existence confidence score for every claim. Pay per call.",
+  "AI 기능이 있는 서비스에 할루시네이션 검사를 API로 붙일 수 있습니다. 주장별 판정·근거와 부존재 신뢰도를 그대로 받아 쓰세요. 호출량 기반 종량제.":
+    "Add a hallucination check to any product with AI in it. You get a verdict, the evidence and a non-existence confidence score for every claim. Pay per call.",
   "가입하고 키 받기": "Sign up for a key",
   "API 문서 보기 ›": "Read the API docs ›",
   "API 문서": "API docs",
@@ -537,16 +600,16 @@ export default {
     "Matches the official statute · Civil Act Article 750",
   "기한이 틀렸습니다 — 손해와 가해자를 안 날부터 3년, 사고일부터 10년 (민법 제766조)":
     "Wrong deadline: 3 years from learning of the damage and who caused it, 10 years from the accident (Civil Act Article 766)",
-  "법원 기록에서 찾을 수 없는 사건번호입니다":
-    "No such case number exists in court records",
+  "공개 판례 어디에서도 찾을 수 없는 사건번호입니다":
+    "This case number appears in no published ruling",
   "찾기":
     "Find",
   "답변에서 사실 주장을 하나씩 골라냅니다":
     "Pull every factual claim out of the answer",
   "대조":
     "Compare",
-  "법제처 조문과 법원 기록에 직접 맞춰 봅니다":
-    "Check each one against official statutes and court records",
+  "법제처 조문과 공개 판례에 직접 맞춰 봅니다":
+    "Check each one against official statutes and published rulings",
   "판정":
     "Rule",
   "근거와 함께 결론을 찍습니다":
@@ -568,6 +631,10 @@ export default {
     "Top up",
   "크레딧 · 요금제":
     "Credits · Plans",
+  "크레딧 · 충전":
+    "Credits · Top up",
+  "이용 등급":
+    "Plan",
   "월 요금제":
     "Monthly plans",
   "앱에서는 무료 플랜을 이용할 수 있어요. 결제는 웹사이트에서 할 수 있어요.":
@@ -620,18 +687,20 @@ export default {
     "context recap prompt",
 
   // ── 본문 문단 ──────────────────────────────────────────────────
-  "법정 문서에서 발견된 AI 할루시네이션":
-    "AI hallucinations found in court filings",
-  "2023년 → 2025년 상반기":
-    "2023 → first half of 2025",
+  "전 세계 법원 문서에서 확인된 AI 할루시네이션 사례":
+    "AI hallucinations found in court documents worldwide",
+  "2025년 12월 → 2026년 6월":
+    "Dec 2025 → Jun 2026",
+  "Damien Charlotin AI Hallucination Cases 데이터베이스 · Bloomberg Law(2025.12)·2026년 6월 보도 기준":
+    "Damien Charlotin's AI Hallucination Cases database, as reported by Bloomberg Law (Dec 2025) and press reports (Jun 2026)",
   "민법 제750조: 고의·과실로 손해를 가하면 배상 책임이 있다":
     "Civil Act art. 750: harm caused intentionally or negligently carries liability",
   "법제처 국가법령정보에서 실제 조문을 대조해, 짐작이 아니라 확인된 사실만 보여드립니다.":
     "Matched against the actual article text in the National Law Information Center — verified, not inferred.",
   "유메는 창업자가 실제로 겪은 법정 분쟁에서 시작됐습니다. AI가 알려준 정보를 그대로 믿었다가 피해를 입은 경험이, \"확인된 사실\"만 전달하는 서비스를 만들게 했습니다.":
-    "Yume started with a lawsuit its founder lived through. Trusting what an AI told him cost him — and that is why this service passes on only what it has verified.",
-  "일반적인 팩트체크는 또 다른 AI의 짐작에 의존합니다. 유메는 법률 도메인에서 먼저 검증한 \"공식 원천 데이터와 직접 대조하는 구조\"를 도메인마다 반복합니다. 짐작이 아니라, 확인입니다.":
-    "Most fact-checkers just ask a second model what it thinks. Yume compares every claim against a primary source — the method we proved on Korean law first, then carried into every other domain. Checking, not guessing.",
+    "Yume started with a lawsuit its founder lived through. Trusting what an AI said turned out to be costly — and that is why this service passes on only what it has verified.",
+  "다른 AI에게 \"맞는 것 같아?\"라고 다시 묻는 건 검증이 아닙니다. 유메는 판정마다 원문 근거를 요구합니다 — 법률은 법제처 조문을 직접 받아 오고, 그 밖의 주장은 출처 페이지를 직접 열어 그 문장이 실제로 있는지 확인합니다. 근거를 대지 못한 판정은 \"확인되지 않음\"으로 내립니다.":
+    "Asking another AI \"does this look right?\" is not checking. Yume demands source evidence for every verdict: statutes are pulled straight from Korea's official law database, and for everything else the source page is opened to confirm the sentence is really there. A verdict that can't show its evidence is downgraded to \"unverified\".",
   "할루시네이션은 우연이 아니라, AI가 답을 만드는 방식 자체에서 반복되는 구조적 현상입니다. 유메는 이 원인 다섯 가지를 각각 뜯어보고, 원인마다 다른 검증 로직을 붙였습니다.":
     "Hallucination is not bad luck. It falls out of how these models produce text. Yume separates five causes and runs different logic against each one.",
   "AI 답변, {x} 믿으세요.":
@@ -835,4 +904,99 @@ export default {
   "확인할 사실 주장이 없었어요": "No checkable claims here",
   "오류": "Error",
   "주장 없음": "No claims",
+  "부존재 신뢰도": "Non-existence confidence",
+  "존재하지 않을 가능성 높음": "Very likely doesn't exist",
+  "확인 불가": "Can't confirm",
+  "민원담당자": "Complaints contact",
+  "법제처 공식 대조 · OFFICIAL SOURCE · 짐작이 아니라 확인 · ": "CHECKED AGAINST OFFICIAL LAW DATA · OFFICIAL SOURCE · VERIFIED, NOT GUESSED · ",
+  "법률": "Law",
+  "의료": "Health",
+  "금융": "Finance",
+  "역사": "History",
+  "과학": "Science",
+  "취향이나 느낌을 말하는 문장이라 참·거짓을 가릴 수 없어요. 숫자·이름·날짜·효과처럼 확인할 수 있는 내용이 든 문장은 그대로 붙여넣으면 바로 확인합니다.": "That's a matter of taste or feeling, so it can't be true or false. Any sentence with something checkable — a number, a name, a date, an effect — gets checked as soon as you paste it.",
+  "질문만 있고 확인할 주장이 없어요. AI에게 받은 답변을 그대로 붙여넣으면 그 안의 사실을 하나하나 확인합니다.": "There's only a question here, nothing to check yet. Paste the answer the AI gave you and every fact in it gets checked.",
+  "확인할 사실이 들어 있지 않아요. AI 답변이나 확인하고 싶은 문장을 그대로 붙여넣으면 됩니다.": "There's no fact in here to check. Paste an AI answer or any sentence you want checked.",
+  "확인할 수 있는 사실이 들어 있지 않아요. AI 답변이나 확인하고 싶은 문장을 그대로 붙여넣으면 됩니다.": "There's nothing checkable in here. Paste an AI answer or any sentence you want checked.",
+  "이번 확인 횟수는 돌려드렸어요.": "This one didn't count against your checks.",
+  // ── AI 기본법 고지 · 자문 아님 ───────────────────────────────────
+  "AI가 근거의 값으로 고친 문장": "rewritten by AI using the value in the evidence",
+  "AI 생성": "AI-generated",
+  "고친 본문의 수정 문장은 생성형 AI가 근거의 값으로 고쳐 쓴 것입니다. 내보내기 전에 한 번 읽어 확인하세요.":
+    "Corrected sentences in this text were rewritten by generative AI using the values in the evidence. Read it once before you send it out.",
+  "유메는 검증 과정에 생성형 AI를 사용합니다. 판정은 공개 원문과 대조한 검증 정보이며 법률·의료·금융 자문이나 보증이 아닙니다.":
+    "YUME uses generative AI in its checking process. Verdicts are verification information based on public sources, not legal, medical or financial advice, and not a guarantee.",
+  "이 결과는 인용된 법령·판례가 실재하고 원문과 맞는지 확인한 정보이며, 법률 자문이 아닙니다. 개별 사안은 변호사와 상담하세요.":
+    "This result checks whether the cited statutes and cases exist and match the official text. It is not legal advice; consult a lawyer about your own case.",
+  "의료 정보는 진단이나 처방이 아닙니다. 치료와 복약은 의사·약사와 상담하세요.":
+    "Medical information here is not a diagnosis or prescription. Ask a doctor or pharmacist about treatment and medication.",
+  "금융 정보는 투자 권유나 자문이 아닙니다. 상품 가입 전에는 약관과 설명서를 직접 확인하세요.":
+    "Financial information here is not investment advice. Read the terms and product documents yourself before you sign up.",
+  "유메는 주장 추출과 고친 문장 작성에 생성형 AI를 사용합니다. 판정은 출처 원문과 대조한 결과이며, '확인되지 않음'은 거짓이라는 뜻이 아니라 근거를 찾지 못했다는 뜻입니다. 중요한 결정은 출처 링크로 직접 확인하세요.":
+    "YUME uses generative AI to pull out claims and write corrections. Verdicts come from comparing against source texts, and 'Unverified' means no evidence was found, not that the claim is false. For important decisions, open the source links yourself.",
+  // 연결 끊김 (api.js)
+  "연결이 끊겼어요. 인터넷 상태를 확인하고 다시 눌러주세요.": "The connection dropped. Check your internet connection and try again.",
+  // 무료 AI 점검 (AuditModal.jsx)
+  "수치 하나가 틀린 자료로 고객 안내문 쓰기": "Writing a customer notice from material with one wrong figure",
+  "최근 개정된 현행 기준": "The current rule after a recent amendment",
+  "법제처 원문과 공식 레지스트리로 먼저 확정": "Settled first against the official statute text and public registries",
+  "① 질문 전체 복사": "① Copy all questions",
+  "귀사 AI에 그대로 붙여넣기": "Paste them into your AI as they are",
+  "② 받은 답변 전체 붙여넣기": "② Paste the whole answer you got",
+  "채점": "Score",
+  "답변을 다듬거나 요약하지 마시고 원문 그대로 넣어주셔야 정확하게 채점됩니다.": "Paste the answers exactly as given. Edited or summarized answers can't be scored accurately.",
+  "질문 {n}개": "{n} questions",
+  "복사됐습니다": "Copied",
+  "복사하면 맨 위에 \"각 답변 앞에 [답변 1], [답변 2]를 붙여 주세요\"라는 안내가 함께 들어가요. 그대로 붙여넣으면 됩니다.": "The copied text starts with an instruction asking the AI to put [Answer 1], [Answer 2] before each answer. Paste it in as it is.",
+  "② AI 답변 전체 붙여넣기": "② Paste the AI's whole answer",
+  "AI가 준 답변 전체를 그대로 붙여넣으세요": "Paste the AI's whole answer exactly as given",
+  "채점 중… (1분쯤 걸립니다)": "Scoring… (takes about a minute)",
+  "채점하기": "Score answers",
+  "질문별로 나누는 건 유메가 합니다. 일부 질문에만 답했어도 채점되지만, 답한 질문이 적을수록 결과의 신뢰구간이 넓어집니다.": "YUME splits the answer by question for you. Partial answers are still scored, but the fewer questions answered, the wider the confidence interval.",
+  // 문서 검사 · 검증 마크 (DocumentPanel.jsx)
+  "같은 주소로 마크를 갱신했어요.": "Mark updated at the same address.",
+  "YUME 검증 마크": "YUME verification mark",
+  "모든 주장이 원문으로 확인된 글에만 검증 마크와 검증서를 발급해요. 고친 본문으로 다시 검사해 보세요.": "The mark and certificate are issued only when every claim is confirmed against a source. Check the corrected text again.",
+  "모두 사실로 확인": "All confirmed as true",
+  "YUME 검증 마크를 받을 수 있어요": "This text qualifies for a YUME verification mark",
+  "홈페이지·보도자료에 마크를 붙이면 누구나 눌러서 주장별 근거 원문을 확인할 수 있어요. A4 검증서(PDF)도 함께 발급돼요. 유효기간은 90일이고, 글이 바뀌면 마크가 원문 변경됨으로 바뀌어요.": "Put the mark on your website or press release and anyone can click it to see the source behind each claim. An A4 certificate (PDF) is issued too. It's valid for 90 days, and if the text changes the mark switches to \"Text changed\".",
+  "{d}까지 유효": "Valid until {d}",
+  "검증서 PDF": "Certificate PDF",
+  "공개 검증 페이지": "Public verification page",
+  "삽입 코드를 복사했어요.": "Embed code copied.",
+  "복사하지 못했어요.": "Couldn't copy.",
+  "홈페이지 삽입 코드 복사": "Copy website embed code",
+  "배지 코드를 복사했어요.": "Badge code copied.",
+  "배지 이미지 코드 복사": "Copy badge image code",
+  "갱신 중…": "Updating…",
+  "이번 검사 결과로 마크 갱신 (주소 그대로)": "Update the mark with this check (same address)",
+  "삽입 코드는 검증받은 글을 감싸고, 글자가 바뀌면 마크가 자동으로 원문 변경됨으로 바뀌어요. 배지 이미지는 블로그·메일처럼 스크립트를 못 쓰는 곳용이에요.": "The embed code wraps the verified text, and if any of it changes the mark switches to \"Text changed\" on its own. The badge image is for places that can't run scripts, like blogs and email.",
+  "이 글과 주장별 근거가 공개 검증 페이지에 게시되는 것에 동의합니다. 마크는 언제든 철회할 수 있어요.": "I agree to publish this text and the evidence for each claim on a public verification page. The mark can be revoked at any time.",
+  "발급 중…": "Issuing…",
+  "검증 마크 발급": "Issue verification mark",
+  "내 검증 마크": "My verification marks",
+  "검증서": "Certificate",
+  "이 마크를 철회할까요? 붙여 둔 곳에는 철회됨으로 보여요.": "Revoke this mark? Wherever it's placed, it will show as \"Revoked\".",
+  "철회": "Revoke",
+  // 감사·지수 (AuditModal, IndexBand, YumeDashboard)
+  "채점 결과 중 업종·질문 유형·결과(정상/실패)만 익명으로 모아 YUME 할루시네이션 지수 통계에 씁니다. 점검 대상 이름과 답변 원문은 넣지 않습니다.": "Only the industry, question type and outcome (pass/fail) are kept, anonymously, for the YUME Hallucination Index. The name you enter and the answer text are not stored there.",
+  "지수 보기": "View the index",
+  "YUME 할루시네이션 지수": "YUME Hallucination Index",
+  "AI가 얼마나 지어내는지, 같은 방법으로 재서 공개합니다": "How often AI makes things up — measured the same way, published on schedule",
+  "정답을 공식 원문으로 먼저 확정한 질문으로 AI의 답을 채점하고, 주기마다 발행합니다. 숫자마다 표본과 신뢰구간을 싣고, 발행한 숫자는 고칠 수 없게 지문을 붙입니다.": "We score AI answers to questions whose correct answers were fixed in advance from official sources, and publish on a regular schedule. Every number comes with its sample size and confidence interval, and each published issue carries a fingerprint so it can't be quietly changed.",
+  "창간 준비 중": "First issue in preparation",
+  "곧 첫 호": "First issue soon",
+  "정답이 확정된 질문 {n}건 중 AI가 근거 없이 지어낸 비율 · 95% 신뢰구간 {low}~{high}": "Share of {n} questions with fixed answers where AI made something up · 95% CI {low}–{high}",
+  "첫 호는 감사와 자가 점검 표본이 공개 기준을 넘으면 발행합니다. 무엇을 어떻게 재는지는 지금 공개되어 있습니다.": "The first issue comes out once audits and self-checks pass the publication threshold. What we measure, and how, is already public.",
+  "지수 보기 →": "View the index →",
+  "AI 서비스를 운영하시나요?": "Run an AI service?",
+  "귀사 AI도 같은 방법으로 감사받기 ›": "Get your AI audited the same way ›",
+  "AI의 짐작이 아니라, 원문으로 판정합니다.": "Judged by the source, not by an AI's guess.",
+  "할루시네이션 지수": "Hallucination Index",
+  "검사 · 감사 · 지수 — 유메는 AI 할루시네이션을 원문으로 재고, 기록으로 남기고, 숫자로 공개합니다": "Check · Audit · Index — YUME measures AI hallucinations against the source, keeps the record, and publishes the numbers",
+  "AI 서비스 감사": "AI service audit",
+  "귀사 AI 서비스를 표본으로 감사하고, 사람이 원문으로 재확인한 비공개 보고서를 드립니다. 동의하시면 공개 감사 기록과 배지를 드립니다.": "We audit a sample of your AI service's answers and give you a private report that a person has rechecked against the source. With your consent, you also get a public audit record and badge.",
+  "감사 알아보기 ›": "About audits ›",
+  "AI가 근거 없이 지어내는 비율을 같은 방법으로 반복해 재고 주기마다 공개합니다. 표본·신뢰구간·방법을 함께 싣습니다.": "We measure how often AI makes things up, the same way each time, and publish on schedule — with sample sizes, confidence intervals and method.",
+  "지수 보기 ›": "View the index ›",
 };

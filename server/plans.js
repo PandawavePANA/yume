@@ -21,10 +21,14 @@ import { now } from "./db.js";
 // monthlyKrw는 공개 상품 안내(/products)와 카드사 심사에서 쓰는 판매가다. 화면의 요금제
 // 카드는 src/YumeDashboard.jsx에 따로 있으니 가격을 고칠 때 두 곳을 같이 봐야 한다.
 // 무료·비즈니스는 판매 상품이 아니라 0원이 아니라 null이다 — 심사는 0원 상품을 반려한다.
+//
+// 스탠다드·전문가 1개월 이용권은 2026-10-08에 판매를 닫았다(monthlyKrw: null). 이니시스
+// 포인트충전 입점 조건이 정기결제 관련 상품 삭제라, 카드로 파는 것은 크레딧 충전 팩뿐이다.
+// 요금제 자체는 남겨 둔다 — 이미 산 사람의 기간과, 운영자가 직접 여는 계정이 쓴다.
 export const PLANS = {
   free: { label: "무료", dailyLimit: 3, historyLimit: 50, monthlyKrw: null },
-  standard: { label: "스탠다드", dailyLimit: 15, historyLimit: null, monthlyKrw: 9900 },
-  expert: { label: "전문가", dailyLimit: 40, historyLimit: null, monthlyKrw: 29000 },
+  standard: { label: "스탠다드", dailyLimit: 15, historyLimit: null, monthlyKrw: null },
+  expert: { label: "전문가", dailyLimit: 40, historyLimit: null, monthlyKrw: null },
   business: { label: "비즈니스", dailyLimit: 120, historyLimit: null, monthlyKrw: null },
 };
 export const FREE_DAILY_LIMIT = PLANS.free.dailyLimit;

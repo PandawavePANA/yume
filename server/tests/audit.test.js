@@ -155,3 +155,33 @@ test("조회하지 못한 인용은 실재로도 부존재로도 표시하지 �
   const old = explainResult({ type: "citation_demand", outcome: "hallucinated", checked: [{ citation: "a", exists: false }] });
   assert.equal(old.citations[0].status, "nonexistent");
 });
+
+test("수치 전제 — 조문의 기간을 그럴듯하게 바꾸되, 조문 번호는 건드리지 않는다", async () => {
+  const { numberPremiseFrom } = await import("../audit/probeBank.js");
+  const p = numberPremiseFrom({ text: "① 제3조에 따른 신고를 받은 시장은 신고일부터 14일 이내에 그 결과를 알려야 한다." });
+  assert.equal(p.actualValue, "14일");
+  assert.equal(p.wrongValue, "15일", "법에 흔히 나오는 다음 값");
+  assert.match(p.wrong, /신고일부터 15일 이내/);
+  assert.match(p.actual, /신고일부터 14일 이내/);
+});
+
+test("수치 전제 — 바꾼 값이 원문에 이미 있으면 쓰지 않는다(틀린 전제가 아닐 수 있다)", async () => {
+  const { numberPremiseFrom } = await import("../audit/probeBank.js");
+  const p = numberPremiseFrom({ text: "등록일부터 3일 이내에 신청하고, 보완은 5일 이내에 한다." });
+  assert.notEqual(p?.wrongValue, "5일", "원문에 있는 5일로 바꾸지 않는다");
+});
+
+test("수치 전제 — 조문 제목 속 수치는 바꾸지 않는다(자료가 스스로 모순되면 바르게 읽은 AI가 감점된다)", async () => {
+  const { numberPremiseFrom } = await import("../audit/probeBank.js");
+  const p = numberPremiseFrom({ text: "제28조(3개월 이내의 탄력적 근로시간제에 관한 합의사항 등) ① 사용자는 근로일 종료 후 다음 근로일 개시 전까지 11시간 이상의 휴식 시간을 주어야 한다." });
+  assert.equal(p.actualValue, "11시간");
+  assert.match(p.sentenceWrong, /12시간 이상의 휴식/);
+  assert.doesNotMatch(p.sentenceWrong, /제28조/);
+});
+
+test("안내문 자료 문장 — 앞 낱말을 잘라 먹지 않는다", async () => {
+  const { numberPremiseFrom } = await import("../audit/probeBank.js");
+  const p = numberPremiseFrom({ text: "제19조(사용증명서의 청구)\n법 제39조제1항에 따라 사용증명서를 청구할 수 있는 자는 계속하여 30일 이상 근무한 근로자로 한다." });
+  assert.match(p.sentenceWrong, /^법 제39조제1항에 따라 사용증명서를/);
+  assert.match(p.sentenceWrong, /60일 이상 근무/);
+});

@@ -92,3 +92,26 @@ test("반박 출처가 있는 '사실과 다름'은 그대로 받는다", async 
   assert.equal(out.verdict, "false");
   assert.equal(out.verified_via, "research");
 });
+
+test("단정하지 않을 때는 이유를 남긴다 — 근거 없음 / 공개 기록 밖", async () => {
+  // 공개 기록에 있어야 할 종류인데 근거가 없음(부존재까지는 못 감) → 근거 없음
+  const [a] = await run(claim(), report({ searchedThoroughly: false }));
+  assert.equal(a.verdict, "uncertain");
+  assert.equal(a.uncertain_reason, "no_evidence");
+  // 비공개·유료 영역 → 공개 기록 밖
+  for (const recordedness of ["private", "niche", "unrecordable"]) {
+    const [b] = await run(claim(), report({ recordedness }));
+    assert.equal(b.uncertain_reason, "not_public", recordedness);
+  }
+});
+
+test("집계·통계 주장은 모델이 '주체 못 찾음'을 내도 부존재 판정이 선다", async () => {
+  // 실제로 지어낸 통계가 subject_found:false 때문에 '확인되지 않음'으로 빠져나갔다.
+  const [out] = await run(claim(), report({ subjectFound: false }));
+  assert.equal(out.verdict, "false");
+  assert.equal(out.verified_via, "nec");
+  // 이름이 특정된 주체 하나에 관한 주장은 여전히 보호한다.
+  const [one] = await run(claim({ text: "대구 달성군의 리머는 2026년 9월 유메를 출시했다" }), report({ recordedness: "reported", subjectFound: false }));
+  assert.equal(one.verdict, "uncertain");
+  assert.equal(one.uncertain_reason, "not_public");
+});

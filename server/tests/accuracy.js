@@ -125,6 +125,31 @@ const CASES = [
     why: "주장이 없는 순수한 질문이다. 억지로 주장을 만들어내면 안 된다.",
     critical: true,
   },
+  // 평서문 한 줄 (2026-10-08) — "사실이야?"를 붙이지 않아도 검증돼야 한다. 사용자는 무엇이든 그대로 붙여넣는다.
+  {
+    id: "plain-short-false",
+    text: "에베레스트산은 한국에 있다.",
+    expect: "false",
+    claimCount: 1,
+    why: "질문 꼴이 아닌 평서문 한 줄도 그 자체로 주장이다.",
+    critical: true,
+  },
+  {
+    id: "plain-evaluative",
+    text: "사과는 몸에 좋다.",
+    expect: "not-false",
+    claimCount: 1,
+    why: "평가하는 말이어도 건강 효과라는 확인할 핵심이 있다. 빼면 안 된다.",
+    critical: true,
+  },
+  {
+    id: "plain-taste",
+    text: "사과는 맛있다",
+    expect: "none",
+    claimCount: 0,
+    why: "순수한 취향이다. 판정을 붙이면 안 된다(대신 화면이 까닭을 말한다).",
+    critical: true,
+  },
   // ── 실제로 가장 많이 들어오는 모양: 긴 AI 답변 한 덩어리 (2026-09-29) ──
   //
   // 운영 원가를 재 보니 짧은 질문은 약 210원, 300~2,000자 답변은 약 1,330원이었다. 비용을
@@ -182,6 +207,174 @@ const CASES = [
     why: "코크런 체계적 문헌고찰 — 일반인에게서 감기 발생률을 낮추지 못했다(지속기간만 소폭 단축).",
     critical: false,
   },
+
+  // ── 방향 — 있는 걸 없다고, 없는 걸 있다고 (2026-10-08 엔진 점검) ──
+  //
+  // 부존재 확인은 주장의 방향에 따라 뜻이 정반대다. "그런 판례는 없다"가 맞는 말인데 '사실과 다름'을
+  // 붙이거나, 실재하는 조문을 "없다"고 한 답을 놓치면 안 된다. 후자가 더 해롭다 — 쓸 수 있는 권리를 버린다.
+  {
+    id: "denial-true-case",
+    text: "대법원 2019다999991이라는 판례는 존재하지 않는 사건번호입니다.",
+    expect: "confirmed",
+    why: "없는 사건번호를 없다고 했다. 부존재 확인은 이 주장이 맞다는 뜻이다.",
+    critical: true,
+  },
+  {
+    id: "denial-false-case",
+    text: "대법원 2016다254467이라는 판결은 존재하지 않습니다.",
+    expect: "false",
+    why: "실재하는 판례를 없다고 했다.",
+    critical: true,
+  },
+  {
+    id: "denial-true-article",
+    text: "민법에는 제9999조가 없습니다.",
+    expect: "confirmed",
+    why: "민법의 마지막 조문은 제1118조다. 없는 조문을 없다고 했다.",
+    critical: true,
+  },
+  {
+    id: "denial-false-article",
+    text: "민법에는 제750조라는 조문이 없습니다.",
+    expect: "false",
+    why: "민법 제750조(불법행위의 내용)는 실재한다.",
+    critical: true,
+  },
+  {
+    id: "denial-false-fact",
+    text: "대한민국에는 법으로 정한 최저임금 제도가 없습니다.",
+    expect: "false",
+    why: "최저임금법이 있다. 있는 제도를 없다고 했다.",
+    critical: true,
+  },
+  {
+    id: "denial-paywalled",
+    text: "Hall Ranch Cabernet Sauvignon은 Wine Enthusiast에서 평점을 받은 적이 없습니다.",
+    expect: "not-confirmed",
+    why: "88점을 받았다. 유료 평점이 검색에 안 나온다고 '없다'를 맞다고 하면 안 된다.",
+    critical: true,
+  },
+  {
+    id: "denial-content-not-existence",
+    text: "상시 근로자 5명 미만 사업장에는 근로기준법의 연차유급휴가 규정이 적용되지 않습니다.",
+    expect: "not-false",
+    why: "근로기준법 시행령 별표 1 — 사실이다. 내용으로서의 '적용되지 않는다'를 존재 부정으로 읽으면 안 된다.",
+    critical: true,
+  },
+
+  // ── 한 문장에 사실 여럿 — 하나만 틀려도 잡아야 한다 ──
+  {
+    id: "compound-one-wrong",
+    text: "세계보건기구(WHO)는 1948년에 설립되었고 본부는 스위스 취리히에 있습니다.",
+    expect: "false",
+    why: "본부는 제네바다. 설립 연도가 맞다고 묻혀 '확인됨'으로 나가면 안 된다.",
+    critical: true,
+  },
+
+  // ── 시점 — 오늘 기준의 값과 대조해야 한다 ──
+  {
+    id: "time-current-wrong",
+    text: "2026년 대한민국 최저임금은 시간당 10,030원입니다.",
+    expect: "false",
+    why: "10,030원은 2025년 값이고 2026년은 10,320원이다. 해를 섞으면 시점 붕괴다.",
+    critical: true,
+  },
+  {
+    id: "time-past-right",
+    text: "2025년 대한민국 최저임금은 시간당 10,030원이었습니다.",
+    expect: "confirmed",
+    why: "과거 시점을 밝힌 맞는 주장이다.",
+    critical: false,
+  },
+  {
+    id: "abolished-crime",
+    text: "간통은 지금도 대한민국 형법상 처벌 대상입니다.",
+    expect: "false",
+    why: "2015년 헌법재판소 위헌 결정, 2016년 형법 제241조 삭제.",
+    critical: true,
+  },
+
+  // ── 분야별 기본기 ──
+  {
+    id: "history-wrong-year",
+    text: "임진왜란은 1600년에 일어났습니다.",
+    expect: "false",
+    why: "1592년.",
+    critical: true,
+  },
+  {
+    id: "history-right",
+    text: "훈민정음은 1446년에 반포되었습니다.",
+    expect: "confirmed",
+    why: "세종 28년(1446) 반포.",
+    critical: false,
+  },
+  {
+    id: "science-wrong",
+    text: "물은 1기압에서 섭씨 90도에 끓습니다.",
+    expect: "false",
+    why: "100도.",
+    critical: true,
+  },
+  {
+    id: "finance-right",
+    text: "한국은행 기준금리는 한국은행 금융통화위원회가 결정합니다.",
+    expect: "confirmed",
+    why: "한국은행법 — 금통위가 결정한다.",
+    critical: false,
+  },
+  {
+    id: "medical-overclaim",
+    text: "아스피린은 암을 확실히 예방하므로 모든 성인은 매일 복용해야 합니다.",
+    expect: "false",
+    why: "출혈 위험 등으로 일반 성인의 일괄 복용 권고는 없다.",
+    critical: true,
+  },
+
+  // ── 그 밖에 AI가 자주 틀리는 모양 ──
+  {
+    id: "misattributed-quote",
+    text: "아인슈타인은 '복리는 세계 8대 불가사의'라고 말했습니다.",
+    expect: "not-confirmed",
+    why: "널리 퍼진 오귀속 — 아인슈타인이 그렇게 말했다는 1차 기록이 없다. 유명하다는 이유로 확인됨을 주면 안 된다.",
+    critical: true,
+  },
+  {
+    id: "pure-opinion",
+    text: "제주도는 한국에서 가장 아름다운 섬이에요.",
+    expect: "none",
+    why: "취향이다. 참·거짓이 없는 문장에 판정을 붙이면 안 된다.",
+    critical: true,
+  },
+  {
+    id: "denied-real-event",
+    text: "2002년 한일 월드컵에서 한국 대표팀은 4강에 오르지 못했습니다.",
+    expect: "false",
+    why: "4강에 올랐다. 실제로 일어난 일을 부정한 문장이다.",
+    critical: true,
+  },
+  {
+    id: "long-mixed-answer",
+    text:
+      "서울특별시의 인구는 약 1억 명입니다. 대한민국 국회의원 정수는 300명입니다. " +
+      "반도체는 대한민국의 최대 수출 품목입니다. 한글날은 매년 10월 9일입니다.",
+    expect: "false",
+    claims: [
+      { match: "서울", expect: "false" },
+      { match: "국회의원", expect: "confirmed" },
+      { match: "반도체", expect: "confirmed" },
+      { match: "한글날", expect: "confirmed" },
+    ],
+    why: "분야가 섞인 긴 답변 — 틀린 하나만 정확히 집고 나머지는 확인해야 한다.",
+    critical: true,
+  },
+  {
+    id: "award-year-mixup",
+    text: "한강 작가는 2025년에 노벨문학상을 받았습니다.",
+    expect: "false",
+    why: "2024년 수상. 연도를 섞은 주장이다.",
+    critical: true,
+  },
 ];
 
 function verdictOf(result) {
@@ -199,7 +392,7 @@ function verdictOf(result) {
 //   "not-false" — 무엇이 나오든 '사실과 다름'만 아니면 된다. 검색에 안 걸리는 기록을
 //                 거짓이라고 부르지 않는지 보는 사례에 쓴다.
 function meetsExpectation(c, got, claimCount) {
-  const verdictOk = c.expect === "not-false" ? got !== "false" : got === c.expect;
+  const verdictOk = c.expect === "not-false" ? got !== "false" : c.expect === "not-confirmed" ? got !== "confirmed" : got === c.expect;
   const countOk = c.claimCount === undefined || claimCount === c.claimCount;
   return verdictOk && countOk;
 }
@@ -233,7 +426,7 @@ async function runCase(c, runVerification, newVerificationId) {
       usd: cost?.usd || 0,
       searches: cost?.searches || 0,
       byLabel: cost?.byLabel || {},
-      claims: (result?.claims || []).map((x) => ({ verdict: x.verdict, via: x.verified_via, text: x.text?.slice(0, 50) })),
+      claims: (result?.claims || []).map((x) => ({ verdict: x.verdict, via: x.verified_via, reason: x.uncertain_reason, text: x.text?.slice(0, 50) })),
     };
   } catch (e) {
     return { ...c, got: "ERROR", pass: false, error: e.message, elapsedMs: Date.now() - started, usd: 0, searches: 0, byLabel: {} };
@@ -278,7 +471,7 @@ async function main() {
     if (!r.pass) {
       console.log(`     ${r.why}`);
       if (r.error) console.log(`     오류: ${r.error}`);
-      for (const cl of r.claims || []) console.log(`     · [${cl.verdict}/${cl.via}] ${cl.text}`);
+      for (const cl of r.claims || []) console.log(`     · [${cl.verdict}/${cl.via}${cl.reason ? "/" + cl.reason : ""}] ${cl.text}`);
       for (const row of r.claimScore?.rows || []) if (!row.ok) console.log(`     ✗ 주장 "${row.match}" 기대 ${row.expect} 결과 ${row.got}`);
     }
     return r;
@@ -306,7 +499,9 @@ async function main() {
     fs.writeFileSync(outArg, JSON.stringify({ at: new Date().toISOString(), passed, total: results.length, criticalFailed: criticalFailed.map((r) => r.id), usd, stages, results }, null, 2));
     console.log(`결과 저장: ${outArg}`);
   }
-  await db.closeDb().catch(() => {});
+  // 닫기가 끝나지 않는 경우가 있었다(측정은 다 끝났는데 프로세스가 15분 동안 남음). 결과는 이미
+  // 찍혔으니 5초만 기다리고 나간다.
+  await Promise.race([db.closeDb().catch(() => {}), new Promise((r) => setTimeout(r, 5000))]);
   process.exit(criticalFailed.length ? 1 : 0);
 }
 

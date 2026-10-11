@@ -1,5 +1,6 @@
 import { all, now, one, run, tx } from "./db.js";
 import { PLANS, effectivePlan } from "./plans.js";
+import { CREDIT_VALID_MS, EXPIRY_START, dueExpiries } from "./creditExpiry.js";
 
 // 크레딧 — 검증을 돌리는 데 쓰는 재화. 클로드와 같은 구조다.
 //   · 요금제마다 매달 정해진 양이 들어온다.
@@ -14,6 +15,7 @@ import { PLANS, effectivePlan } from "./plans.js";
 //  · 지급·차감은 전부 원장(credit_ledger)에 남기고, 잔액은 원장 합으로만 구한다.
 //  · 결제 없이 크레딧을 늘려주지 않는다. 추가 구매는 "신청"만 받고 입금 확인 후
 //    운영자가 직접 지급한다(관리자 대시보드). 자동 결제·송금은 넣지 말 것.
+//  · 적립한 크레딧은 1년 뒤 소멸한다(creditExpiry.js — 이니시스 포인트충전 입점 조건).
 //  · 현금 환급은 없다. 크레딧을 현금으로 바꿔주면 전자금융거래법상 선불전자지급수단에
 //    해당해 금융위 등록 대상이 될 수 있다.
 
@@ -82,13 +84,19 @@ export function creditsFor(chars) {
   return Math.max(1, Math.ceil(n / CHARS_PER_CREDIT));
 }
 
-// 추가 구매 팩. 결제 연동 전이라 화면에서는 신청만 받고, 입금이 확인되면 운영자가 지급한다.
-// 추가 구매는 구독보다 건당 단가가 높다. 예산을 미리 정한 구독 쪽이 우리도 예측이
-// 되고 사용자도 싸기 때문에, 구독으로 가는 게 서로 이득이 되도록 두었다.
+// 크레딧 충전 팩 — 유메가 카드로 파는 상품은 이것뿐이다.
+//
+// 월 요금제(1개월 이용권)는 2026-10-08에 판매를 닫았다. 이니시스 포인트충전 입점 조건이
+// "정기결제 관련 상품과 내용 삭제"이고, 충전 상품만 남겨야 심사가 선다.
+//
+// 가장 큰 팩은 5만원 아래로 둔다. 포인트충전은 카드사가 환금성 업종으로 묶어 한도를 건다 —
+// 신한 일 5만원, 롯데 1회 10만원, 현대 10만원 초과 불가. 예전의 200 크레딧(10만원)은
+// 신한카드 고객이 아예 결제할 수 없었다. 더 필요하면 여러 번 충전하면 된다.
+// pack_200은 이미 결제된 주문이 있을 수 있어 키를 재사용하지 않는다.
 export const CREDIT_PACKS = [
   { key: "pack_20", label: "20 크레딧", credits: 20, krw: 12000 },
   { key: "pack_60", label: "60 크레딧", credits: 60, krw: 33000 },
-  { key: "pack_200", label: "200 크레딧", credits: 200, krw: 100000 },
+  { key: "pack_90", label: "90 크레딧", credits: 90, krw: 45000 },
 ];
 
 export const packItem = (key) => CREDIT_PACKS.find((i) => i.key === key) || null;
@@ -124,9 +132,39 @@ export async function ensureMonthlyGrant(user) {
     `INSERT INTO credit_ledger (user_id, delta, reason, ref, memo, created_at)
      VALUES (:userId, :delta, 'plan_grant', :ref, :memo, :t)
      ON CONFLICT DO NOTHING RETURNING id`,
-    { userId: user.id, delta: amount, ref, memo: `${PLANS[plan]?.label || plan} 요금제 월 지급`, t: now() },
+    // 내역 화면에 그대로 보인다. 정기결제로 읽히지 않게 "요금제"라는 말을 쓰지 않는다(이니시스 심사).
+    { userId: user.id, delta: amount, ref, memo: plan === "free" ? "가입 회원 무료 제공" : `${PLANS[plan]?.label || plan} 이용권 포함분`, t: now() },
   );
   return r.rows.length ? amount : 0;
+}
+
+// 1년이 지난 적립분의 남은 크레딧을 소멸시킨다. 원장에 'expire' 행으로 남기고, ref를
+// "expire:{적립 행 id}"로 잡아 몇 번을 불러도 한 번만 들어간다(idx_credit_dedup).
+// 차감 직전, 크레딧 화면을 열 때, 하루 한 번 정비(maintenance)에서 부른다.
+export async function expireCredits(userId, q = null) {
+  const exec = q || { all, run };
+  const rows = await exec.all("SELECT id, delta, reason, ref, created_at FROM credit_ledger WHERE user_id = :userId ORDER BY id", { userId });
+  const due = dueExpiries(rows, now());
+  let total = 0;
+  for (const d of due) {
+    const day = new Date(d.at + 9 * 3600 * 1000).toISOString().slice(0, 10).replace(/-/g, ".");
+    const r = await exec.run(
+      `INSERT INTO credit_ledger (user_id, delta, reason, ref, memo, created_at)
+       VALUES (:userId, :delta, 'expire', :ref, :memo, :t) ON CONFLICT DO NOTHING RETURNING id`,
+      { userId, delta: -d.amount, ref: `expire:${d.lotId}`, memo: `${day} 적립분 유효기간(1년) 만료`, t: now() },
+    );
+    if (r.rows?.length) total += d.amount;
+  }
+  return total;
+}
+
+// 정비 작업용 — 1년이 지난 적립이 있는 사람만 골라 소멸 처리한다.
+export async function expireAllCredits(at = now()) {
+  if (at < EXPIRY_START + CREDIT_VALID_MS) return 0;
+  const users = await all("SELECT DISTINCT user_id FROM credit_ledger WHERE delta > 0 AND created_at <= :t", { t: at - CREDIT_VALID_MS });
+  let n = 0;
+  for (const u of users) n += await expireCredits(u.user_id);
+  return n;
 }
 
 export async function balance(userId) {
@@ -159,6 +197,8 @@ export async function grant(userId, delta, reason, { ref = null, memo = null, q 
 export async function spend(userId, amount, reason, { ref = null, memo = null } = {}) {
   return tx(async (q) => {
     await q.one("SELECT id FROM users WHERE id = :userId FOR UPDATE", { userId });
+    // 1년 지난 크레딧으로 검증을 돌리지 않는다 — 소멸부터 처리하고 잔액을 본다.
+    await expireCredits(userId, q);
     const cur = (await q.one("SELECT COALESCE(SUM(delta), 0) AS n FROM credit_ledger WHERE user_id = :userId", { userId }))?.n || 0;
     if (cur < amount) return false;
     await q.run("INSERT INTO credit_ledger (user_id, delta, reason, ref, memo, created_at) VALUES (:userId, :delta, :reason, :ref, :memo, :t)", {

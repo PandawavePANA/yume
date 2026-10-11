@@ -7,30 +7,25 @@ import { motion, AnimatePresence, MotionConfig, useScroll, useTransform, useMoti
 import { CreditCoin, CursorLoupe, EvidenceField, InkWordmark, SealRing, VerdictMarquee, WordReveal } from "@/components/yume/motion2";
 import { DocumentScan, DrawnMark, FactCheckScene, InkStamp, Magnetic, Marker, RollingNumber, ScrollAtmosphere, ScrollLine, ScrollRail, TiltCard, useHeroSplit } from "@/components/yume/motion";
 import { CaseDeck, DomainCloud, Scatter } from "@/components/yume/showcase";
+import IndexBand from "@/components/yume/IndexBand";
 import NecPanel from "@/components/yume/NecPanel";
 import ContextRepairCard from "@/components/yume/ContextRepairCard";
 import { BountyPrompt } from "@/components/yume/BountyModal";
 import { CorrectionPrompt } from "@/components/yume/CorrectionModal";
 import { apiJson, safeUrl, CONTACT_EMAIL } from "@/components/yume/api";
-import { BUSINESS, telHref, COPYRIGHT, businessLine } from "@/businessInfo";
+import { BUSINESS, COMPLAINT_NOTICE, COMPLAINT_CONTACT, telHref, COPYRIGHT, businessLine } from "@/businessInfo";
 import BusinessInfo from "@/components/yume/BusinessInfo";
 import { IS_NATIVE_APP, onNativeBack, shareLink } from "./native.js";
 import { IS_STORE_BUILD } from "./storeBuild.js";
-import { orderPack, orderPlan, resumeFromRedirect, verifyIdentity } from "./payments.js";
+import { orderPack, resumeFromRedirect, verifyIdentity } from "./payments.js";
 import SidePanel, { PANEL_WIDTH } from "@/components/yume/SidePanel";
-import { t, useLang } from "./i18n.js";
+import { t, useLang, getLang } from "./i18n.js";
 import { useMediaQuery } from "./useMedia.js";
 
 // 기업용 사이트 주소. 별도 도메인에 따로 배포되므로 코드에 박지 않고 빌드 환경변수로 받는다.
 const BUSINESS_URL = (import.meta.env?.VITE_BUSINESS_URL || "https://business.yume-reamer.com").replace(/\/+$/, "");
 
 const EASE_APPLE = [0.22, 1, 0.36, 1];
-
-// 결제 버튼에 찍는 판매가. 서버 plans.js의 monthlyKrw와 같은 값이어야 한다 —
-// 금액은 서버가 정하므로 여기 값이 틀려도 결제는 서버 금액으로 되지만, 화면과 청구가
-// 어긋나면 그 자체가 사고다. 둘 중 하나를 고치면 반드시 둘 다 고칠 것.
-// 값이 없는 요금제(무료·비즈니스)는 파는 상품이 아니다.
-const PLAN_PRICE_KRW = { standard: 9900, expert: 29000 };
 
 // 디자인 토큰 — 유메의 파스텔 퍼플은 그대로, 애플 제품 페이지처럼 여백·타이포·유리 질감으로
 // 고급스러움을 낸다. 색을 새로 들이지 말고 여기 값을 재사용할 것.
@@ -134,13 +129,14 @@ const VERDICT = {
   // 확인되지 않음은 중립이 아니라 경고다. 같은 붉은 계열에 두되 톤을 달리한다.
   uncertain: { label: "확인되지 않음", bg: "#FCF0EA", color: "#9A4318", glyph: "?" },
 };
+// '확인되지 않음'은 이유에 따라 다르게 부른다(서버 withUncertainReason).
+//   근거 없음 — 공개 자료 어디에도 뒷받침하는 근거가 없다. 말한 쪽(대개 AI)이 근거 없이 단정했다.
+//   공개 기록 밖 — 비공개·유료·개인 경험처럼 원래 공개 자료로 확인할 수 없는 종류다.
+const UNCERTAIN_LABEL = { no_evidence: "근거 없음", not_public: "공개 기록 밖", check_failed: "조회 실패" };
+const verdictLabel = (c) =>
+  c?.verdict === "uncertain" ? UNCERTAIN_LABEL[c.uncertain_reason] || "확인되지 않음" : VERDICT[c?.verdict]?.label || "확인되지 않음";
 const VBORDER = { confirmed: "#C6E2D2", false: "#EEC3B9", uncertain: "#EBCDBA" };
 const VBG = { confirmed: "#FCFDFC", false: "#FFFBFA", uncertain: "#FFFCFA" };
-const PLANS = {
-  free: { label: "무료", price: "0원", period: "", tagline: "일상적인 사실관계 확인", features: ["매일 3회 무료 확인 (가입 없이도)", "가입하면 매달 5 크레딧 추가 (2,000자당 1크레딧)", "법률 주장 법제처 공식 대조", "인용된 판례·법령·논문의 부존재 신뢰도", "로그인 시 검증 기록 최근 50건 저장"] },
-  standard: { label: "스탠다드", price: "9,900원", period: "/월", tagline: "매일 AI 답변을 확인하는 분께", features: ["매달 20 크레딧 (정가 12,000원어치)", "무료 플랜 기능 전체 포함", "검증 기록 무제한 저장", "크레딧 소진 시 추가 구매 가능"] },
-  expert: { label: "전문가", price: "29,000원", period: "/월", tagline: "업무에서 조문·판례를 자주 확인하는 분께", features: ["매달 60 크레딧 (정가 36,000원어치)", "스탠다드 전체 포함", "우선 지원", "크레딧 소진 시 추가 구매 가능"] },
-};
 
 // AI 할루시네이션이 발생하는 구조적 원인 5가지와, 유메가 도메인에 상관없이
 // 그 원인마다 붙이는 대응 로직. 법률 도메인에서 먼저 검증한 내용을 일반화했다.
@@ -148,7 +144,7 @@ const HALLUCINATION_CAUSES = [
   { title: "저빈도 값 붕괴", problem: "조문 번호·수치처럼 드문 값은 AI가 비슷한 값과 섞습니다.", fix: "원문을 항목 단위까지 펼쳐 문자열로 직접 대조" },
   { title: "시점 붕괴", problem: "개정 전·후 버전이 둘 다 학습돼 어느 게 최신인지 AI는 모릅니다.", fix: "지금 유효한 버전만 기준으로 판정" },
   { title: "자기회귀적 오류 전파", problem: "한 번 부정확한 표현이 나오면 뒤이어 계속 틀립니다.", fix: "답변 전체가 아니라 주장 단위로 쪼개 독립 검증" },
-  { title: "확신 편향", problem: "근거가 약해도, 아예 없는 사실이어도 AI의 말투는 항상 자신 있게 나옵니다.", fix: "확인됨·사실과 다름·확인되지 않음, 3단계로 정직하게 판정" },
+  { title: "확신 편향", problem: "근거가 약해도, 아예 없는 사실이어도 AI의 말투는 항상 자신 있게 나옵니다.", fix: "확인됨·사실과 다름·근거 없음으로 정직하게 판정 — 있어야 할 기록이 없으면 사실과 다름" },
   { title: "유사 개체 혼동", problem: "이름이나 맥락이 비슷한 두 개념이 서로 섞입니다.", fix: "유사도가 아니라 원문 일치 여부로 최종 판정" },
 ];
 
@@ -437,7 +433,7 @@ function CountUp({ to, suffix = "", duration = 1.4 }) {
         requestAnimationFrame(tick);
       }}
       viewport={{ once: true, amount: 0.8 }}
-    >{value}{suffix}</motion.span>
+    >{value.toLocaleString()}{suffix}</motion.span>
   );
 }
 
@@ -478,7 +474,7 @@ function HallucinationStatCard() {
       >
         <div style={{ fontSize: "clamp(40px, 6vw, 60px)", fontWeight: 700, letterSpacing: "-0.04em", display: "flex", alignItems: "center", justifyContent: "center", gap: 14 }}>
           <motion.span variants={rise} style={{ display: "inline-block", color: UI.ink3 }}>
-            <CountUp to={10} suffix={t("건")} />
+            <CountUp to={712} suffix={t("건")} />
           </motion.span>
           <motion.span variants={arrow} style={{ display: "inline-block", color: UI.ink3, fontWeight: 400 }}>→</motion.span>
           <motion.span variants={rise} style={{ display: "inline-block", position: "relative" }}>
@@ -491,12 +487,13 @@ function HallucinationStatCard() {
               }}
             />
             <span style={{ background: UI.brandText, WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" }}>
-              <CountUp to={73} suffix={t("건")} />
+              <CountUp to={1600} suffix={t("건")} />
             </span>
           </motion.span>
         </div>
         <motion.div variants={rise} style={{ fontSize: 14, color: UI.ink2, marginTop: 10, lineHeight: 1.6 }}>
-          {t("법정 문서에서 발견된 AI 할루시네이션")}<br />{t("2023년 → 2025년 상반기")}
+          {t("전 세계 법원 문서에서 확인된 AI 할루시네이션 사례")}<br />{t("2025년 12월 → 2026년 6월")}
+          <div style={{ fontSize: 11.5, color: UI.ink3, marginTop: 6 }}>{t("Damien Charlotin AI Hallucination Cases 데이터베이스 · Bloomberg Law(2025.12)·2026년 6월 보도 기준")}</div>
         </motion.div>
       </motion.div>
     </motion.div>
@@ -535,7 +532,7 @@ function RotatingShowcaseCard() {
     <div ref={ref} style={{ perspective: 1600, display: "flex", justifyContent: "center", padding: "20px 0" }}>
       {/* 카드 모서리에 "법제처 공식 대조" 인장. 카드는 잘라내기(overflow)를 쓰므로 인장은 바깥 틀에 둔다. */}
       <div style={{ position: "relative", width: "min(440px, 88vw)" }}>
-      <div style={{ position: "absolute", top: -48, right: -8, zIndex: 2 }}><SealRing size={104} /></div>
+      <div style={{ position: "absolute", top: -48, right: -8, zIndex: 2 }}><SealRing size={104} label={t("법제처 공식 대조 · OFFICIAL SOURCE · 짐작이 아니라 확인 · ")} /></div>
       <motion.div style={{
         rotateX, scale, opacity, transformStyle: "preserve-3d", transformOrigin: "50% 100%",
         width: "100%", background: UI.surface, backdropFilter: UI.glass, WebkitBackdropFilter: UI.glass,
@@ -625,6 +622,21 @@ function StepsSection() {
   );
 }
 
+// 결과 아래 고지. 법률 주장이 있으면 "법률 자문이 아니다"를, 의료·금융이면 그 분야 문장을 먼저 둔다.
+function ResultNotice({ claims }) {
+  const domains = new Set(claims.map((c) => c.domain));
+  const lines = [];
+  if (domains.has("법률")) lines.push(t("이 결과는 인용된 법령·판례가 실재하고 원문과 맞는지 확인한 정보이며, 법률 자문이 아닙니다. 개별 사안은 변호사와 상담하세요."));
+  if (domains.has("의료")) lines.push(t("의료 정보는 진단이나 처방이 아닙니다. 치료와 복약은 의사·약사와 상담하세요."));
+  if (domains.has("금융")) lines.push(t("금융 정보는 투자 권유나 자문이 아닙니다. 상품 가입 전에는 약관과 설명서를 직접 확인하세요."));
+  lines.push(t("유메는 주장 추출과 고친 문장 작성에 생성형 AI를 사용합니다. 판정은 출처 원문과 대조한 결과이며, '확인되지 않음'은 거짓이라는 뜻이 아니라 근거를 찾지 못했다는 뜻입니다. 중요한 결정은 출처 링크로 직접 확인하세요."));
+  return (
+    <div style={{ marginTop: 16, padding: "12px 14px", borderRadius: 12, background: "rgba(139,111,216,0.06)", fontSize: 12.5, color: UI.ink3, lineHeight: 1.7 }}>
+      {lines.map((l) => <div key={l}>{l}</div>)}
+    </div>
+  );
+}
+
 function Eyebrow({ children }) {
   return (
     <motion.div initial="off" whileInView="on" viewport={{ once: true, amount: 0.8 }}
@@ -642,6 +654,8 @@ export default function YumeDashboard() {
   const [result, setResult] = useState(null);
   const [revealed, setRevealed] = useState(0);
   const [errMsg, setErrMsg] = useState("");
+  // 오류가 아니라 안내일 때(확인할 주장이 없던 입력) — 빨간 상자로 보이면 사용자가 뭔가 잘못한 것처럼 읽힌다.
+  const [errInfo, setErrInfo] = useState(false);
   const [progressMsg, setProgressMsg] = useState("");
   // 검증이 끝나기 전에 도착하는 중간 결과. 주장 목록은 첫 단계가 끝나면 이미 알 수 있어서,
   // 끝까지 쥐고 있다가 한 번에 보여 줄 이유가 없다. 중앙값 15.6초, 꼬리 47초를 빈 화면으로
@@ -723,8 +737,7 @@ export default function YumeDashboard() {
   }, []);
   const [showPricing, setShowPricing] = useState(false);
   // 요금제 창의 탭. 크레딧 충전이 맨 앞이다 — "더 쓰고 싶다"는 사람 대부분이 찾는 것이 이쪽이다.
-  const [storeTab, setStoreTab] = useState("credits");
-  const openStore = (tab = "credits") => { setStoreTab(tab); setShowPricing(true); };
+  const openStore = () => setShowPricing(true);
   const [packs, setPacks] = useState([]);
   React.useEffect(() => {
     if (!showPricing || packs.length) return;
@@ -767,9 +780,12 @@ export default function YumeDashboard() {
     if (ref) {
       try { localStorage.setItem("yume:ref", ref.slice(0, 20)); } catch { /* 저장이 막혀도 이번 방문 주소에는 남아 있다 */ }
     }
-    if (q.get("open") === "api") {
-      if (user) setAccountTab("api");
-      else { afterAuth.current = "api"; setAuthModal("signup"); }
+    // 기업용 사이트가 "?open=docs"(문서 검사)·"?open=api"(키 발급)로 바로 그 화면을 연다.
+    // "?open=credits"는 크레딧 충전·차감 내역 화면이다 — 결제 심사 회신에 경로로 적는다.
+    const open = q.get("open");
+    if (["api", "docs", "batch", "credits"].includes(open)) {
+      if (user) setAccountTab(open);
+      else { afterAuth.current = open; setAuthModal("signup"); }
       q.delete("open");
       const clean = `${window.location.pathname}${q.toString() ? `?${q}` : ""}${window.location.hash}`;
       window.history.replaceState({}, "", clean);
@@ -785,22 +801,6 @@ export default function YumeDashboard() {
 
   const [planBusy, setPlanBusy] = React.useState("");
   const [checkout, setCheckout] = React.useState(null);
-  const buyPlan = async (key, label) => {
-    if (!user) { setShowPricing(false); setAuthModal("signup"); return; }
-    // 주문만 만들고 결제 화면으로 넘어간다. 구매자 이름·휴대폰 번호를 확인하거나
-    // 채워 넣을 자리가 필요해서다 — 이니시스는 그 둘이 비면 창을 열지 않는다.
-    setPlanBusy(key);
-    try {
-      const order = await orderPlan(key);
-      setShowPricing(false);
-      setCheckout({ ...order, kind: "plan", label });
-    } catch (e) {
-      if (!e.cancelled) setToast(e.message || t("결제하지 못했어요."));
-    } finally {
-      setPlanBusy("");
-    }
-  };
-
   // 크레딧 팩 구매. 로그인 전이면 가입부터 — 가입이 끝나면 이 창(충전 탭)으로 돌아온다.
   const buyPack = async (pack) => {
     if (!user) { setShowPricing(false); afterAuth.current = "credits"; setAuthModal("signup"); return; }
@@ -858,9 +858,10 @@ export default function YumeDashboard() {
     setLimitReached(null);
     setToast(`${u.name || u.email}님, 반가워요.`);
     await refreshSession();
-    if (afterAuth.current === "api") {
+    if (["api", "docs", "batch"].includes(afterAuth.current)) {
+      const next = afterAuth.current;
       afterAuth.current = null;
-      setAccountTab("api");
+      setAccountTab(next);
     } else if (afterAuth.current === "credits") {
       afterAuth.current = null;
       openStore("credits");
@@ -1033,7 +1034,7 @@ export default function YumeDashboard() {
   const runCheck = async () => {
     if (!input.trim()) return;
     clearRevealTimers();
-    setStage("loading"); setResult(null); setRevealed(0); setErrMsg(""); setLimitReached(null); setTab("result");
+    setStage("loading"); setResult(null); setRevealed(0); setErrMsg(""); setErrInfo(false); setLimitReached(null); setTab("result");
     setProgressMsg(t("사실 주장을 추출하고 실시간으로 검색 중…"));
     setLiveClaims([]);
 
@@ -1111,12 +1112,21 @@ export default function YumeDashboard() {
       // 결과도 오류도 없이 스트림이 끝났다면 중간에 연결이 끊긴 것이다. "주장을 못 찾았다"고
       // 하면 입력 탓으로 오해하므로 따로 안내한다.
       if (!finalResult) throw new Error(t("서버와 연결이 끊겼어요. 잠시 후 다시 시도해주세요."));
-      // 확인할 주장이 없는 입력. 한 줄 질문을 열면서 흔해진 경우라("대한민국의 수도는
-      // 어디야?"), "못 찾았습니다" 한 줄로 끝내면 처음 온 사람은 무엇을 고쳐야 할지
-      // 모른 채 막힌다. 무엇을 넣으면 되는지 예시로 말해 준다. 이때 확인 횟수는
-      // 서버가 돌려준다(server/app.js).
+      // 확인할 주장이 없던 입력. 예전에는 무엇이 왔든 "○○라던데 사실이야?처럼 적어 달라"고 했는데,
+      // 평서문("사과는 맛있다")을 넣은 사람에게 질문 꼴로 바꿔 오라는 말이 되어 버렸다. 사용자는 무엇이든
+      // 그대로 붙여넣는다 — 바꿔 오라고 하지 않고, 왜 확인할 게 없었는지만 그 까닭대로 말한다.
+      // 확인 횟수는 서버가 돌려준다(server/app.js).
       if (!Array.isArray(finalResult.claims) || finalResult.claims.length === 0) {
-        throw new Error(t("확인할 사실 주장이 없어요. 묻기만 하면 유메가 대조할 내용이 없습니다 — \"○○라던데 사실이야?\"처럼 확인하고 싶은 내용을 함께 적어주세요. 이번 확인 횟수는 돌려드렸어요."));
+        const why = {
+          opinion: t("취향이나 느낌을 말하는 문장이라 참·거짓을 가릴 수 없어요. 숫자·이름·날짜·효과처럼 확인할 수 있는 내용이 든 문장은 그대로 붙여넣으면 바로 확인합니다."),
+          question: t("질문만 있고 확인할 주장이 없어요. AI에게 받은 답변을 그대로 붙여넣으면 그 안의 사실을 하나하나 확인합니다."),
+          greeting: t("확인할 사실이 들어 있지 않아요. AI 답변이나 확인하고 싶은 문장을 그대로 붙여넣으면 됩니다."),
+        }[finalResult.no_claim_kind] || t("확인할 수 있는 사실이 들어 있지 않아요. AI 답변이나 확인하고 싶은 문장을 그대로 붙여넣으면 됩니다.");
+        setErrMsg(`${why} ${t("이번 확인 횟수는 돌려드렸어요.")}`);
+        setErrInfo(true);
+        if (finalResult.usage) setUsage(finalResult.usage);
+        setStage("error");
+        return;
       }
       setElapsedSec(Math.floor((Date.now() - startTimeRef.current) / 1000));
       setResult(finalResult);
@@ -1143,7 +1153,8 @@ export default function YumeDashboard() {
     const lines = bad.map((c, i) => {
       const src = (c.sources || []).find((x) => x?.url);
       const head = c.verdict === "false" ? "사실과 다름" : "근거를 확인할 수 없음";
-      return `${i + 1}. "${c.text}" — ${head}.${c.explanation ? ` ${c.explanation}` : ""}${src ? ` (근거: ${src.url})` : ""}`;
+      const fix = c.verdict === "false" && c.suggested_fix ? ` 바르게 쓰면: "${c.suggested_fix}"` : "";
+      return `${i + 1}. "${c.text}" — ${head}.${c.explanation ? ` ${c.explanation}` : ""}${fix}${src ? ` (근거: ${src.url})` : ""}`;
     });
     return [
       "방금 네 답변을 사실 확인해 봤는데, 아래 부분이 틀렸거나 근거를 찾을 수 없었어.",
@@ -1281,7 +1292,7 @@ export default function YumeDashboard() {
               >
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontSize: 13.5, color: UI.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", letterSpacing: "-0.01em" }}>{h.preview}</div>
-                  <div style={{ fontSize: 11.5, color: UI.ink3, marginTop: 2 }}>{h.domain} · {new Date(h.timestamp).toLocaleDateString("ko-KR", { month: "short", day: "numeric" })}</div>
+                  <div style={{ fontSize: 11.5, color: UI.ink3, marginTop: 2 }}>{t(h.domain)} · {new Date(h.timestamp).toLocaleDateString(getLang() === "ko" ? "ko-KR" : "en-US", { month: "short", day: "numeric" })}</div>
                 </div>
                 <span onClick={(e) => deleteHistoryItem(h.id, e)} aria-label={t("삭제")} style={{
                   fontSize: 14, color: UI.ink3, cursor: "pointer", padding: "2px 6px", flexShrink: 0
@@ -1361,7 +1372,7 @@ export default function YumeDashboard() {
             <CreditCoin value={usage?.credits ?? 0} />
             {user
               ? <><RollingNumber value={usage?.credits ?? 0} />{!tightNav && <span style={{ opacity: 0.55, fontWeight: 600 }}>·</span>}<span>{t("충전")}</span></>
-              : <span>{tightNav ? t("충전") : t("크레딧 · 요금제")}</span>}
+              : <span>{tightNav ? t("충전") : t("크레딧 · 충전")}</span>}
           </motion.button>}
           {user ? (
             <div style={{ position: "relative" }}>
@@ -1391,6 +1402,7 @@ export default function YumeDashboard() {
                       {[
                         ...(IS_STORE_BUILD ? [] : [[t("크레딧 충전"), () => openStore("credits")]]),
                         [t("계정 설정"), () => setAccountTab("profile")],
+                        [t("문서 검사"), () => setAccountTab("docs")],
                         [t("일괄 검증"), () => setAccountTab("batch")],
                         [t("API 키"), () => setAccountTab("api")],
                         [t("데이터 · 개인정보"), () => setAccountTab("data")],
@@ -1461,6 +1473,10 @@ export default function YumeDashboard() {
                   히어로 한 화면이 거의 비어 있었다. 로고를 글자 크기에 맞춰 문장 안으로
                   되돌리고 글로우를 없앴다. */}
               {/* 스크롤하면 두 줄이 서로 반대로 비켜난다 — 질문과 확인은 다른 일이다. */}
+              {/* 서비스 이름은 "AI 팩트체크"가 아니라 "AI 할루시네이션 검사" — 같은 말을 쓰는 서비스가 여럿이라 겹치지 않게 한다. */}
+              <motion.div {...heroEnter(0)} style={{ fontSize: 13.5, fontWeight: 700, letterSpacing: "0.08em", color: UI.accentSoft, marginBottom: 18 }}>
+                {t("AI 할루시네이션 검사")}
+              </motion.div>
               <motion.div style={{ x: heroX1 }}>
                 <motion.div {...heroEnter(0.05)} style={heroLine}>{t("AI에게 질문하고")}</motion.div>
               </motion.div>
@@ -1474,7 +1490,7 @@ export default function YumeDashboard() {
                 </motion.div>
               </motion.div>
               <motion.p {...heroEnter(0.38)} style={{ ...UI.lead, maxWidth: 560, margin: "26px auto 0" }}>
-                {t("\"이렇다던데 사실이야?\" 한 줄이면 됩니다. AI 답변을 통째로 붙여넣어도 되고요. 법률·의료·금융·역사·과학 — 어떤 주제든 유메가 하나하나 확인합니다.")}
+                {t("AI가 쓴 글의 근거를 공식 원문과 한 줄씩 대조합니다. AI 답변을 통째로 붙여넣어도 되고, \"이렇다던데 사실이야?\" 한 줄이어도 됩니다.")}
               </motion.p>
             </motion.div>
           </motion.header>
@@ -1517,7 +1533,8 @@ export default function YumeDashboard() {
                         ? t("{plan} 이용권이 오늘 끝나요. 끝나면 무료 플랜으로 돌아가요.", { plan: t(user.planLabel) })
                         : t("{plan} 이용권이 {n}일 뒤 끝나요. 끝나면 무료 플랜으로 돌아가요.", { plan: t(user.planLabel), n: left })}
                     </span>
-                    <button onClick={() => openStore("plans")} style={{ ...pillBtn, border: "none", background: UI.ink, color: "#fff", fontWeight: 600 }}>{t("연장하기")}</button>
+                    {/* 월 요금제는 판매를 닫아 연장할 수 없다. 끝난 뒤에는 크레딧 충전으로 이어 쓴다. */}
+                    <button onClick={() => openStore("credits")} style={{ ...pillBtn, border: "none", background: UI.ink, color: "#fff", fontWeight: 600 }}>{t("크레딧 충전")}</button>
                   </div>
                 );
               })()}
@@ -1574,13 +1591,12 @@ export default function YumeDashboard() {
                       ...pillBtn, border: limitReached.loggedIn ? "none" : `1px solid ${UI.hairline}`,
                       background: limitReached.loggedIn ? UI.button : "#fff", color: limitReached.loggedIn ? "#fff" : UI.accent, fontWeight: 700,
                     }}>{t("크레딧 충전")}</button>}
-                    {!IS_STORE_BUILD && <button onClick={() => openStore("plans")} style={{
-                      ...pillBtn, border: `1px solid ${UI.hairline}`, background: "#fff", color: UI.ink2, fontWeight: 600,
-                    }}>{t("월 요금제")}</button>}
                   </div>
                 </div>
               ) : stage === "error" && (
-                <div style={{ fontSize: 14, color: "#B3372A", background: "#FDF1EF", border: "1px solid #F5D3CD", borderRadius: 14, padding: "12px 16px", marginBottom: 16 }}>{errMsg}</div>
+                <div style={errInfo
+                  ? { fontSize: 14, lineHeight: 1.6, color: UI.ink2, background: "#F6F3FB", border: `1px solid ${UI.hairline}`, borderRadius: 14, padding: "12px 16px", marginBottom: 16 }
+                  : { fontSize: 14, color: "#B3372A", background: "#FDF1EF", border: "1px solid #F5D3CD", borderRadius: 14, padding: "12px 16px", marginBottom: 16 }}>{errMsg}</div>
               )}
               {/* 좁은 화면에서는 주 버튼이 눌려 글자가 여러 줄로 깨진다. 그때는 줄을 나눠
                   주 버튼이 한 줄을 다 쓰게 하고, 보조 버튼 둘을 아래 줄에 나란히 둔다. */}
@@ -1651,7 +1667,7 @@ export default function YumeDashboard() {
                   </motion.div>
                 </AnimatePresence>
               </div>
-              <div style={{ fontSize: 12.5, color: UI.ink3 }}>{t("내용이 길면 최대 30초 정도 걸릴 수 있어요")}</div>
+              <div style={{ fontSize: 12.5, color: UI.ink3 }}>{t("주장마다 원문을 직접 열어 확인해서 1~2분 걸릴 수 있어요")}</div>
 
               {/* 먼저 끝난 것부터 보여준다. 기다리는 시간 자체는 같지만, 빈 화면을 보는 것과
                   결과가 하나씩 쌓이는 것을 보는 것은 다른 일이다. 아직 판정이 안 난 주장은
@@ -1762,7 +1778,7 @@ export default function YumeDashboard() {
                           <DrawnMark verdict={c.verdict} play={i < revealed} delay={0.08} />
                           <div style={{ minWidth: 0 }}>
                             <div style={{ fontSize: 12.5, fontWeight: 600, color: UI.ink3, marginBottom: 6, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                              <span>{c.domain} · <span style={{ color: (VERDICT[c.verdict] || VERDICT.uncertain).color }}>{t(VERDICT[c.verdict]?.label || "확인되지 않음")}</span></span>
+                              <span>{t(c.domain)} · <span style={{ color: (VERDICT[c.verdict] || VERDICT.uncertain).color }}>{t(verdictLabel(c))}</span></span>
                               {c.verified_via === "official" && (
                                 <span style={{ fontSize: 11, fontWeight: 600, color: UI.ink2, border: `1px solid ${UI.hairlineStrong}`, borderRadius: 999, padding: "2px 9px" }}>
                                   법제처 공식 확인{c.effective_date ? ` · ${c.effective_date} 시행 기준` : ""}
@@ -1770,6 +1786,12 @@ export default function YumeDashboard() {
                               )}
                               {c.verified_via === "nec" && (
                                 <span style={{ fontSize: 11, fontWeight: 600, color: "#A23A2B", background: "rgba(214,70,50,0.10)", borderRadius: 999, padding: "2px 9px" }}>{t("부존재 신뢰도 판정")}</span>
+                              )}
+                              {c.evidence?.status === "verified" && (
+                                <span title={c.evidence.quote} style={{ fontSize: 11, fontWeight: 600, color: "#1F7A52", background: "rgba(40,160,100,0.10)", borderRadius: 999, padding: "2px 9px" }}>{t("근거 원문 확인")}</span>
+                              )}
+                              {c.verified_via === "reference" && (
+                                <span style={{ fontSize: 11, fontWeight: 600, color: "#5B3FB5", background: "rgba(109,90,224,0.10)", borderRadius: 999, padding: "2px 9px" }}>{t("기준 자료 대조")}</span>
                               )}
                               {c.verified_via === "research" && (
                                 <span style={{ fontSize: 11, fontWeight: 600, color: "#1F6FA8", background: "rgba(40,120,180,0.10)", borderRadius: 999, padding: "2px 9px" }}>{t("심층 재확인")}</span>
@@ -1782,7 +1804,19 @@ export default function YumeDashboard() {
                               )}
                             </div>
                             <div style={{ fontSize: 15.5, fontWeight: 600, color: UI.ink, lineHeight: 1.6, marginBottom: 6, letterSpacing: "-0.015em" }}>{c.text}</div>
+                            {c.verdict === "uncertain" && c.uncertain_reason === "no_evidence" && (
+                              <div style={{ fontSize: 13, fontWeight: 600, color: "#9A4318", marginBottom: 4 }}>
+                                {t("공개된 자료 어디에서도 근거를 찾을 수 없습니다. 근거 없이 단정한 내용이니 사실로 쓰지 마세요.")}
+                              </div>
+                            )}
                             <div style={{ fontSize: 14, color: UI.ink2, lineHeight: 1.7 }}>{c.explanation}</div>
+                            {/* 틀린 문장을 어떻게 고치면 되는지. 판정 근거의 실제 값으로만 고친 문장이다. */}
+                            {c.verdict === "false" && c.suggested_fix && (
+                              <div style={{ marginTop: 10, padding: "10px 13px", borderRadius: 12, background: "rgba(40,160,100,0.07)", border: "1px solid rgba(40,160,100,0.22)" }}>
+                                <div style={{ fontSize: 11.5, fontWeight: 700, color: "#1F7A52", marginBottom: 4 }}>{t("이렇게 고치면 맞습니다")} <span style={{ fontWeight: 500, color: UI.ink3 }}>· {t("AI가 근거의 값으로 고친 문장")}</span></div>
+                                <div style={{ fontSize: 14, color: UI.ink, lineHeight: 1.65 }}>{c.suggested_fix}</div>
+                              </div>
+                            )}
                             <NecPanel nec={c.nec} />
                             {c.nec?.grade === "nonexistent" && result.id && (
                               <BountyPrompt claim={c} claimIdx={i} verificationId={result.id} user={user} onNeedLogin={() => setAuthModal("login")} />
@@ -1798,6 +1832,8 @@ export default function YumeDashboard() {
                         </motion.div>
                       ))}
                     </div>
+                    {/* AI 기본법 고지 + 자문이 아니라는 선(변호사법). 법률 주장이 있으면 그 문장을 먼저 적는다. */}
+                    <ResultNotice claims={result.claims || []} />
                   </>
                 )}
 
@@ -2004,6 +2040,8 @@ export default function YumeDashboard() {
         </Reveal>
       </section>
 
+      {/* 유메가 재서 공개하는 숫자 — 검사 도구를 넘어 "기준 숫자를 내는 곳"이라는 정체성. */}
+      <IndexBand businessUrl={!IS_NATIVE_APP && !IS_STORE_BUILD ? BUSINESS_URL : null} />
 
       <StepsSection />
 
@@ -2015,11 +2053,11 @@ export default function YumeDashboard() {
               <Eyebrow>{t("무엇이 다른가")}</Eyebrow>
             </Reveal>
             <h2 style={{ ...UI.sectionTitle, fontSize: "clamp(30px, 4.2vw, 46px)", margin: "0 0 22px" }}>
-              <WordReveal lines={[t("AI에게 AI를"), t("검증하게 하지 않습니다.")]} />
+              <WordReveal lines={[t("AI의 짐작으로"), t("판정하지 않습니다.")]} />
             </h2>
             <Reveal delay={0.1}>
               <p style={{ ...UI.lead, margin: 0 }}>
-                {t("일반적인 팩트체크는 또 다른 AI의 짐작에 의존합니다. 유메는 법률 도메인에서 먼저 검증한 \"공식 원천 데이터와 직접 대조하는 구조\"를 도메인마다 반복합니다. 짐작이 아니라, 확인입니다.")}
+                {t("다른 AI에게 \"맞는 것 같아?\"라고 다시 묻는 건 검증이 아닙니다. 유메는 판정마다 원문 근거를 요구합니다 — 법률은 법제처 조문을 직접 받아 오고, 그 밖의 주장은 출처 페이지를 직접 열어 그 문장이 실제로 있는지 확인합니다. 근거를 대지 못한 판정은 \"확인되지 않음\"으로 내립니다.")}
               </p>
             </Reveal>
           </div>
@@ -2121,12 +2159,13 @@ export default function YumeDashboard() {
           <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "flex-start", gap: 24 }}>
             <div>
               <YumeLogo height={20} />
-              <div style={{ fontSize: 13, color: UI.ink3, marginTop: 10, maxWidth: 280, lineHeight: 1.6 }}>{t("AI 답변, 확인하고 믿으세요.")}</div>
+              <div style={{ fontSize: 13, color: UI.ink3, marginTop: 10, maxWidth: 280, lineHeight: 1.6 }}>{t("AI의 짐작이 아니라, 원문으로 판정합니다.")}</div>
             </div>
             <div style={{ display: "flex", gap: 28, flexWrap: "wrap" }}>
-              {!IS_STORE_BUILD && <button onClick={() => openStore("credits")} className="yume-footer-link" style={{ border: "none", background: "transparent", color: UI.ink2, fontSize: 13, cursor: "pointer", padding: 0 }}>{t("요금제")}</button>}
+              {!IS_STORE_BUILD && <button onClick={() => openStore("credits")} className="yume-footer-link" style={{ border: "none", background: "transparent", color: UI.ink2, fontSize: 13, cursor: "pointer", padding: 0 }}>{t("크레딧 충전")}</button>}
               {!IS_STORE_BUILD && <button onClick={() => setShowBiz(true)} className="yume-footer-link" style={{ border: "none", background: "transparent", color: UI.ink2, fontSize: 13, cursor: "pointer", padding: 0 }}>{t("비즈니스 · API")}</button>}
               {!IS_STORE_BUILD && <a href="/docs/api" target="_blank" rel="noopener noreferrer" className="yume-footer-link" style={{ color: UI.ink2, fontSize: 13, textDecoration: "none" }}>{t("API 문서")}</a>}
+              <a href="/hallucination-index" className="yume-footer-link" style={{ color: UI.ink2, fontSize: 13, textDecoration: "none" }}>{t("할루시네이션 지수")}</a>
               {!IS_NATIVE_APP && !IS_STORE_BUILD && (
                 <a href={BUSINESS_URL} className="yume-footer-link" style={{ color: UI.ink2, fontSize: 13, textDecoration: "none" }}>{t("기업용")}</a>
               )}
@@ -2154,6 +2193,9 @@ export default function YumeDashboard() {
                 )}
                 이메일 <a href={`mailto:${BUSINESS.email}`} className="yume-footer-link" style={{ color: UI.ink3, textDecoration: "none" }}>{BUSINESS.email}</a>
               </div>
+              {/* 이니시스 포인트충전 조건 — 거래 책임과 민원 담당자를 하단에 늘 적는다. */}
+              <div>{t(COMPLAINT_NOTICE)} {t("민원담당자")} {COMPLAINT_CONTACT}</div>
+              <div style={{ marginTop: 6 }}>{t("유메는 검증 과정에 생성형 AI를 사용합니다. 판정은 공개 원문과 대조한 검증 정보이며 법률·의료·금융 자문이나 보증이 아닙니다.")}</div>
               <div style={{ marginTop: 6 }}>{COPYRIGHT}</div>
             </address>
             <span style={{ display: "flex", gap: 0 }}>
@@ -2199,37 +2241,18 @@ export default function YumeDashboard() {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 18 }}>
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontSize: 28, fontWeight: 750, letterSpacing: "-0.03em", color: UI.ink }}>
-                  {storeTab === "credits" ? t("크레딧 충전") : t("월 요금제")}
+                  {t("크레딧 충전")}
                 </div>
                 <div style={{ fontSize: 14, color: UI.ink2, marginTop: 4, lineHeight: 1.6 }}>{IS_NATIVE_APP || IS_STORE_BUILD
                   ? t("앱에서는 무료 플랜을 이용할 수 있어요. 결제는 웹사이트에서 할 수 있어요.")
                   : !user
                     ? t("매일 3회는 무료예요. 더 확인하려면 가입하고 크레딧을 충전하세요.")
-                    : storeTab === "credits"
-                      ? t("매일 무료 3회를 다 쓴 뒤에 크레딧이 쓰여요. 2,000자마다 1크레딧이에요.")
-                      : payCfg?.payment
-                        ? t("카드로 바로 결제하고 1개월 동안 이용하실 수 있어요. 자동 갱신되지 않습니다.")
-                        : t("온라인 결제는 준비 중이에요. 유료 플랜은 문의해주시면 바로 열어드려요.")}</div>
+                    : t("매일 무료 3회를 다 쓴 뒤에 크레딧이 쓰여요. 2,000자마다 1크레딧이에요.")}</div>
               </div>
               <button onClick={() => setShowPricing(false)} aria-label={t("닫기")} style={{ width: 32, height: 32, flexShrink: 0, borderRadius: 999, border: "none", background: "rgba(118,118,128,0.12)", color: UI.ink2, fontSize: 16, cursor: "pointer" }}>×</button>
             </div>
 
-            {/* 두 탭 — 흰 알약이 미끄러져 옮겨 간다. */}
-            <div role="tablist" style={{ display: "inline-flex", padding: 4, borderRadius: 14, background: "rgba(118,118,128,0.10)", marginBottom: 22 }}>
-              {[["credits", "크레딧 충전"], ["plans", "월 요금제"]].map(([k, label]) => (
-                <button key={k} role="tab" aria-selected={storeTab === k} onClick={() => setStoreTab(k)} style={{
-                  position: "relative", border: "none", background: "transparent", padding: "9px 18px", borderRadius: 10,
-                  fontSize: 14, fontWeight: storeTab === k ? 700 : 600, color: storeTab === k ? UI.ink : UI.ink2, cursor: "pointer", fontFamily: "inherit",
-                }}>
-                  {storeTab === k && <motion.span layoutId="store-tab" transition={{ type: "spring", stiffness: 500, damping: 36 }}
-                    style={{ position: "absolute", inset: 0, borderRadius: 10, background: "#fff", boxShadow: "0 3px 10px rgba(20,17,24,0.08)" }} />}
-                  <span style={{ position: "relative" }}>{t(label)}</span>
-                </button>
-              ))}
-            </div>
-
-            <AnimatePresence mode="wait">
-            {storeTab === "credits" ? (
+            {/* 월 요금제는 판매를 닫았다(이니시스 포인트충전 조건) — 크레딧 충전 하나만 남는다. */}
               <motion.div key="credits" initial={{ opacity: 0, x: -14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 14 }} transition={{ duration: 0.22, ease: EASE_APPLE }}>
                 {user && (
                   <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap", padding: "14px 18px", borderRadius: 16, marginBottom: 16,
@@ -2283,63 +2306,14 @@ export default function YumeDashboard() {
                   })}
                   {!packs.length && <div style={{ fontSize: 14, color: UI.ink3, padding: "30px 0" }}>{t("불러오는 중…")}</div>}
                 </div>
+                {/* 이니시스 포인트충전 조건 — 소진기한(1년)과 카드 취소 환불을 충전 화면에 적는다. */}
                 <p style={{ fontSize: 12.5, color: UI.ink3, margin: "14px 2px 0", lineHeight: 1.7 }}>
-                  {t("크레딧은 유효기간이 없고, 서버 오류로 확인이 끝나지 않으면 자동으로 돌려드려요. 매달 크레딧을 받으려면")}{" "}
-                  <button onClick={() => setStoreTab("plans")} className="yume-link" style={{ border: "none", background: "none", padding: 0, font: "inherit", color: UI.accent, fontWeight: 600, cursor: "pointer" }}>{t("월 요금제")}</button>
-                  {t("를 보세요.")}
+                  <b style={{ color: UI.ink2 }}>{t("충전한 크레딧은 결제한 시점부터 1년 이내에 사용할 수 있으며, 1년 안에 쓰지 않은 크레딧은 소멸합니다.")}</b>{" "}
+                  {t("먼저 충전한 크레딧부터 쓰이고, 서버 오류로 확인이 끝나지 않으면 자동으로 돌려드려요. 환불은 결제하신 카드의 결제 취소로만 처리됩니다.")}{" "}
+                  {t("신용카드·체크카드 일시불 결제만 가능해요.")}{" "}
+                  <a href="/refund" target="_blank" rel="noopener noreferrer" className="yume-link" style={{ color: UI.accent, fontWeight: 600 }}>{t("환불정책")}</a>
                 </p>
               </motion.div>
-            ) : (
-              <motion.div key="plans" initial={{ opacity: 0, x: 14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -14 }} transition={{ duration: 0.22, ease: EASE_APPLE }}>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 14 }}>
-                {Object.entries(PLANS).map(([key, p]) => (
-                  <div key={key} style={{
-                    border: plan === key ? `2px solid ${UI.accentSoft}` : `1px solid ${UI.hairline}`, borderRadius: 20, padding: 22,
-                    background: key === "expert" ? "linear-gradient(180deg, #F7F2FF 0%, #fff 70%)" : "#FBFAFD", display: "flex", flexDirection: "column"
-                  }}>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: UI.accent, marginBottom: 6 }}>{t(p.label)}</div>
-                    <div style={{ fontSize: 28, fontWeight: 700, marginBottom: 4, letterSpacing: "-0.03em", color: UI.ink }}>{t(p.price)}<span style={{ fontSize: 14, fontWeight: 500, color: UI.ink3, letterSpacing: 0 }}>{t(p.period)}</span></div>
-                    <div style={{ fontSize: 13.5, color: UI.ink2, marginBottom: 18, lineHeight: 1.5 }}>{t(p.tagline)}</div>
-                    <ul style={{ listStyle: "none", padding: "16px 0 0", margin: "0 0 22px", display: "flex", flexDirection: "column", gap: 9, flex: 1, borderTop: `1px solid ${UI.hairline}` }}>
-                      {p.features.map((f, i) => (
-                        <li key={i} style={{ fontSize: 13.5, color: UI.ink2, display: "flex", gap: 8, lineHeight: 1.5 }}>
-                          <span style={{ color: UI.accentSoft, fontWeight: 700 }}>✓</span>{t(f)}
-                        </li>
-                      ))}
-                    </ul>
-                    {plan === key ? (
-                      <div style={{ width: "100%", padding: "12px 0", borderRadius: 12, background: "rgba(118,118,128,0.10)", color: UI.ink3, fontSize: 14, fontWeight: 600, textAlign: "center" }}>{t("현재 플랜")}</div>
-                    ) : key === "free" ? (
-                      user ? null : (
-                        <button onClick={() => { setShowPricing(false); setAuthModal("signup"); }} style={{
-                          width: "100%", padding: "12px 0", borderRadius: 12, border: "none", background: "rgba(139,111,216,0.14)",
-                          color: UI.accent, fontSize: 14, fontWeight: 600, cursor: "pointer",
-                        }}>{t("무료로 가입하기")}</button>
-                      )
-                    ) : IS_NATIVE_APP || IS_STORE_BUILD ? (
-                      // 앱스토어·플레이스토어는 앱 안의 디지털 상품을 자체 결제로만 팔게 한다 — 외부 결제 안내를 두지 않는다.
-                      <div style={{ width: "100%", padding: "12px 0", borderRadius: 12, background: "rgba(118,118,128,0.10)", color: UI.ink3, fontSize: 14, fontWeight: 600, textAlign: "center" }}>{t("준비 중")}</div>
-                    ) : payCfg?.payment && PLAN_PRICE_KRW[key] ? (
-                      // 결제 연동이 켜져 있으면 바로 산다. 금액은 서버가 정하고, 크레딧·플랜은
-                      // 서버가 포트원에 결제를 확인한 뒤에만 열린다.
-                      <button onClick={() => buyPlan(key, p.label)} disabled={!!planBusy} style={{
-                        width: "100%", padding: "12px 0", borderRadius: 12, border: "none", cursor: planBusy ? "default" : "pointer",
-                        background: UI.button, color: "#fff", fontSize: 14, fontWeight: 600, opacity: planBusy ? 0.6 : 1, fontFamily: "inherit",
-                      }}>{planBusy === key ? "결제창 여는 중…" : `${PLAN_PRICE_KRW[key].toLocaleString()}원 결제하기`}</button>
-                    ) : (
-                      <a href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(`[유메] ${p.label} 플랜 이용 문의`)}&body=${encodeURIComponent(`가입 이메일: ${user?.email || ""}
-  원하는 플랜: ${p.label}
-  `)}`} style={{
-                        display: "block", width: "100%", padding: "12px 0", borderRadius: 12, textAlign: "center", textDecoration: "none",
-                        background: UI.button, color: "#fff", fontSize: 14, fontWeight: 600,
-                      }}>{PLAN_PRICE_KRW[key] ? "이용 문의하기" : "도입 문의하기"}</a>
-                    )}
-                  </div>
-                ))}
-              </div>
-              </motion.div>
-            )}
-            </AnimatePresence>
             {/* 결제가 일어나는 화면이라 사업자 정보가 여기에도 있어야 한다(PG 심사 필수). */}
             <BusinessInfo />
           </motion.div>
@@ -2359,7 +2333,7 @@ export default function YumeDashboard() {
               <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: "-0.03em", color: UI.ink }}>{t("설정 · 비즈니스")}</div>
               <button onClick={() => setShowBiz(false)} aria-label={t("닫기")} style={{ width: 32, height: 32, flexShrink: 0, borderRadius: 999, border: "none", background: "rgba(118,118,128,0.12)", color: UI.ink2, fontSize: 16, cursor: "pointer" }}>×</button>
             </div>
-            <div style={{ fontSize: 14, color: UI.ink2, marginBottom: 28 }}>{t("유메의 검증 엔진을 API·데이터·엔터프라이즈 솔루션으로 제공합니다")}</div>
+            <div style={{ fontSize: 14, color: UI.ink2, marginBottom: 28 }}>{t("검사 · 감사 · 지수 — 유메는 AI 할루시네이션을 원문으로 재고, 기록으로 남기고, 숫자로 공개합니다")}</div>
 
             <button onClick={() => setShowAudit(true)} style={{
               width: "100%", textAlign: "left", cursor: "pointer", marginBottom: 26,
@@ -2374,6 +2348,20 @@ export default function YumeDashboard() {
               <div style={{ fontSize: 13.5, fontWeight: 600, color: "#A88BEA", marginTop: 12 }}>{t("무료로 점검하기 →")}</div>
             </button>
 
+            {/* 감사와 지수 — 유메가 기업에 파는 신뢰의 두 기둥. 둘 다 별도 페이지로 이어진다. */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 10, marginBottom: 26 }}>
+              <a href={`${BUSINESS_URL}#audit`} style={{ textDecoration: "none", padding: "16px 18px", borderRadius: 16, background: "#FBFAFD", border: `1px solid ${UI.hairline}`, display: "flex", flexDirection: "column", gap: 5 }}>
+                <span style={{ fontSize: 15, fontWeight: 600, color: UI.ink, letterSpacing: "-0.01em" }}>{t("AI 서비스 감사")}</span>
+                <span style={{ fontSize: 13, color: UI.ink2, lineHeight: 1.55 }}>{t("귀사 AI 서비스를 표본으로 감사하고, 사람이 원문으로 재확인한 비공개 보고서를 드립니다. 동의하시면 공개 감사 기록과 배지를 드립니다.")}</span>
+                <span style={{ fontSize: 13, fontWeight: 600, color: UI.accent, marginTop: 4 }}>{t("감사 알아보기 ›")}</span>
+              </a>
+              <a href="/hallucination-index" style={{ textDecoration: "none", padding: "16px 18px", borderRadius: 16, background: "#FBFAFD", border: `1px solid ${UI.hairline}`, display: "flex", flexDirection: "column", gap: 5 }}>
+                <span style={{ fontSize: 15, fontWeight: 600, color: UI.ink, letterSpacing: "-0.01em" }}>{t("YUME 할루시네이션 지수")}</span>
+                <span style={{ fontSize: 13, color: UI.ink2, lineHeight: 1.55 }}>{t("AI가 근거 없이 지어내는 비율을 같은 방법으로 반복해 재고 주기마다 공개합니다. 표본·신뢰구간·방법을 함께 싣습니다.")}</span>
+                <span style={{ fontSize: 13, fontWeight: 600, color: UI.accent, marginTop: 4 }}>{t("지수 보기 ›")}</span>
+              </a>
+            </div>
+
             <div style={{ fontSize: 13, fontWeight: 600, color: UI.ink3, marginBottom: 10 }}>{t("개발자 · 데이터 · 파트너십")}</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 26 }}>
               <div style={{
@@ -2383,7 +2371,7 @@ export default function YumeDashboard() {
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
                   <div>
                     <div style={{ fontSize: 15, fontWeight: 600, color: UI.ink, marginBottom: 4, letterSpacing: "-0.01em" }}>{t("유메 검증 API")}</div>
-                    <div style={{ fontSize: 13, color: UI.ink2, lineHeight: 1.55 }}>{t("AI 기능이 있는 서비스에 팩트체크를 API로 붙일 수 있습니다. 주장별 판정·근거와 부존재 신뢰도를 그대로 받아 쓰세요. 호출량 기반 종량제.")}</div>
+                    <div style={{ fontSize: 13, color: UI.ink2, lineHeight: 1.55 }}>{t("AI 기능이 있는 서비스에 할루시네이션 검사를 API로 붙일 수 있습니다. 주장별 판정·근거와 부존재 신뢰도를 그대로 받아 쓰세요. 호출량 기반 종량제.")}</div>
                   </div>
                   <button onClick={openApiKeys} style={{
                     flexShrink: 0, padding: "8px 15px", borderRadius: 999, border: "none",

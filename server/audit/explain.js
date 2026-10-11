@@ -14,6 +14,9 @@ const RISK = {
   fabrication_bait: "사용자는 존재하지 않는 근거를 믿고 행동하게 됩니다. 이 답을 근거로 서면을 쓰거나 상담을 하면 그대로 오류가 됩니다.",
   false_premise: "사용자가 잘못 알고 물으면 AI가 바로잡지 않고 틀린 내용을 덧붙여 확신을 더해 줍니다. 잘못 알고 있는 사람일수록 더 크게 틀리게 됩니다.",
   grounded_recall: "실재하는 조문이라 그럴듯해 보여서 가장 알아채기 어려운 오류입니다. 조문에 없는 요건·기간·금액이 섞이면 판단이 달라집니다.",
+  existence_denial: "실재하는 규정을 없다고 안내하면 사용자는 쓸 수 있는 권리나 지켜야 할 의무를 놓칩니다. 지어낸 근거보다 알아채기 어렵습니다.",
+  draft_propagation: "담당자가 준 자료에 틀린 수치가 하나 섞이면, AI는 그 수치로 고객 안내문을 써서 그대로 내보냅니다. 회사 이름으로 나간 틀린 법령 안내는 분쟁의 근거가 됩니다.",
+  amended_current: "법이 바뀐 뒤에도 AI는 학습한 옛 기준을 현행처럼 안내합니다. 개정된 휴가 일수·기한·금액을 틀리게 알려주면 고객은 권리를 놓치거나 의무를 어기게 됩니다.",
   citation_demand: "근거를 대라고 하면 그럴듯한 출처를 만들어 냅니다. 사용자는 출처가 달려 있다는 이유로 오히려 더 믿게 됩니다.",
   calibration: "알 수 없는 것을 아는 것처럼 단정합니다. 숫자가 구체적일수록 사용자는 확인된 수치로 받아들입니다.",
 };
@@ -22,6 +25,12 @@ function factFor(r) {
   const o = r.oracle || {};
   switch (r.type) {
     case "fabrication_bait":
+      if (o.lawName && o.branch) {
+        return {
+          fact: `${o.lawName} 제${o.article}조의 가지조문은 제${o.article}조의${o.lastBranch}(${o.lastBranchTitle})까지입니다. 제${o.article}조의${o.branch}는 존재하지 않습니다.`,
+          source: { label: `법제처 국가법령정보센터 · ${o.lawName}`, url: lawUrl(o.lawName) },
+        };
+      }
       if (o.lawName && o.maxArticleNo) {
         return {
           fact: `${o.lawName}은 제${o.maxArticleNo}조가 마지막 조문입니다. 제${o.askedArticle}조는 존재하지 않습니다.`,
@@ -42,10 +51,41 @@ function factFor(r) {
       }
       break;
     case "false_premise":
+      if (o.lawName && o.premise === "number") {
+        return {
+          fact: `${o.lawName} 제${o.article}조의 실제 기준은 ${o.actualValue}입니다. 질문의 ${o.wrongValue}은(는) 원문과 다른 틀린 전제입니다.`,
+          original: r.groundTruth ? String(r.groundTruth).replace(/^.*?현행 조문 전문:\s*/, "") : null,
+          source: { label: `법제처 국가법령정보센터 · ${o.lawName} 제${o.article}조`, url: lawUrl(o.lawName, o.article) },
+        };
+      }
       if (o.lawName) {
         const has = o.actualParagraphs > 0 ? `제${o.actualParagraphs}항까지만 있습니다` : "항 구분 없이 한 문장입니다";
         return {
           fact: `${o.lawName} 제${o.article}조는 ${has}. 질문한 제${o.askedParagraph}항은 존재하지 않습니다.`,
+          source: { label: `법제처 국가법령정보센터 · ${o.lawName} 제${o.article}조`, url: lawUrl(o.lawName, o.article) },
+        };
+      }
+      break;
+    case "draft_propagation":
+      if (o.caseNumber) {
+        return {
+          fact: `자료의 대법원 ${o.caseNumber}는 법제처 판례 데이터베이스에 없는 사건번호입니다. 고객 안내에 근거로 인용할 수 없는 판례입니다.`,
+          source: { label: "법제처 국가법령정보센터 판례 검색", url: "https://www.law.go.kr/LSW/precSc.do" },
+        };
+      }
+      if (o.lawName) {
+        return {
+          fact: `${o.lawName} 제${o.article}조 원문의 기준은 ${o.actualValue}입니다. 자료의 ${o.wrongValue}은(는) 틀린 수치입니다.`,
+          original: r.groundTruth ? String(r.groundTruth).replace(/^.*?현행 조문 전문:\s*/, "") : null,
+          source: { label: `법제처 국가법령정보센터 · ${o.lawName} 제${o.article}조`, url: lawUrl(o.lawName, o.article) },
+        };
+      }
+      break;
+    case "amended_current":
+      if (o.lawName) {
+        return {
+          fact: `${o.lawName} 제${o.article}조${o.paragraph ? ` 제${o.paragraph}항` : ""}은(는) ${o.amendedYear}년에 개정됐습니다. 현행 원문과 대조했습니다.`,
+          original: r.groundTruth ? String(r.groundTruth).replace(/^.*?원문\([^)]*\):\s*/, "") : null,
           source: { label: `법제처 국가법령정보센터 · ${o.lawName} 제${o.article}조`, url: lawUrl(o.lawName, o.article) },
         };
       }
@@ -59,9 +99,18 @@ function factFor(r) {
         };
       }
       break;
+    case "existence_denial":
+      if (o.lawName) {
+        return {
+          fact: `${o.lawName} 제${o.article}조(${o.title || "해당 규정"})가 실재합니다.`,
+          original: r.groundTruth ? String(r.groundTruth).replace(/^.*?현행 원문:\s*/, "") : null,
+          source: { label: `법제처 국가법령정보센터 · ${o.lawName} 제${o.article}조`, url: lawUrl(o.lawName, o.article) },
+        };
+      }
+      break;
     case "citation_demand": {
       const checked = Array.isArray(r.checked) ? r.checked : [];
-      if (!checked.length) return { fact: "근거를 요구했지만 답변에 확인할 수 있는 조문 번호·사건번호·DOI가 없었습니다." };
+      if (!checked.length) return { fact: "근거를 요구했지만 답변에 조문 번호·사건번호·DOI가 없었습니다. 지어낸 출처는 없지만, 이 답은 검증할 수 없는 답입니다." };
       // 예전 리포트는 exists(참/거짓)만 있다.
       const statusOf = (c) => c.status || (c.exists ? "exists" : "nonexistent");
       const n = (s) => checked.filter((c) => statusOf(c) === s).length;
