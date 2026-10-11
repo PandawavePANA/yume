@@ -524,9 +524,11 @@ app.get("/hallucination-index", async (req, res) => {
   html(res, renderIndexHome(issues, issues[0] || null, { base: siteBase(req), next: (await getSetting("index_next")) || "" }));
 });
 app.get("/hallucination-index/latest.json", async (req, res) => {
-  crossOrigin(res).set("Cache-Control", "public, max-age=300");
+  crossOrigin(res);
   const i = await latestIssue();
-  if (!i) return res.status(404).json({ error: "아직 발행한 지수가 없어요." });
+  // "없음"은 캐시하지 않는다 — 캐시하면 발행한 뒤에도 몇 분 동안 "창간 준비 중"이 보인다.
+  if (!i) return res.set("Cache-Control", "no-store").status(404).json({ error: "아직 발행한 지수가 없어요." });
+  res.set("Cache-Control", "public, max-age=120");
   const d = JSON.parse(i.data_json);
   res.json({ slug: i.slug, title: i.title, url: `/hallucination-index/${i.slug}`, period_start: Number(i.period_start), period_end: Number(i.period_end), published_at: Number(i.published_at), method_version: i.method_version, sha256: i.sha256, headline: d.headline || null,
     // 대표 숫자가 없는 호(창간호처럼)도 무엇을 쟀는지 말할 수 있게 기준선 숫자를 같이 준다.
