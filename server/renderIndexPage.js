@@ -6,6 +6,7 @@
 // 숫자보다 크게 쓰는 문구는 없다. 지문(SHA-256)과 원자료 내려받기는 "고칠 수 없는 기록"이라는 증빙이다.
 import { COMPLAINT_NOTICE, businessLine, complaintOfficer, esc } from "./renderPages.js";
 import { METHOD_VERSION, MIN_CELL, MIN_HEADLINE } from "./hallucinationIndex.js";
+import { SPECIAL_ISSUES } from "./articles.js";
 
 const BASE_PATH = "/hallucination-index";
 const kDate = (ms) =>
@@ -113,23 +114,28 @@ td.n { text-align:right; white-space:nowrap; }
 @media (prefers-reduced-motion: no-preference) { .grow { transform-origin:left center; animation:grow .9s cubic-bezier(.2,.7,.2,1) both; } @keyframes grow { from { transform:scaleX(0); } } }
 `;
 
-function page({ title, description, path, body, base = "" }) {
-  const url = `${base}${path}`;
+// 공개 글(renderArticlePage.js)도 이 틀을 쓴다. canonical은 항상 정식 주소로 — 검색엔진이 두 주소로 나눠 세지 않게.
+export function page({ title, description, path, body, base = "", head = "", style = "", ogType = "article" }) {
+  // 접속한 호스트(base)가 아니라 정식 주소를 쓴다 — 다른 도메인으로 들어와도 색인은 한 곳으로 모인다.
+  void base;
+  const url = `${process.env.PUBLIC_BASE_URL || "https://www.yume-reamer.com"}${path}`;
   return `<!doctype html>
 <html lang="ko"><head>
 <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>${esc(title)}</title>
 <meta name="description" content="${esc(description)}" />
-<meta property="og:type" content="article" /><meta property="og:title" content="${esc(title)}" />
+<meta property="og:type" content="${ogType}" /><meta property="og:image" content="https://www.yume-reamer.com/og-yume.png" /><meta property="og:title" content="${esc(title)}" />
 <meta property="og:description" content="${esc(description)}" /><meta property="og:url" content="${esc(url)}" />
 <meta property="og:site_name" content="유메 · AI 할루시네이션 검사" /><meta name="twitter:card" content="summary" />
 <link rel="canonical" href="${esc(url)}" />
 ${FONTS}
-<style>${STYLE}</style></head>
+<meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large" />
+${head}
+<style>${STYLE}${style}</style></head>
 <body><div class="wrap">
 <header class="top">
   <a class="brand" href="/">YUME</a>
-  <nav aria-label="지수 메뉴"><a href="${BASE_PATH}">할루시네이션 지수</a><a href="${BASE_PATH}#method">방법</a><a href="${BASE_PATH}#archive">지난 호</a><a href="/business">AI 감사 받기</a></nav>
+  <nav aria-label="지수 메뉴"><a href="/hallucination">할루시네이션이란</a><a href="${BASE_PATH}">할루시네이션 지수</a><a href="${BASE_PATH}#method">방법</a><a href="${BASE_PATH}#archive">지난 호</a><a href="/business">AI 감사 받기</a></nav>
 </header>
 ${body}
 <footer class="foot">
@@ -338,7 +344,10 @@ ${latest
   <div><h3>사람이 확인한 실제 사례</h3><p>원문을 직접 열어 확인한 답만 사례로 싣고, 회사 이름은 가립니다.</p></div>
 </div></section>
 
-<section id="archive"><h2>지난 호</h2>${archive}</section>
+<section id="archive"><h2>지난 호</h2><p class="lede">정기호 — 측정 숫자를 싣고 발행 순간 고정합니다.</p>${archive}</section>
+<section id="special"><h2>특별호</h2><p class="lede">측정 없이 쓰는 해설입니다. 할루시네이션이 무엇이고 유메가 어떻게 재는지.</p>
+<div class="archive">${SPECIAL_ISSUES.map((x) => `<a href="${BASE_PATH}/${esc(x.slug)}"><span class="d muted">특별호 ${x.no}</span><span class="t">${esc(x.title.replace(/^특별호 \d+ · /, ""))}</span><span class="v" style="font-weight:500;font-size:13px;color:var(--ink3)">글 ${x.articles.length}편</span></a>`).join("")}</div>
+<p class="muted" style="margin-top:12px">처음이라면 <a href="/hallucination">AI 할루시네이션 총정리</a>부터 — 뜻·원인·유형·체크 방법을 한 곳에 모았습니다.</p></section>
 ${methodSection()}
 <section class="noprint" style="border-bottom:0"><h2>지수에 참여하기</h2><p class="lede">AI 서비스를 운영하는 회사라면 무료 점검으로 자기 AI를 먼저 재 볼 수 있고, 유메 감사로 사람이 재확인한 보고서를 받을 수 있습니다. 회사 이름은 동의하신 경우에만 싣습니다.</p>
 <div class="btns"><a class="btn primary" href="/business">AI 감사 문의</a><a class="btn" href="/business#audit">무료 점검</a></div></section>`;

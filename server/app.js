@@ -43,6 +43,7 @@ import { auditByReportToken, auditDetail, fileById, getSetting, publicSummary } 
 import { auditBadgeSvg, renderAuditReport as renderDeskReport, renderAuditSummary } from "./renderAuditDossier.js";
 import { canonicalIssue, issueCsv, latestIssue, publishedIssue } from "./hallucinationIndex.js";
 import { renderIndexHome, renderIndexIssue } from "./renderIndexPage.js";
+import { renderArticle, renderHub, renderSpecialIssue, sitemapXml } from "./renderArticlePage.js";
 import { renderDeskPage } from "./renderDeskPage.js";
 import { renderFunnelPage } from "./renderFunnelPage.js";
 import { recordEvent, funnel, dailyCost } from "./events.js";
@@ -518,6 +519,23 @@ app.get("/a/:id", async (req, res) => {
 // YUME 할루시네이션 지수 — 공개 지표. 원자료(JSON)는 정규 문자열 그대로 내보내야 지문을 다시 계산할 수 있다.
 const siteBase = (req) => process.env.PUBLIC_BASE_URL || `${req.protocol}://${req.get("host")}`;
 app.get("/yhi", (req, res) => res.redirect(301, "/hallucination-index"));
+// 공개 글 — 할루시네이션 읽을거리(허브 + 글 6편)와 특별호 표지. 검색으로 들어오는 첫 화면이라 서버에서 완성해 보낸다.
+app.get("/hallucination", (req, res) => html(res.set("Cache-Control", "public, max-age=600"), renderHub({ base: siteBase(req) })));
+app.get("/hallucination/:slug", (req, res, next) => {
+  const out = renderArticle(String(req.params.slug), { base: siteBase(req) });
+  if (!out) return next();
+  html(res.set("Cache-Control", "public, max-age=600"), out);
+});
+app.get(/^\/hallucination-index\/(special-[0-9]+)$/, (req, res, next) => {
+  const out = renderSpecialIssue(req.params[0], { base: siteBase(req) });
+  if (!out) return next();
+  html(res.set("Cache-Control", "public, max-age=600"), out);
+});
+// 사이트맵은 서버가 만든다 — 글과 발행한 지수가 늘 때마다 정적 파일을 고치지 않아도 된다(public/sitemap.xml보다 먼저 잡힌다).
+app.get("/sitemap.xml", async (req, res) => {
+  const issues = await all("SELECT slug, published_at FROM index_issues WHERE status = 'published' ORDER BY period_end DESC");
+  res.set("Content-Type", "application/xml; charset=utf-8").set("Cache-Control", "public, max-age=3600").send(sitemapXml(issues));
+});
 app.get("/hallucination-index", async (req, res) => {
   const issues = await all("SELECT * FROM index_issues WHERE status = 'published' ORDER BY period_end DESC, id DESC");
   res.set("Cache-Control", "public, max-age=300");

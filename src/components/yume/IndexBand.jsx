@@ -60,6 +60,9 @@ export default function IndexBand({ businessUrl }) {
           <div style={{ marginTop: 12, fontWeight: 700, color: "#A88BEA" }}>{t("지수 보기 →")}</div>
         </div>
       </a>
+      <div style={{ textAlign: "center", marginTop: 16, fontSize: 14, color: UI.ink2 }}>
+        <a href="/hallucination" style={{ color: UI.accent, fontWeight: 600 }}>{t("AI 할루시네이션이란? 뜻·원인·유형·체크 방법 ›")}</a>
+      </div>
       {businessUrl && (
         <div style={{ textAlign: "center", marginTop: 16, fontSize: 14, color: UI.ink2 }}>
           {t("AI 서비스를 운영하시나요?")}{" "}
