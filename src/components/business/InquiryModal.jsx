@@ -18,6 +18,10 @@ const UI = {
 
 const won = (n) => `${n.toLocaleString("ko-KR")}원`;
 export const PLAN_CHOICES = [
+  // AI 감사 — 귀사 AI 서비스를 표본으로 감사하고 사람이 재확인한 보고서를 드린다(감사 데스크).
+  // 가격은 범위(질문 수·업종·주기)를 듣고 정한다 — 기획안 4-4 "첫 3곳과의 대화에서 정한다".
+  { key: "audit", label: "AI 감사 — 1회 정밀 감사 (표본 검사 + 보고서 + 개선 회의)" },
+  { key: "audit_regular", label: "AI 감사 — 정기 감사 + 공개 감사 기록·배지" },
   { key: "trial10", label: "실제 문서 10건 무료 검사" },
   { key: "poc", label: "2주 PoC (문서 검사 + 정확도 보고서)" },
   { key: "metered", label: `종량제 (호출당 ${won(API_RATES.metered.unitKrw)})` },
@@ -38,8 +42,10 @@ export default function InquiryModal({ plan = "unsure", note = "", onClose }) {
   const [error, setError] = useState("");
   const [threadUrl, setThreadUrl] = useState("");
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
-  // 무료 검사·PoC는 호출 수가 아니라 문서로 이야기한다.
+  // 무료 검사·PoC는 호출 수가 아니라 문서로, 감사는 서비스와 분야로 이야기한다.
   const docs = form.plan === "trial10" || form.plan === "poc";
+  const audit = form.plan.startsWith("audit");
+  const volumeLabel = audit ? "감사할 서비스·분야" : docs ? "문서 종류·분량" : "예상 월 호출 수";
 
   useEffect(() => {
     const onKey = (e) => e.key === "Escape" && onClose();
@@ -56,7 +62,7 @@ export default function InquiryModal({ plan = "unsure", note = "", onClose }) {
     const message = [
       "[유메 도입 문의]",
       `원하는 플랜: ${planLabel}`,
-      form.volume ? `${docs ? "문서 종류·분량" : "예상 월 호출"}: ${form.volume}` : null,
+      form.volume ? `${volumeLabel}: ${form.volume}` : null,
       "",
       form.message.trim(),
     ].filter((x) => x !== null).join("\n");
@@ -110,9 +116,11 @@ export default function InquiryModal({ plan = "unsure", note = "", onClose }) {
             <div>
               <div style={{ fontSize: 20, fontWeight: 700, color: UI.ink, letterSpacing: "-0.02em" }}>도입 문의</div>
               <p style={{ margin: "6px 0 0", fontSize: 13.5, color: UI.ink3, lineHeight: 1.6 }}>
-                {docs
-                  ? "보내시면 바로 대화 화면이 열립니다. 검사할 문서는 답장 메일로 받고, 결과도 같은 곳으로 보내 드립니다. 공개해도 되는 문서로 시작하셔도 됩니다."
-                  : "보내시면 바로 대화 화면이 열립니다. 견적서와 결제도 그 자리에서 진행됩니다."}
+                {audit
+                  ? "보내시면 바로 대화 화면이 열립니다. 가장 신경 쓰이는 오류 유형을 들려 주시면 그 범위로 감사를 설계해 드립니다. 결과는 귀사에만 비공개로 드리고, 공개 여부는 귀사가 정합니다."
+                  : docs
+                    ? "보내시면 바로 대화 화면이 열립니다. 검사할 문서는 답장 메일로 받고, 결과도 같은 곳으로 보내 드립니다. 공개해도 되는 문서로 시작하셔도 됩니다."
+                    : "보내시면 바로 대화 화면이 열립니다. 견적서와 결제도 그 자리에서 진행됩니다."}
               </p>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 12 }}>
@@ -133,13 +141,13 @@ export default function InquiryModal({ plan = "unsure", note = "", onClose }) {
                   {PLAN_CHOICES.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
                 </select>
               </label>
-              <label style={labelStyle}>{docs ? "문서 종류·분량" : "예상 월 호출 수"}
-                <input id="bq-volume" maxLength={40} value={form.volume} onChange={set("volume")} style={field} placeholder={docs ? "예: 상품 안내문 10건" : "예: 1,200건"} />
+              <label style={labelStyle}>{volumeLabel}
+                <input id="bq-volume" maxLength={40} value={form.volume} onChange={set("volume")} style={field} placeholder={audit ? "예: 노무 상담 챗봇 · 법령 안내" : docs ? "예: 상품 안내문 10건" : "예: 1,200건"} />
               </label>
             </div>
             <label style={labelStyle}>어디에 쓰실 건가요? *
               <textarea id="bq-message" required minLength={10} maxLength={3000} rows={4} value={form.message} onChange={set("message")}
-                style={{ ...field, resize: "vertical", lineHeight: 1.6 }} placeholder={docs ? "예: AI로 쓴 보험 상품 안내문의 수치를 약관과 대조해 보고 싶습니다." : "예: 법률 상담 챗봇이 고객에게 보내는 답변을 발송 전에 검증하고 싶습니다."} />
+                style={{ ...field, resize: "vertical", lineHeight: 1.6 }} placeholder={audit ? "예: 저희 상담 AI가 법 조문을 틀리게 안내하는지, 투자자·고객사에 보여 줄 검사 기록이 필요합니다." : docs ? "예: AI로 쓴 보험 상품 안내문의 수치를 약관과 대조해 보고 싶습니다." : "예: 법률 상담 챗봇이 고객에게 보내는 답변을 발송 전에 검증하고 싶습니다."} />
             </label>
             {/* 사람 눈에는 안 보이는 칸. 자동 제출 봇만 채운다. */}
             <input tabIndex={-1} autoComplete="off" value={form.website} onChange={set("website")} aria-hidden="true"

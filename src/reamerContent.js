@@ -121,7 +121,7 @@ export const WORK = [
     live: true,
     href: "https://www.yume-reamer.com/",
     go: "yume-reamer.com",
-    blurb: "AI 답변이 사실인지 확인해 주는 팩트체크 서비스.",
+    blurb: "AI가 쓴 글의 근거를 공식 원문으로 검사하고, AI 할루시네이션 지수를 공개하는 서비스.",
     shots: [
       { src: "/work/yume.webp", alt: "유메 첫 화면 — AI 답변을 붙여넣어 검증하는 입력창" },
       { src: "/work/yume-products.webp", alt: "유메 상품 안내 페이지 — 요금제와 크레딧 구성" },

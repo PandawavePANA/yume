@@ -7,6 +7,7 @@ import { motion, AnimatePresence, MotionConfig, useScroll, useTransform, useMoti
 import { CreditCoin, CursorLoupe, EvidenceField, InkWordmark, SealRing, VerdictMarquee, WordReveal } from "@/components/yume/motion2";
 import { DocumentScan, DrawnMark, FactCheckScene, InkStamp, Magnetic, Marker, RollingNumber, ScrollAtmosphere, ScrollLine, ScrollRail, TiltCard, useHeroSplit } from "@/components/yume/motion";
 import { CaseDeck, DomainCloud, Scatter } from "@/components/yume/showcase";
+import IndexBand from "@/components/yume/IndexBand";
 import NecPanel from "@/components/yume/NecPanel";
 import ContextRepairCard from "@/components/yume/ContextRepairCard";
 import { BountyPrompt } from "@/components/yume/BountyModal";
@@ -2039,6 +2040,8 @@ export default function YumeDashboard() {
         </Reveal>
       </section>
 
+      {/* 유메가 재서 공개하는 숫자 — 검사 도구를 넘어 "기준 숫자를 내는 곳"이라는 정체성. */}
+      <IndexBand businessUrl={!IS_NATIVE_APP && !IS_STORE_BUILD ? BUSINESS_URL : null} />
 
       <StepsSection />
 
@@ -2156,12 +2159,13 @@ export default function YumeDashboard() {
           <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "flex-start", gap: 24 }}>
             <div>
               <YumeLogo height={20} />
-              <div style={{ fontSize: 13, color: UI.ink3, marginTop: 10, maxWidth: 280, lineHeight: 1.6 }}>{t("AI 답변, 확인하고 믿으세요.")}</div>
+              <div style={{ fontSize: 13, color: UI.ink3, marginTop: 10, maxWidth: 280, lineHeight: 1.6 }}>{t("AI의 짐작이 아니라, 원문으로 판정합니다.")}</div>
             </div>
             <div style={{ display: "flex", gap: 28, flexWrap: "wrap" }}>
               {!IS_STORE_BUILD && <button onClick={() => openStore("credits")} className="yume-footer-link" style={{ border: "none", background: "transparent", color: UI.ink2, fontSize: 13, cursor: "pointer", padding: 0 }}>{t("크레딧 충전")}</button>}
               {!IS_STORE_BUILD && <button onClick={() => setShowBiz(true)} className="yume-footer-link" style={{ border: "none", background: "transparent", color: UI.ink2, fontSize: 13, cursor: "pointer", padding: 0 }}>{t("비즈니스 · API")}</button>}
               {!IS_STORE_BUILD && <a href="/docs/api" target="_blank" rel="noopener noreferrer" className="yume-footer-link" style={{ color: UI.ink2, fontSize: 13, textDecoration: "none" }}>{t("API 문서")}</a>}
+              <a href="/hallucination-index" className="yume-footer-link" style={{ color: UI.ink2, fontSize: 13, textDecoration: "none" }}>{t("할루시네이션 지수")}</a>
               {!IS_NATIVE_APP && !IS_STORE_BUILD && (
                 <a href={BUSINESS_URL} className="yume-footer-link" style={{ color: UI.ink2, fontSize: 13, textDecoration: "none" }}>{t("기업용")}</a>
               )}
@@ -2329,7 +2333,7 @@ export default function YumeDashboard() {
               <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: "-0.03em", color: UI.ink }}>{t("설정 · 비즈니스")}</div>
               <button onClick={() => setShowBiz(false)} aria-label={t("닫기")} style={{ width: 32, height: 32, flexShrink: 0, borderRadius: 999, border: "none", background: "rgba(118,118,128,0.12)", color: UI.ink2, fontSize: 16, cursor: "pointer" }}>×</button>
             </div>
-            <div style={{ fontSize: 14, color: UI.ink2, marginBottom: 28 }}>{t("유메의 검증 엔진을 API·데이터·엔터프라이즈 솔루션으로 제공합니다")}</div>
+            <div style={{ fontSize: 14, color: UI.ink2, marginBottom: 28 }}>{t("검사 · 감사 · 지수 — 유메는 AI 할루시네이션을 원문으로 재고, 기록으로 남기고, 숫자로 공개합니다")}</div>
 
             <button onClick={() => setShowAudit(true)} style={{
               width: "100%", textAlign: "left", cursor: "pointer", marginBottom: 26,
@@ -2343,6 +2347,20 @@ export default function YumeDashboard() {
               </div>
               <div style={{ fontSize: 13.5, fontWeight: 600, color: "#A88BEA", marginTop: 12 }}>{t("무료로 점검하기 →")}</div>
             </button>
+
+            {/* 감사와 지수 — 유메가 기업에 파는 신뢰의 두 기둥. 둘 다 별도 페이지로 이어진다. */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 10, marginBottom: 26 }}>
+              <a href={`${BUSINESS_URL}#audit`} style={{ textDecoration: "none", padding: "16px 18px", borderRadius: 16, background: "#FBFAFD", border: `1px solid ${UI.hairline}`, display: "flex", flexDirection: "column", gap: 5 }}>
+                <span style={{ fontSize: 15, fontWeight: 600, color: UI.ink, letterSpacing: "-0.01em" }}>{t("AI 서비스 감사")}</span>
+                <span style={{ fontSize: 13, color: UI.ink2, lineHeight: 1.55 }}>{t("귀사 AI 서비스를 표본으로 감사하고, 사람이 원문으로 재확인한 비공개 보고서를 드립니다. 동의하시면 공개 감사 기록과 배지를 드립니다.")}</span>
+                <span style={{ fontSize: 13, fontWeight: 600, color: UI.accent, marginTop: 4 }}>{t("감사 알아보기 ›")}</span>
+              </a>
+              <a href="/hallucination-index" style={{ textDecoration: "none", padding: "16px 18px", borderRadius: 16, background: "#FBFAFD", border: `1px solid ${UI.hairline}`, display: "flex", flexDirection: "column", gap: 5 }}>
+                <span style={{ fontSize: 15, fontWeight: 600, color: UI.ink, letterSpacing: "-0.01em" }}>{t("YUME 할루시네이션 지수")}</span>
+                <span style={{ fontSize: 13, color: UI.ink2, lineHeight: 1.55 }}>{t("AI가 근거 없이 지어내는 비율을 같은 방법으로 반복해 재고 주기마다 공개합니다. 표본·신뢰구간·방법을 함께 싣습니다.")}</span>
+                <span style={{ fontSize: 13, fontWeight: 600, color: UI.accent, marginTop: 4 }}>{t("지수 보기 ›")}</span>
+              </a>
+            </div>
 
             <div style={{ fontSize: 13, fontWeight: 600, color: UI.ink3, marginBottom: 10 }}>{t("개발자 · 데이터 · 파트너십")}</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 26 }}>

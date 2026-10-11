@@ -244,6 +244,11 @@ function Intro({ domain, setDomain, subject, setSubject, busy, onStart }) {
       <div style={{ fontSize: 12.5, color: UI.ink3, marginTop: 12, lineHeight: 1.6 }}>
         문항은 공식 데이터베이스를 조회해 매번 새로 만듭니다. 같은 질문이 반복되지 않아 미리 대비할 수 없습니다.
       </div>
+      {/* 지수 집계에 쓰는 범위를 미리 말한다(hallucinationIndex.recordSelfAuditOutcomes). */}
+      <div style={{ fontSize: 12.5, color: UI.ink3, marginTop: 8, lineHeight: 1.6 }}>
+        {t("채점 결과 중 업종·질문 유형·결과(정상/실패)만 익명으로 모아 YUME 할루시네이션 지수 통계에 씁니다. 점검 대상 이름과 답변 원문은 넣지 않습니다.")}{" "}
+        <a href={apiUrl("/hallucination-index")} target="_blank" rel="noopener noreferrer" style={{ color: UI.accent }}>{t("지수 보기")}</a>
+      </div>
     </>
   );
 }

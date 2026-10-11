@@ -1,10 +1,14 @@
 // 기업용 랜딩 — 유메 본체와 별도 도메인에 배포되는 독립 사이트의 전부다.
 //
-// 순서가 곧 영업 논리다. 무료 점검을 맨 위에 두는 이유는, 유메가 필요하다는 걸 우리가
-// 주장하는 대신 그쪽 AI가 증명하게 하기 위해서다. 점검 결과가 깨끗하면 도입을 권하지
-// 않는다고 먼저 밝히는 것도 같은 이유다 — 안 팔 때 안 파는 게 점검의 신뢰다.
-// 그다음에야 API, 업종별 쓰임, 기술이 온다.
-import { useState } from "react";
+// 유메의 정체성은 "AI 팩트체크 도구"가 아니라 AI 할루시네이션을 재는 곳이다(2026-10-11).
+// 신용평가사가 부도율을 해마다 공개하고 개별 회사를 평가하듯, 유메는 세 가지를 한다.
+//   검사 — 글 한 편의 근거를 원문과 대조(문서·API)
+//   감사 — 회사의 AI 서비스를 표본으로 감사하고 사람이 재확인한 보고서(감사 데스크)
+//   지수 — 같은 방법으로 잰 숫자를 주기마다 공개(YUME 할루시네이션 지수)
+// 증빙의 무게는 "보증한다"는 말이 아니라 기록에서 나온다 — 원문 링크, 신뢰구간, 고칠 수 없는 지문.
+// 그래서 이 페이지는 "보증"이라는 말을 쓰지 않는다.
+// 무료 점검 결과가 깨끗하면 도입을 권하지 않는다고 먼저 밝히는 것도 같은 이유다.
+import { useEffect, useState } from "react";
 import AuditModal from "./components/yume/AuditModal.jsx";
 import InquiryModal from "./components/business/InquiryModal.jsx";
 import { CONTACT_EMAIL } from "./components/yume/api.js";
@@ -100,7 +104,7 @@ const TECH = [
     v: "법률 주장은 웹 검색이 아니라 법제처 국가법령정보 공동활용 API로 조문 원문을 받아 대조합니다. 오늘 시행 중인 버전만 조회하므로 개정 전 내용을 현행으로 착각하지 않습니다.",
   },
   {
-    k: "부존재 신뢰도 (특허 출원 10-2026-0194281)",
+    k: "부존재 신뢰도 (특허 출원 10-2026-0194281 · 심사 청구)",
     v: "못 찾았다고 곧바로 없다고 하지 않습니다. 탐색 커버리지(C)·식별자 형식오류(F)·유사 실재 항목과의 근접도(P)로 부존재 신뢰도를 산출하고, 임계값을 넘을 때만 지어낸 것으로 판정합니다.",
   },
   {
@@ -112,6 +116,60 @@ const TECH = [
     v: "주장별 판정·근거·출처·부존재 신뢰도가 구조화된 JSON으로 나옵니다. 사후 감사와 내부 리뷰에 그대로 쓸 수 있습니다.",
   },
 ];
+
+// 히어로의 세 카드 — 유메가 하는 세 가지 일.
+const PILLARS = [
+  { k: "검사", t: "글 한 편을 원문으로", v: "보도자료·상품 설명·상담 답변을 올리면 틀린 곳과 고친 문장이 나옵니다. 개발팀은 API로 답변이 나가기 전에 거릅니다.", href: "#docs" },
+  { k: "감사", t: "귀사 AI를 표본으로", v: "정답이 확정된 질문과 실제 사용자 질문으로 귀사 AI 서비스를 검사하고, 사람이 원문으로 재확인한 비공개 보고서를 드립니다.", href: "#audit" },
+  { k: "지수", t: "같은 방법으로, 주기마다 공개", v: "YUME 할루시네이션 지수. 표본·신뢰구간·방법을 함께 공개하고, 발행한 숫자는 고칠 수 없게 지문을 붙입니다.", href: "#index" },
+];
+
+// 감사 절차 — 감사 데스크(server/auditDesk.js)가 실제로 강제하는 순서 그대로다.
+const AUDIT_FLOW = [
+  ["질문 설계", "귀사 업종의 법령으로 정답을 먼저 확정한 기준 문항과, 실제 사용자가 하는 질문을 섞어 20~30개(정밀 감사는 더 많이)를 만듭니다."],
+  ["답변 수집", "사람이 일반 사용자로서 질문을 직접 입력하고, 받은 시각과 화면 캡처를 남깁니다. 자동으로 대량 질의하지 않습니다."],
+  ["검사와 재확인", "유메가 답변을 원문과 대조하고, 오류로 지목된 항목은 사람이 공식 원문을 직접 열어 확인한 것만 남깁니다. 애매한 것은 뺍니다."],
+  ["비공개 보고서", "검사 수치(신뢰구간 포함), 대표 사례와 원문 링크, 잘된 점, 한계를 1~2쪽에 담아 귀사에만 드립니다."],
+];
+
+const AUDIT_PRODUCTS = [
+  { k: "무료 AI 점검", sub: "5분 · 셀프", v: "정답이 확정된 질문 8개를 귀사 AI에 넣고 답을 붙여 넣으면 바로 채점합니다. API 키를 넘기지 않아도 됩니다.", cta: "free" },
+  { k: "1회 정밀 감사", sub: "표본 감사 + 보고서 + 개선 회의 1회", v: "가장 신경 쓰이는 오류 유형을 들려 주시면 그 범위로 질문을 설계합니다. 비용은 질문 수와 업종 범위를 듣고 견적으로 드립니다.", cta: "audit", label: "정밀 감사 문의", main: true },
+  { k: "정기 감사 + 감사 기록", sub: "분기마다 재감사", v: "동의하시면 공개 감사 기록 페이지와 홈페이지 배지(90일 유효)를 드리고, YUME 할루시네이션 지수에 이름을 싣습니다. 고객사·투자자에게 보여 줄 수 있는 검사 기록입니다.", cta: "audit_regular", label: "정기 감사 문의" },
+];
+
+// 지수 최신 호. 유메 서버가 내려준 숫자만 보여 준다 — 없으면 창간 준비 중이라고 말한다.
+function IndexCard() {
+  const [latest, setLatest] = useState(undefined);
+  useEffect(() => {
+    let alive = true;
+    fetch(`${YUME_URL}/hallucination-index/latest.json`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => alive && setLatest(d))
+      .catch(() => alive && setLatest(null));
+    return () => {
+      alive = false;
+    };
+  }, []);
+  const h = latest?.headline;
+  const pctText = (v) => `${Number(v).toFixed(1)}%`;
+  return (
+    <a href={latest ? `${YUME_URL}${latest.url}` : `${YUME_URL}/hallucination-index`} style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 18, alignItems: "center", marginTop: 22, padding: "24px 26px", borderRadius: 22, background: "#1F1B2E", color: "#fff", textDecoration: "none" }}>
+      <div>
+        <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.12em", color: "#A88BEA" }}>{latest ? latest.title : "창간 준비 중"}</div>
+        <div style={{ fontSize: "clamp(44px, 7vw, 64px)", fontWeight: 800, letterSpacing: "-0.04em", lineHeight: 1.05, marginTop: 8, fontVariantNumeric: "tabular-nums" }}>
+          {h && h.rate !== null ? pctText(h.rate) : latest === undefined ? "…" : "곧 첫 호"}
+        </div>
+      </div>
+      <div style={{ fontSize: 14, color: "#CFC9DE", lineHeight: 1.7 }}>
+        {h && h.rate !== null
+          ? <>정답이 확정된 질문 {Number(h.n).toLocaleString("ko-KR")}건 중 AI가 근거 없이 지어낸 비율입니다. 95% 신뢰구간 {pctText(h.low)}~{pctText(h.high)}{h.provisional ? " · 표본이 작아 예비 숫자" : ""}.</>
+          : "첫 호는 감사와 자가 점검이 공개 기준을 넘으면 발행합니다. 무엇을 어떻게 재는지는 지금 공개되어 있습니다."}
+        <div style={{ marginTop: 10, fontWeight: 700, color: "#A88BEA" }}>지수 보기 →</div>
+      </div>
+    </a>
+  );
+}
 
 const btn = {
   padding: "13px 24px", borderRadius: 999, border: "none", background: UI.accent,
@@ -185,6 +243,9 @@ export default function BusinessPage() {
             YUME
           </a>
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <a href={`${YUME_URL}/hallucination-index`} style={{ textDecoration: "none", fontSize: 13.5, color: UI.ink2, padding: "8px 10px" }}>
+              할루시네이션 지수
+            </a>
             <a href={YUME_URL} style={{ textDecoration: "none", fontSize: 13.5, color: UI.ink2, padding: "8px 10px" }}>
               개인용으로 써보기
             </a>
@@ -192,34 +253,71 @@ export default function BusinessPage() {
           </div>
         </nav>
 
-        {/* ── 히어로: 주장 대신 점검 ───────────────────────────────── */}
+        {/* ── 히어로: 검사하고, 기록하고, 공개한다 ───────────────────── */}
         <header style={{ marginTop: "clamp(40px, 6vw, 68px)" }}>
-          <div style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: UI.ink3 }}>기업용 AI 할루시네이션 검사</div>
+          <div style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: UI.ink3 }}>AI 할루시네이션 검사</div>
           <h1 style={{ fontSize: "clamp(30px, 5vw, 52px)", fontWeight: 700, letterSpacing: "-0.035em", color: UI.ink, margin: "14px 0 0", lineHeight: 1.18, textWrap: "balance" }}>
-            밖으로 나가기 전에, 사실인지 확인합니다
+            AI가 지어낸 말을, 원문으로 검사하고 기록으로 남깁니다
           </h1>
           <div style={{ fontSize: "clamp(16px, 1.8vw, 20px)", fontWeight: 600, color: UI.accent, margin: "12px 0 0", letterSpacing: "-0.015em" }}>
             AI의 짐작이 아니라, 원문으로 판정합니다.
           </div>
-          <p style={{ fontSize: "clamp(16px, 1.7vw, 19px)", color: UI.ink2, lineHeight: 1.7, margin: "18px 0 0", maxWidth: "52ch" }}>
-            고객에게 나갈 답변, 상담 스크립트, 상품 설명, 보도자료.
-            유메가 문장 속 사실 주장을 하나씩 떼어 <b>법령 원문과 공식 레지스트리에 직접 대조</b>합니다.
-            AI가 쓴 글이든 사람이 쓴 글이든 같습니다.
+          <p style={{ fontSize: "clamp(16px, 1.7vw, 19px)", color: UI.ink2, lineHeight: 1.7, margin: "18px 0 0", maxWidth: "54ch" }}>
+            유메는 AI 할루시네이션을 재는 곳입니다. 문장 속 사실 주장을 하나씩 떼어 <b>법령 원문과 공식 레지스트리에 직접 대조</b>하고,
+            무엇을 언제 어떤 원문으로 확인했는지 기록으로 남깁니다. 같은 방법으로 잰 숫자는 주기마다 공개합니다.
           </p>
-          <p style={{ fontSize: "clamp(14px, 1.4vw, 16px)", color: UI.ink2, lineHeight: 1.7, margin: "10px 0 0", maxWidth: "52ch" }}>
-            검수자를 대신하지 않습니다. <b>사람 검수자의 1차 필터</b>로, 검수자가 볼 곳을 먼저 표시합니다.
-          </p>
-          <p style={{ fontSize: "clamp(14px, 1.4vw, 16px)", color: UI.ink3, lineHeight: 1.7, margin: "10px 0 0", maxWidth: "52ch" }}>
-            문서를 올리면 틀린 곳을 표시하고 고친 본문까지 드립니다. 개발팀이 있다면 API로 붙이세요.
+          <p style={{ fontSize: "clamp(14px, 1.4vw, 16px)", color: UI.ink2, lineHeight: 1.7, margin: "10px 0 0", maxWidth: "54ch" }}>
+            검수자를 대신하지 않습니다. <b>사람 검수자의 1차 필터</b>로 볼 곳을 먼저 표시하고, 결과는 보증이 아니라 <b>검사 기록</b>입니다.
           </p>
 
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 26 }}>
-            <a href={`${YUME_URL}/?open=docs`} style={btn}>문서 올려서 검사하기</a>
-            <button type="button" onClick={ask()} style={btnGhost}>도입 문의</button>
+            <button type="button" onClick={ask("audit")} style={btn}>AI 감사 문의</button>
+            <a href={`${YUME_URL}/?open=docs`} style={btnGhost}>문서 올려서 검사하기</a>
             <button onClick={() => setShowAudit(true)} style={btnGhost}>우리 AI 무료로 점검받기</button>
           </div>
 
-          <div style={{ marginTop: 28, padding: "18px 20px", borderRadius: 18, background: "rgba(255,255,255,0.8)", border: `1px solid ${UI.hairline}` }}>
+          {/* 세 가지 일. 카드가 곧 아래 섹션의 목차다. */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12, marginTop: 30 }}>
+            {PILLARS.map((p) => (
+              <a key={p.k} href={p.href} style={{ textDecoration: "none", padding: "18px 20px", borderRadius: 18, background: "rgba(255,255,255,0.86)", border: `1px solid ${UI.hairline}`, display: "flex", flexDirection: "column", gap: 6 }}>
+                <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", color: UI.accent }}>{p.k}</span>
+                <span style={{ fontSize: 16.5, fontWeight: 700, color: UI.ink, letterSpacing: "-0.02em" }}>{p.t}</span>
+                <span style={{ fontSize: 13.5, color: UI.ink2, lineHeight: 1.65 }}>{p.v}</span>
+              </a>
+            ))}
+          </div>
+
+        </header>
+
+        {/* ── AI 감사 ──────────────────────────────────────────────────
+            보안 점검처럼, 유메가 귀사 AI를 일반 사용자로서 써 보고 지어낸 답을 원문과 함께 찾는다.
+            결과는 비공개. 공개 여부는 그 회사가 정한다 — 이 약속이 감사를 받게 만드는 이유다. */}
+        <Section id="audit" eyebrow="AI 감사" title="귀사 AI가 어디서 지어내는지, 사람이 원문으로 확인한 기록으로" lede="유메가 귀사 AI 서비스를 일반 사용자로서 써 보고, 근거 없이 지어낸 답을 공식 원문과 함께 찾아 드립니다. 결과는 귀사에만 비공개로 드리고, 공개 여부는 귀사가 정합니다.">
+          <ol style={{ listStyle: "none", padding: 0, margin: "22px 0 0", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 12 }}>
+            {AUDIT_FLOW.map(([k, v], i) => (
+              <li key={k} style={{ padding: "16px 18px", borderRadius: 16, background: "rgba(255,255,255,0.86)", border: `1px solid ${UI.hairline}` }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: UI.accent, letterSpacing: "0.08em" }}>{String(i + 1).padStart(2, "0")}</div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: UI.ink, marginTop: 6 }}>{k}</div>
+                <div style={{ fontSize: 13.5, color: UI.ink2, lineHeight: 1.65, marginTop: 6 }}>{v}</div>
+              </li>
+            ))}
+          </ol>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12, marginTop: 14 }}>
+            {AUDIT_PRODUCTS.map((p) => (
+              <div key={p.k} style={{ padding: "20px 22px", borderRadius: 20, display: "flex", flexDirection: "column", gap: 8, background: p.main ? "#fff" : "rgba(255,255,255,0.86)", border: p.main ? `1.5px solid ${UI.accent}` : `1px solid ${UI.hairline}` }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: UI.accent }}>{p.k}</div>
+                <div style={{ fontSize: 13, color: UI.ink3 }}>{p.sub}</div>
+                <div style={{ fontSize: 13.5, color: UI.ink2, lineHeight: 1.65, flex: 1 }}>{p.v}</div>
+                {p.cta === "free"
+                  ? <button type="button" onClick={() => setShowAudit(true)} style={{ ...btnGhost, padding: "10px 14px", fontSize: 13.5 }}>무료 점검 시작</button>
+                  : <button type="button" onClick={ask(p.cta)} style={{ ...(p.main ? btn : btnGhost), padding: "10px 14px", fontSize: 13.5 }}>{p.label}</button>}
+              </div>
+            ))}
+          </div>
+          <div style={{ marginTop: 14, fontSize: 13, color: UI.ink3, lineHeight: 1.75 }}>
+            동의 없이 회사 이름을 쓰지 않습니다 · 결과가 나쁘다고 빼거나, 좋게 내 달라는 대가를 받지 않습니다 · 점검 결과가 깨끗하면 도입을 권하지 않습니다 · 감사 결과는 그 기간의 표본 검사 기록이며 서비스 품질을 보증하지 않습니다.
+          </div>
+          <div style={{ marginTop: 18, padding: "18px 20px", borderRadius: 18, background: "rgba(255,255,255,0.8)", border: `1px solid ${UI.hairline}` }}>
             <div style={{ fontSize: 13.5, fontWeight: 700, color: UI.ink, marginBottom: 7 }}>실제 서비스에서 AI가 틀리는 자리를 묻습니다</div>
             <div style={{ fontSize: 14, color: UI.ink2, lineHeight: 1.7 }}>
               귀사 AI가 실제로 하는 일을 시킵니다 — <b>수치 하나가 틀린 자료로 고객 안내문 쓰기</b>, <b>최근 개정된 현행 기준</b>,
@@ -229,16 +327,31 @@ export default function BusinessPage() {
             </div>
           </div>
 
-          <div style={{ marginTop: 14, fontSize: 13.5, color: UI.ink2, lineHeight: 1.65 }}>
-            점검 결과가 깨끗하면 <b>도입을 권하지 않습니다.</b> 표본이 부족하면 등급도 매기지 않습니다 —
-            근거 없이 파는 건 이 점검의 신뢰를 스스로 깎는 일이니까요.
+        </Section>
+
+        {/* ── YUME 할루시네이션 지수 ───────────────────────────────────
+            숫자는 유메 서버의 최신 발행본에서 읽는다(지어낸 숫자를 쓰지 않는다). 아직 없으면 창간 준비 중. */}
+        <Section id="index" eyebrow="YUME 할루시네이션 지수" title="AI 할루시네이션의 기준 숫자를, 같은 방법으로 반복해 공개합니다" lede="공식 원문으로 정답을 확정한 질문으로 AI가 근거 없이 지어내는 비율을 재고 주기마다 발행합니다. 숫자마다 표본과 95% 신뢰구간, 방법과 한계를 같이 싣고, 발행한 숫자는 고칠 수 없게 지문(SHA-256)을 붙입니다.">
+          <IndexCard />
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12, marginTop: 12 }}>
+            {[
+              ["정답은 원문이 정합니다", "법제처 국가법령정보·판례 데이터베이스·학술 레지스트리로 정답을 먼저 확정한 질문만 씁니다."],
+              ["오류는 사람이 확정합니다", "유메가 지목한 오류는 사람이 공식 원문을 직접 열어 확인한 것만 셉니다."],
+              ["숫자는 고치지 않습니다", "발행본에 지문을 붙이고 원자료를 공개합니다. 바로잡을 때는 사유와 이전 지문을 남깁니다."],
+            ].map(([h, d]) => (
+              <div key={h} style={{ padding: "16px 18px", borderRadius: 16, background: "rgba(255,255,255,0.85)", border: `1px solid ${UI.hairline}` }}>
+                <div style={{ fontSize: 14.5, fontWeight: 700, color: UI.ink, marginBottom: 6 }}>{h}</div>
+                <div style={{ fontSize: 13.5, color: UI.ink2, lineHeight: 1.65 }}>{d}</div>
+              </div>
+            ))}
           </div>
-        </header>
+        </Section>
 
         {/* ── 문서 검사(개발자 없이) ─────────────────────────────────
             도입을 정하는 사람은 대개 실무자고, 그 사람이 가진 건 HWPX·DOCX 파일 한 개다.
             API보다 먼저 보여 준다 — 써 보고 맞다고 느껴야 개발팀에 넘긴다. */}
         <Section
+          id="docs"
           eyebrow="문서 검사"
           title="파일을 올리면, 틀린 곳과 고친 본문이 나옵니다"
           lede="보도자료·상품 설명서·약관·보고서를 그대로 올리세요(HWPX·DOCX·PDF·TXT, 10만 자까지). 유메가 문장마다 사실을 확인해 원문에 표시하고, 틀린 문장을 근거의 실제 값으로 고친 본문을 내려받게 합니다."
@@ -416,7 +529,7 @@ Authorization: Bearer <API_KEY>
         {/* ── 마무리 ──────────────────────────────────────────────── */}
         <section style={{ marginTop: "clamp(48px, 7vw, 76px)", padding: "clamp(28px, 4vw, 40px)", borderRadius: 26, background: "#1F1B2E", color: "#fff" }}>
           <h2 style={{ fontSize: "clamp(22px, 2.8vw, 30px)", fontWeight: 700, letterSpacing: "-0.03em", margin: 0, lineHeight: 1.3, textWrap: "balance" }}>
-            먼저 점검부터 해보세요
+            귀사 AI, 먼저 재 보세요
           </h2>
           <p style={{ fontSize: 15.5, color: "#CFC9DE", lineHeight: 1.7, margin: "12px 0 0", maxWidth: "48ch" }}>
             5분이면 됩니다. 질문을 받아 귀사 AI에 넣고, 답변을 붙여넣으면 끝입니다.
@@ -424,6 +537,7 @@ Authorization: Bearer <API_KEY>
           </p>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 22 }}>
             <button onClick={() => setShowAudit(true)} style={btn}>무료로 점검받기</button>
+            <button type="button" onClick={ask("audit")} style={{ ...btn, background: "rgba(255,255,255,0.14)" }}>AI 감사 문의</button>
             <button type="button" onClick={ask("trial10")} style={{ ...btn, background: "rgba(255,255,255,0.14)" }}>문서 10건 무료 검사</button>
           </div>
         </section>
@@ -435,6 +549,7 @@ Authorization: Bearer <API_KEY>
             <a href={`${YUME_URL}/privacy`} style={{ color: UI.ink3, textDecoration: "none" }}>개인정보처리방침</a>
             <a href={`${YUME_URL}/refund`} style={{ color: UI.ink3, textDecoration: "none" }}>환불정책</a>
             <a href={`${YUME_URL}/products`} style={{ color: UI.ink3, textDecoration: "none" }}>상품 안내</a>
+            <a href={`${YUME_URL}/hallucination-index`} style={{ color: UI.ink3, textDecoration: "none" }}>할루시네이션 지수</a>
           </div>
           {/* 기업용도 같은 사업자가 운영하므로 신원정보를 같이 싣는다. */}
           <address style={{ fontStyle: "normal", fontSize: 12, lineHeight: 1.85, color: UI.ink3 }}>
