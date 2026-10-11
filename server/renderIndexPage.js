@@ -203,9 +203,18 @@ function methodSection() {
 <div class="method">${METHOD.map(([h, p]) => `<div><h3>${esc(h)}</h3><p>${esc(p)}</p></div>`).join("")}</div></section>`;
 }
 
-function headlineBlock(h, { compact = false } = {}) {
+function headlineBlock(h, { compact = false, data = null } = {}) {
   if (!h || h.rate === null) {
-    return `<div><div class="big" aria-label="이번 호 대표 숫자 없음">—</div><p class="what">이 기간에는 공개 기준을 넘는 표본이 없어 대표 숫자를 싣지 않았습니다.</p></div><div></div>`;
+    // 대표 숫자가 없는 호. 빈칸("—")만 두지 않고, 이번 호에 실제로 잰 것(기준선)을 보여 준다.
+    const e = data?.engine || {};
+    return `<div>
+  <div class="kicker">이번 호 대표 숫자</div>
+  <div class="big" style="font-size:clamp(40px,7vw,72px)">다음 호부터</div>
+  <p class="what">재확인을 마친 감사 표본이 공개 기준을 넘으면 대표 숫자를 싣습니다. 표본 없이 숫자를 내지 않습니다. 이번 호는 방법과 기준선을 공개합니다.</p>
+</div>
+<div><div class="kicker">기준선 · 유메 검사 현황</div>
+<dl class="stats" style="margin-top:10px"><div><dt>검사한 글</dt><dd>${num(e.texts)}</dd></div><div><dt>대조한 사실 주장</dt><dd>${num(e.claims)}</dd></div><div><dt>원문과 다름</dt><dd>${num(e.false)}</dd></div><div><dt>감사한 서비스</dt><dd>${num(data?.audits?.services)}</dd></div></dl>
+<div class="scale"><div class="cap">집계 숫자만 싣습니다. 의심스러워 넣은 글이 많아 선택 편향이 있으므로 AI 전체의 오류율이나 비교 지표가 아닙니다.</div></div></div>`;
   }
   const src = h.source === "audits" ? "출처: 유메 감사, 사람 재확인 완료" : "출처: 기업 자가 점검";
   return `<div>
@@ -239,7 +248,7 @@ export function renderIndexIssue(issue, { base = "" } = {}) {
   <div><dt>감사한 서비스</dt><dd>${num(a.services)}곳</dd></div>
   <div><dt>채점한 답변</dt><dd>${num((a.overall?.n || 0) + (s.overall?.n || 0))}건</dd></div>
 </dl>
-<div class="hero">${headlineBlock(h)}</div>
+<div class="hero">${headlineBlock(h, { data: d })}</div>
 
 ${issue.commentary ? `<section><h2>이번 호에서 볼 것</h2><div class="commentary">${esc(issue.commentary)}</div></section>` : ""}
 
@@ -316,7 +325,7 @@ export function renderIndexHome(issues, latest, { base = "", next = "" } = {}) {
 </div>
 ${latest
     ? `<dl class="meta"><div><dt>최신 호</dt><dd><a href="${BASE_PATH}/${esc(latest.slug)}">${esc(latest.title)}</a></dd></div><div><dt>기간</dt><dd>${esc(periodText(latest.period_start, latest.period_end))}</dd></div><div><dt>방법</dt><dd>${esc(latest.method_version)}</dd></div>${next ? `<div><dt>다음 호</dt><dd>${esc(next)}</dd></div>` : ""}</dl>
-<div class="hero">${headlineBlock(h)}</div>
+<div class="hero">${headlineBlock(h, { data: d })}</div>
 <div class="btns"><a class="btn primary" href="${BASE_PATH}/${esc(latest.slug)}">이번 호 전체 보기</a></div>`
     : `<div class="hero"><div><div class="kicker">창간 준비 중</div><div class="big" style="font-size:clamp(44px,8vw,80px)">곧 첫 호</div>
 <p class="what">첫 호는 유메 감사와 기업 자가 점검이 공개 기준(칸당 ${MIN_CELL}건)을 넘으면 발행합니다. ${next ? `발행 예정: ${esc(next)}.` : ""} 아래에 무엇을 어떻게 재는지 미리 공개합니다.</p></div>
