@@ -559,6 +559,7 @@ Authorization: Bearer <API_KEY>
             <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
             <a href={YUME_URL}>개인용 유메</a>
             <a href={`${YUME_URL}/hallucination-index`}>할루시네이션 지수</a>
+            <a href={`${YUME_URL}/hallucination`}>할루시네이션이란</a>
             <a href={`${YUME_URL}/docs/api`}>API 문서</a>
             <a href={`${YUME_URL}/terms`}>이용약관</a>
             <a href={`${YUME_URL}/privacy`}>개인정보처리방침</a>

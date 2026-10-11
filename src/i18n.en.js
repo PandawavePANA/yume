@@ -1001,4 +1001,6 @@ export default {
   "지수 보기 ›": "View the index ›",
   "창간호 발행": "First issue out",
   "창간호는 측정 방법과 기준선을 먼저 공개했습니다. 대표 숫자는 사람이 재확인한 감사 표본이 모이는 다음 호부터 싣습니다.": "The first issue publishes the method and a baseline. The headline number starts with the next issue, once human-rechecked audit samples come in.",
+  "할루시네이션이란?": "What is AI hallucination?",
+  "AI 할루시네이션이란? 뜻·원인·유형·체크 방법 ›": "What is AI hallucination? Causes, types and how to check ›",
 };

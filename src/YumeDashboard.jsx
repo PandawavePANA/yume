@@ -2164,6 +2164,7 @@ export default function YumeDashboard() {
               {!IS_STORE_BUILD && <button onClick={() => openStore("credits")} className="yume-footer-link" style={{ border: "none", background: "transparent", color: UI.ink2, fontSize: 13, cursor: "pointer", padding: 0 }}>{t("크레딧 충전")}</button>}
               {!IS_STORE_BUILD && <button onClick={() => setShowBiz(true)} className="yume-footer-link" style={{ border: "none", background: "transparent", color: UI.ink2, fontSize: 13, cursor: "pointer", padding: 0 }}>{t("비즈니스 · API")}</button>}
               {!IS_STORE_BUILD && <a href="/docs/api" target="_blank" rel="noopener noreferrer" className="yume-footer-link" style={{ color: UI.ink2, fontSize: 13, textDecoration: "none" }}>{t("API 문서")}</a>}
+              <a href="/hallucination" className="yume-footer-link" style={{ color: UI.ink2, fontSize: 13, textDecoration: "none" }}>{t("할루시네이션이란?")}</a>
               <a href="/hallucination-index" className="yume-footer-link" style={{ color: UI.ink2, fontSize: 13, textDecoration: "none" }}>{t("할루시네이션 지수")}</a>
               {/* 언어. 바꿔 갈 언어를 그 언어로 적는다 — "English"라고 적혀 있으면 한국어를 못 읽는 사람도 무슨 버튼인지 안다. */}
               <button onClick={() => setLang(lang === "ko" ? "en" : "ko")} aria-label={lang === "ko" ? "Switch to English" : "한국어로 전환"} className="yume-footer-link" style={{ border: "none", background: "transparent", color: UI.ink2, fontSize: 13, cursor: "pointer", padding: 0 }}>{lang === "ko" ? "English" : "한국어"}</button>

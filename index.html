@@ -4,12 +4,24 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 
-    <title>AI 할루시네이션 검사 | 유메 — AI가 쓴 글을 공식 원문과 대조</title>
+    <title>AI 할루시네이션 체크·검사 | 유메 — AI 답변을 공식 원문과 대조</title>
     <meta
       name="description"
-      content="AI가 쓴 글의 근거를 공식 원문과 한 줄씩 대조합니다. ChatGPT·클로드·제미나이 답변을 붙여넣으면 사실 주장만 골라 원문과 맞춰 보고, 법령·판례는 법제처 원문, 논문은 DOI 등록처와 대조합니다. 없는 판례·조문을 지어냈으면 부존재 신뢰도로 알려 드립니다."
+      content="AI 할루시네이션 체크 — AI가 쓴 글의 근거를 공식 원문과 한 줄씩 대조합니다. ChatGPT·클로드·제미나이 답변을 붙여넣으면 사실 주장만 골라 원문과 맞춰 보고, 법령·판례는 법제처 원문, 논문은 DOI 등록처와 대조합니다. 없는 판례·조문을 지어냈으면 부존재 신뢰도로 알려 드립니다."
     />
     <link rel="canonical" href="https://www.yume-reamer.com/" />
+    <!-- 사이트 이름 — 검색 결과에 "유메"로 묶여 나오게. 할루시네이션 읽을거리(/hallucination)로 가는 길도 함께. -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": "유메",
+        "alternateName": ["YUME", "유메 AI 할루시네이션 검사", "유메 할루시네이션 체크"],
+        "url": "https://www.yume-reamer.com/",
+        "inLanguage": "ko",
+        "about": { "@type": "Thing", "name": "AI 할루시네이션", "url": "https://www.yume-reamer.com/hallucination" }
+      }
+    </script>
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />
     <link rel="icon" type="image/png" sizes="64x64" href="/favicon-64.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
@@ -20,7 +32,7 @@
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="유메 YUME" />
     <meta property="og:locale" content="ko_KR" />
-    <meta property="og:title" content="AI 할루시네이션 검사 — AI의 짐작이 아니라, 원문으로 판정합니다 | 유메" />
+    <meta property="og:title" content="AI 할루시네이션 체크 — AI의 짐작이 아니라, 원문으로 판정합니다 | 유메" />
     <meta
       property="og:description"
       content="AI가 쓴 글의 근거를 공식 원문과 한 줄씩 대조합니다. 법령·판례는 법제처 원문까지 대조합니다."
@@ -31,7 +43,7 @@
     <meta property="og:image:height" content="630" />
 
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="AI 할루시네이션 검사 — AI의 짐작이 아니라, 원문으로 판정합니다 | 유메" />
+    <meta name="twitter:title" content="AI 할루시네이션 체크 — AI의 짐작이 아니라, 원문으로 판정합니다 | 유메" />
     <meta
       name="twitter:description"
       content="AI가 쓴 글의 근거를 공식 원문과 한 줄씩 대조합니다. 법령·판례는 법제처 원문까지 대조합니다."
@@ -50,7 +62,8 @@
         "applicationCategory": "UtilitiesApplication",
         "operatingSystem": "Web",
         "inLanguage": "ko",
-        "description": "AI가 쓴 글의 근거를 공식 원문과 한 줄씩 대조하는 AI 할루시네이션 검사 서비스.",
+        "description": "AI가 쓴 글의 근거를 공식 원문과 한 줄씩 대조하는 AI 할루시네이션 체크·검사 서비스.",
+        "keywords": "AI 할루시네이션, 할루시네이션 체크, AI 환각, 가짜 판례 확인, AI 팩트체크, 출처 검증",
         "offers": [
           { "@type": "Offer", "name": "무료(하루 3회)", "price": "0", "priceCurrency": "KRW" },
           { "@type": "Offer", "name": "20 크레딧", "price": "12000", "priceCurrency": "KRW" },
