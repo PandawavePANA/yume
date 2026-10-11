@@ -4,7 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import express from "express";
 import { patchAsync } from "./asyncExpress.js";
-import { now, one, run, PERSISTENT_STORAGE } from "./db.js";
+import { all, now, one, run, PERSISTENT_STORAGE } from "./db.js";
 import { chatReply } from "./claude.js";
 import { kakaoSkillHandler } from "./kakaoWebhook.js";
 import { renderResultPage } from "./renderResultPage.js";
@@ -37,6 +37,12 @@ import mcpRouter from "./mcp.js";
 import adminApiRouter, { requireAdmin } from "./adminApi.js";
 import { studioRouter } from "./studioApi.js";
 import { deskRouter } from "./deskApi.js";
+import { auditDeskRouter } from "./auditDeskApi.js";
+import { renderAuditDeskPage } from "./renderAuditDeskPage.js";
+import { auditByReportToken, auditDetail, fileById, getSetting, publicSummary } from "./auditDesk.js";
+import { auditBadgeSvg, renderAuditReport as renderDeskReport, renderAuditSummary } from "./renderAuditDossier.js";
+import { canonicalIssue, issueCsv, latestIssue, publishedIssue } from "./hallucinationIndex.js";
+import { renderIndexHome, renderIndexIssue } from "./renderIndexPage.js";
 import { renderDeskPage } from "./renderDeskPage.js";
 import { renderFunnelPage } from "./renderFunnelPage.js";
 import { recordEvent, funnel, dailyCost } from "./events.js";
@@ -87,7 +93,8 @@ const jsonBody = express.json({ limit: "256kb" });
 // 캡처 업로드와 의뢰 대화 사진만 큰 본문을 받는다. 전역 상한을 올리면 모든 엔드포인트가
 // 같이 열리므로 이 경로들만 비켜 가게 하고, 각자 자기 파서를 따로 붙인다.
 // 문서 검사(파일 첨부)도 큰 본문을 받는다 — /v1/documents(API)와 /api/documents(웹).
-const BIG_BODY = /^\/(api\/(screenshot|thread\/photo|admin\/desk\/\d+\/photo|documents)|v1\/documents)$/;
+// 감사 데스크의 답변 캡처도 사진 한 장을 받는다.
+const BIG_BODY = /^\/(api\/(screenshot|thread\/photo|admin\/desk\/\d+\/photo|admin\/audits\/items\/\d+\/file|documents)|v1\/documents)$/;
 app.use((req, res, next) => (BIG_BODY.test(req.path) ? next() : jsonBody(req, res, next)));
 
 // 외부 개발자용 공개 API — 자체 CORS·키 인증을 쓰므로 쿠키 세션 미들웨어보다 먼저 붙인다.
@@ -390,6 +397,8 @@ app.use("/api/admin", adminApiRouter);
 // 한쪽만 잠그는 실수가 반드시 생긴다.
 app.use("/api/admin", studioRouter);
 app.use("/api/admin", deskRouter);
+// 감사 데스크(특정 회사 AI 감사)와 지수 발행. 같은 문(requireAdmin)을 쓴다.
+app.use("/api/admin", auditDeskRouter);
 
 app.use("/api", (req, res) => res.status(404).json({ error: "존재하지 않는 API예요." }));
 
@@ -408,6 +417,15 @@ app.get("/admin", attachUser, adminPage(renderAdminPage));
 app.get("/admin/studio", attachUser, adminPage(renderStudioPage));
 app.get("/admin/desk", attachUser, adminPage(renderDeskPage));
 app.get("/admin/funnel", attachUser, adminPage(renderFunnelPage));
+app.get("/admin/audits", attachUser, adminPage(renderAuditDeskPage));
+// 보낼 보고서를 관리자가 미리 본다. 공유 링크를 만들지 않아도 열린다.
+app.get("/admin/audits/:id/report", attachUser, async (req, res) => {
+  res.set("Cache-Control", "no-store").set("X-Robots-Tag", "noindex, nofollow");
+  if (!(req.user?.role === "admin" || hasAdminCookie(req))) return html(res, renderLoginPage("/admin/audits"));
+  const d = await auditDetail(req.params.id);
+  if (!d) return res.status(404).type("text/plain; charset=utf-8").send("감사 건을 찾을 수 없어요.");
+  html(res, renderDeskReport(d, { mode: "admin", fileUrl: (fid) => `/api/admin/audits/file/${fid}` }));
+});
 // 제품별 운영 화면. 화면 코드는 하나이고 제품 키만 다르다.
 app.get("/admin/p/:key", attachUser, (req, res) => {
   const page = renderProductPage(String(req.params.key));
@@ -467,6 +485,65 @@ app.get("/audit/r/:id", async (req, res, next) => {
   if (!report) return next();
   const base = process.env.PUBLIC_BASE_URL || `${req.protocol}://${req.get("host")}`;
   html(res.set("X-Robots-Tag", "noindex, nofollow").set("Cache-Control", "no-store"), renderAuditReport(report, { baseUrl: base }));
+});
+
+// 감사 데스크의 비공개 보고서 — 추측할 수 없는 토큰으로만 열린다. 검색 노출 금지.
+app.get("/audit/p/:token", async (req, res) => {
+  res.set("X-Robots-Tag", "noindex, nofollow").set("Cache-Control", "no-store").set("Referrer-Policy", "no-referrer");
+  const a = await auditByReportToken(req.params.token);
+  if (!a) return res.status(404).type("text/plain; charset=utf-8").send("보고서를 찾을 수 없습니다. 링크가 만료되었거나 회수되었을 수 있습니다.");
+  const d = await auditDetail(a.id);
+  html(res, renderDeskReport(d, { mode: "shared", fileUrl: (fid) => `/audit/p/${encodeURIComponent(req.params.token)}/file/${fid}` }));
+});
+app.get("/audit/p/:token/file/:fileId", async (req, res) => {
+  res.set("X-Robots-Tag", "noindex, nofollow").set("Cache-Control", "private, max-age=600");
+  const a = await auditByReportToken(req.params.token);
+  const f = a ? await fileById(req.params.fileId) : null;
+  // 파일 번호만 알아서는 안 열린다 — 그 보고서의 파일인지 매번 확인한다.
+  if (!f || Number(f.audit_id) !== Number(a.id)) return res.status(404).end();
+  res.set("Content-Type", f.mime).send(Buffer.from(f.data, "base64"));
+});
+
+// 공개 감사 기록과 배지 — 회사가 공개에 동의한 감사만. 배지는 고객 홈페이지에서 불러가므로 다른 출처에도 연다.
+app.get("/a/:id/badge.svg", async (req, res) => {
+  const s = await publicSummary(String(req.params.id));
+  crossOrigin(res).set("Content-Type", "image/svg+xml; charset=utf-8").set("Cache-Control", "public, max-age=300").send(auditBadgeSvg(s));
+});
+app.get("/a/:id", async (req, res) => {
+  const s = await publicSummary(String(req.params.id));
+  res.status(s ? 200 : 404).set("Cache-Control", "no-cache");
+  html(res, renderAuditSummary(s));
+});
+
+// YUME 할루시네이션 지수 — 공개 지표. 원자료(JSON)는 정규 문자열 그대로 내보내야 지문을 다시 계산할 수 있다.
+const siteBase = (req) => process.env.PUBLIC_BASE_URL || `${req.protocol}://${req.get("host")}`;
+app.get("/yhi", (req, res) => res.redirect(301, "/hallucination-index"));
+app.get("/hallucination-index", async (req, res) => {
+  const issues = await all("SELECT * FROM index_issues WHERE status = 'published' ORDER BY period_end DESC, id DESC");
+  res.set("Cache-Control", "public, max-age=300");
+  html(res, renderIndexHome(issues, issues[0] || null, { base: siteBase(req), next: (await getSetting("index_next")) || "" }));
+});
+app.get("/hallucination-index/latest.json", async (req, res) => {
+  crossOrigin(res).set("Cache-Control", "public, max-age=300");
+  const i = await latestIssue();
+  if (!i) return res.status(404).json({ error: "아직 발행한 지수가 없어요." });
+  const d = JSON.parse(i.data_json);
+  res.json({ slug: i.slug, title: i.title, url: `/hallucination-index/${i.slug}`, period_start: Number(i.period_start), period_end: Number(i.period_end), published_at: Number(i.published_at), method_version: i.method_version, sha256: i.sha256, headline: d.headline || null });
+});
+app.get("/hallucination-index/:slug", async (req, res, next) => {
+  const raw = String(req.params.slug);
+  const m = /^([a-z0-9-]+?)(\.json|\.csv)?$/.exec(raw);
+  if (!m) return next();
+  const issue = await publishedIssue(m[1]);
+  if (!issue) return m[2] ? res.status(404).json({ error: "그런 호가 없어요." }) : next();
+  if (m[2] === ".json") {
+    return crossOrigin(res).set("Content-Type", "application/json; charset=utf-8").set("Cache-Control", "public, max-age=300").send(canonicalIssue(issue));
+  }
+  if (m[2] === ".csv") {
+    return res.set("Content-Type", "text/csv; charset=utf-8").set("Content-Disposition", `attachment; filename="yume-hallucination-index-${issue.slug}.csv"`).send(issueCsv(issue));
+  }
+  res.set("Cache-Control", "public, max-age=300");
+  html(res, renderIndexIssue(issue, { base: siteBase(req) }));
 });
 
 app.get("/r/:id", async (req, res) => {

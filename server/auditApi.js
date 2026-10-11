@@ -9,6 +9,7 @@ import { buildProbeSet, runAudit, AUDIT_DOMAINS, copyInstructions, splitAnswerTe
 import { logError } from "./errorLog.js";
 import { now, run, one } from "./db.js";
 import { renderAuditReport } from "./renderAuditReport.js";
+import { recordSelfAuditOutcomes } from "./hallucinationIndex.js";
 
 export const auditRouter = Router();
 
@@ -161,6 +162,9 @@ auditRouter.post(
       if (report.error) return res.status(400).json(report);
       // 채점이 끝나면 세션은 더 필요 없다.
       await dropSession(String(req.body.session_id));
+      // 지수용 익명 집계 — 업종·문항 유형·결과만 남긴다. 회사명·답변 원문은 넣지 않는다.
+      // 점검 화면이 이 사실을 미리 알린다(AuditModal). 실패해도 채점 결과는 그대로 나간다.
+      recordSelfAuditOutcomes(session.meta.domain, report.results).catch((e) => logError("audit:outcomes", e));
       const reportId = await putReport(report);
       res.json({ ...report, report_id: reportId, report_url: `/audit/r/${reportId}`, ...(split ? { split: { matched: split.matched, total: session.probes.length, method: split.method } } : {}) });
     } catch (e) {
