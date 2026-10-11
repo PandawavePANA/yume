@@ -227,4 +227,30 @@ export default {
   "같은 의뢰에서 나온 일감만 합칠 수 있어요.": "Only jobs from the same inquiry can be merged.",
   // 묶음 검증 (apiV1.js)
   "검증을 시작하지 못했습니다. 다시 보내주세요.": "Could not start this verification. Please send it again.",
+  // 무료 AI 점검 (auditApi.js)
+  "답변을 질문별로 나누지 못했어요. 질문 전체 복사로 받은 지시대로 각 답변 앞에 [답변 1], [답변 2]가 붙어 있는지 확인해 주세요.": "Couldn't split the answer by question. Check that each answer starts with [Answer 1], [Answer 2] as the copied instructions asked.",
+  "answer_text(답변 전체) 또는 answers({ 문항id: 답변 })를 보내주세요.": "Send answer_text (the whole answer) or answers ({ questionId: answer }).",
+  // 크레딧 (creditsApi.js)
+  "월 요금제 판매를 마쳤어요. 크레딧을 충전해서 이용해주세요.": "Monthly plans are no longer sold. Please top up credits instead.",
+  // 문서 검사 (documents.js, documentsWeb.js)
+  "text 또는 file({ name, content_base64 })을 보내주세요.": "Send text or file ({ name, content_base64 }).",
+  "검사할 내용이 없습니다.": "There is nothing to check.",
+  "검사할 글을 붙여 넣거나 파일을 올려 주세요.": "Paste the text to check or upload a file.",
+  "API 키를 더 만들 수 없어 문서 검사를 시작하지 못했어요. 쓰지 않는 키를 하나 폐기해 주세요.": "Couldn't start the document check because no more API keys can be created. Revoke a key you don't use.",
+  "문서를 찾을 수 없어요.": "That document could not be found.",
+  // 멱등 키 (idempotency.js)
+  "Idempotency-Key는 공백 없는 영문·숫자·기호 100자 이하여야 합니다.": "Idempotency-Key must be up to 100 letters, digits or symbols with no spaces.",
+  // 참고 자료 대조 (referenceCheck.js)
+  "references는 배열이어야 합니다. 예: [{\"title\":\"상품 설명서\",\"text\":\"...\"}]": "references must be an array. Example: [{\"title\":\"Product sheet\",\"text\":\"...\"}]",
+  // 검증 마크 (trustMarks.js)
+  "문서를 찾을 수 없습니다.": "Document not found.",
+  "검증 마크를 받으면 이 글과 검증 결과가 공개 검증 페이지에 게시됩니다. 동의하시면 publish: true로 보내주세요.": "Issuing a verification mark publishes this text and its results on a public verification page. If you agree, send publish: true.",
+  "마크를 찾을 수 없어요.": "That mark could not be found.",
+  // 웹훅 (webhooks.js)
+  "callback_url은 2,000자 이하의 문자열이어야 합니다.": "callback_url must be a string of at most 2,000 characters.",
+  "callback_url이 올바른 주소가 아닙니다.": "callback_url is not a valid URL.",
+  "callback_url은 https 주소여야 합니다.": "callback_url must be an https URL.",
+  "callback_url에 계정 정보를 넣을 수 없습니다.": "callback_url cannot contain credentials.",
+  "callback_url은 공인 주소여야 합니다(내부망·사설 IP·localhost 불가).": "callback_url must be a public address (no internal networks, private IPs or localhost).",
+  "callback_secret은 200자 이하의 문자열이어야 합니다.": "callback_secret must be a string of at most 200 characters.",
 };
