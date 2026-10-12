@@ -768,18 +768,28 @@ const hasNondisclosure = (s) => /공개하지\s*않았/.test(s) && /공개할\s*
 const SITE = "www.yume-reamer.com";
 
 /** 부록 C의 메일 네 통. C-1은 운영자가 고친 제목·본문이 있으면 그것을 쓴다. */
-export function mailDrafts(audit, results, { reportUrl = "" } = {}) {
+// issues: 원문으로 확정한 오류 수, wrongAnswers: 그 오류가 들어 있던 답변 수, examples: 대표 사례 한 줄 제목(최대 3).
+// 숫자와 사례를 메일 본문에 바로 쓴다 — "일부가 다르다"로는 열어 볼 이유가 생기지 않는다.
+export function mailDrafts(audit, results, { reportUrl = "", issues = 0, wrongAnswers = 0, examples = [] } = {}) {
   const who = audit.contact_name ? `${audit.contact_name}님` : "담당자님";
   const service = audit.service_name || audit.company;
   const phrase = domainPhrase(audit.domain);
   const n = results?.answered || 0;
   const sign = `${COMPANY.ceo} 드림 · 유메 (${SITE})`;
-  const subject = `[비공개] ${service} 서비스 답변의 ${phrase} 관련 확인 결과 공유드립니다`;
+  const subject = issues
+    ? `[비공개] ${service} 답변 중 원문과 다른 ${phrase} ${issues}건 — 확인 결과 공유드립니다`
+    : `[비공개] ${service} 서비스 답변의 ${phrase} 관련 확인 결과 공유드립니다`;
+  const finding = issues
+    ? `답변 ${n}개 중 ${wrongAnswers}개에서 법령·판례 원문과 다른 내용 ${issues}건을 확인해 비공개로 공유드립니다.`
+    : `${phrase} 일부가 원문과 다른 것을 확인해 비공개로 공유드립니다.`;
   const body = [
     `안녕하세요, ${who}.`,
     `AI 답변의 근거를 공식 원문과 대조하는 AI 할루시네이션 검사 서비스 유메를 운영하는 ${COMPANY.ceo}입니다.`,
     "",
-    `${methodOf(audit).mail(service, n)}, ${phrase} 일부가 원문과 다른 것을 확인해 비공개로 공유드립니다. 대표 사례와 원문 링크는 2쪽짜리 보고서에 정리했고, 정확하게 인용된 부분도 함께 적었습니다.`,
+    `${methodOf(audit).mail(service, n)}, ${finding}`,
+    ...(examples.length ? ["", "예를 들면 이렇습니다.", ...examples.slice(0, 3).map((e) => `- ${e}`)] : []),
+    "",
+    "사례마다 AI 답변과 원문 문장을 나란히 놓고 원문 링크를 붙여 보고서로 정리했습니다. 정확하게 답한 부분도 함께 적었습니다.",
     reportUrl ? `보고서: ${reportUrl}` : "",
     "",
     NONDISCLOSURE,
@@ -930,7 +940,18 @@ export async function auditDetail(id, { base = "" } = {}) {
   const byItem = new Map(items.map((i) => [Number(i.id), i]));
   for (const f of findings) f.strength = findingStrength(f, byItem.get(Number(f.item_id)));
   const reportUrl = audit.report_token ? `${base}${reportPath(audit.report_token)}` : "";
-  const mail = mailDrafts(audit, results, { reportUrl });
+  // 메일에 넣을 대표 사례 — 검토자가 쓴 한 줄 제목만(자동 제목은 문장이 길다). 금액이 든 제목은 발송 문구 점검에 걸리니 뺀다.
+  const confirmedIssues = findings.filter((f) => f.polarity === "issue" && f.review === "confirmed");
+  const examples = confirmedIssues
+    .filter((f) => Number(f.featured) && String(f.report_title || "").trim())
+    .map((f) => String(f.report_title).trim())
+    .filter((t) => !lintCopy(t).length);
+  const mail = mailDrafts(audit, results, {
+    reportUrl,
+    issues: confirmedIssues.length,
+    wrongAnswers: new Set(confirmedIssues.map((f) => Number(f.item_id))).size,
+    examples,
+  });
   const costRow = await one(
     `SELECT COALESCE(SUM(v.cost_usd), 0) AS usd, COUNT(v.id) AS n FROM ai_audit_items i JOIN verifications v ON v.id = i.verification_id WHERE i.audit_id = :id`,
     { id: audit.id },
