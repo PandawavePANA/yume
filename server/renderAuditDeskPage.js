@@ -83,6 +83,8 @@ export function renderAuditDeskPage() {
   .actions { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:10px; }
   .item { border:1px solid var(--line); border-radius:12px; padding:12px 13px; display:grid; gap:8px; }
   .item .q { font-size:13.5px; font-weight:600; line-height:1.55; }
+  .item.active { border-color:var(--mid); box-shadow:0 0 0 2px rgba(109,90,224,.25); }
+  mark { background:rgba(224,116,92,.4); color:#fff; border-radius:3px; padding:0 2px; }
   .item .meta { display:flex; gap:6px; align-items:center; flex-wrap:wrap; font-size:11.5px; color:var(--faint); }
   .shots { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
   .shots img { width:84px; height:64px; object-fit:cover; border-radius:6px; border:1px solid var(--line2); cursor:pointer; }
@@ -204,7 +206,16 @@ export function renderAuditDeskPage() {
   }
   async function refresh() { await loadList(); if (state.sel) await loadDetail(state.sel); render(); }
 
-  function render() { if (state.view === "index") return renderIndex(); renderDesk(); }
+  function render() {
+    if (state.view === "index") return renderIndex();
+    renderDesk();
+    // 재확인 하나를 처리하면 다음 남은 후보로 넘어간다.
+    if (state.focusNext) {
+      state.focusNext = false;
+      var next = document.querySelector(".find.pending");
+      if (next) next.scrollIntoView({ block: "center", behavior: "smooth" });
+    }
+  }
 
   // ── 감사 데스크 ──
   function renderDesk() {
@@ -239,11 +250,16 @@ export function renderAuditDeskPage() {
     var service = h("input", { placeholder: "서비스 이름 (예: ○○ AI 상담)", maxlength: 120 });
     var domain = h("select", null, (state.meta.domains || []).map(function (d) { return h("option", { value: d, text: d }); }));
     var cat = h("select", null, Object.keys(state.meta.categories).map(function (k) { return h("option", { value: k, text: state.meta.categories[k] }); }));
-    return h("form", { class: "newf", onsubmit: run(async function () {
+    var form = h("form", { class: "newf", onsubmit: run(async function () {
       var r = await api("POST", "/api/admin/audits", { company: company.value, service_name: service.value, domain: domain.value, category: cat.value });
       company.value = ""; service.value = "";
       await loadList(); await loadDetail(r.id); state.tab = "overview"; render();
     }) }, company, service, h("div", { class: "grid2" }, domain, cat), h("button", { class: "btn", type: "submit" }, "감사 건 만들기"));
+    // 후보 목록을 한 번에 — 한 줄에 한 곳(회사, 서비스, 업종, 주소, 메모). 노무→인사, 세무→공공으로 맞춘다.
+    var bulk = h("textarea", { rows: 4, placeholder: "한 줄에 한 곳 — 회사, 서비스, 업종, 주소, 메모 (탭이나 쉼표로 구분)\\n예: 로무앤톡, 로무앤톡 AI 노무상담, 노무, , A군" });
+    var more = h("details", { class: "newf" }, h("summary", { class: "help", style: "cursor:pointer", text: "후보 여러 곳 한꺼번에 등록" }), bulk,
+      h("div", null, h("button", { class: "ghost", onclick: run(async function () { var r = await api("POST", "/api/admin/audits/import", { text: bulk.value }); toast(r.created + "곳을 등록했어요" + (r.skipped && r.skipped.length ? " (이미 있어 건너뜀 " + r.skipped.length + ")" : "") + "."); bulk.value = ""; await loadList(); render(); }) }, "등록")));
+    return h("div", null, form, more);
   }
 
   function listRows() {
@@ -313,7 +329,8 @@ export function renderAuditDeskPage() {
       h("p", { class: "help", text: "기준 문항은 법제처 원문으로 정답을 먼저 확정한 질문이라 채점이 확실합니다. 주제 질문은 실제 사용자가 하는 말 그대로이고, 답변 속 주장을 유메가 하나씩 원문과 대조합니다. 둘을 섞으세요. 해석이 갈리는 질문, 실존 인물·사건 당사자 정보는 넣지 않습니다." }),
       h("div", { class: "actions" }, Object.keys(comp).map(function (k) { var c = comp[k]; return h("span", { class: "pill " + (c.count >= c.target ? "g" : ""), text: c.label + " " + c.count + "/" + c.target }); })),
       h("div", { class: "actions" },
-        h("button", { class: "btn", onclick: run(async function (e) { var b = this; toast("법제처에서 정답을 확정하는 중… 20초쯤 걸려요."); var r = await api("POST", "/api/admin/audits/" + a.id + "/probes", { size: 8 }); toast("기준 문항 " + r.added + "개를 넣었어요."); await refresh(); }) }, "기준 문항 8개 받기 (법제처 확정)"),
+        h("button", { class: "btn", onclick: run(async function () { toast("법제처에서 정답을 확정하는 중… 30초쯤 걸려요."); var r = await api("POST", "/api/admin/audits/" + a.id + "/quickset"); toast("질문 " + r.added + "개를 넣었어요 (기준 문항 " + r.probes + " · 주제 질문 " + r.templates + ")."); await refresh(); }) }, "질문 세트 한 번에 (약 25개)"),
+        h("button", { class: "ghost", onclick: run(async function () { toast("법제처에서 정답을 확정하는 중… 20초쯤 걸려요."); var r = await api("POST", "/api/admin/audits/" + a.id + "/probes", { size: 8 }); toast("기준 문항 " + r.added + "개를 넣었어요."); await refresh(); }) }, "기준 문항 8개 더"),
         (function () {
           var sel = h("select", { style: "width:auto" }, d.topics.map(function (t) { return h("option", { value: t.key, text: t.label + " (" + t.count + ")" }); }));
           return h("span", { style: "display:flex;gap:6px" }, sel, h("button", { class: "ghost", onclick: run(async function () { var r = await api("POST", "/api/admin/audits/" + a.id + "/template", { topic: sel.value }); toast("주제 질문 " + r.added + "개를 넣었어요."); await refresh(); }) }, "주제 질문 추가"));
@@ -324,8 +341,24 @@ export function renderAuditDeskPage() {
         return h("form", { class: "actions", onsubmit: run(async function () { await api("POST", "/api/admin/audits/" + a.id + "/items", { question: q.value, qtype: t.value }); q.value = ""; await refresh(); }) }, q, t, h("button", { class: "ghost", type: "submit" }, "추가"));
       })()));
 
-    body.appendChild(h("div", { class: "box" }, h("h3", null, "3단계 · 손으로 입력하고 답변 기록"),
-      h("p", { class: "help", text: "질문을 대상 서비스에 하나씩 직접 입력하고, 받은 답을 고치지 말고 그대로 붙여넣으세요. 시각은 답을 받은 때로 적고, 화면 캡처를 올리세요(대표 사례로 쓸 질문은 캡처가 있어야 발송할 수 있습니다)." })));
+    // 대화 전체 붙여넣기 — 질문은 한 건씩 손으로 묻되, 답을 한 건씩 저장하지 않는다.
+    var lastImport = state.lastImport; state.lastImport = null;
+    var ta = h("textarea", { rows: 6, placeholder: "대상 서비스에서 질문을 하나씩 다 물은 뒤, 대화 화면 전체를 복사해 여기에 붙여넣으세요. 질문 문장을 찾아 질문별로 나눠 저장합니다." });
+    var tAt = h("input", { type: "datetime-local", value: toLocalInput(Date.now()), style: "width:auto" });
+    var ow = h("input", { type: "checkbox", style: "width:auto" });
+    body.appendChild(h("div", { class: "box" }, h("h3", null, "3단계 · 손으로 묻고 답 기록"),
+      h("p", { class: "help", text: "질문은 대상 서비스에 하나씩 직접 입력합니다(자동 입력 금지). 다 물었으면 대화 전체를 한 번에 붙여넣으세요 — 질문별로 나눠 저장하고 바로 검사를 시작합니다. 캡처는 질문 카드를 누른 뒤 Ctrl+V로 붙여넣으면 됩니다(대표 사례로 쓸 질문은 캡처가 있어야 발송할 수 있습니다)." }),
+      ta,
+      h("div", { class: "actions" }, h("span", { class: "help", text: "대화한 시각" }), tAt,
+        h("label", { class: "help", style: "display:flex;gap:6px;align-items:center" }, ow, "이미 적은 답도 덮어쓰기"),
+        h("button", { class: "btn", onclick: run(async function () {
+          var r = await api("POST", "/api/admin/audits/" + a.id + "/transcript", { text: ta.value, answered_at: fromLocalInput(tAt.value), overwrite: ow.checked });
+          toast("질문 " + r.total + "개 중 " + r.matched + "개의 답을 찾아 저장했어요." + (r.checking ? " 검사를 시작했어요." : ""));
+          state.lastImport = r; await refresh();
+        }) }, "질문별로 나눠 저장")),
+      lastImport && lastImport.unmatched && lastImport.unmatched.length
+        ? h("div", { class: "lint", style: "margin-top:8px" }, "답을 못 찾은 질문 " + lastImport.unmatched.length + "개 — 카드에서 직접 붙여넣으세요: ", lastImport.unmatched.map(function (u) { return u.question.slice(0, 40); }).join(" / "))
+        : null));
 
     d.items.forEach(function (it, idx) { body.appendChild(itemCard(it, idx, d)); });
 
@@ -359,15 +392,21 @@ export function renderAuditDeskPage() {
       var fc = cs.filter(function (c) { return c.verdict === "false"; }).length, cc = cs.filter(function (c) { return c.verdict === "confirmed"; }).length;
       result = h("div", { class: "meta" }, h("span", { class: "pill", text: "주장 " + cs.length }), h("span", { class: "pill g", text: "일치 " + cc }), fc ? h("span", { class: "pill b", text: "불일치 후보 " + fc }) : null, h("span", { class: "pill", text: "확인 불가 " + (cs.length - fc - cc) }));
     }
-    return h("div", { class: "item" },
+    // 카드를 누르면 Ctrl+V로 붙여넣는 캡처가 이 질문에 붙는다(아래 paste 처리).
+    return h("div", { class: "item" + (state.activeItem === it.id ? " active" : ""), id: "item-" + it.id, onclick: function () {
+        state.activeItem = it.id;
+        document.querySelectorAll(".item.active").forEach(function (el) { el.classList.remove("active"); });
+        var me = document.getElementById("item-" + it.id); if (me) me.classList.add("active");
+      } },
       h("div", { class: "meta" }, h("span", { text: "#" + (idx + 1) }), h("span", { class: "pill " + (it.kind === "probe" ? "v" : ""), text: KIND[it.kind] || it.kind }), it.qtype ? h("span", { class: "pill", text: state.meta.questionTypes[it.qtype] || it.qtype }) : null, probe ? h("span", { class: "pill", text: state.meta.probeTypes[probe.type] || probe.type }) : null, h("span", { class: "sp" }), h("span", { class: "pill " + st[1], text: st[0] })),
       h("div", { class: "q", text: it.question }),
       h("div", { class: "actions", style: "margin-top:0" }, h("button", { class: "ghost", onclick: function () { copy(it.question); } }, "질문 복사"),
         probe ? h("details", null, h("summary", { class: "help", style: "cursor:pointer", text: "정답(내부용)" }), h("div", { class: "help", text: probe.groundTruth || "" })) : null),
       ans,
       h("div", { class: "actions", style: "margin-top:0" }, h("span", { class: "help", text: "받은 시각" }), at,
-        h("button", { class: "btn", disabled: it.status === "checking", onclick: run(async function () { await api("PATCH", "/api/admin/audits/items/" + it.id, { answer: ans.value, answered_at: fromLocalInput(at.value) }); toast("답변을 저장했어요."); await refresh(); }) }, "답변 저장"),
+        h("button", { class: "btn", disabled: it.status === "checking", onclick: run(async function () { var r = await api("PATCH", "/api/admin/audits/items/" + it.id, { answer: ans.value, answered_at: fromLocalInput(at.value) }); toast(r.checking ? "저장하고 검사를 시작했어요." : "답변을 저장했어요."); await refresh(); }) }, "답변 저장"),
         h("button", { class: "ghost", onclick: function () { fileInput.click(); } }, "캡처 올리기"), fileInput,
+        h("span", { class: "help", text: state.activeItem === it.id ? "Ctrl+V로 캡처 붙여넣기" : "" }),
         h("span", { class: "sp" }),
         h("button", { class: "ghost", onclick: run(async function () { if (!confirm("이 질문을 지울까요?")) return; await api("DELETE", "/api/admin/audits/items/" + it.id); await refresh(); }) }, "삭제")),
       files.length ? h("div", { class: "shots" }, files.map(function (f) {
@@ -377,6 +416,20 @@ export function renderAuditDeskPage() {
       it.error ? h("div", { class: "lint", text: "오류: " + it.error }) : null,
       result);
   }
+
+  // 캡처 붙여넣기 — 고른 질문 카드에 붙인다. 화면 캡처 단축키로 찍고 바로 Ctrl+V.
+  document.addEventListener("paste", function (e) {
+    if (state.view !== "desk" || state.tab !== "items" || !state.activeItem) return;
+    var list = (e.clipboardData && e.clipboardData.items) || [];
+    for (var i = 0; i < list.length; i++) {
+      if (String(list[i].type).indexOf("image") !== 0) continue;
+      var file = list[i].getAsFile(); if (!file) continue;
+      e.preventDefault();
+      var target = state.activeItem;
+      run(async function () { var url = await shrink(file); await api("POST", "/api/admin/audits/items/" + target + "/file", { image: url }); toast("캡처를 붙여넣었어요."); await refresh(); })();
+      return;
+    }
+  });
 
   // 캡처는 긴 변 1800px JPEG로 줄여 올린다(서버는 한 장 3MB까지 받는다).
   function shrink(file) {
@@ -401,9 +454,23 @@ export function renderAuditDeskPage() {
     var r = d.results.issues;
     body.appendChild(h("div", { class: "box" }, h("h3", null, "5단계 · 직접 재확인", h("span", { class: "pill " + (r.pending ? "w" : "g"), text: r.pending ? "남은 항목 " + r.pending : "모두 확인" })),
       h("p", { class: "help", text: "유메도 틀릴 수 있고, 틀린 지적 하나가 전체 신뢰를 무너뜨립니다. 오류 후보마다 공식 원문을 직접 열어 확인하고 그 주소를 남기세요. 조금이라도 애매하면 '애매해서 제외'. 원문으로 확인한 것만 보고서·지수에 들어갑니다." }),
-      h("div", { class: "nums", style: "margin-top:10px" }, [["오류 후보", r.total], ["확인", r.confirmed], ["제외", r.excluded], ["유메 오판", r.yume_wrong], ["남음", r.pending]].map(function (x) { return h("div", null, h("div", { class: "k", text: x[0] }), h("div", { class: "v", text: n(x[1]) })); }))));
+      h("div", { class: "nums", style: "margin-top:10px" }, [["오류 후보", r.total], ["확인", r.confirmed], ["제외", r.excluded], ["유메 오판", r.yume_wrong], ["남음", r.pending]].map(function (x) { return h("div", null, h("div", { class: "k", text: x[0] }), h("div", { class: "v", text: n(x[1]) })); })),
+      (function () {
+        // 판정 강도 — 어디부터 볼지. 약한 후보는 한 번에 뺄 수 있다(빼는 쪽만 일괄, 확정은 한 건씩).
+        var pend = issues.filter(function (f) { return f.review === "pending"; });
+        var cnt = function (lv) { return pend.filter(function (f) { return f.strength && f.strength.level === lv; }).length; };
+        var weak = cnt("weak");
+        return h("div", { class: "actions" },
+          h("span", { class: "help", text: "남은 후보의 판정 강도 — 강함 " + cnt("strong") + " · 보통 " + cnt("medium") + " · 약함 " + weak + ". 강함부터 위에 놓았습니다. 숫자가 원문과 다르면 붉게 표시됩니다." }),
+          weak ? h("button", { class: "btn warn", onclick: run(async function () { if (!confirm("근거가 약한 " + weak + "건을 '애매해서 제외'로 처리할까요? 확정은 한 건씩만 할 수 있습니다.")) return; var x = await api("POST", "/api/admin/audits/" + d.audit.id + "/exclude-weak"); toast(x.excluded + "건을 제외했어요."); await refresh(); }) }, "약함 " + weak + "건 한 번에 제외") : null);
+      })()));
     if (!issues.length) body.appendChild(h("div", { class: "empty", text: d.results.checked ? "유메가 지목한 오류 후보가 없어요. 질문을 더 하거나, 이 서비스는 이번 표본에서 깨끗했다고 기록하세요." : "검사를 먼저 실행하세요." }));
-    issues.forEach(function (f) { body.appendChild(findingCard(f, items[f.item_id])); });
+    var RANK = { strong: 0, medium: 1, weak: 2 };
+    issues.slice().sort(function (x, y) {
+      var px = x.review === "pending" ? 0 : 1, py = y.review === "pending" ? 0 : 1;
+      if (px !== py) return px - py;
+      return (RANK[x.strength && x.strength.level] || 1) - (RANK[y.strength && y.strength.level] || 1);
+    }).forEach(function (f) { body.appendChild(findingCard(f, items[f.item_id])); });
 
     var hl = h("textarea", { rows: 3, value: d.audit.highlights || "", placeholder: "잘된 점을 직접 적기 — 예: 조문 번호를 정확히 댄 답이 많았고, 확실하지 않을 때 원문 확인을 권했다." });
     body.appendChild(h("div", { class: "box" }, h("h3", null, "잘된 점", h("span", { class: "pill", text: goods.filter(function (g) { return Number(g.featured); }).length + "건 선택" })),
@@ -418,17 +485,37 @@ export function renderAuditDeskPage() {
     });
   }
 
+  // AI 답변 속 숫자 중 원문에 없는 것을 붉게 — 기간·금액 하나만 다른 할루시네이션을 바로 보게.
+  function markNumbers(text, ref) {
+    text = String(text || "");
+    var refNums = (String(ref || "").match(/\\d[\\d,.]*/g) || []).map(function (x) { return x.replace(/[,.]+$/, ""); });
+    if (!refNums.length) return [text];
+    var out = [], last = 0, re = /\\d[\\d,.]*/g, m;
+    while ((m = re.exec(text))) {
+      var num = m[0].replace(/[,.]+$/, "");
+      if (refNums.indexOf(num) >= 0) continue;
+      out.push(text.slice(last, m.index));
+      out.push(h("mark", { text: num, title: "원문에 없는 숫자" }));
+      last = m.index + num.length;
+    }
+    out.push(text.slice(last));
+    return out;
+  }
+
   function findingCard(f, it) {
     it = it || {};
     var url = h("input", { value: f.checked_url || "", placeholder: "직접 열어 확인한 공식 원문 주소 (https://…)" });
     var note = h("input", { value: f.review_note || "", placeholder: "메모 — 무엇을 확인했는지, 왜 뺐는지" });
-    function rv(v) { return run(async function () { await api("PATCH", "/api/admin/audits/findings/" + f.id, { review: v, checked_url: url.value, review_note: note.value }); toast({ confirmed: "불일치로 확정했어요.", excluded: "제외했어요.", yume_wrong: "유메 오판으로 돌렸어요.", pending: "되돌렸어요." }[v]); await refresh(); }); }
+    function rv(v) { return run(async function () { await api("PATCH", "/api/admin/audits/findings/" + f.id, { review: v, checked_url: url.value, review_note: note.value }); toast({ confirmed: "불일치로 확정했어요.", excluded: "제외했어요.", yume_wrong: "유메 오판으로 돌렸어요.", pending: "되돌렸어요." }[v]); state.focusNext = v !== "pending"; await refresh(); }); }
     var label = { pending: ["재확인 전", "w"], confirmed: ["불일치 확정", "b"], excluded: ["제외", ""], yume_wrong: ["유메 오판", ""] }[f.review] || [f.review, ""];
+    var st = f.strength;
     return h("div", { class: "find " + f.review },
-      h("div", { class: "meta" }, h("span", { class: "pill " + label[1], text: label[0] }), h("span", { class: "pill", text: (f.source === "probe" ? "기준 문항 · " : "주장 · ") + (SEVERITY[f.severity] || f.severity) }), f.nec_score !== null && f.nec_score !== undefined ? h("span", { class: "pill", text: "부존재 신뢰도 " + Number(f.nec_score).toFixed(2) }) : null),
+      h("div", { class: "meta" }, h("span", { class: "pill " + label[1], text: label[0] }), h("span", { class: "pill", text: (f.source === "probe" ? "기준 문항 · " : "주장 · ") + (SEVERITY[f.severity] || f.severity) }),
+        st ? h("span", { class: "pill " + ({ strong: "g", medium: "", weak: "w" }[st.level] || ""), text: "판정 강도 " + ({ strong: "강함", medium: "보통", weak: "약함" }[st.level] || st.level) + " · " + st.why }) : null,
+        f.nec_score !== null && f.nec_score !== undefined ? h("span", { class: "pill", text: "부존재 신뢰도 " + Number(f.nec_score).toFixed(2) }) : null),
       h("div", { class: "kv" },
         h("b", { text: "질문" }), h("div", { text: it.question || "" }),
-        h("b", { text: "AI 답변" }), h("div", { class: "said", text: f.ai_quote || f.claim }),
+        h("b", { text: "AI 답변" }), h("div", { class: "said" }, markNumbers(f.ai_quote || f.claim || "", f.truth || "")),
         h("b", { text: "유메 판정" }), h("div", { text: f.yume_reason || "" }),
         h("b", { text: "원문" }), h("div", { class: "truth" }, f.truth || "", f.source_url ? h("div", null, h("a", { href: f.source_url, target: "_blank", rel: "noopener nofollow", text: f.source_label || f.source_url })) : null)),
       h("div", { class: "grid2" }, h("div", { style: "display:flex;gap:6px" }, url, f.source_url ? h("button", { class: "ghost", title: "유메가 댄 원문을 새 창으로 열고 그 주소를 적어요", onclick: function () { window.open(f.source_url, "_blank", "noopener"); url.value = f.source_url; } }, "원문 열기") : null), note),
@@ -451,6 +538,7 @@ export function renderAuditDeskPage() {
     body.appendChild(h("div", { class: "box" }, h("h3", null, "6단계 · 보고서"),
       h("p", { class: "help", text: "부록 B 양식(1~2쪽). 상대가 여는 링크는 추측할 수 없는 주소이고, 언제든 회수할 수 있습니다." }),
       h("div", { class: "actions" }, h("a", { class: "btn", href: "/admin/audits/" + a.id + "/report", target: "_blank", rel: "noopener" }, "보고서 미리보기"),
+        h("button", { class: "ghost", title: "확정된 오류 중 가장 확실한 3건, 잘된 점 3건을 고르고 잘된 점 초안을 씁니다. 재확인이 끝나면 자동으로도 한 번 돕니다.", onclick: run(async function () { var r = await api("POST", "/api/admin/audits/" + a.id + "/autopick"); toast("대표 사례 " + r.issues + "건 · 잘된 점 " + r.goods + "건을 골랐어요" + (r.wroteHighlights ? " (잘된 점 초안 작성)" : "") + "."); await refresh(); }) }, "대표 사례·잘된 점 자동 선택"),
         d.reportUrl ? [h("button", { class: "ghost", onclick: function () { copy(d.reportUrl); } }, "공유 링크 복사"), h("button", { class: "ghost", onclick: run(async function () { if (!confirm("링크를 회수할까요? 이미 보낸 링크는 더 이상 열리지 않습니다.")) return; await api("DELETE", "/api/admin/audits/" + a.id + "/share"); await refresh(); }) }, "링크 회수")]
           : h("button", { class: "ghost", onclick: run(async function () { await api("POST", "/api/admin/audits/" + a.id + "/share"); toast("공유 링크를 만들었어요."); await refresh(); }) }, "공유 링크 만들기")),
       d.reportUrl ? h("div", { class: "mono", style: "margin-top:8px", text: d.reportUrl }) : null));

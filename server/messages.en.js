@@ -296,4 +296,7 @@ export default {
   "발행한 지수만 정정할 수 있어요.": "Only published issues can be corrected.",
   "정정 사유를 적어주세요. 사유는 지수 페이지에 그대로 공개됩니다.": "Enter the reason for the correction. It is published on the index page as written.",
   "초안만 지울 수 있어요.": "Only drafts can be deleted.",
+  "대화 내용을 붙여넣어 주세요.": "Paste the conversation.",
+  "답을 채울 빈 질문이 없어요.": "There are no unanswered questions to fill.",
+  "지금은 질문을 만들 수 없어요. 법제처 조회가 불안정합니다. 잠시 후 다시 시도해주세요.": "Questions can't be generated right now because the law.go.kr lookup is unstable. Try again shortly.",
 };

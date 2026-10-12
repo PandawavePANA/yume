@@ -18,6 +18,11 @@ import {
   addItemFile,
   addProbeItems,
   addTemplateItems,
+  addQuickSet,
+  autoPick,
+  excludeWeak,
+  importProspects,
+  importTranscript,
   auditDetail,
   createAudit,
   deleteAudit,
@@ -103,10 +108,28 @@ auditDeskRouter.post("/audits/:id/stage", async (req, res) => {
   send(res, r);
 });
 
+auditDeskRouter.post("/audits/import", async (req, res) => send(res, await importProspects(String(req.body?.text || "")), 201));
+auditDeskRouter.post("/audits/:id/quickset", async (req, res) => send(res, await addQuickSet(req.params.id)));
+auditDeskRouter.post("/audits/:id/transcript", async (req, res) => {
+  const r = await importTranscript(req.params.id, req.body || {});
+  if (r.error) return res.status(400).json(r);
+  const started = r.matched ? await kick(req.params.id) : null;
+  res.json({ ...r, checking: !!(started && !started.error) });
+});
+auditDeskRouter.post("/audits/:id/exclude-weak", async (req, res) => send(res, await excludeWeak(req.params.id)));
+auditDeskRouter.post("/audits/:id/autopick", async (req, res) => send(res, await autoPick(req.params.id)));
 auditDeskRouter.post("/audits/:id/probes", async (req, res) => send(res, await addProbeItems(req.params.id, { size: req.body?.size })));
 auditDeskRouter.post("/audits/:id/template", async (req, res) => send(res, await addTemplateItems(req.params.id, String(req.body?.topic || ""))));
 auditDeskRouter.post("/audits/:id/items", async (req, res) => send(res, await addCustomItem(req.params.id, req.body || {})));
-auditDeskRouter.patch("/audits/items/:itemId", async (req, res) => send(res, await saveAnswer(req.params.itemId, req.body || {})));
+// 답을 저장하면 바로 검사를 건다(약관 확인 전이면 조용히 넘어간다). 입력이 끝날 즈음 결과도 거의 나와 있다.
+// Claude 키가 없으면(로컬·시험) 자동으로 걸지 않는다 — 걸어 봐야 전부 실패로 남는다.
+const kick = (auditId) => (process.env.ANTHROPIC_API_KEY ? startChecks(auditId).catch(() => null) : Promise.resolve(null));
+auditDeskRouter.patch("/audits/items/:itemId", async (req, res) => {
+  const r = await saveAnswer(req.params.itemId, req.body || {});
+  if (r.error) return res.status(400).json(r);
+  const started = r.changed && r.hasAnswer ? await kick(r.audit_id) : null;
+  res.json({ ok: true, changed: r.changed, checking: !!(started && !started.error) });
+});
 auditDeskRouter.delete("/audits/items/:itemId", async (req, res) => send(res, await deleteItem(req.params.itemId)));
 
 auditDeskRouter.post("/audits/items/:itemId/file", express.json({ limit: "5mb" }), async (req, res) =>
