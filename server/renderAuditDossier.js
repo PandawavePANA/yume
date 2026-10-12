@@ -520,7 +520,7 @@ export function renderAuditReport(detail, { fileUrl = null, mode = "shared" } = 
   ${list.length > shown.length ? `<p class="muted">외 ${list.length - shown.length}건 — 요청하시면 원문 링크와 함께 드립니다.</p>` : ""}
 
   <h2><span class="no">04</span>정확하게 답한 부분</h2>
-  ${goods.length ? `<ul class="goods">${goods.map((g) => `<li><b>${esc(clip(byItem.get(Number(g.item_id))?.question || g.claim, 70))}</b> — ${esc(firstSentence(g.yume_reason || g.ai_quote))}</li>`).join("")}</ul>` : ""}
+  ${goods.length ? `<ul class="goods">${goods.map((g) => (g.report_title ? `<li><b>${esc(oneLine(g.report_title))}</b> — ${esc(firstSentence(g.yume_reason || g.ai_quote))}</li>` : `<li><b>${esc(clip(byItem.get(Number(g.item_id))?.question || g.claim, 70))}</b> — ${esc(firstSentence(g.yume_reason || g.ai_quote))}</li>`)).join("")}</ul>` : ""}
   ${audit.highlights ? `<div class="note">${esc(audit.highlights).replace(/\n/g, "<br />")}</div>` : ""}
   ${!goods.length && !audit.highlights ? `<p class="muted">—</p>` : ""}
 
