@@ -167,3 +167,62 @@ test("후보 일괄 등록 · 질문 세트 한 번에 · 대화 붙여넣기 ·
   const ap = await call("POST", `/api/admin/audits/${id}/autopick`);
   assert.equal(ap.json.issues, 2);
 });
+
+test("여러 곳을 같이 — 질문 세트 복사, 맞춤 질문, 시간 자동 기록, 오늘 할 일", async () => {
+  const a = (await call("POST", "/api/admin/audits", { company: "갑노무", domain: "인사" })).json.id;
+  const b = (await call("POST", "/api/admin/audits", { company: "을노무", domain: "인사" })).json.id;
+  const c = (await call("POST", "/api/admin/audits", { company: "병노무", domain: "인사" })).json.id;
+  await call("POST", `/api/admin/audits/${a}/template`, { topic: "labor" });
+  const srcCount = (await call("GET", `/api/admin/audits/${a}`)).json.items.length;
+  assert.ok(srcCount > 0);
+
+  // 이미 같은 질문이 하나 있는 곳은 그만큼 덜 넣는다.
+  const first = (await call("GET", `/api/admin/audits/${a}`)).json.items[0].question;
+  await call("POST", `/api/admin/audits/${c}/items`, { question: first });
+  const cp = await call("POST", `/api/admin/audits/${a}/copy-to`, { ids: [b, c, a] });
+  assert.equal(cp.status, 200);
+  assert.equal(cp.json.results.length, 2); // 자기 자신은 뺀다
+  assert.equal(cp.json.added, srcCount * 2 - 1);
+  assert.equal((await call("GET", `/api/admin/audits/${b}`)).json.items.length, srcCount);
+  assert.equal((await call("POST", `/api/admin/audits/${b}/copy-to`, { ids: [] })).status, 400);
+
+  // 맞춤 질문 — 겹치는 것·빈 것은 버리고, 모르는 유형은 비운다.
+  const r = await desk.addTailoredQuestions(b, {
+    count: 3,
+    draft: async ({ audit, existing }) => {
+      assert.equal(audit.company, "을노무");
+      assert.ok(existing.length === srcCount);
+      return [
+        { question: existing[0], qtype: "article" },
+        { question: "  ", qtype: "case" },
+        { question: "5인 미만 사업장도 연차휴가를 줘야 해? 근거 조문도", qtype: "article" },
+        { question: "실업급여 신청은 퇴사 후 언제까지 해야 해?", qtype: "weird" },
+      ];
+    },
+  });
+  assert.equal(r.added, 2);
+  const items = (await call("GET", `/api/admin/audits/${b}`)).json.items;
+  assert.equal(items.find((i) => i.question.startsWith("실업급여")).qtype, "");
+  assert.equal(items.find((i) => i.question.startsWith("5인")).kind, "custom");
+  assert.ok((await desk.addTailoredQuestions(b, { draft: async () => { throw new Error("down"); } })).error);
+
+  // 시간 자동 기록 — 10분 안쪽 간격만 더한다.
+  const t0 = Date.now();
+  await desk.touchWork(c, t0);
+  await desk.touchWork(c, t0 + 4 * 60 * 1000);
+  await desk.touchWork(c, t0 + 60 * 60 * 1000); // 자리 비움 — 안 센다
+  await desk.touchWork(c, t0 + 62 * 60 * 1000);
+  const row = (await call("GET", "/api/admin/audits")).json.audits.find((x) => x.id === c);
+  assert.equal(row.minutes, 6);
+  // 데스크에서 손대면 기록된다(요청 끝난 뒤 남기므로 잠깐 기다린다).
+  await call("PATCH", `/api/admin/audits/${a}`, { notes: "메모" });
+  await new Promise((ok) => setTimeout(ok, 100));
+  const touched = await db.one("SELECT last_active_at FROM ai_audits WHERE id = :id", { id: a });
+  assert.ok(Number(touched.last_active_at) > 0);
+
+  // 오늘 할 일 — 약관 확인이 남은 건이 묶여 나온다.
+  const list = (await call("GET", "/api/admin/audits")).json;
+  const tos = list.queue.find((q) => q.key === "tos");
+  assert.ok(tos.ids.includes(a) && tos.ids.includes(b) && tos.ids.includes(c));
+  assert.deepEqual(desk.workQueue([{ id: 1, next: "재확인 2건" }, { id: 2, next: "후속 연락 1회 (오늘)" }, { id: 3, next: null }]).map((q) => q.key), ["followup", "review"]);
+});
