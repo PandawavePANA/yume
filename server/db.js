@@ -1150,6 +1150,12 @@ const MIGRATIONS = [
   );
   ALTER TABLE index_issues ENABLE ROW LEVEL SECURITY;
   `,
+  // 감사 한 건에 실제로 든 시간 — 손으로 적는 minutes_spent는 비기 쉽다. 데스크에서 무언가를 할 때마다
+  // 직전 활동과 10분 안쪽이면 그 간격을 더한다(자리를 비운 시간은 세지 않는다). auditDesk.touchWork.
+  `
+  ALTER TABLE ai_audits ADD COLUMN work_ms BIGINT NOT NULL DEFAULT 0;
+  ALTER TABLE ai_audits ADD COLUMN last_active_at BIGINT;
+  `,
 ];
 
 async function migrate() {

@@ -19,6 +19,11 @@ import {
   addProbeItems,
   addTemplateItems,
   addQuickSet,
+  addTailoredQuestions,
+  auditIdOf,
+  copyQuestions,
+  touchWork,
+  workQueue,
   autoPick,
   excludeWeak,
   importProspects,
@@ -58,6 +63,26 @@ import {
 export const auditDeskRouter = patchAsync(express.Router());
 auditDeskRouter.use(requireAdmin);
 
+// 감사 건에 손을 댄 시각을 남긴다(실제로 든 시간 자동 기록 — touchWork). 실패해도 본 요청은 그대로다.
+const TOUCH = [
+  [/^\/audits\/items\/(\d+)/, (m) => auditIdOf({ itemId: m[1] })],
+  [/^\/audits\/findings\/(\d+)/, (m) => auditIdOf({ findingId: m[1] })],
+  [/^\/audits\/file\/(\d+)/, (m) => auditIdOf({ fileId: m[1] })],
+  [/^\/audits\/(\d+)(\/|$)/, (m) => Number(m[1])],
+];
+auditDeskRouter.use((req, res, next) => {
+  if (req.method === "GET") return next();
+  const hit = TOUCH.map(([re, f]) => [req.path.match(re), f]).find(([m]) => m);
+  if (hit) {
+    // 지우는 요청은 응답 전에 감사 건이 사라질 수 있으니, 어느 건인지는 먼저 알아 둔다.
+    const idP = Promise.resolve(hit[1](hit[0])).catch(() => null);
+    res.on("finish", () => {
+      if (res.statusCode < 400) idP.then((id) => id && touchWork(id)).catch(() => null);
+    });
+  }
+  next();
+});
+
 const baseOf = (req) => process.env.PUBLIC_BASE_URL || `${req.protocol}://${req.get("host")}`;
 const send = (res, r, okStatus = 200) => (r?.error ? res.status(400).json(r) : res.status(okStatus).json(r));
 // 발송·공개처럼 밖으로 나가는 동작은 누가 했는지 남긴다.
@@ -76,7 +101,7 @@ auditDeskRouter.get("/audits/meta", (req, res) => {
 
 auditDeskRouter.get("/audits", async (req, res) => {
   const [audits, funnel] = await Promise.all([listAudits(), funnelStats()]);
-  res.json({ audits, funnel });
+  res.json({ audits, funnel, queue: workQueue(audits) });
 });
 
 auditDeskRouter.post("/audits", async (req, res) => send(res, await createAudit(req.body || {}), 201));
@@ -116,6 +141,8 @@ auditDeskRouter.post("/audits/:id/transcript", async (req, res) => {
   const started = r.matched ? await kick(req.params.id) : null;
   res.json({ ...r, checking: !!(started && !started.error) });
 });
+auditDeskRouter.post("/audits/:id/copy-to", async (req, res) => send(res, await copyQuestions(req.params.id, req.body?.ids)));
+auditDeskRouter.post("/audits/:id/tailored", async (req, res) => send(res, await addTailoredQuestions(req.params.id, { count: req.body?.count })));
 auditDeskRouter.post("/audits/:id/exclude-weak", async (req, res) => send(res, await excludeWeak(req.params.id)));
 auditDeskRouter.post("/audits/:id/autopick", async (req, res) => send(res, await autoPick(req.params.id)));
 auditDeskRouter.post("/audits/:id/probes", async (req, res) => send(res, await addProbeItems(req.params.id, { size: req.body?.size })));

@@ -83,6 +83,8 @@ export function renderAuditDeskPage() {
   .actions { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:10px; }
   .item { border:1px solid var(--line); border-radius:12px; padding:12px 13px; display:grid; gap:8px; }
   .item .q { font-size:13.5px; font-weight:600; line-height:1.55; }
+  .queue { display:flex; flex-wrap:wrap; gap:6px; align-items:center; padding:10px 14px; border-bottom:1px solid var(--line); }
+  .chip { padding:4px 10px; font-size:12px; } .chip b { color:var(--text); margin-left:2px; }
   .item.active { border-color:var(--mid); box-shadow:0 0 0 2px rgba(109,90,224,.25); }
   mark { background:rgba(224,116,92,.4); color:#fff; border-radius:3px; padding:0 2px; }
   .item .meta { display:flex; gap:6px; align-items:center; flex-wrap:wrap; font-size:11.5px; color:var(--faint); }
@@ -176,6 +178,7 @@ export function renderAuditDeskPage() {
   async function copy(text) { try { await navigator.clipboard.writeText(text); toast("복사했어요."); } catch (e) { toast("복사하지 못했어요.", true); } }
 
   var STAGE_CLASS = { prospect: "", testing: "v", reviewed: "v", sent: "w", followed_up: "w", replied: "g", meeting: "g", full_audit: "g", paid_intent: "g", won: "g", declined: "b", no_reply: "", excluded: "b" };
+  var TERMINAL = { declined: 1, no_reply: 1, excluded: 1, won: 1 };
   var SEVERITY = { hallucinated: "지어냄", partial: "부분 불일치", false: "원문과 불일치", nonexistent: "존재하지 않는 근거", safe: "정확", confirmed: "원문과 일치" };
   var KIND = { probe: "기준 문항", template: "주제 질문", custom: "직접 질문" };
   var ITEM_STATUS = { new: ["답변 전", ""], answered: ["검사 전", "w"], checking: ["검사 중", "v"], checked: ["검사 완료", "g"], failed: ["검사 실패", "b"] };
@@ -192,7 +195,7 @@ export function renderAuditDeskPage() {
     if (state.sel) await loadDetail(state.sel);
     render();
   }
-  async function loadList() { var d = await api("GET", "/api/admin/audits"); state.list = d.audits; state.funnel = d.funnel; }
+  async function loadList() { var d = await api("GET", "/api/admin/audits"); state.list = d.audits; state.funnel = d.funnel; state.queue = d.queue || []; }
   async function loadDetail(id) {
     try { state.detail = await api("GET", "/api/admin/audits/" + id); state.sel = id; location.hash = String(id); }
     catch (e) { state.detail = null; state.sel = null; toast(e.message, true); }
@@ -221,7 +224,7 @@ export function renderAuditDeskPage() {
   function renderDesk() {
     clear(view);
     view.appendChild(funnelView());
-    var listPanel = h("div", { class: "panel" }, h("h2", null, "감사 건", h("span", { class: "sp" }), h("span", { class: "pill", text: n(state.list.length) + "건" })), newForm(), listRows());
+    var listPanel = h("div", { class: "panel" }, h("h2", null, "감사 건", h("span", { class: "sp" }), h("span", { class: "pill", text: n(state.list.length) + "건" })), queueView(), newForm(), listRows());
     var detail = h("div", { class: "panel detail" }, state.detail ? detailView() : h("div", { class: "empty" }, "왼쪽에서 감사 건을 고르거나 새로 만드세요.", h("br"), "기획안 순서: 약관 확인 → 질문 20~30개 → 손으로 입력·캡처 → 유메 검사 → 원문 재확인 → 보고서 → 발송 → 1주 뒤 후속 한 번."));
     view.appendChild(h("div", { class: "split" }, listPanel, detail));
   }
@@ -262,12 +265,26 @@ export function renderAuditDeskPage() {
     return h("div", null, form, more);
   }
 
+  // 오늘 할 일 — 같은 일끼리 묶어 한 번에 처리한다. 누르면 그 일이 남은 다음 건을 연다.
+  function queueView() {
+    var q = state.queue || [];
+    if (!q.length) return null;
+    return h("div", { class: "queue" }, h("span", { class: "help", text: "오늘 할 일" }), q.map(function (g) {
+      return h("button", { class: "ghost chip", title: "누를 때마다 이 일이 남은 다음 건을 엽니다", onclick: run(async function () {
+        var i = g.ids.indexOf(state.sel);
+        var id = g.ids[(i + 1) % g.ids.length];
+        var tab = { review: "review", send: "send", check: "items", answer: "items", questions: "items" }[g.key] || "overview";
+        await loadDetail(id); state.tab = tab; render();
+      }) }, g.label + " ", h("b", { text: String(g.ids.length) }));
+    }));
+  }
+
   function listRows() {
     if (!state.list.length) return h("div", { class: "empty", text: "아직 감사 건이 없어요." });
     return h("div", { class: "rows" }, state.list.map(function (a) {
       return h("button", { class: "row" + (a.id === state.sel ? " on" : ""), onclick: run(async function () { await loadDetail(a.id); state.tab = "overview"; render(); }) },
         h("div", { class: "t1" }, a.followupDue ? h("span", { class: "dot", title: "후속 연락할 날" }) : null, h("span", { class: "nm", text: a.company + (a.service_name ? " · " + a.service_name : "") }), h("span", { class: "sp" }), h("span", { class: "pill " + (STAGE_CLASS[a.stage] || ""), text: a.stageLabel })),
-        h("div", { class: "t2" }, h("span", { text: a.domain }), a.next ? h("span", { text: "→ " + a.next }) : null));
+        h("div", { class: "t2" }, h("span", { text: a.domain }), a.next ? h("span", { text: "→ " + a.next }) : null, a.minutes ? h("span", { class: "sp" }) : null, a.minutes ? h("span", { text: a.minutes + "분" }) : null));
     }));
   }
 
@@ -298,7 +315,7 @@ export function renderAuditDeskPage() {
       h("div", { class: "grid2" }, field("회사", inp("company", "", 120)), field("서비스", inp("service_name", "", 120))),
       h("div", { class: "grid3", style: "margin-top:10px" }, field("서비스 주소", inp("service_url", "https://", 400)), field("업종", domain), field("종류", cat)),
       h("div", { class: "grid3", style: "margin-top:10px" }, field("담당자", inp("contact_name", "이름", 60)), field("직책", inp("contact_role", "CTO · 제품 책임자 · AI 담당", 60)), field("담당자 이메일(개인)", inp("contact_email", "name@company.com", 200))),
-      h("div", { class: "grid2", style: "margin-top:10px" }, field("어떻게 찾았나", inp("found_via", "링크드인 · 회사 블로그 · 채용공고 · 학습서 41장 리스트", 200)), field("들인 시간(분)", f.minutes_spent)),
+      h("div", { class: "grid2", style: "margin-top:10px" }, field("어떻게 찾았나", inp("found_via", "링크드인 · 회사 블로그 · 채용공고 · 학습서 41장 리스트", 200)), field("들인 시간(분) — 비우면 자동 기록 " + Math.round(Number(a.work_ms || 0) / 60000) + "분", f.minutes_spent)),
       h("div", { style: "margin-top:10px" }, field("메모", f.notes)),
       h("div", { class: "actions" }, h("button", { class: "btn", onclick: run(async function () {
         var body = { domain: domain.value, category: cat.value };
@@ -334,7 +351,9 @@ export function renderAuditDeskPage() {
         (function () {
           var sel = h("select", { style: "width:auto" }, d.topics.map(function (t) { return h("option", { value: t.key, text: t.label + " (" + t.count + ")" }); }));
           return h("span", { style: "display:flex;gap:6px" }, sel, h("button", { class: "ghost", onclick: run(async function () { var r = await api("POST", "/api/admin/audits/" + a.id + "/template", { topic: sel.value }); toast("주제 질문 " + r.added + "개를 넣었어요."); await refresh(); }) }, "주제 질문 추가"));
-        })()),
+        })(),
+        h("button", { class: "ghost", title: "회사·서비스·메모만 보고 이 서비스 이용자가 할 법한 질문을 씁니다. 상대 서비스는 부르지 않습니다.", onclick: run(async function () { toast("이 서비스에 맞춘 질문을 쓰는 중… 10초쯤 걸려요."); var r = await api("POST", "/api/admin/audits/" + a.id + "/tailored", { count: 6 }); toast("맞춤 질문 " + r.added + "개를 넣었어요. 어색한 건 지우세요."); await refresh(); }) }, "이 회사 맞춤 질문 6개")),
+      copyToBlock(a, d),
       (function () {
         var q = h("input", { placeholder: "직접 질문 쓰기 — 실제 사용자가 할 법한 말로" });
         var t = h("select", { style: "width:auto" }, h("option", { value: "", text: "유형" }), Object.keys(state.meta.questionTypes).map(function (k) { return h("option", { value: k, text: state.meta.questionTypes[k] }); }));
@@ -348,6 +367,7 @@ export function renderAuditDeskPage() {
     var ow = h("input", { type: "checkbox", style: "width:auto" });
     body.appendChild(h("div", { class: "box" }, h("h3", null, "3단계 · 손으로 묻고 답 기록"),
       h("p", { class: "help", text: "질문은 대상 서비스에 하나씩 직접 입력합니다(자동 입력 금지). 다 물었으면 대화 전체를 한 번에 붙여넣으세요 — 질문별로 나눠 저장하고 바로 검사를 시작합니다. 캡처는 질문 카드를 누른 뒤 Ctrl+V로 붙여넣으면 됩니다(대표 사례로 쓸 질문은 캡처가 있어야 발송할 수 있습니다)." }),
+      nextQuestionBar(d),
       ta,
       h("div", { class: "actions" }, h("span", { class: "help", text: "대화한 시각" }), tAt,
         h("label", { class: "help", style: "display:flex;gap:6px;align-items:center" }, ow, "이미 적은 답도 덮어쓰기"),
@@ -367,6 +387,47 @@ export function renderAuditDeskPage() {
       h("p", { class: "help", text: a.tos_verdict === "ok" ? "기준 문항은 정답과 대조해 채점하고(독립 채점 2회 일치), 나머지는 답변 속 주장을 원문과 대조합니다. 한 문항에 20~60초 걸립니다. 화면을 닫아도 서버에서 계속 돕니다." : "약관 확인을 먼저 해주세요(개요 탭)." }),
       h("div", { class: "actions" }, h("button", { class: "btn", disabled: a.tos_verdict !== "ok" || !waiting || d.checking, onclick: run(async function () { var r = await api("POST", "/api/admin/audits/" + a.id + "/check"); toast(r.queued ? "답변 " + r.queued + "개 검사를 시작했어요." : "검사할 답변이 없어요."); await refresh(); }) }, d.checking ? "검사 중…" : "검사 실행 (" + waiting + "개)"),
         h("span", { class: "help", text: "API 비용 누적 약 " + n(d.cost.krw) + "원" }))));
+  }
+
+  // 같은 질문 세트를 다른 후보에도 — 같은 업종이면 만들기는 한 번, 회사끼리 비교도 된다.
+  function copyToBlock(a, d) {
+    if (!d.items.length) return null;
+    var others = (state.list || []).filter(function (x) { return x.id !== a.id && !TERMINAL[x.stage] && !x.sent_at; });
+    if (!others.length) return null;
+    others.sort(function (x, y) { return (y.domain === a.domain) - (x.domain === a.domain) || x.items - y.items; });
+    var boxes = others.map(function (x) {
+      var cb = h("input", { type: "checkbox", style: "width:auto", value: String(x.id), checked: x.domain === a.domain && !x.items });
+      return h("label", { class: "help", style: "display:flex;gap:6px;align-items:center" }, cb, x.company + " · " + x.domain + (x.items ? " (질문 " + x.items + "개 있음)" : ""));
+    });
+    return h("details", { style: "margin-top:10px" }, h("summary", { class: "help", style: "cursor:pointer", text: "이 질문 세트를 다른 후보에도 넣기 (같은 업종은 미리 골라 둠)" }),
+      h("div", { style: "display:grid;gap:4px;margin:8px 0" }, boxes),
+      h("button", { class: "ghost", onclick: run(async function () {
+        var ids = boxes.map(function (l) { return l.querySelector("input"); }).filter(function (c) { return c.checked; }).map(function (c) { return Number(c.value); });
+        var r = await api("POST", "/api/admin/audits/" + a.id + "/copy-to", { ids: ids });
+        toast(r.results.length + "곳에 질문 " + r.added + "개를 넣었어요." + (r.results.some(function (x) { return x.error; }) ? " 질문이 가득 찬 곳은 건너뛰었어요." : ""));
+        await refresh();
+      }) }, "골라 둔 곳에 넣기"));
+  }
+
+  // 손으로 묻는 동안 — 다음 빈 질문을 복사해 대상 서비스에 붙여넣는다(입력은 사람이 한다).
+  function nextQuestionBar(d) {
+    var empty = d.items.filter(function (i) { return !(i.answer || "").trim(); });
+    if (!empty.length) return null;
+    state.asked = state.asked || {};
+    var left = empty.filter(function (i) { return !state.asked[i.id]; });
+    var label = left.length ? "다음 질문 복사 (" + (empty.length - left.length + 1) + "/" + empty.length + ")" : "빈 질문을 다 복사했어요 — 처음부터";
+    return h("div", { class: "actions" }, h("button", { class: "btn", onclick: run(async function () {
+      var pool = empty.filter(function (i) { return !state.asked[i.id]; });
+      if (!pool.length) { state.asked = {}; pool = empty; }
+      var it = pool[0];
+      state.activeItem = it.id;
+      // 복사에 실패하면 다음으로 넘기지 않는다 — 넘기면 묻지 않은 질문을 건너뛰게 된다.
+      try { await navigator.clipboard.writeText(it.question); toast("복사했어요 — 대상 서비스에 붙여넣고 직접 보내세요."); }
+      catch (e) { toast("복사하지 못했어요. 카드의 [질문 복사]를 눌러 주세요.", true); render(); return; }
+      state.asked[it.id] = true;
+      render();
+      var el = document.getElementById("item-" + it.id); if (el) el.scrollIntoView({ block: "center" });
+    }) }, label), h("span", { class: "help", text: "대상 서비스 입력창에 붙여넣고 직접 보내세요. 답은 다 물은 뒤 대화 전체를 아래에 한 번에." }));
   }
 
   function itemCard(it, idx, d) {

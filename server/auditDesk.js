@@ -1001,6 +1001,7 @@ export async function listAudits() {
       updated_at: Number(a.updated_at),
       sent_at: a.sent_at ? Number(a.sent_at) : null,
       ...cnt,
+      minutes: minutesOf(a),
       next: nextAction(a, cnt),
       followupDue: !!(a.sent_at && !a.replied_at && !a.followed_up_at && Number(a.followup_due_at) <= now()),
     };
@@ -1111,7 +1112,8 @@ export async function funnelStats() {
   const costs = await all(
     `SELECT i.audit_id AS id, COALESCE(SUM(v.cost_usd), 0) AS usd FROM ai_audit_items i JOIN verifications v ON v.id = i.verification_id GROUP BY i.audit_id`,
   );
-  const tested = rows.filter((r) => Number(r.minutes_spent) > 0);
+  // 손으로 적은 시간이 없으면 자동 기록을 쓴다(minutesOf).
+  const tested = rows.filter((r) => minutesOf(r) > 0);
   const totalUsd = costs.reduce((s, c) => s + Number(c.usd || 0), 0);
   const start = Number(await getSetting("audit_sprint_start")) || null;
   const paid = has("paid_intent_at");
@@ -1121,7 +1123,7 @@ export async function funnelStats() {
     prices: rows.filter((r) => r.price_heard).map((r) => ({ id: Number(r.id), company: r.company, price: r.price_heard })),
     needs: rows.filter((r) => r.needs).map((r) => ({ id: Number(r.id), company: r.company, needs: r.needs })),
     revenue: rows.reduce((s, r) => s + (r.paid_intent_at ? Number(r.paid_amount_krw || 0) : 0), 0),
-    avgMinutes: tested.length ? Math.round(tested.reduce((s, r) => s + Number(r.minutes_spent), 0) / tested.length) : null,
+    avgMinutes: tested.length ? Math.round(tested.reduce((s, r) => s + minutesOf(r), 0) / tested.length) : null,
     avgCostKrw: costs.length ? Math.round((totalUsd / costs.length) * USD_KRW) : null,
     followupsDue: rows.filter((r) => r.sent_at && !r.replied_at && !r.followed_up_at && Number(r.followup_due_at) <= now()).length,
     sprint: sprintVerdict(start, paid),
@@ -1369,6 +1371,116 @@ export async function importProspects(text) {
     created += 1;
   }
   return { ok: true, created, skipped };
+}
+
+// ── 여러 곳을 같이 돌리기(2026-10-13) ─────────────────────────────────
+// 20곳을 한 곳씩 처음부터 하면 같은 일을 20번 한다. 같은 업종은 같은 질문 세트로 묻고(만들기 1번,
+// 회사끼리 비교도 된다), 회사마다 다른 건 그 서비스에 맞춘 질문 몇 개만 더한다.
+
+/** 이 감사의 질문 세트를 다른 감사 건에 그대로 넣는다. 이미 있는 질문은 건너뛴다. */
+export async function copyQuestions(fromId, toIds = []) {
+  const src = await itemsOf(fromId);
+  if (!src.length) return { error: "가져올 질문이 없어요. 이 건에 질문 세트를 먼저 만드세요." };
+  const ids = [...new Set((Array.isArray(toIds) ? toIds : []).map(Number).filter((n) => n > 0 && n !== Number(fromId)))].slice(0, 100);
+  if (!ids.length) return { error: "질문을 넣을 감사 건을 골라주세요." };
+  const results = [];
+  for (const id of ids) {
+    const target = await auditById(id);
+    if (!target) continue;
+    const have = new Set((await itemsOf(id)).map((i) => i.question.trim()));
+    const list = src
+      .filter((i) => !have.has(i.question.trim()))
+      .map((i) => ({ kind: i.kind, qtype: i.qtype, question: i.question, probe: parse(i.probe_json) }));
+    const r = list.length ? await insertItems(id, list) : { ok: true, added: 0 };
+    results.push({ id, company: target.company, added: r.added || 0, error: r.error || null });
+  }
+  return { ok: true, results, added: results.reduce((s, r) => s + r.added, 0) };
+}
+
+const TAILOR_SYSTEM = `당신은 AI 서비스 품질 감사를 돕는 조사원입니다. 특정 회사의 AI 상담 서비스에 "실제 사용자가 할 법한 질문"을 씁니다.
+목적은 그 서비스가 사실을 정확히 말하는지 공식 원문(법령·판례·고시·공공 통계)과 대조해 확인하는 것입니다.
+
+규칙:
+- 그 서비스의 실제 이용자가 쓸 말투로, 한 문장~두 문장. 시험한다는 티를 내지 않습니다.
+- 답에 확인 가능한 사실이 나오게 묻습니다: 조문 번호, 판례 사건번호, 기한·금액·비율 같은 숫자, 최근 개정·시행일, 신청 절차.
+- 해석이 갈리는 질문, 의견을 묻는 질문, 실존 개인·사건 당사자에 관한 질문, 거짓 전제를 깐 함정 질문은 쓰지 않습니다.
+- 이미 있는 질문과 겹치지 않게 합니다.
+- qtype은 article(조문 인용), case(판례 인용), procedure(절차·기한), number(숫자·금액), amended(최근 개정) 중 하나입니다.
+
+JSON 객체 하나만 출력합니다: {"questions":[{"question":"...","qtype":"article"}]}`;
+
+async function defaultTailorDraft({ audit, existing, count }) {
+  const { callClaudeJson, todayLine } = await import("./claude.js");
+  const user =
+    todayLine() +
+    `회사: ${audit.company}\n서비스: ${audit.service_name || "(이름 없음)"}\n업종: ${audit.domain}\n서비스 주소: ${audit.service_url || "(없음)"}\n` +
+    `메모: ${str(audit.notes, 600) || "(없음)"}\n\n이미 있는 질문:\n${existing.slice(0, 40).map((q) => `- ${q}`).join("\n") || "(없음)"}\n\n` +
+    `이 서비스 이용자가 할 법한 질문 ${count}개를 쓰세요.`;
+  const r = await callClaudeJson({ system: TAILOR_SYSTEM, user, maxTokens: 1200, label: "audit:tailor" });
+  return Array.isArray(r?.questions) ? r.questions : [];
+}
+
+/** 그 회사 서비스에 맞춘 질문 초안. 상대 서비스는 부르지 않는다 — 회사·서비스·메모만 보고 쓴다. */
+export async function addTailoredQuestions(auditId, { count = 6, draft = defaultTailorDraft } = {}) {
+  const audit = await auditById(auditId);
+  if (!audit) return { error: "감사 건을 찾을 수 없어요." };
+  const n = Math.min(Math.max(Math.floor(Number(count) || 6), 2), 10);
+  const existing = (await itemsOf(auditId)).map((i) => i.question.trim());
+  let drafted;
+  try {
+    drafted = await draft({ audit, existing, count: n });
+  } catch (e) {
+    logError("audit.tailor", e);
+    return { error: "지금은 맞춤 질문을 만들 수 없어요. 잠시 후 다시 시도해주세요." };
+  }
+  const have = new Set(existing);
+  const list = [];
+  for (const q of drafted || []) {
+    const question = str(q?.question, 2000);
+    if (!question || have.has(question)) continue;
+    have.add(question);
+    list.push({ kind: "custom", qtype: QUESTION_TYPES[q?.qtype] ? q.qtype : "", question });
+    if (list.length >= n) break;
+  }
+  if (!list.length) return { error: "지금은 맞춤 질문을 만들 수 없어요. 잠시 후 다시 시도해주세요." };
+  return insertItems(auditId, list);
+}
+
+// 실제로 든 시간. 데스크에서 이 건에 손을 댈 때마다 부른다 — 직전 활동과 10분 안쪽이면 그 간격을 더한다.
+const IDLE_MS = 10 * 60 * 1000;
+export async function touchWork(auditId, at = now()) {
+  const a = await one("SELECT last_active_at FROM ai_audits WHERE id = :id", { id: Number(auditId) || 0 });
+  if (!a) return;
+  const gap = a.last_active_at ? at - Number(a.last_active_at) : 0;
+  const add = gap > 0 && gap <= IDLE_MS ? gap : 0;
+  await run("UPDATE ai_audits SET work_ms = work_ms + :add, last_active_at = :at WHERE id = :id", { id: Number(auditId), add, at });
+}
+
+/** 질문·재확인 결과·캡처가 어느 감사 건의 것인지. 시간 기록용. */
+export async function auditIdOf({ itemId, findingId, fileId } = {}) {
+  if (itemId) return Number((await one("SELECT audit_id FROM ai_audit_items WHERE id = :id", { id: Number(itemId) || 0 }))?.audit_id) || null;
+  if (findingId) return Number((await one("SELECT audit_id FROM ai_audit_findings WHERE id = :id", { id: Number(findingId) || 0 }))?.audit_id) || null;
+  if (fileId) return Number((await one("SELECT audit_id FROM ai_audit_files WHERE id = :id", { id: Number(fileId) || 0 }))?.audit_id) || null;
+  return null;
+}
+
+/** 손으로 적은 시간이 있으면 그것, 없으면 자동 기록(분). */
+export const minutesOf = (a) => Number(a.minutes_spent) || Math.round(Number(a.work_ms || 0) / 60000);
+
+// 오늘 할 일 — 여러 곳을 같이 돌릴 때 "어느 건의 무엇부터"를 한 줄로. 앞에 있을수록 먼저 한다
+// (후속 연락은 날짜가 있고, 재확인·발송은 끝이 보이는 일이다).
+const QUEUE = [
+  ["followup", "후속 연락 (오늘)", (s) => s.startsWith("후속 연락")],
+  ["review", "재확인", (s) => s.startsWith("재확인")],
+  ["send", "보고서·발송", (s) => s.startsWith("보고서")],
+  ["check", "검사 실행", (s) => s === "검사 실행"],
+  ["answer", "손으로 묻기", (s) => s.startsWith("답변 기록")],
+  ["questions", "질문 세트", (s) => s.startsWith("질문 세트")],
+  ["tos", "약관 확인", (s) => s.startsWith("약관")],
+  ["sales", "영업 진행", (s) => /통화|무료 전체|가격|계약/.test(s)],
+];
+export function workQueue(list) {
+  return QUEUE.map(([key, label, match]) => ({ key, label, ids: list.filter((a) => a.next && match(a.next)).map((a) => a.id) })).filter((q) => q.ids.length);
 }
 
 export { PROBE_TYPES, QUESTION_TYPES, TOPICS };
