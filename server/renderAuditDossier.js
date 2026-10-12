@@ -85,6 +85,25 @@ ul { padding-left:18px; margin:6px 0; } li { font-size:13.5px; margin:3px 0; }
 .tbl { overflow-x:auto; }
 .others th { width:auto; } .others td { font-size:12.5px; line-height:1.55; } .others td:first-child { width:150px; }
 @media (max-width:620px) { .vs { grid-template-columns:1fr; } .others td:first-child { width:auto; } }
+.hero { display:flex; gap:18px; align-items:center; margin:22px 0 0; padding:18px 20px; border-radius:12px; background:#FBEFEA; border:1px solid #F0CDBF; }
+.count { flex:none; display:flex; align-items:baseline; color:var(--bad); }
+.count b { font-size:64px; line-height:1; font-weight:850; letter-spacing:-.04em; font-variant-numeric:tabular-nums; }
+.count span { font-size:20px; font-weight:800; margin-left:2px; }
+.hero-t { margin:0; font-size:19px; font-weight:800; line-height:1.4; letter-spacing:-.02em; }
+.hero-t em { font-style:normal; color:var(--bad); }
+.hero-s { margin:6px 0 0; font-size:13.5px; color:var(--ink2); }
+.hero .types { margin-top:10px; }
+.stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:8px; margin-top:10px; }
+.stats div { border:1px solid var(--line); border-radius:9px; padding:9px 12px; display:flex; align-items:baseline; gap:8px; }
+.stats b { font-size:18px; font-variant-numeric:tabular-nums; } .stats span { font-size:12.5px; color:var(--ink2); }
+.err { border:1px solid #EBC9BC; border-left:5px solid var(--bad); border-radius:10px; padding:14px 16px; margin-top:12px; break-inside:avoid; }
+.err-h { display:flex; gap:12px; align-items:flex-start; margin-bottom:10px; }
+.x { flex:none; width:28px; height:28px; border-radius:50%; background:var(--bad); color:#fff; font-weight:900; display:flex; align-items:center; justify-content:center; font-size:15px; }
+.err-n { font-size:11.5px; font-weight:800; color:var(--bad); letter-spacing:.02em; } .err-n span { color:var(--ink3); font-weight:650; }
+.err h3 { margin:2px 0 0; font-size:16.5px; line-height:1.45; letter-spacing:-.01em; }
+mark.bad { background:#F7C9B8; color:#7A2408; font-weight:800; padding:0 2px; border-radius:3px; text-decoration:underline wavy #B4441C; text-underline-offset:3px; }
+mark.good { background:#C9EBD7; color:#14532D; font-weight:800; padding:0 2px; border-radius:3px; }
+@media (max-width:620px) { .hero { flex-direction:column; align-items:flex-start; } .count b { font-size:52px; } }
 @media print {
   @page { size:A4; margin:14mm 14mm 16mm; }
   body { background:#fff; } .bar { display:none; } .sheet { box-shadow:none; margin:0; padding:0; max-width:none; font-size:12px; }
@@ -94,6 +113,7 @@ ul { padding-left:18px; margin:6px 0; } li { font-size:13.5px; margin:3px 0; }
   .case { padding:7px 10px; margin-top:6px; break-inside:avoid; } .case .row { padding:2px 0; font-size:11.5px; grid-template-columns:80px minmax(0,1fr); }
   .shots img { max-height:110px; max-width:180px; } li { font-size:11.5px; margin:1px 0; } .note { padding:7px 10px; font-size:11.5px; }
   .muted { font-size:11px; } .foot { margin-top:12px; padding-top:6px; font-size:10.5px; }
+  .hero { padding:10px 12px; margin-top:10px; } .count b { font-size:40px; } .hero-t { font-size:14px; } .hero-s { font-size:11px; } .err { padding:7px 10px; margin-top:6px; } .err h3 { font-size:12.5px; } .x { width:20px; height:20px; font-size:11px; }
   .lead { font-size:13px; margin:4px 0 8px; } .tiles b { font-size:19px; } .tiles div { padding:7px 10px; } .case-t { font-size:13px; margin:4px 0 6px; } .vs p { font-size:11.5px; } .vs > div { padding:6px 9px; } .why, .test { font-size:11px; } .ask { display:none; }
 }`;
 
@@ -215,17 +235,51 @@ function overlap(a, b) {
 
 const linkTo = (url, text) => (url ? `<a href="${esc(url)}" target="_blank" rel="noopener nofollow">${esc(text)}</a>` : "");
 
-function caseCard(f, item, files, fileUrl, n) {
+// 틀린 곳에 표시를 한다 — AI 답변의 틀린 말은 빨강, 원문의 맞는 말은 초록.
+// 표시할 말: 기준 문항의 틀린 값·맞는 값, 검토자가 제목에 따옴표로 적은 말, 한쪽에만 있는 숫자, 사건번호.
+const NUM = /\d[\d,.]*\s*(?:개월|년|일|명|만원|억원|원|%|퍼센트|조|항|호|시간|주|회|배)?/g;
+const CASE_NO = /\d{2,4}[가-힣]{1,3}\d{2,}/g;
+const quotedIn = (s) => [...String(s || "").matchAll(/[‘'“"]([^’'”"]{2,40})[’'”"]/g)].map((m) => m[1]);
+const nums = (s) => (oneLine(s).match(NUM) || []).map((x) => x.trim()).filter((x) => /\D/.test(x) || x.length >= 2);
+const squash = (s) => oneLine(s).replace(/\s+/g, "");
+function marks(text, terms, cls) {
+  let html = esc(text);
+  const uniq = [...new Set(terms.map((t) => oneLine(t)).filter((t) => t.length >= 2))].sort((a, b) => b.length - a.length);
+  for (const t of uniq) {
+    const e = esc(t);
+    if (html.includes(e)) html = html.split(e).join(`<mark class="${cls}">${e}</mark>`);
+  }
+  return html;
+}
+function markTerms(f, c, item) {
+  const o = parseJson(item?.probe_json)?.oracle || {};
+  // 숫자는 같은 단위끼리 값이 엇갈릴 때만 표시한다(조·항 번호, 날짜는 인용일 뿐이라 칠하지 않는다).
+  const unitOf = (n) => (n.match(/(개월|년|일|명|만원|억원|원|%|퍼센트|시간|주|회|배)$/) || [])[1] || "";
+  const sideNums = (s) => nums(s).filter(unitOf);
+  const saidN = sideNums(c.said);
+  const truthN = sideNums(c.excerpt);
+  const has = (list, n) => list.some((x) => squash(x) === squash(n));
+  const wrongN = saidN.filter((n) => !has(truthN, n) && truthN.some((x) => unitOf(x) === unitOf(n)));
+  const rightN = truthN.filter((n) => !has(saidN, n) && wrongN.some((x) => unitOf(x) === unitOf(n)));
+  const wrong = [o.wrongValue, ...quotedIn(f.report_title), ...wrongN, ...(c.said.match(CASE_NO) || [])];
+  const right = [o.actualValue, ...rightN];
+  return { wrong: wrong.filter(Boolean), right: right.filter(Boolean) };
+}
+
+// AI가 스스로 틀린 것(주장·없는 근거)을 앞에, 건넨 자료를 옮긴 것을 뒤에. 고른 대표 사례는 맨 앞.
+const ORDER = { claim: 0, fabrication_bait: 1, existence_denial: 1, amended_current: 2, grounded_recall: 2, false_premise: 3, draft_propagation: 4 };
+
+function errorCard(f, item, files, fileUrl, n) {
   const c = caseFacts(f, item);
+  const t = markTerms(f, c, item);
   const shots = files.filter((x) => Number(x.item_id) === Number(f.item_id));
-  return `<article class="case">
-  <div class="case-h"><span class="tag">${esc(c.label)}</span><span class="muted">사례 ${n}</span></div>
-  <h3 class="case-t">${esc(c.headline)}</h3>
+  return `<article class="err">
+  <div class="err-h"><span class="x" aria-hidden="true">✗</span><div><div class="err-n">틀림 ${n} · <span>${esc(c.label)}</span></div><h3>${esc(c.headline)}</h3></div></div>
   <div class="vs">
-    <div class="said"><div class="k">AI 답변</div><p>“${esc(c.said)}”</p></div>
-    <div class="truth"><div class="k">${esc(c.truthLabel)}${c.where ? ` · ${esc(c.where)}` : ""}</div><p>${esc(c.excerpt)}</p>${c.link ? `<div class="src">${linkTo(c.link, "원문 열기 ↗")}</div>` : ""}</div>
+    <div class="said"><div class="k">AI가 한 말</div><p>“${marks(c.said, t.wrong, "bad")}”</p></div>
+    <div class="truth"><div class="k">${esc(c.truthLabel)}${c.where ? ` · ${esc(c.where)}` : ""}</div><p>${marks(c.excerpt, t.right, "good")}</p>${c.link ? `<div class="src">${linkTo(c.link, "원문 열기 ↗")}</div>` : ""}</div>
   </div>
-  ${c.why ? `<p class="why"><b>왜 문제인가</b>${esc(c.why)}</p>` : ""}
+  ${c.why ? `<p class="why"><b>무엇이 틀렸나</b>${esc(c.why)}</p>` : ""}
   ${c.testNote ? `<p class="test">${esc(c.testNote)}</p>` : ""}
   ${shots.length && fileUrl ? `<div class="shots">${shots.map((s) => `<img src="${esc(fileUrl(s.id))}" alt="답변 캡처" />`).join("")}</div>` : ""}
   <details class="ask"><summary>보낸 질문 보기</summary><p>${esc(c.ask)}</p>${c.material ? `<p class="muted">건넨 자료: ${esc(c.material)}</p>` : ""}</details>
@@ -233,8 +287,8 @@ function caseCard(f, item, files, fileUrl, n) {
 </article>`;
 }
 
-// 한눈에 보기 — 숫자 셋과 유형별 건수, 그리고 한 문단.
-function glance(results, confirmed, byItem) {
+// 맨 위 — 몇 건을 틀렸는지가 가장 먼저 보이게.
+function hero(service, results, confirmed, byItem) {
   const p = results.probe;
   const c = results.claims;
   const n = confirmed.length;
@@ -244,17 +298,21 @@ function glance(results, confirmed, byItem) {
     groups.set(k, (groups.get(k) || 0) + 1);
   }
   const fails = p && p.byType ? Object.values(p.byType).reduce((s, t) => s + t.failed, 0) : 0;
-  const tiles = [
-    [`${n}건`, "원문과 다른 내용", "검토자가 원문을 직접 열어 확인한 것만"],
-    p && p.graded ? [`${fails} / ${p.graded}`, "함정 문항에서 틀림", "정답을 원문으로 먼저 정해 둔 문항"] : null,
-    c.total ? [`${c.match} / ${c.total}`, "원문과 일치한 주장", "답변 속 사실 주장을 하나씩 대조"] : null,
+  const wrongAnswers = new Set(confirmed.map((f) => Number(f.item_id))).size;
+  const stats = [
+    [`${wrongAnswers} / ${results.answered}`, "틀린 내용이 들어 있던 답변"],
+    p && p.graded ? [`${fails} / ${p.graded}`, "함정 문항에서 틀림"] : null,
+    c.total ? [`${c.mismatch} / ${c.total}`, "원문과 다른 사실 주장"] : null,
   ].filter(Boolean);
-  const lead = `질문 ${results.answered}개에 받은 답변을 법령·판례 원문과 대조해 <b>원문과 다른 내용 ${n}건</b>을 확인했습니다.${
-    c.total ? ` 답변 속 사실 주장 ${c.total}개 중 ${c.match}개는 원문과 일치했습니다.` : ""
-  }`;
-  return `<p class="lead">${lead}</p>
-  <div class="tiles">${tiles.map(([v, k, d]) => `<div><b>${esc(v)}</b><span>${esc(k)}</span><small>${esc(d)}</small></div>`).join("")}</div>
-  ${groups.size ? `<div class="types"><span class="muted">어떤 식으로 틀렸나</span>${[...groups].sort((a, b) => b[1] - a[1]).map(([k, v]) => `<span class="tag">${esc(k)} <b>${v}</b></span>`).join("")}</div>` : ""}`;
+  return `<section class="hero">
+  <div class="count"><b>${n}</b><span>건</span></div>
+  <div class="hero-b">
+    <p class="hero-t">${esc(service)}가 법령·판례와 <em>다르게 답한 것</em></p>
+    <p class="hero-s">질문 ${results.answered}개에 받은 답변을 원문과 한 줄씩 대조했습니다. 아래 ${n}건은 검토자가 원문을 직접 열어 틀린 것으로 확인한 것입니다.</p>
+    ${groups.size ? `<div class="types">${[...groups].sort((a, b) => b[1] - a[1]).map(([k, v]) => `<span class="tag">${esc(k)} <b>${v}</b></span>`).join("")}</div>` : ""}
+  </div>
+</section>
+<div class="stats">${stats.map(([v, k]) => `<div><b>${esc(v)}</b><span>${esc(k)}</span></div>`).join("")}</div>`;
 }
 
 // 숫자 자세히 — 기준 문항과 주장 대조를 나눠 적는다(뒤쪽 '검사 방법'에 둔다).
@@ -284,10 +342,10 @@ export function renderAuditReport(detail, { fileUrl = null, mode = "shared" } = 
   const method = methodOf(audit);
   const byItem = new Map(items.map((i) => [Number(i.id), i]));
   const confirmed = findings.filter((f) => f.polarity === "issue" && f.review === "confirmed");
-  const featured = confirmed.filter((f) => Number(f.featured)).slice(0, 3);
-  // 1~2쪽 — 대표 사례 3건, 그 밖의 오류 8건, 잘된 점 3건까지만 싣고 나머지는 숫자로 말한다.
-  const othersAll = confirmed.filter((f) => !Number(f.featured));
-  const others = othersAll.slice(0, 8);
+  // 틀린 것은 전부 싣는다(20건까지). 고른 대표 사례가 먼저, 그다음 AI가 스스로 틀린 것, 건넨 자료를 옮긴 것.
+  const typeOf = (f) => caseFacts(f, byItem.get(Number(f.item_id))).type;
+  const errors = [...confirmed].sort((x, y) => Number(y.featured) - Number(x.featured) || (ORDER[typeOf(x)] ?? 2) - (ORDER[typeOf(y)] ?? 2) || x.id - y.id);
+  const shown = errors.slice(0, 20);
   const goods = findings.filter((f) => f.polarity === "good" && Number(f.featured)).slice(0, 3);
   const period = results.period ? `${kDateTime(results.period.from)} ~ ${kDateTime(results.period.to)}` : "—";
   const body = `
@@ -297,26 +355,18 @@ export function renderAuditReport(detail, { fileUrl = null, mode = "shared" } = 
   <h1>${esc(service)} 답변 검사 결과</h1>
   <p class="sub">AI 답변을 법령·판례 원문과 대조했습니다 · 유메(YUME)</p>
 
-  <h2>1. 한눈에 보기</h2>
-  ${glance(results, confirmed, byItem)}
+  ${hero(service, results, confirmed, byItem)}
 
-  <h2>2. 대표 사례</h2>
-  ${featured.length ? featured.map((f, i) => caseCard(f, byItem.get(Number(f.item_id)), files, fileUrl, i + 1)).join("") : `<p class="muted">대표 사례를 아직 고르지 않았습니다.</p>`}
+  <h2>1. 틀린 답변 ${confirmed.length}건</h2>
+  ${shown.length ? shown.map((f, i) => errorCard(f, byItem.get(Number(f.item_id)), files, fileUrl, i + 1)).join("") : `<p class="muted">원문으로 확인한 오류가 아직 없습니다.</p>`}
+  ${errors.length > shown.length ? `<p class="muted">외 ${errors.length - shown.length}건 — 요청하시면 원문 링크와 함께 드립니다.</p>` : ""}
 
-  ${others.length ? `<h2>3. 그 밖에 확인한 오류</h2>
-  <div class="tbl"><table class="others"><thead><tr><th>유형</th><th>AI 답변</th><th>원문 기준</th></tr></thead><tbody>${others
-    .map((f) => {
-      const c = caseFacts(f, byItem.get(Number(f.item_id)));
-      return `<tr><td><span class="tag">${esc(c.label)}</span></td><td>“${esc(clip(c.said, 110))}”</td><td>${esc(clip(c.excerpt, 130))}${c.link ? ` ${linkTo(c.link, "원문 ↗")}` : ""}</td></tr>`;
-    })
-    .join("")}</tbody></table></div>${othersAll.length > others.length ? `<p class="muted">외 ${othersAll.length - others.length}건 — 요청하시면 원문 링크와 함께 드립니다.</p>` : ""}` : ""}
-
-  <h2>${others.length ? 4 : 3}. 잘된 점</h2>
+  <h2>2. 잘된 점</h2>
   ${goods.length ? `<ul>${goods.map((g) => `<li><b>${esc(clip(byItem.get(Number(g.item_id))?.question || g.claim, 70))}</b> — ${esc(firstSentence(g.yume_reason || g.ai_quote))}</li>`).join("")}</ul>` : ""}
   ${audit.highlights ? `<div class="note">${esc(audit.highlights).replace(/\n/g, "<br />")}</div>` : ""}
   ${!goods.length && !audit.highlights ? `<p class="muted">—</p>` : ""}
 
-  <h2>${others.length ? 5 : 4}. 검사 방법과 숫자</h2>
+  <h2>3. 검사 방법과 숫자</h2>
   <table>
     <tr><th>대상</th><td>${esc(service)}${audit.service_url ? ` · ${linkTo(audit.service_url, audit.service_url)}` : ""}<div class="muted">${esc(method.basis)}</div></td></tr>
     <tr><th>검사 일시</th><td>${esc(period)}</td></tr>
@@ -325,14 +375,14 @@ export function renderAuditReport(detail, { fileUrl = null, mode = "shared" } = 
   </table>
   ${resultNumbers(results)}
 
-  <h2>${others.length ? 6 : 5}. 한계</h2>
+  <h2>4. 한계</h2>
   <ul>
     <li>표본이 작습니다(질문 ${results.answered}개). 드물게 생기는 오류는 잡히지 않았을 수 있습니다.</li>
     <li>위 일시에 받은 답변의 결과입니다. 같은 질문에도 시점·모델 버전에 따라 답이 달라질 수 있습니다.</li>
     <li>공개 원문과 대조한 검사 결과이며 보증이 아닙니다. 사례마다 원문 링크를 붙였으니 직접 확인해 주세요.</li>
   </ul>
 
-  <h2>${others.length ? 7 : 6}. 비공개 고지</h2>
+  <h2>5. 비공개 고지</h2>
   <p style="font-size:14px;margin:4px 0">이 보고서는 ${esc(audit.company)}에만 전달되었으며 외부에 공개되지 않았습니다. 유메는 이 결과를 공개할 계획이 없습니다.</p>
 
   <div class="foot">
