@@ -19,14 +19,15 @@ const pct = (v) => (v === null || v === undefined ? "—" : `${Number(v).toFixed
 const num = (v) => Number(v || 0).toLocaleString("ko-KR");
 
 const FONTS = `<link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;700;900&display=swap" />`;
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" />`;
 
 const STYLE = `
 :root {
   --paper:#F7F4FB; --sheet:#FFFFFF; --ink:#1A1626; --ink2:#4A4458; --ink3:#857D96; --line:rgba(46,24,96,.12); --line2:rgba(46,24,96,.22);
   --accent:#6B4FA8; --accent-soft:rgba(107,79,168,.10); --fail:#C2410C; --partial:#D99A2B; --safe:#2F7D5B; --band:rgba(194,65,12,.16);
-  --serif:'Noto Serif KR','Nanum Myeongjo',ui-serif,Georgia,serif;
-  --sans:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Pretendard','Noto Sans KR','Malgun Gothic',sans-serif;
+  /* 제목·큰 숫자(--display)와 본문(--sans) 모두 Noto Sans KR(2026-10-12 대표 결정). */
+  --display:'Noto Sans KR',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+  --sans:'Noto Sans KR',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;
   --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
@@ -49,7 +50,7 @@ a:focus-visible, button:focus-visible { outline:2px solid var(--accent); outline
 .top nav a { color:var(--ink2); text-decoration:none; }
 .mast { padding:44px 0 26px; border-bottom:2px solid var(--ink); }
 .kicker { font-size:12px; font-weight:700; letter-spacing:.16em; text-transform:uppercase; color:var(--ink3); }
-.mast h1 { font-family:var(--serif); font-weight:900; font-size:clamp(30px,5.4vw,54px); line-height:1.15; letter-spacing:-.02em; margin:10px 0 0; text-wrap:balance; }
+.mast h1 { font-family:var(--display); font-weight:900; font-size:clamp(30px,5.4vw,54px); line-height:1.15; letter-spacing:-.02em; margin:10px 0 0; text-wrap:balance; }
 .mast .sub { font-size:clamp(15px,1.6vw,17px); color:var(--ink2); margin:14px 0 0; max-width:62ch; }
 .meta { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:0; border-bottom:1px solid var(--line); }
 .meta div { padding:12px 14px 12px 0; }
@@ -57,7 +58,7 @@ a:focus-visible, button:focus-visible { outline:2px solid var(--accent); outline
 .meta dd { margin:3px 0 0; font-size:14px; font-weight:600; font-variant-numeric:tabular-nums; }
 .hero { display:grid; grid-template-columns:minmax(0,1.1fr) minmax(0,1fr); gap:clamp(20px,4vw,48px); padding:36px 0; border-bottom:1px solid var(--line); align-items:center; }
 @media (max-width:760px) { .hero { grid-template-columns:1fr; } }
-.big { font-family:var(--serif); font-weight:900; font-size:clamp(64px,12vw,120px); line-height:1; letter-spacing:-.04em; font-variant-numeric:tabular-nums; }
+.big { font-family:var(--display); font-weight:900; font-size:clamp(64px,12vw,120px); line-height:1; letter-spacing:-.04em; font-variant-numeric:tabular-nums; }
 .big small { font-size:.42em; letter-spacing:0; margin-left:2px; }
 .hero .what { font-size:15px; color:var(--ink2); margin-top:12px; max-width:44ch; }
 .pill { display:inline-block; font-size:12px; font-weight:700; padding:3px 10px; border-radius:999px; background:var(--accent-soft); color:var(--accent); letter-spacing:.02em; }
@@ -66,7 +67,7 @@ a:focus-visible, button:focus-visible { outline:2px solid var(--accent); outline
 .scale svg { width:100%; height:auto; display:block; overflow:visible; }
 .scale .cap { font-size:12.5px; color:var(--ink3); margin-top:8px; }
 section { padding:34px 0; border-bottom:1px solid var(--line); }
-section > h2 { font-family:var(--serif); font-size:clamp(21px,2.6vw,27px); font-weight:700; letter-spacing:-.01em; margin:0; }
+section > h2 { font-family:var(--display); font-size:clamp(21px,2.6vw,27px); font-weight:700; letter-spacing:-.01em; margin:0; }
 section > .lede { color:var(--ink2); font-size:15px; margin:8px 0 0; max-width:66ch; }
 .commentary { font-size:16.5px; line-height:1.85; max-width:66ch; white-space:pre-wrap; margin-top:14px; }
 .bars { margin-top:18px; }
@@ -93,7 +94,7 @@ td.n { text-align:right; white-space:nowrap; }
 .stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:1px; background:var(--line); border:1px solid var(--line); border-radius:14px; overflow:hidden; margin-top:18px; }
 .stats div { background:var(--sheet); padding:14px 16px; }
 .stats dt { font-size:12px; color:var(--ink3); }
-.stats dd { margin:4px 0 0; font-family:var(--serif); font-size:26px; font-weight:700; font-variant-numeric:tabular-nums; }
+.stats dd { margin:4px 0 0; font-family:var(--display); font-size:26px; font-weight:700; font-variant-numeric:tabular-nums; }
 .method { columns:2 300px; column-gap:36px; margin-top:16px; }
 .method div { break-inside:avoid; margin-bottom:16px; }
 .method h3 { font-size:14px; margin:0 0 4px; }
@@ -105,7 +106,7 @@ td.n { text-align:right; white-space:nowrap; }
 .archive { margin-top:16px; }
 .archive a { display:grid; grid-template-columns:110px minmax(0,1fr) auto; gap:14px; padding:14px 0; border-top:1px solid var(--line); text-decoration:none; color:var(--ink); align-items:baseline; }
 .archive a:hover .t { color:var(--accent); }
-.archive .t { font-family:var(--serif); font-weight:700; font-size:17px; }
+.archive .t { font-family:var(--display); font-weight:700; font-size:17px; }
 .archive .v { font-variant-numeric:tabular-nums; font-weight:700; }
 @media (max-width:560px) { .archive a { grid-template-columns:1fr auto; } .archive a .d { grid-column:1 / -1; } }
 .foot { padding:30px 0 60px; font-size:12px; color:var(--ink3); line-height:1.9; }

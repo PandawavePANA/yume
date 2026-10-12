@@ -25,7 +25,7 @@ const pct = (v) => `${Number(v).toFixed(1)}%`;
 const CSS = `
 .bz { --paper:#F6F2FC; --sheet:#FFFFFF; --ink:#1D1A24; --ink2:#5E5870; --ink3:#958EA8; --line:rgba(60,40,110,.11);
   --accent:#6B4FA8; --accent-soft:rgba(139,111,216,.12); --deep:#1F1B2E; --deep2:#2A2440; --fail:#C2410C; --ok:#2F7D5B;
-  --serif:'Noto Serif KR','Nanum Myeongjo',ui-serif,Georgia,serif;
+  --display:'Noto Sans KR','Pretendard Variable',-apple-system,BlinkMacSystemFont,sans-serif;
   background:var(--paper); color:var(--ink); min-height:100dvh; word-break:keep-all; }
 .bz *, .bz *::before, .bz *::after { box-sizing:border-box; }
 .bz a { color:inherit; }
@@ -63,7 +63,7 @@ const CSS = `
 /* 증거 패널 */
 .bz-panel { background:var(--deep); color:#fff; border-radius:26px; padding:clamp(20px,3vw,28px); box-shadow:0 30px 80px rgba(31,27,46,.28); display:grid; gap:16px; }
 .bz-panel .label { font-size:11.5px; font-weight:750; letter-spacing:.14em; color:#A88BEA; text-transform:uppercase; }
-.bz-panel .num { font-family:var(--serif); font-weight:900; font-size:clamp(52px,7vw,76px); line-height:1; letter-spacing:-.04em; font-variant-numeric:tabular-nums; margin-top:8px; }
+.bz-panel .num { font-family:var(--display); font-weight:900; font-size:clamp(52px,7vw,76px); line-height:1; letter-spacing:-.04em; font-variant-numeric:tabular-nums; margin-top:8px; }
 .bz-panel .num.word { font-family:inherit; font-weight:800; font-size:clamp(34px,4.6vw,46px); letter-spacing:-.03em; }
 .bz-panel .desc { font-size:13.5px; color:#CFC9DE; line-height:1.7; margin-top:8px; }
 .bz-panel .link { color:#C9B6FF; font-weight:700; font-size:13.5px; text-decoration:none; }
