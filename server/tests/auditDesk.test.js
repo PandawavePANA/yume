@@ -271,7 +271,11 @@ test("감사 데스크: 약관 → 검사 → 재확인 → 체크리스트 → 
   assert.match(rep.headers.get("x-robots-tag"), /noindex/);
   assert.match(rep.text, /비공개/);
   assert.match(rep.text, /가나다 AI 노무상담/);
-  assert.match(rep.text, /직접 재확인/);
+  assert.match(rep.text, /원문을 직접 열어 다시 확인/);
+  // 사례는 AI 답변과 원문을 나란히, 질문 방법은 실제와 같게(기본은 화면 입력).
+  assert.match(rep.text, /class="vs"/);
+  assert.match(rep.text, /서비스 화면에 질문을 직접 입력했습니다/);
+  assert.ok(!/\*\*/.test(rep.text.replace(/<style>[\s\S]*?<\/style>/, "")));
   assert.match(rep.text, /공개되지 않았습니다/);
   assert.ok(!/심각|높음/.test(rep.text.replace(/<style>[\s\S]*?<\/style>/, ""))); // 평가 문구 없음
   const fileId = d.files[0].id;

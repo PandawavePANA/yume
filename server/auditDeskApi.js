@@ -10,6 +10,7 @@ import { clientIp } from "./security.js";
 import {
   CATEGORIES,
   DESK_DOMAINS,
+  INPUT_METHODS,
   PROBE_TYPES,
   QUESTION_TYPES,
   REVIEWS,
@@ -92,6 +93,7 @@ auditDeskRouter.get("/audits/meta", (req, res) => {
   res.json({
     domains: DESK_DOMAINS,
     categories: CATEGORIES,
+    inputMethods: Object.fromEntries(Object.entries(INPUT_METHODS).map(([k, v]) => [k, v.label])),
     stages: Object.fromEntries(Object.entries(STAGES).map(([k, v]) => [k, v.label])),
     reviews: REVIEWS,
     questionTypes: Object.fromEntries(Object.entries(QUESTION_TYPES).map(([k, v]) => [k, v.label])),

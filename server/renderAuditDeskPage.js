@@ -309,6 +309,8 @@ export function renderAuditDeskPage() {
     function inp(k, ph, max) { f[k] = h("input", { value: a[k] || "", placeholder: ph || "", maxlength: max || 200 }); return f[k]; }
     var domain = h("select", null, state.meta.domains.map(function (x) { return h("option", { value: x, text: x, selected: x === a.domain }); }));
     var cat = h("select", null, Object.keys(state.meta.categories).map(function (k) { return h("option", { value: k, text: state.meta.categories[k], selected: k === a.category }); }));
+    var methods = state.meta.inputMethods || { manual: "화면에 직접 입력" };
+    var im = h("select", null, Object.keys(methods).map(function (k) { return h("option", { value: k, text: methods[k], selected: k === (a.input_method || "manual") }); }));
     f.notes = h("textarea", { rows: 3, value: a.notes || "", placeholder: "메모 (내부용)" });
     f.minutes_spent = h("input", { type: "number", min: 0, value: a.minutes_spent || 0 });
     body.appendChild(h("div", { class: "box" }, h("h3", null, "대상"),
@@ -316,9 +318,10 @@ export function renderAuditDeskPage() {
       h("div", { class: "grid3", style: "margin-top:10px" }, field("서비스 주소", inp("service_url", "https://", 400)), field("업종", domain), field("종류", cat)),
       h("div", { class: "grid3", style: "margin-top:10px" }, field("담당자", inp("contact_name", "이름", 60)), field("직책", inp("contact_role", "CTO · 제품 책임자 · AI 담당", 60)), field("담당자 이메일(개인)", inp("contact_email", "name@company.com", 200))),
       h("div", { class: "grid2", style: "margin-top:10px" }, field("어떻게 찾았나", inp("found_via", "링크드인 · 회사 블로그 · 채용공고 · 학습서 41장 리스트", 200)), field("들인 시간(분) — 비우면 자동 기록 " + Math.round(Number(a.work_ms || 0) / 60000) + "분", f.minutes_spent)),
+      h("div", { class: "grid2", style: "margin-top:10px" }, field("질문 방법 — 보고서·메일의 '검사 방법' 문장이 이걸 따릅니다", im), h("p", { class: "help", style: "align-self:end", text: "공식 API로 공개된 모델(Claude·GPT API 등)을 감사할 때만 '공식 API'로 바꾸세요." })),
       h("div", { style: "margin-top:10px" }, field("메모", f.notes)),
       h("div", { class: "actions" }, h("button", { class: "btn", onclick: run(async function () {
-        var body = { domain: domain.value, category: cat.value };
+        var body = { domain: domain.value, category: cat.value, input_method: im.value };
         Object.keys(f).forEach(function (k) { body[k] = f[k].value; });
         await api("PATCH", "/api/admin/audits/" + a.id, body); toast("저장했어요."); await refresh();
       }) }, "저장"))));
@@ -567,6 +570,8 @@ export function renderAuditDeskPage() {
     it = it || {};
     var url = h("input", { value: f.checked_url || "", placeholder: "직접 열어 확인한 공식 원문 주소 (https://…)" });
     var note = h("input", { value: f.review_note || "", placeholder: "메모 — 무엇을 확인했는지, 왜 뺐는지" });
+    // 보고서 사례 제목 — 상대 담당자가 한 줄로 알아보게. 비우면 자동 제목.
+    var title = f.polarity === "issue" ? h("input", { value: f.report_title || "", maxlength: 200, placeholder: "보고서 한 줄 제목 (선택) — 예: 해고예고 예외에 법에 없는 '노동위원회 인정' 요건을 붙임", onchange: run(async function () { await api("PATCH", "/api/admin/audits/findings/" + f.id, { report_title: title.value }); toast("제목을 저장했어요."); }) }) : null;
     function rv(v) { return run(async function () { await api("PATCH", "/api/admin/audits/findings/" + f.id, { review: v, checked_url: url.value, review_note: note.value }); toast({ confirmed: "불일치로 확정했어요.", excluded: "제외했어요.", yume_wrong: "유메 오판으로 돌렸어요.", pending: "되돌렸어요." }[v]); state.focusNext = v !== "pending"; await refresh(); }); }
     var label = { pending: ["재확인 전", "w"], confirmed: ["불일치 확정", "b"], excluded: ["제외", ""], yume_wrong: ["유메 오판", ""] }[f.review] || [f.review, ""];
     var st = f.strength;
@@ -580,6 +585,7 @@ export function renderAuditDeskPage() {
         h("b", { text: "유메 판정" }), h("div", { text: f.yume_reason || "" }),
         h("b", { text: "원문" }), h("div", { class: "truth" }, f.truth || "", f.source_url ? h("div", null, h("a", { href: f.source_url, target: "_blank", rel: "noopener nofollow", text: f.source_label || f.source_url })) : null)),
       h("div", { class: "grid2" }, h("div", { style: "display:flex;gap:6px" }, url, f.source_url ? h("button", { class: "ghost", title: "유메가 댄 원문을 새 창으로 열고 그 주소를 적어요", onclick: function () { window.open(f.source_url, "_blank", "noopener"); url.value = f.source_url; } }, "원문 열기") : null), note),
+      title ? h("div", { style: "margin-top:8px" }, title) : null,
       h("div", { class: "actions", style: "margin-top:0" },
         h("button", { class: "btn bad", onclick: rv("confirmed") }, "원문 확인 — 불일치 맞음"), h("button", { class: "btn warn", onclick: rv("excluded") }, "애매해서 제외"), h("button", { class: "ghost", onclick: rv("yume_wrong") }, "유메 오판"), f.review !== "pending" ? h("button", { class: "ghost", onclick: rv("pending") }, "되돌리기") : null,
         f.review === "confirmed" ? h("label", { class: "help", style: "display:flex;gap:6px;align-items:center;margin-left:8px" }, h("input", { type: "checkbox", style: "width:auto", checked: Number(f.featured), onchange: run(async function (e) { await api("PATCH", "/api/admin/audits/findings/" + f.id, { featured: e.target.checked }); await refresh(); }) }), "보고서 대표 사례") : null,

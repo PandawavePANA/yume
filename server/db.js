@@ -1156,6 +1156,16 @@ const MIGRATIONS = [
   ALTER TABLE ai_audits ADD COLUMN work_ms BIGINT NOT NULL DEFAULT 0;
   ALTER TABLE ai_audits ADD COLUMN last_active_at BIGINT;
   `,
+  // 질문을 어떻게 보냈는가 — 'manual'(일반 사용자로서 화면에 직접 입력, 기본) | 'api'(대상이 공개한 공식 API).
+  // 보고서·메일의 "검사 방법" 문장이 실제와 같아야 한다. API로 공개된 모델(Claude·GPT API 등)을 감사할 때 api.
+  `
+  ALTER TABLE ai_audits ADD COLUMN input_method TEXT NOT NULL DEFAULT 'manual';
+  `,
+  // 보고서에 실리는 사례 한 줄 제목. 검토자가 원문을 확인하며 쓴다(비우면 자동 제목). 상대 담당자가 사례를
+  // 한 줄로 이해하게 하는 자리라, 채점 메모(review_note)와 따로 둔다 — 메모는 내부용이다.
+  `
+  ALTER TABLE ai_audit_findings ADD COLUMN report_title TEXT;
+  `,
 ];
 
 async function migrate() {
