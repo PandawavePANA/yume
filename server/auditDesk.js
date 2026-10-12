@@ -37,6 +37,12 @@ export const INPUT_METHODS = {
   api: { label: "공식 API", report: "공개된 공식 API로 질문을 보냈습니다(시스템 프롬프트 없이, 일반 사용자가 묻는 그대로)", basis: "답변 받은 시점의 API 응답 기준", mail: (s, n) => `${s}에 공식 API로 ${n}개 질문을 보내 확인하던 중` },
 };
 export const methodOf = (audit) => INPUT_METHODS[audit?.input_method] || INPUT_METHODS.manual;
+// "…받은 답변을" — 이상 없음 메일처럼 질문한 방법 뒤에 바로 대조 결과가 이어질 때 쓴다.
+const ASKED = {
+  manual: (s, n) => `${s} 서비스를 일반 사용자로서 ${n}개 질문으로 사용해 받은 답변을`,
+  browser: (s, n) => `${s} 서비스 화면에 ${n}개 질문을 한 건씩 입력해 받은 답변을`,
+  api: (s, n) => `${s}에 공식 API로 ${n}개 질문을 보내 받은 답변을`,
+};
 
 // 단계. 앞으로 갈수록 영업이 진행된 것이다. 끝 단계(terminal)는 결과다.
 // 단계를 되돌려도 지난 시각(sent_at 등)은 지우지 않는다 — 숫자는 "한 번이라도 거기까지 갔는가"로 센다.
@@ -592,8 +598,10 @@ async function syncReviewedStage(auditId) {
   const r = auditResults(detailItems, findings);
   const stage = r.reviewComplete ? "reviewed" : audit.tos_verdict === "ok" ? "testing" : audit.stage;
   if (stage !== audit.stage) await run("UPDATE ai_audits SET stage = :s, updated_at = :t WHERE id = :id", { id: audit.id, s: stage, t: now() });
-  // 재확인이 막 끝났는데 대표 사례를 아직 안 골랐으면 골라 둔다(운영자가 바꿀 수 있다).
-  if (r.reviewComplete && !findings.some((f) => f.polarity === "issue" && f.review === "confirmed" && Number(f.featured))) {
+  // 재확인이 막 끝났는데 대표 사례를 아직 하나도 안 골랐으면 골라 둔다(운영자가 바꿀 수 있다).
+  // 오류가 없는 감사는 잘한 점만 고르게 되는데, 그때 운영자가 고른 잘한 점을 다음 저장 때마다
+  // 덮어쓰지 않도록 — 무엇이든 하나라도 골라져 있으면 손대지 않는다.
+  if (r.reviewComplete && !findings.some((f) => Number(f.featured) && (f.polarity === "good" || f.review === "confirmed"))) {
     await autoPick(auditId).catch((e) => logError("auditDesk:autopick", e));
   }
 }
@@ -794,7 +802,9 @@ export function mailDrafts(audit, results, { reportUrl = "", issues = 0, wrongAn
     // 대표가 정한 첫 문장(2026-10-13). 담당자 이름을 알면 이름을 넣는다.
     `안녕하세요${audit.contact_name ? `, ${audit.contact_name}님` : ""}. AI 할루시네이션 감지 서비스 유메를 운영하는 ${COMPANY.ceo}입니다.`,
     "",
-    `${methodOf(audit).mail(service, n)}, ${finding}`,
+    clean
+      ? `${(ASKED[audit.input_method] || ASKED.manual)(service, n)} 법령·판례 원문과 하나씩 대조했습니다. 원문과 다른 내용은 확인되지 않아 결과를 공유드립니다.`
+      : `${methodOf(audit).mail(service, n)}, ${finding}`,
     ...(issues && examples.length ? ["", "예를 들면 이렇습니다.", ...examples.slice(0, 3).map((e) => `- ${e}`)] : []),
     ...(clean && goodExamples.length ? ["", "특히 이런 질문을 정확하게 처리했습니다.", ...goodExamples.slice(0, 3).map((e) => `- ${e}`)] : []),
     "",

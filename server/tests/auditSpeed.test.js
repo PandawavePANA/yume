@@ -68,7 +68,7 @@ test("이상 없음 메일: 오류가 없으면 그렇게 말하고 공개 감�
   const audit = { company: "가나다", service_name: "가나다 AI", domain: "인사" };
   const m = desk.mailDrafts(audit, { answered: 26 }, { reportUrl: "https://x/audit/p/t", clean: true, goodExamples: ["없는 조문을 묻자 존재하지 않는다고 바로잡음"] }).first;
   assert.match(m.subject, /법령과 다른 내용 없음/);
-  assert.match(m.body, /원문과 다른 내용은 확인되지 않아/);
+  assert.match(m.body, /받은 답변을 법령·판례 원문과 하나씩 대조했습니다. 원문과 다른 내용은 확인되지 않아/);
   assert.match(m.body, /- 없는 조문을 묻자 존재하지 않는다고 바로잡음/);
   assert.match(m.body, /YUME 감사 기록/);
   assert.ok(!/일부가 원문과 다른 것을/.test(m.body));
