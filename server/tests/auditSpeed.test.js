@@ -220,6 +220,17 @@ test("여러 곳을 같이 — 질문 세트 복사, 맞춤 질문, 시간 자�
   const touched = await db.one("SELECT last_active_at FROM ai_audits WHERE id = :id", { id: a });
   assert.ok(Number(touched.last_active_at) > 0);
 
+  // 질문 방법 — API로 감사한 건은 메일·보고서가 그렇게 말한다(화면 입력이라고 쓰지 않는다).
+  await call("PATCH", `/api/admin/audits/${b}`, { input_method: "api", service_name: "어떤 모델" });
+  const db2 = (await call("GET", `/api/admin/audits/${b}`)).json;
+  assert.equal(db2.audit.input_method, "api");
+  assert.match(db2.mail.first.body, /공식 API로/);
+  assert.ok(!/일반 사용자로서/.test(db2.mail.first.body));
+  const { renderAuditReport } = await import("../renderAuditDossier.js");
+  assert.match(renderAuditReport(db2), /공개된 공식 API로 질문을 보냈습니다/);
+  await call("PATCH", `/api/admin/audits/${b}`, { input_method: "bogus" });
+  assert.equal((await call("GET", `/api/admin/audits/${b}`)).json.audit.input_method, "api");
+
   // 오늘 할 일 — 약관 확인이 남은 건이 묶여 나온다.
   const list = (await call("GET", "/api/admin/audits")).json;
   const tos = list.queue.find((q) => q.key === "tos");

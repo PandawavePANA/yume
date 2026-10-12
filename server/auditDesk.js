@@ -29,6 +29,12 @@ import { logError } from "./errorLog.js";
 
 export const DESK_DOMAINS = [...AUDIT_DOMAINS, "범용"];
 export const CATEGORIES = { service: "특정 회사 AI 서비스", general: "범용 AI 서비스" };
+// 질문을 보낸 방법. 보고서·메일·체크리스트 문장이 이걸 따른다 — 실제와 다른 방법을 적으면 보고서 전체를 믿지 않는다.
+export const INPUT_METHODS = {
+  manual: { label: "화면에 직접 입력", report: "일반 사용자로서 서비스 화면에 질문을 직접 입력했습니다", basis: "답변 받은 시점의 화면 기준", mail: (s, n) => `${s} 서비스를 일반 사용자로서 ${n}개 질문으로 사용해 보던 중` },
+  api: { label: "공식 API", report: "공개된 공식 API로 질문을 보냈습니다(시스템 프롬프트 없이, 일반 사용자가 묻는 그대로)", basis: "답변 받은 시점의 API 응답 기준", mail: (s, n) => `${s}에 공식 API로 ${n}개 질문을 보내 확인하던 중` },
+};
+export const methodOf = (audit) => INPUT_METHODS[audit?.input_method] || INPUT_METHODS.manual;
 
 // 단계. 앞으로 갈수록 영업이 진행된 것이다. 끝 단계(terminal)는 결과다.
 // 단계를 되돌려도 지난 시각(sent_at 등)은 지우지 않는다 — 숫자는 "한 번이라도 거기까지 갔는가"로 센다.
@@ -165,6 +171,10 @@ export async function updateAudit(id, input = {}) {
   if (input.category !== undefined && CATEGORIES[input.category]) {
     sets.push("category = :category");
     params.category = input.category;
+  }
+  if (input.input_method !== undefined && INPUT_METHODS[input.input_method]) {
+    sets.push("input_method = :im");
+    params.im = input.input_method;
   }
   if (input.minutes_spent !== undefined) {
     sets.push("minutes_spent = :ms");
@@ -615,6 +625,10 @@ export async function reviewFinding(findingId, input = {}) {
     sets.push("review_note = :rn");
     params.rn = str(input.review_note, 2000);
   }
+  if (input.report_title !== undefined) {
+    sets.push("report_title = :rt");
+    params.rt = str(input.report_title, 200) || null;
+  }
   const review = input.review ?? f.review;
   const usable = f.polarity === "good" ? review !== "excluded" && review !== "yume_wrong" : review === "confirmed";
   if (input.featured !== undefined) {
@@ -765,7 +779,7 @@ export function mailDrafts(audit, results, { reportUrl = "" } = {}) {
     `안녕하세요, ${who}.`,
     `AI 답변의 근거를 공식 원문과 대조하는 AI 할루시네이션 검사 서비스 유메를 운영하는 ${COMPANY.ceo}입니다.`,
     "",
-    `${service} 서비스를 일반 사용자로서 ${n}개 질문으로 사용해 보던 중, ${phrase} 일부가 원문과 다른 것을 확인해 비공개로 공유드립니다. 대표 사례와 원문 링크는 2쪽짜리 보고서에 정리했고, 정확하게 인용된 부분도 함께 적었습니다.`,
+    `${methodOf(audit).mail(service, n)}, ${phrase} 일부가 원문과 다른 것을 확인해 비공개로 공유드립니다. 대표 사례와 원문 링크는 2쪽짜리 보고서에 정리했고, 정확하게 인용된 부분도 함께 적었습니다.`,
     reportUrl ? `보고서: ${reportUrl}` : "",
     "",
     NONDISCLOSURE,
@@ -825,7 +839,7 @@ export function checklist(audit, items, findings, files, mail) {
     },
     {
       key: "manual_input",
-      label: "질문은 직접 손으로 입력했고, 답변마다 받은 날짜·시간이 있다",
+      label: audit.input_method === "api" ? "질문은 공식 API로 보냈고(대량 자동 질의 아님), 답변마다 받은 날짜·시간이 있다" : "질문은 직접 손으로 입력했고, 답변마다 받은 날짜·시간이 있다",
       ok: !!manual.manual_input && answered.length > 0 && answered.every((i) => Number(i.answered_at) > 0),
       manual: true,
       detail: answered.length ? `답변 ${answered.length}개 · 시각 기록 ${answered.filter((i) => Number(i.answered_at) > 0).length}개` : "답변이 아직 없어요.",
