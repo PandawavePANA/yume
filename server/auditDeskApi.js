@@ -20,6 +20,7 @@ import {
   addProbeItems,
   addTemplateItems,
   addQuickSet,
+  addAttackSet,
   addTailoredQuestions,
   auditIdOf,
   copyQuestions,
@@ -137,6 +138,7 @@ auditDeskRouter.post("/audits/:id/stage", async (req, res) => {
 
 auditDeskRouter.post("/audits/import", async (req, res) => send(res, await importProspects(String(req.body?.text || "")), 201));
 auditDeskRouter.post("/audits/:id/quickset", async (req, res) => send(res, await addQuickSet(req.params.id)));
+auditDeskRouter.post("/audits/:id/attack", async (req, res) => send(res, await addAttackSet(req.params.id, { size: req.body?.size, focus: req.body?.focus === "even" ? null : "auto" })));
 auditDeskRouter.post("/audits/:id/transcript", async (req, res) => {
   const r = await importTranscript(req.params.id, req.body || {});
   if (r.error) return res.status(400).json(r);

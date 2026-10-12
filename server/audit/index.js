@@ -4,14 +4,17 @@
 // API 키를 넘기는 기업은 없고, 그걸 요구하는 순간 리드 생성 도구로서는 죽는다.
 //   1) 문항 발급: 유메가 오라클로 검증한 질문 묶음을 준다. 기업은 자기 AI에 그대로 넣는다.
 //   2) 답변 채점: 받은 답변을 붙여넣으면 유메가 채점하고 지수를 낸다.
-import { buildProbeSet, PROBE_TYPES, AUDIT_DOMAINS } from "./probeBank.js";
+import { buildProbeSet, PROBE_TYPES as BASE_PROBE_TYPES, AUDIT_DOMAINS } from "./probeBank.js";
+import { buildAttackSet, focusFromResults, ATTACK_TYPES, ATTACK_FAMILIES } from "./attackBank.js";
 import { gradeAnswer } from "./grade.js";
 import { scoreAudit, buildRecommendation } from "./score.js";
 import { explainResult } from "./explain.js";
 import { copyInstructions, cutAtStarts, splitByMarkers, splitNumbered } from "./splitAnswers.js";
 import { callClaudeJson } from "../claude.js";
 
-export { buildProbeSet, PROBE_TYPES, AUDIT_DOMAINS, explainResult, copyInstructions };
+// 1차 문항과 공격형 문항의 유형 이름을 한곳에서 — 화면·보고서·점수가 같은 이름을 쓴다.
+const PROBE_TYPES = { ...BASE_PROBE_TYPES, ...ATTACK_TYPES };
+export { buildProbeSet, buildAttackSet, focusFromResults, ATTACK_FAMILIES, PROBE_TYPES, AUDIT_DOMAINS, explainResult, copyInstructions };
 
 const MAX_PASTE_CHARS = 60_000;
 

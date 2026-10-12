@@ -16,7 +16,7 @@
 //   · 공정하게 쓴다 — 잘된 점이 하나도 없으면 발송할 수 없다.
 import { all, now, one, run } from "./db.js";
 import { randomToken } from "./security.js";
-import { buildProbeSet, AUDIT_DOMAINS, PROBE_TYPES, explainResult, splitAnswerText } from "./audit/index.js";
+import { buildProbeSet, buildAttackSet, focusFromResults, AUDIT_DOMAINS, PROBE_TYPES, explainResult, splitAnswerText } from "./audit/index.js";
 import { gradeAnswer } from "./audit/grade.js";
 import { scoreAudit } from "./audit/score.js";
 import { runVerification, MAX_INPUT_CHARS } from "./verifyPipeline.js";
@@ -78,7 +78,8 @@ export const REVIEWS = {
 
 const DAY = 24 * 3600 * 1000;
 export const FOLLOWUP_DAYS = 7;
-const MAX_ITEMS = 40;
+// 1차(약 26) + 약점 집중 2차(약 15)가 한 감사에 들어간다.
+const MAX_ITEMS = 60;
 const MAX_ANSWER_CHARS = 20_000;
 const MAX_FILES_PER_ITEM = 4;
 const CHECK_CONCURRENCY = 2;
@@ -1322,6 +1323,40 @@ export async function addQuickSet(auditId, { build = buildProbeSet } = {}) {
   const r = await insertItems(audit.id, list);
   if (r.error) return r;
   return { ok: true, added: list.length, probes: list.filter((x) => x.kind === "probe").length, templates: list.filter((x) => x.kind === "template").length, topic };
+}
+
+/**
+ * 공격형 세트(attackBank) — 강한 서비스도 무너지는 자리(올해 개정·계산·틀린 값 압박·삭제 조문·벌칙 종류·없는 법률).
+ * focus: "auto"면 이 감사의 지난 채점 결과로 약점 가족에 문항을 몰아준다(약점 집중 2차). 결과가 없으면 고르게.
+ * 정답은 모두 출제 시점에 법제처 원문·계산으로 확정한 것이라, 여기서 나온 실패는 그대로 보고서에 쓸 수 있다.
+ */
+export async function addAttackSet(auditId, { size = 15, focus = "auto", build = buildAttackSet } = {}) {
+  const audit = await auditById(auditId);
+  if (!audit) return { error: "감사 건을 찾을 수 없어요." };
+  const existing = await itemsOf(audit.id);
+  const room = MAX_ITEMS - existing.length;
+  if (room <= 0) return { error: `질문은 한 감사에 ${MAX_ITEMS}개까지예요.` };
+  let weights = null;
+  if (focus === "auto") {
+    const r = auditResults(existing, await all("SELECT * FROM ai_audit_findings WHERE audit_id = :id", { id: audit.id }));
+    weights = r.probeResults.length ? focusFromResults(r.probeResults) : null;
+  } else if (focus && typeof focus === "object") weights = focus;
+  const domain = audit.domain === "범용" ? "법률" : audit.domain;
+  const n = Math.min(Math.max(Math.floor(Number(size) || 15), 4), Math.min(25, room));
+  const probes = await build({ domain, size: n, focus: weights }).catch((e) => {
+    logError("auditDesk:attack", e);
+    return [];
+  });
+  const have = new Set(existing.map((i) => String(i.question).trim()));
+  const list = probes
+    .filter((p) => !have.has(String(p.question).trim()))
+    .map((p) => ({ kind: "probe", qtype: questionTypeOfProbe(p), question: p.question, probe: p }));
+  if (!list.length) return { error: "지금은 질문을 만들 수 없어요. 법제처 조회가 불안정합니다. 잠시 후 다시 시도해주세요." };
+  const r = await insertItems(audit.id, list);
+  if (r.error) return r;
+  const families = {};
+  for (const p of list) families[p.probe.type] = (families[p.probe.type] || 0) + 1;
+  return { ok: true, added: list.length, focused: !!weights, families };
 }
 
 /**

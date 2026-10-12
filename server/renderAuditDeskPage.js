@@ -350,6 +350,8 @@ export function renderAuditDeskPage() {
       h("div", { class: "actions" }, Object.keys(comp).map(function (k) { var c = comp[k]; return h("span", { class: "pill " + (c.count >= c.target ? "g" : ""), text: c.label + " " + c.count + "/" + c.target }); })),
       h("div", { class: "actions" },
         h("button", { class: "btn", onclick: run(async function () { toast("법제처에서 정답을 확정하는 중… 30초쯤 걸려요."); var r = await api("POST", "/api/admin/audits/" + a.id + "/quickset"); toast("질문 " + r.added + "개를 넣었어요 (기준 문항 " + r.probes + " · 주제 질문 " + r.templates + ")."); await refresh(); }) }, "질문 세트 한 번에 (약 25개)"),
+        // 공격형 세트 — 채점 결과가 있으면 무너진 유형에 몰아준다(약점 집중 2차).
+        h("button", { class: "btn", title: "올해 개정·계산·틀린 값 압박·삭제 조문·벌칙 종류·없는 법률. 정답은 법제처 원문과 계산으로 확정합니다. 이미 채점한 결과가 있으면 무너진 유형에 문항을 몰아줍니다.", onclick: run(async function () { toast("공격형 문항을 만드는 중… 1분쯤 걸려요."); var r = await api("POST", "/api/admin/audits/" + a.id + "/attack", { size: 15 }); var fam = Object.keys(r.families || {}).map(function (k) { return ((state.meta.probeTypes || {})[k] || k) + " " + r.families[k]; }).join(" · "); toast("공격형 " + r.added + "개를 넣었어요" + (r.focused ? " (약점 집중)" : "") + " — " + fam); await refresh(); }) }, d.results.probe ? "약점 집중 2차 (공격형 약 15개)" : "공격형 세트 (약 15개)"),
         h("button", { class: "ghost", onclick: run(async function () { toast("법제처에서 정답을 확정하는 중… 20초쯤 걸려요."); var r = await api("POST", "/api/admin/audits/" + a.id + "/probes", { size: 8 }); toast("기준 문항 " + r.added + "개를 넣었어요."); await refresh(); }) }, "기준 문항 8개 더"),
         (function () {
           var sel = h("select", { style: "width:auto" }, d.topics.map(function (t) { return h("option", { value: t.key, text: t.label + " (" + t.count + ")" }); }));
@@ -464,6 +466,8 @@ export function renderAuditDeskPage() {
       } },
       h("div", { class: "meta" }, h("span", { text: "#" + (idx + 1) }), h("span", { class: "pill " + (it.kind === "probe" ? "v" : ""), text: KIND[it.kind] || it.kind }), it.qtype ? h("span", { class: "pill", text: state.meta.questionTypes[it.qtype] || it.qtype }) : null, probe ? h("span", { class: "pill", text: state.meta.probeTypes[probe.type] || probe.type }) : null, h("span", { class: "sp" }), h("span", { class: "pill " + st[1], text: st[0] })),
       h("div", { class: "q", text: it.question }),
+      // 두 번 묻는 문항(틀린 값 압박) — 첫 답을 받은 뒤 같은 대화에서 이어서 보낸다. 답 칸에는 두 답을 모두 붙여넣는다.
+      probe && probe.followup ? h("div", { class: "lint", style: "margin-top:6px" }, h("b", { text: "이어서 보낼 말 — " }), probe.followup, " ", h("button", { class: "ghost", onclick: function (e) { e.stopPropagation(); copy(probe.followup); } }, "복사")) : null,
       h("div", { class: "actions", style: "margin-top:0" }, h("button", { class: "ghost", onclick: function () { copy(it.question); } }, "질문 복사"),
         probe ? h("details", null, h("summary", { class: "help", style: "cursor:pointer", text: "정답(내부용)" }), h("div", { class: "help", text: probe.groundTruth || "" })) : null),
       ans,
