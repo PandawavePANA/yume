@@ -16,7 +16,7 @@
 //   · 공정하게 쓴다 — 잘된 점이 하나도 없으면 발송할 수 없다.
 import { all, now, one, run } from "./db.js";
 import { randomToken } from "./security.js";
-import { buildProbeSet, AUDIT_DOMAINS, PROBE_TYPES, explainResult } from "./audit/index.js";
+import { buildProbeSet, AUDIT_DOMAINS, PROBE_TYPES, explainResult, splitAnswerText } from "./audit/index.js";
 import { gradeAnswer } from "./audit/grade.js";
 import { scoreAudit } from "./audit/score.js";
 import { runVerification, MAX_INPUT_CHARS } from "./verifyPipeline.js";
@@ -350,7 +350,7 @@ export async function saveAnswer(itemId, { answer, answered_at } = {}) {
     },
   );
   if (changed) await run("DELETE FROM ai_audit_findings WHERE item_id = :id", { id: item.id });
-  return { ok: true, changed };
+  return { ok: true, changed, audit_id: Number(item.audit_id), hasAnswer: !!text };
 }
 
 // ── 캡처 ──────────────────────────────────────────────────────────────
@@ -541,14 +541,28 @@ export async function startChecks(auditId, deps = {}) {
   }
   if (audit.stage === "prospect") await run("UPDATE ai_audits SET stage = 'testing', updated_at = :t WHERE id = :id", { id, t });
   const job = (async () => {
-    let next = 0;
-    const worker = async () => {
-      while (next < todo.length) {
-        const it = todo[next++];
-        await checkItem(it, deps);
+    // 검사가 도는 동안에도 운영자는 다음 답을 저장한다. 한 묶음이 끝나면 그사이 새로 저장된 답을
+    // 다시 집어 이어서 돈다 — "검사 실행"을 다시 누르지 않아도 입력이 끝나면 결과가 거의 다 나와 있다.
+    let batch = todo;
+    while (batch.length) {
+      let next = 0;
+      const list = batch;
+      const worker = async () => {
+        while (next < list.length) {
+          const it = list[next++];
+          await checkItem(it, deps);
+        }
+      };
+      await Promise.all(Array.from({ length: Math.min(CHECK_CONCURRENCY, list.length) }, worker));
+      batch = await all(
+        `SELECT * FROM ai_audit_items WHERE audit_id = :id AND status = 'answered' AND answer IS NOT NULL AND answer <> '' ORDER BY position, id`,
+        { id },
+      );
+      const at = now();
+      for (const it of batch) {
+        await run("UPDATE ai_audit_items SET status = 'checking', check_started_at = :t, error = NULL WHERE id = :id", { id: it.id, t: at });
       }
-    };
-    await Promise.all(Array.from({ length: Math.min(CHECK_CONCURRENCY, todo.length) }, worker));
+    }
     await syncReviewedStage(id);
   })()
     .catch((e) => logError("auditDesk:run", e))
@@ -566,6 +580,10 @@ async function syncReviewedStage(auditId) {
   const r = auditResults(detailItems, findings);
   const stage = r.reviewComplete ? "reviewed" : audit.tos_verdict === "ok" ? "testing" : audit.stage;
   if (stage !== audit.stage) await run("UPDATE ai_audits SET stage = :s, updated_at = :t WHERE id = :id", { id: audit.id, s: stage, t: now() });
+  // 재확인이 막 끝났는데 대표 사례를 아직 안 골랐으면 골라 둔다(운영자가 바꿀 수 있다).
+  if (r.reviewComplete && !findings.some((f) => f.polarity === "issue" && f.review === "confirmed" && Number(f.featured))) {
+    await autoPick(auditId).catch((e) => logError("auditDesk:autopick", e));
+  }
 }
 
 // ── 재확인 ────────────────────────────────────────────────────────────
@@ -895,6 +913,8 @@ export async function auditDetail(id, { base = "" } = {}) {
   const findings = await all("SELECT * FROM ai_audit_findings WHERE audit_id = :id ORDER BY item_id, id", { id: audit.id });
   const files = await all("SELECT id, item_id, mime, size, created_at FROM ai_audit_files WHERE audit_id = :id ORDER BY id", { id: audit.id });
   const results = auditResults(items, findings);
+  const byItem = new Map(items.map((i) => [Number(i.id), i]));
+  for (const f of findings) f.strength = findingStrength(f, byItem.get(Number(f.item_id)));
   const reportUrl = audit.report_token ? `${base}${reportPath(audit.report_token)}` : "";
   const mail = mailDrafts(audit, results, { reportUrl });
   const costRow = await one(
@@ -1106,6 +1126,249 @@ export async function funnelStats() {
     followupsDue: rows.filter((r) => r.sent_at && !r.replied_at && !r.followed_up_at && Number(r.followup_due_at) <= now()).length,
     sprint: sprintVerdict(start, paid),
   };
+}
+
+// ── 시간 줄이기(2026-10-13) ───────────────────────────────────────────
+// 감사 한 건에 2.5~4시간이 들던 자리는 셋이었다: 답을 한 건씩 저장하기, 오류 후보 재확인,
+// 사례·잘된 점 고르기. 상대 서비스에 묻는 일만 사람이 손으로 하고(약관·업무방해 — 기획안 5장),
+// 나머지는 데스크가 한다.
+
+// 채팅 화면을 통째로 복사하면 섞여 들어오는 화면 문구. 답의 앞뒤에 붙은 것만 떼어 낸다.
+const LABEL_LINE =
+  /^(나의 말|내 말|ChatGPT의 말|ChatGPT 말|You said|ChatGPT said|Claude said|사용자|User|Assistant|AI 답변|답변|질문|복사|복사하기|Copy|공유|공유하기|Share|좋아요|싫어요|다시 생성|Regenerate|편집|Edit|출처|Sources|Retry|다시 시도)\s*[:：]?\s*$|^.{1,20}(의 말|\ssaid|\s답변)\s*[:：]\s*$/i;
+
+function normWithMap(s) {
+  const chars = [];
+  const map = [];
+  for (let i = 0; i < s.length; i++) {
+    if (/\s/.test(s[i])) continue;
+    chars.push(s[i].toLowerCase());
+    map.push(i);
+  }
+  return { norm: chars.join(""), map };
+}
+
+function cleanAnswer(s) {
+  const lines = String(s).split("\n");
+  const junk = (l) => !l.trim() || LABEL_LINE.test(l.trim()) || /^[?？.!。:：]+$/.test(l.trim());
+  while (lines.length && junk(lines[0])) lines.shift();
+  while (lines.length && junk(lines[lines.length - 1])) lines.pop();
+  return lines.join("\n").trim();
+}
+
+/**
+ * 대화 전체 → 질문별 답. 질문 문장이 대화 안에 그대로 있다는 점을 쓴다(운영자가 데스크에서 복사해
+ * 넣었으므로). 공백을 무시하고 질문 앞부분으로 위치를 찾고, 다음 질문이 시작되기 전까지를 그 답으로 본다.
+ * 순수 함수. 반환: { answers: { [itemId]: 답 }, matched, total }
+ */
+export function splitTranscript(text, items) {
+  const src = String(text || "").replace(/\r\n/g, "\n");
+  const { norm, map } = normWithMap(src);
+  const found = [];
+  for (const it of items) {
+    const q = normWithMap(String(it.question || "")).norm;
+    if (q.length < 6) continue;
+    // 긴 질문은 화면에서 잘리거나 줄이 바뀐다 — 앞 48자로 찾는다.
+    const key = q.slice(0, Math.min(q.length, 48));
+    const idx = norm.indexOf(key);
+    if (idx < 0) continue;
+    const len = norm.startsWith(q, idx) ? q.length : key.length;
+    found.push({ id: it.id, startN: idx, endN: idx + len });
+  }
+  found.sort((a, b) => a.startN - b.startN);
+  const answers = {};
+  for (let k = 0; k < found.length; k++) {
+    const f = found[k];
+    const nxt = found[k + 1];
+    if (nxt && nxt.startN < f.endN) continue; // 겹치면(같은 자리) 건너뛴다
+    const startO = map[f.endN - 1] + 1;
+    const endO = nxt ? map[nxt.startN] : src.length;
+    const ans = cleanAnswer(src.slice(startO, endO));
+    if (ans.replace(/\s/g, "").length >= 2) answers[f.id] = ans;
+  }
+  return { answers, matched: Object.keys(answers).length, total: items.length };
+}
+
+const MAX_TRANSCRIPT_CHARS = 200_000;
+
+/** 대화 전체 붙여넣기. 빈 질문(overwrite면 전부)에 답을 채운다. 반으로도 못 나누면 모델 보조로 한 번 더. */
+export async function importTranscript(auditId, { text, answered_at, overwrite = false } = {}, deps = {}) {
+  const audit = await auditById(auditId);
+  if (!audit) return { error: "감사 건을 찾을 수 없어요." };
+  const raw = String(text || "").slice(0, MAX_TRANSCRIPT_CHARS);
+  if (raw.replace(/\s/g, "").length < 10) return { error: "대화 내용을 붙여넣어 주세요." };
+  const items = await itemsOf(audit.id);
+  const targets = items.filter((i) => i.status !== "checking" && (overwrite || !String(i.answer || "").trim()));
+  if (!targets.length) return { error: "답을 채울 빈 질문이 없어요." };
+  let r = splitTranscript(raw, targets);
+  let method = "questions";
+  const split = deps.split === undefined ? splitAnswerText : deps.split;
+  if (split && r.matched < Math.ceil(targets.length / 2)) {
+    const s = await split(raw, targets.map((t) => ({ id: t.id, question: t.question }))).catch(() => null);
+    if (s && s.matched > r.matched) {
+      r = { answers: s.answers, matched: s.matched, total: targets.length };
+      method = s.method || "located";
+    }
+  }
+  const at = answered_at ? Number(answered_at) : now();
+  for (const [id, answer] of Object.entries(r.answers)) {
+    await saveAnswer(id, { answer, answered_at: at });
+  }
+  return {
+    ok: true,
+    matched: r.matched,
+    total: targets.length,
+    method,
+    unmatched: targets.filter((t) => !r.answers[t.id]).map((t) => ({ id: Number(t.id), question: t.question })),
+  };
+}
+
+/** 질문 세트 한 번에 — 기준 문항 두 묶음을 동시에 만들고 업종 주제 질문을 붙인다(약 25개). */
+export async function addQuickSet(auditId, { build = buildProbeSet } = {}) {
+  const audit = await auditById(auditId);
+  if (!audit) return { error: "감사 건을 찾을 수 없어요." };
+  const domain = AUDIT_DOMAINS.includes(audit.domain) ? audit.domain : "법률";
+  const existing = await itemsOf(audit.id);
+  const room = MAX_ITEMS - existing.length;
+  if (room <= 0) return { error: `질문은 한 감사에 ${MAX_ITEMS}개까지예요.` };
+  const [a, b] = await Promise.all([build({ domain, size: 10 }).catch(() => []), build({ domain, size: 10 }).catch(() => [])]);
+  const have = new Set(existing.map((i) => String(i.question).trim()));
+  const probes = [];
+  for (const p of [...a, ...b]) {
+    const q = String(p.question).trim();
+    if (have.has(q)) continue;
+    have.add(q);
+    probes.push(p);
+  }
+  const topic = topicsFor(audit.domain)[0];
+  const tpl = templateItems(topic, [...have]);
+  const list = [
+    ...probes.slice(0, 16).map((p) => ({ kind: "probe", qtype: questionTypeOfProbe(p), question: p.question, probe: p })),
+    ...tpl,
+  ].slice(0, room);
+  if (!list.length) return { error: "지금은 질문을 만들 수 없어요. 법제처 조회가 불안정합니다. 잠시 후 다시 시도해주세요." };
+  const r = await insertItems(audit.id, list);
+  if (r.error) return r;
+  return { ok: true, added: list.length, probes: list.filter((x) => x.kind === "probe").length, templates: list.filter((x) => x.kind === "template").length, topic };
+}
+
+/**
+ * 오류 후보의 판정 강도 — 사람이 어디부터 볼지 정하는 표시. 판정을 바꾸지 않는다.
+ *   strong — 정답 확정 문항에서 채점이 만장일치, 또는 법제처 원문 대조·높은 부존재 신뢰도·근거 잠금 통과
+ *   medium — 근거는 있지만 채점이 갈렸거나 웹 출처뿐
+ *   weak   — 근거 문장이 약하다(애매해서 뺄 후보)
+ */
+export function findingStrength(f, item) {
+  if (f.polarity !== "issue") return null;
+  const official = /law\.go\.kr|doi\.org/.test(String(f.source_url || ""));
+  if (f.source === "probe") {
+    const g = parse(item?.grade_json) || {};
+    const [agree, of] = String(g.agreement || "").split("/").map(Number);
+    const unanimous = !g.agreement || (agree > 0 && agree === of);
+    if (f.severity === "partial") return { level: "medium", why: "부분 불일치" };
+    if (!unanimous) return { level: "medium", why: `독립 채점 ${g.agreement}` };
+    return official ? { level: "strong", why: "정답 확정 문항 · 공식 원문" } : { level: "medium", why: "정답 확정 문항" };
+  }
+  const v = parse(item?.verify_json);
+  const c = v?.claims?.[Number(f.claim_index)] || {};
+  const nec = Number(c.nec?.score ?? f.nec_score);
+  if (c.verified_via === "official") return { level: "strong", why: "법제처 원문 대조" };
+  if (c.verified_via === "nec" && nec >= 0.7) return { level: "strong", why: `부존재 신뢰도 ${nec.toFixed(2)}` };
+  if (c.confidence === "high") return { level: "strong", why: "근거 잠금 통과" };
+  if (f.source_url && String(f.truth || c.evidence?.quote || "").trim()) return { level: "medium", why: "웹 출처 근거" };
+  return { level: "weak", why: "근거 문장이 약함" };
+}
+
+/** 약한 후보 한 번에 빼기. 빼는 쪽(안전한 방향)만 일괄로 한다 — 확정은 언제나 한 건씩 사람이. */
+export async function excludeWeak(auditId) {
+  const items = await itemsOf(auditId);
+  const byItem = new Map(items.map((i) => [Number(i.id), i]));
+  const pending = await all("SELECT * FROM ai_audit_findings WHERE audit_id = :id AND polarity = 'issue' AND review = 'pending'", { id: Number(auditId) || 0 });
+  let n = 0;
+  for (const f of pending) {
+    if (findingStrength(f, byItem.get(Number(f.item_id)))?.level !== "weak") continue;
+    await run(
+      "UPDATE ai_audit_findings SET review = 'excluded', review_note = :note, reviewed_at = :t, featured = 0, in_index = 0 WHERE id = :id",
+      { id: f.id, note: "판정 근거가 약해 일괄 제외", t: now() },
+    );
+    n += 1;
+  }
+  await syncReviewedStage(auditId);
+  return { ok: true, excluded: n };
+}
+
+const SEVERITY_WEIGHT = { hallucinated: 4, nonexistent: 4, false: 3, partial: 1 };
+const clip = (s, n) => {
+  const t = String(s || "").replace(/\s+/g, " ").trim();
+  return t.length > n ? `${t.slice(0, n - 1)}…` : t;
+};
+
+/** 대표 사례(확정된 오류 중 가장 확실한 3건)와 잘된 점 3건을 고르고, 잘된 점 문장이 비어 있으면 초안을 쓴다. */
+export async function autoPick(auditId) {
+  const audit = await auditById(auditId);
+  if (!audit) return { error: "감사 건을 찾을 수 없어요." };
+  const items = await itemsOf(audit.id);
+  const byItem = new Map(items.map((i) => [Number(i.id), i]));
+  const findings = await all("SELECT * FROM ai_audit_findings WHERE audit_id = :id", { id: audit.id });
+  const withFile = new Set((await all("SELECT DISTINCT item_id FROM ai_audit_files WHERE audit_id = :id", { id: audit.id })).map((r) => Number(r.item_id)));
+  const score = (f) => {
+    const s = findingStrength(f, byItem.get(Number(f.item_id)))?.level;
+    return (SEVERITY_WEIGHT[f.severity] || 0) + (s === "strong" ? 2 : s === "medium" ? 1 : 0) + (withFile.has(Number(f.item_id)) ? 1 : 0) +
+      (/law\.go\.kr|doi\.org/.test(String(f.source_url || "")) ? 1 : 0);
+  };
+  const issues = findings.filter((f) => f.polarity === "issue" && f.review === "confirmed").sort((a, b) => score(b) - score(a));
+  const pickIssues = new Set(issues.slice(0, 3).map((f) => Number(f.id)));
+  const goods = findings
+    .filter((f) => f.polarity === "good" && f.review !== "excluded" && f.review !== "yume_wrong")
+    .sort((a, b) => (a.source === "probe" ? 0 : 1) - (b.source === "probe" ? 0 : 1));
+  const pickGoods = new Set(goods.slice(0, 3).map((f) => Number(f.id)));
+  for (const f of findings) {
+    const want = pickIssues.has(Number(f.id)) || pickGoods.has(Number(f.id)) ? 1 : 0;
+    if (Number(f.featured) !== want) await run("UPDATE ai_audit_findings SET featured = :v WHERE id = :id", { id: f.id, v: want });
+  }
+  let wroteHighlights = false;
+  if (!String(audit.highlights || "").trim() && goods.length) {
+    const ex = goods
+      .slice(0, 2)
+      .map((g) => `「${clip(byItem.get(Number(g.item_id))?.question || g.claim, 40)}」 — ${clip(g.yume_reason || g.ai_quote, 90)}`)
+      .join("\n");
+    const text = `정확하게 답한 항목이 ${goods.length}개 있었습니다.\n${ex}`;
+    await run("UPDATE ai_audits SET highlights = :h, updated_at = :t WHERE id = :id", { id: audit.id, h: text.slice(0, 3000), t: now() });
+    wroteHighlights = true;
+  }
+  return { ok: true, issues: pickIssues.size, goods: pickGoods.size, wroteHighlights };
+}
+
+// 후보 일괄 등록 — 한 줄에 한 곳. 탭이나 쉼표로 나눈다: 회사, 서비스, 업종, 주소, 메모.
+const DOMAIN_ALIAS = { 노무: "인사", 인사노무: "인사", 세무: "공공", 회계: "공공", 행정: "공공", 부동산: "법률", 임대차: "법률", 보험: "금융", 핀테크: "금융", 헬스케어: "의료", 병원: "의료" };
+
+export async function importProspects(text) {
+  const lines = String(text || "").split(/\r?\n/).map((l) => l.trim()).filter(Boolean).slice(0, 100);
+  const existing = await all("SELECT company, service_name FROM ai_audits");
+  const seen = new Set(existing.map((r) => `${r.company}|${r.service_name}`.toLowerCase()));
+  let created = 0;
+  const skipped = [];
+  for (const line of lines) {
+    const cols = (line.includes("\t") ? line.split("\t") : line.split(/\s*[,|]\s*/)).map((c) => c.trim());
+    const [company, service = "", domainRaw = "", url = "", ...rest] = cols;
+    if (!company || /^(회사|company)$/i.test(company)) continue;
+    const key = `${company}|${service}`.toLowerCase();
+    if (seen.has(key)) {
+      skipped.push(company);
+      continue;
+    }
+    const domain = DESK_DOMAINS.includes(domainRaw) ? domainRaw : DOMAIN_ALIAS[domainRaw] || "범용";
+    const r = await createAudit({ company, service_name: service, domain, service_url: /^https?:\/\//.test(url) ? url : "" });
+    if (r.error) {
+      skipped.push(company);
+      continue;
+    }
+    const notes = [rest.join(", "), url && !/^https?:\/\//.test(url) ? url : ""].filter(Boolean).join(" · ");
+    if (notes) await updateAudit(r.id, { notes });
+    seen.add(key);
+    created += 1;
+  }
+  return { ok: true, created, skipped };
 }
 
 export { PROBE_TYPES, QUESTION_TYPES, TOPICS };
