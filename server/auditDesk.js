@@ -772,7 +772,9 @@ const SITE = "www.yume-reamer.com";
 /** 부록 C의 메일 네 통. C-1은 운영자가 고친 제목·본문이 있으면 그것을 쓴다. */
 // issues: 원문으로 확정한 오류 수, wrongAnswers: 그 오류가 들어 있던 답변 수, examples: 대표 사례 한 줄 제목(최대 3).
 // 숫자와 사례를 메일 본문에 바로 쓴다 — "일부가 다르다"로는 열어 볼 이유가 생기지 않는다.
-export function mailDrafts(audit, results, { reportUrl = "", issues = 0, wrongAnswers = 0, examples = [] } = {}) {
+// clean: 재확인을 마쳤는데 확정된 오류가 없는 감사 — "이상 없음" 결과를 알리고 공개 감사 기록(배지)을 권한다.
+// goodExamples: 그때 메일에 넣을 잘한 점 한 줄(검토자가 쓴 제목).
+export function mailDrafts(audit, results, { reportUrl = "", issues = 0, wrongAnswers = 0, examples = [], clean = false, goodExamples = [] } = {}) {
   const who = audit.contact_name ? `${audit.contact_name}님` : "담당자님";
   const service = audit.service_name || audit.company;
   const phrase = domainPhrase(audit.domain);
@@ -780,23 +782,32 @@ export function mailDrafts(audit, results, { reportUrl = "", issues = 0, wrongAn
   const sign = `${COMPANY.ceo} 드림 · 유메 (${SITE})`;
   const subject = issues
     ? `[비공개] ${service} 답변 중 원문과 다른 ${phrase} ${issues}건 — 확인 결과 공유드립니다`
-    : `[비공개] ${service} 서비스 답변의 ${phrase} 관련 확인 결과 공유드립니다`;
+    : clean
+      ? `[비공개] ${service} 답변 ${n}개 원문 대조 결과 — 법령과 다른 내용 없음`
+      : `[비공개] ${service} 서비스 답변의 ${phrase} 관련 확인 결과 공유드립니다`;
   const finding = issues
     ? `답변 ${n}개 중 ${wrongAnswers}개에서 법령·판례 원문과 다른 내용 ${issues}건을 확인해 비공개로 공유드립니다.`
-    : `${phrase} 일부가 원문과 다른 것을 확인해 비공개로 공유드립니다.`;
+    : clean
+      ? `답변을 법령·판례 원문과 하나씩 대조했고, 원문과 다른 내용은 확인되지 않아 결과를 공유드립니다.`
+      : `${phrase} 일부가 원문과 다른 것을 확인해 비공개로 공유드립니다.`;
   const body = [
     // 대표가 정한 첫 문장(2026-10-13). 담당자 이름을 알면 이름을 넣는다.
     `안녕하세요${audit.contact_name ? `, ${audit.contact_name}님` : ""}. AI 할루시네이션 감지 서비스 유메를 운영하는 ${COMPANY.ceo}입니다.`,
     "",
     `${methodOf(audit).mail(service, n)}, ${finding}`,
-    ...(examples.length ? ["", "예를 들면 이렇습니다.", ...examples.slice(0, 3).map((e) => `- ${e}`)] : []),
+    ...(issues && examples.length ? ["", "예를 들면 이렇습니다.", ...examples.slice(0, 3).map((e) => `- ${e}`)] : []),
+    ...(clean && goodExamples.length ? ["", "특히 이런 질문을 정확하게 처리했습니다.", ...goodExamples.slice(0, 3).map((e) => `- ${e}`)] : []),
     "",
-    "종합 판정과 발견 사항마다 AI 답변·원문 문장·원문 링크를 감사 보고서로 정리했습니다. 정확하게 답한 부분도 함께 적었습니다.",
+    clean
+      ? "질문별 답변과 대조한 원문, 판정 기준을 감사 보고서로 정리했습니다."
+      : "종합 판정과 발견 사항마다 AI 답변·원문 문장·원문 링크를 감사 보고서로 정리했습니다. 정확하게 답한 부분도 함께 적었습니다.",
     reportUrl ? `감사 보고서: ${reportUrl}` : "",
     "",
     NONDISCLOSURE,
     "",
-    "도움이 된다면 더 넓은 범위의 검사를 무료로 한 번 진행해 드릴 수 있습니다. 필요 없으시면 이 메일은 편하게 넘기셔도 됩니다.",
+    clean
+      ? "원하시면 이 결과를 'YUME 감사 기록'으로 공개해, 고객이나 투자자에게 답변 정확도의 근거로 보여 주실 수 있습니다(홈페이지에 붙이는 배지 포함). 공개는 귀사가 동의하실 때만 합니다. 필요 없으시면 이 메일은 편하게 넘기셔도 됩니다."
+      : "도움이 된다면 더 넓은 범위의 검사를 무료로 한 번 진행해 드릴 수 있습니다. 필요 없으시면 이 메일은 편하게 넘기셔도 됩니다.",
     "",
     "감사합니다.",
     sign,
@@ -863,9 +874,11 @@ export function checklist(audit, items, findings, files, mail) {
     {
       key: "evidence",
       label: "보낼 근거가 있다 — 원문으로 확인된 불일치가 하나 이상, 대표 사례에는 캡처가 있다",
-      ok: confirmed.length > 0 && featured.length > 0 && featured.every((f) => filesByItem.has(Number(f.item_id))),
+      ok: (confirmed.length > 0 && featured.length > 0 && featured.every((f) => filesByItem.has(Number(f.item_id)))) || (!confirmed.length && answered.length > 0 && !findings.some((f) => f.polarity === "issue" && f.review === "pending")),
       detail: !confirmed.length
-        ? "확인된 불일치가 없으면 이 메일을 보내지 않습니다. 질문을 더 하거나 이 건을 제외하세요."
+        ? answered.length && !findings.some((f) => f.polarity === "issue" && f.review === "pending")
+          ? "확인된 불일치 없음 — '이상 없음' 결과로 보냅니다(공개 감사 기록을 권하는 메일)."
+          : "재확인을 마치면 결과에 맞는 메일을 씁니다."
         : !featured.length
           ? "보고서에 실을 대표 사례(가장 확실한 것 2~3건)를 골라주세요."
           : featured.every((f) => filesByItem.has(Number(f.item_id)))
@@ -952,11 +965,17 @@ export async function auditDetail(id, { base = "" } = {}) {
     .filter((f) => Number(f.featured) && String(f.report_title || "").trim())
     .map((f) => String(f.report_title).trim())
     .filter((t) => !lintCopy(t).length);
+  const goodExamples = findings
+    .filter((f) => f.polarity === "good" && Number(f.featured) && String(f.report_title || "").trim())
+    .map((f) => String(f.report_title).trim())
+    .filter((t) => !lintCopy(t).length);
   const mail = mailDrafts(audit, results, {
     reportUrl,
     issues: confirmedIssues.length,
     wrongAnswers: new Set(confirmedIssues.map((f) => Number(f.item_id))).size,
     examples,
+    clean: !!results.reviewComplete && !confirmedIssues.length && results.answered > 0,
+    goodExamples,
   });
   const costRow = await one(
     `SELECT COALESCE(SUM(v.cost_usd), 0) AS usd, COUNT(v.id) AS n FROM ai_audit_items i JOIN verifications v ON v.id = i.verification_id WHERE i.audit_id = :id`,

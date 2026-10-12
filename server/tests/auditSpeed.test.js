@@ -64,7 +64,18 @@ test("대화 전체 → 질문별 답: 화면 문구를 떼고, 줄바꿈이 달
   assert.equal(r.answers[3], undefined);
 });
 
-test("판정 강도: 정답 확정·만장일치·공식 원문은 강함, 채점이 갈리면 보통, 근거 없는 주장은 약함", () => {
+test("이상 없음 메일: 오류가 없으면 그렇게 말하고 공개 감사 기록을 권한다", () => {
+  const audit = { company: "가나다", service_name: "가나다 AI", domain: "인사" };
+  const m = desk.mailDrafts(audit, { answered: 26 }, { reportUrl: "https://x/audit/p/t", clean: true, goodExamples: ["없는 조문을 묻자 존재하지 않는다고 바로잡음"] }).first;
+  assert.match(m.subject, /법령과 다른 내용 없음/);
+  assert.match(m.body, /원문과 다른 내용은 확인되지 않아/);
+  assert.match(m.body, /- 없는 조문을 묻자 존재하지 않는다고 바로잡음/);
+  assert.match(m.body, /YUME 감사 기록/);
+  assert.ok(!/일부가 원문과 다른 것을/.test(m.body));
+  assert.deepEqual(desk.lintCopy(`${m.subject}\n${m.body}`), []);
+});
+
+test("판정 강도:정답 확정·만장일치·공식 원문은 강함, 채점이 갈리면 보통, 근거 없는 주장은 약함", () => {
   const probeItem = { grade_json: JSON.stringify({ outcome: "hallucinated", agreement: "2/2" }) };
   assert.equal(desk.findingStrength({ polarity: "issue", source: "probe", severity: "hallucinated", source_url: "https://www.law.go.kr/법령/근로기준법" }, probeItem).level, "strong");
   const split = { grade_json: JSON.stringify({ outcome: "hallucinated", agreement: "2/3" }) };
