@@ -333,7 +333,7 @@ a { color:var(--brand); }
 .cover h1 { margin:18px 0 4px; font-size:28px; line-height:1.3; letter-spacing:-.02em; font-weight:800; }
 .cover .target { margin:0; font-size:16px; color:#D9D2EE; }
 .meta { display:grid; grid-template-columns:repeat(auto-fit,minmax(118px,1fr)); gap:14px 22px; margin-top:22px; padding-top:16px; border-top:1px solid rgba(255,255,255,.14); }
-.meta dt { font-size:11px; color:#A79CC6; letter-spacing:.06em; } .meta dd { margin:2px 0 0; font-size:13.5px; font-weight:600; color:#fff; font-variant-numeric:tabular-nums; }
+.meta dt { font-size:11px; color:#A79CC6; letter-spacing:.06em; } .meta dd { white-space:nowrap; margin:2px 0 0; font-size:13.5px; font-weight:600; color:#fff; font-variant-numeric:tabular-nums; }
 .body { padding:8px clamp(22px,5vw,48px) 34px; }
 h2 { font-size:17px; margin:34px 0 12px; letter-spacing:-.01em; display:flex; align-items:baseline; gap:10px; }
 h2 .no { font-size:12px; color:var(--brand); font-weight:800; letter-spacing:.08em; }
@@ -473,6 +473,8 @@ export function renderAuditReport(detail, { fileUrl = null, mode = "shared" } = 
   const period = results.period ? `${kDate(results.period.from)}${kDate(results.period.to) !== kDate(results.period.from) ? ` ~ ${kDate(results.period.to)}` : ""}` : "—";
   const issued = kDate(Math.max(0, ...confirmed.map((f) => Number(f.reviewed_at) || 0)) || Date.now());
   const pinAt = Math.min(99, Math.max(1, v.rate));
+  let section = 0;
+  const no = () => String(++section).padStart(2, "0");
 
   const body = `
 <div class="bar">${mode === "admin" ? `<a href="/admin/audits#${Number(audit.id)}">← 감사 데스크</a>` : ""}<button type="button" onclick="window.print()">PDF로 저장·인쇄</button></div>
@@ -491,11 +493,11 @@ export function renderAuditReport(detail, { fileUrl = null, mode = "shared" } = 
   </header>
   <div class="body">
 
-  <h2><span class="no">01</span>종합 판정</h2>
+  <h2><span class="no">${no()}</span>종합 판정</h2>
   <section class="verdict ${v.tone}">
     <div class="badge"><div class="k">판정</div><div class="v">${esc(v.label)}</div></div>
     <div>
-      <p class="line">${esc(v.line)}</p>
+      <p class="line">${esc(!confirmed.length && results.reviewComplete && results.answered ? `확인한 답변 ${results.answered}개에서 법령·판례 원문과 다른 내용이 없었습니다.` : v.line)}</p>
       <div class="scale" aria-label="오류가 들어 있던 답변 비율 ${Math.round(v.rate)}%">
         <div class="track"><i></i><i></i><i></i></div>
         <div class="pin"><b style="left:${pinAt.toFixed(1)}%"></b></div>
@@ -510,21 +512,20 @@ export function renderAuditReport(detail, { fileUrl = null, mode = "shared" } = 
   </div>
   ${list.length ? `<ul class="keys">${list.slice(0, 3).map((x) => `<li><span class="sev ${x.sev}">${esc(SEVERITY_LEVELS[x.sev].label)}</span><span>${esc(x.c.headline)} <a href="#${esc(x.code)}" class="muted">${esc(x.code)}</a></span></li>`).join("")}</ul>` : ""}
 
-  <h2><span class="no">02</span>발견 사항 요약</h2>
-  ${list.length ? `<div class="tbl"><table><thead><tr><th>번호</th><th>위험도</th><th>내용</th><th>근거</th></tr></thead><tbody>${list
+  ${list.length ? `<h2><span class="no">${no()}</span>발견 사항 요약</h2>
+  <div class="tbl"><table><thead><tr><th>번호</th><th>위험도</th><th>내용</th><th>근거</th></tr></thead><tbody>${list
     .map((x) => `<tr><td class="id"><a href="#${esc(x.code)}">${esc(x.code)}</a></td><td><span class="sev ${x.sev}">${esc(SEVERITY_LEVELS[x.sev].label)}</span></td><td>${esc(x.c.headline)}</td><td class="law">${esc(lawRef(x.c))}</td></tr>`)
-    .join("")}</tbody></table></div>` : `<p class="muted">원문으로 확인한 오류가 없습니다.</p>`}
-
-  <h2><span class="no">03</span>발견 사항 상세</h2>
+    .join("")}</tbody></table></div>
+  <h2><span class="no">${no()}</span>발견 사항 상세</h2>
   ${shown.map((x) => findingCard(x, files, fileUrl)).join("")}
-  ${list.length > shown.length ? `<p class="muted">외 ${list.length - shown.length}건 — 요청하시면 원문 링크와 함께 드립니다.</p>` : ""}
+  ${list.length > shown.length ? `<p class="muted">외 ${list.length - shown.length}건 — 요청하시면 원문 링크와 함께 드립니다.</p>` : ""}` : ""}
 
-  <h2><span class="no">04</span>정확하게 답한 부분</h2>
+  <h2><span class="no">${no()}</span>정확하게 답한 부분</h2>
   ${goods.length ? `<ul class="goods">${goods.map((g) => (g.report_title ? `<li><b>${esc(oneLine(g.report_title))}</b> — ${esc(firstSentence(g.yume_reason || g.ai_quote))}</li>` : `<li><b>${esc(clip(byItem.get(Number(g.item_id))?.question || g.claim, 70))}</b> — ${esc(firstSentence(g.yume_reason || g.ai_quote))}</li>`)).join("")}</ul>` : ""}
   ${audit.highlights ? `<div class="note">${esc(audit.highlights).replace(/\n/g, "<br />")}</div>` : ""}
   ${!goods.length && !audit.highlights ? `<p class="muted">—</p>` : ""}
 
-  <h2><span class="no">05</span>판정 기준과 방법</h2>
+  <h2><span class="no">${no()}</span>판정 기준과 방법</h2>
   <table class="crit">
     <tr><th>판정 기준</th><td>원문으로 확인한 오류가 들어 있던 답변의 비율 — <b>위험</b> ${VERDICT_RULE.risk}% 이상 · <b>주의</b> ${VERDICT_RULE.caution}% 이상 · <b>양호</b> ${VERDICT_RULE.caution}% 미만. 치명 오류가 하나라도 있으면 양호로 두지 않습니다.</td></tr>
     <tr><th>위험도</th><td>${Object.values(SEVERITY_LEVELS).map((s) => `<b>${esc(s.label)}</b> ${esc(s.note)}`).join("<br />")}</td></tr>
@@ -538,7 +539,7 @@ export function renderAuditReport(detail, { fileUrl = null, mode = "shared" } = 
     <li>공개 원문과 대조한 감사 결과이며 보증이 아닙니다. 발견 사항마다 원문 링크를 붙였습니다.</li>
   </ul>
 
-  <h2><span class="no">06</span>비공개 고지</h2>
+  <h2><span class="no">${no()}</span>비공개 고지</h2>
   <p style="font-size:14px;margin:4px 0">이 보고서는 ${esc(audit.company)}에만 전달되었으며 외부에 공개되지 않았습니다. 유메는 이 결과를 공개할 계획이 없습니다.</p>
 
   <div class="foot">
