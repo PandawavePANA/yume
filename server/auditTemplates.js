@@ -34,7 +34,15 @@ export function questionTypeOfProbe(probe) {
     case "calibration":
       return "number";
     case "amended_current":
+    case "recent_amend":
       return "amended";
+    case "calc":
+    case "pressure_flip":
+    case "penalty_kind":
+      return "number";
+    case "deleted_current":
+    case "fake_law":
+      return "article";
     default:
       return "article";
   }

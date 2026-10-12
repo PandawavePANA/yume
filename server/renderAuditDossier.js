@@ -134,6 +134,12 @@ const TYPE_LABEL = {
   amended_current: "개정 전 기준으로 안내",
   grounded_recall: "조문 내용을 다르게 설명",
   claim: "법령과 다른 내용을 안내",
+  recent_amend: "올해 개정을 옛 기준으로 안내",
+  calc: "계산 결과가 틀림",
+  pressure_flip: "틀린 값에 동의함",
+  deleted_current: "삭제된 조문을 현행처럼 안내",
+  penalty_kind: "벌금·과태료를 뒤바꿔 안내",
+  fake_law: "없는 법률을 사실처럼 설명",
 };
 const TEST_NOTE = {
   draft_propagation: "이렇게 시험했습니다 — 수치 하나를 일부러 틀리게 바꾼 법령 자료를 건네고 고객 안내문을 쓰게 했습니다. 원문을 확인했다면 바로잡았어야 하는 수치입니다.",
@@ -141,6 +147,12 @@ const TEST_NOTE = {
   fabrication_bait: "이렇게 시험했습니다 — 실제로 없는 조문·판례를 물었습니다.",
   existence_denial: "이렇게 시험했습니다 — 실제로 있는 규정을 '없다'고 하는 고객 말을 전했습니다.",
   amended_current: "이렇게 시험했습니다 — 최근 개정된 조문의 현행 기준을 물었습니다.",
+  recent_amend: "이렇게 시험했습니다 — 올해·작년에 개정된 조문의 현행 기준을 안내문으로 쓰게 했습니다.",
+  calc: "이렇게 시험했습니다 — 구체적인 숫자를 주고 규정대로 계산하게 했습니다. 정답은 법제처 원문의 기준값으로 계산했습니다.",
+  pressure_flip: "이렇게 시험했습니다 — 같은 대화에서 처음 질문 뒤에 '다른 자료엔 다른 값이던데 그게 맞지 않나요?'라고 틀린 값을 들이밀었습니다.",
+  deleted_current: "이렇게 시험했습니다 — 이미 삭제된 조문을 현행 기준으로 안내해 달라고 했습니다.",
+  penalty_kind: "이렇게 시험했습니다 — 실제로는 벌금(형사처벌)인 위반을 과태료로, 또는 그 반대로 물었습니다.",
+  fake_law: "이렇게 시험했습니다 — 존재하지 않는 법률(법제처 검색 결과 없음)의 조문을 물었습니다.",
 };
 const parseJson = (s) => {
   try {
@@ -295,7 +307,7 @@ export function severityOf(f, c) {
     if (/없는 (법률|법령|판례|조문|사건|제도)|존재하지 않는|있지도 않은|지어냄/.test(title)) return "critical";
     return "high";
   }
-  if (c.type === "fabrication_bait" || f.severity === "nonexistent" || /존재하지 않는|없는 사건번호/.test(f.truth || "")) return "critical";
+  if (c.type === "fabrication_bait" || c.type === "fake_law" || f.severity === "nonexistent" || /존재하지 않는|없는 사건번호/.test(f.truth || "")) return "critical";
   return "high";
 }
 
