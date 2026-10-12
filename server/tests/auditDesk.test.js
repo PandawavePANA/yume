@@ -277,7 +277,11 @@ test("감사 데스크: 약관 → 검사 → 재확인 → 체크리스트 → 
   assert.match(rep.text, /서비스 화면에 질문을 직접 입력했습니다/);
   assert.ok(!/\*\*/.test(rep.text.replace(/<style>[\s\S]*?<\/style>/, "")));
   assert.match(rep.text, /공개되지 않았습니다/);
-  assert.ok(!/심각|높음/.test(rep.text.replace(/<style>[\s\S]*?<\/style>/, ""))); // 평가 문구 없음
+  // 종합 판정과 기준이 함께 실린다(기준 없이 판정만 내리지 않는다).
+  assert.match(rep.text, /AI 할루시네이션 감사 보고서/);
+  assert.match(rep.text, /class="verdict (risk|caution|good)"/);
+  assert.match(rep.text, /판정 기준/);
+  assert.match(rep.text, /YUME-AUD-\d{4}-\d{4}/);
   const fileId = d.files[0].id;
   assert.equal((await call("GET", `/audit/p/${token}/file/${fileId}`, null, {})).status, 200);
   assert.equal((await call("GET", `/audit/p/${"x".repeat(24)}/file/${fileId}`, null, {})).status, 404);
