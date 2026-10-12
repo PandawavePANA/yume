@@ -783,14 +783,14 @@ export function mailDrafts(audit, results, { reportUrl = "", issues = 0, wrongAn
     ? `답변 ${n}개 중 ${wrongAnswers}개에서 법령·판례 원문과 다른 내용 ${issues}건을 확인해 비공개로 공유드립니다.`
     : `${phrase} 일부가 원문과 다른 것을 확인해 비공개로 공유드립니다.`;
   const body = [
-    `안녕하세요, ${who}.`,
-    `AI 답변의 근거를 공식 원문과 대조하는 AI 할루시네이션 검사 서비스 유메를 운영하는 ${COMPANY.ceo}입니다.`,
+    // 대표가 정한 첫 문장(2026-10-13). 담당자 이름을 알면 이름을 넣는다.
+    `안녕하세요${audit.contact_name ? `, ${audit.contact_name}님` : ""}. AI 할루시네이션 감지 서비스 유메를 운영하는 ${COMPANY.ceo}입니다.`,
     "",
     `${methodOf(audit).mail(service, n)}, ${finding}`,
     ...(examples.length ? ["", "예를 들면 이렇습니다.", ...examples.slice(0, 3).map((e) => `- ${e}`)] : []),
     "",
-    "사례마다 AI 답변과 원문 문장을 나란히 놓고 원문 링크를 붙여 보고서로 정리했습니다. 정확하게 답한 부분도 함께 적었습니다.",
-    reportUrl ? `보고서: ${reportUrl}` : "",
+    "종합 판정과 발견 사항마다 AI 답변·원문 문장·원문 링크를 감사 보고서로 정리했습니다. 정확하게 답한 부분도 함께 적었습니다.",
+    reportUrl ? `감사 보고서: ${reportUrl}` : "",
     "",
     NONDISCLOSURE,
     "",
