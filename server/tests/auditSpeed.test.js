@@ -166,6 +166,18 @@ test("후보 일괄 등록 · 질문 세트 한 번에 · 대화 붙여넣기 ·
   // 버튼으로 다시 고를 수도 있다.
   const ap = await call("POST", `/api/admin/audits/${id}/autopick`);
   assert.equal(ap.json.issues, 2);
+
+  // 메일에 오류 건수와 검토자가 쓴 대표 사례 제목이 들어간다(금액이 든 제목은 빠진다).
+  const [f1, f2] = featuredIssues;
+  await call("PATCH", `/api/admin/audits/findings/${f1.id}`, { report_title: "없는 조문을 있는 것처럼 설명" });
+  await call("PATCH", `/api/admin/audits/findings/${f2.id}`, { report_title: "벌금을 300만원이라고 안내" });
+  const dm = (await call("GET", `/api/admin/audits/${id}`)).json;
+  assert.match(dm.mail.first.subject, /2건/);
+  assert.match(dm.mail.first.body, /원문과 다른 내용 2건/);
+  assert.match(dm.mail.first.body, /- 없는 조문을 있는 것처럼 설명/);
+  assert.ok(!/300만원/.test(dm.mail.first.body));
+  assert.deepEqual(desk.lintCopy(`${dm.mail.first.subject}\n${dm.mail.first.body}`), []);
+  assert.equal(dm.findings.find((f) => f.id === f1.id).report_title, "없는 조문을 있는 것처럼 설명");
 });
 
 test("여러 곳을 같이 — 질문 세트 복사, 맞춤 질문, 시간 자동 기록, 오늘 할 일", async () => {
