@@ -32,6 +32,8 @@ export const CATEGORIES = { service: "특정 회사 AI 서비스", general: "범
 // 질문을 보낸 방법. 보고서·메일·체크리스트 문장이 이걸 따른다 — 실제와 다른 방법을 적으면 보고서 전체를 믿지 않는다.
 export const INPUT_METHODS = {
   manual: { label: "화면에 직접 입력", report: "일반 사용자로서 서비스 화면에 질문을 직접 입력했습니다", basis: "답변 받은 시점의 화면 기준", mail: (s, n) => `${s} 서비스를 일반 사용자로서 ${n}개 질문으로 사용해 보던 중` },
+  // 사람이 로그인한 일반 회원 화면에서, 유메 검토 도구가 질문을 한 건씩 간격을 두고 입력한 경우.
+  browser: { label: "화면 입력(검토 도구)", report: "일반 회원으로 로그인한 서비스 화면에 유메 검토 도구로 질문을 한 건씩 간격을 두고 입력했습니다", basis: "답변 받은 시점의 화면 기준", mail: (s, n) => `${s} 서비스 화면에서 ${n}개 질문을 한 건씩 입력해 확인하던 중` },
   api: { label: "공식 API", report: "공개된 공식 API로 질문을 보냈습니다(시스템 프롬프트 없이, 일반 사용자가 묻는 그대로)", basis: "답변 받은 시점의 API 응답 기준", mail: (s, n) => `${s}에 공식 API로 ${n}개 질문을 보내 확인하던 중` },
 };
 export const methodOf = (audit) => INPUT_METHODS[audit?.input_method] || INPUT_METHODS.manual;
@@ -849,7 +851,11 @@ export function checklist(audit, items, findings, files, mail) {
     },
     {
       key: "manual_input",
-      label: audit.input_method === "api" ? "질문은 공식 API로 보냈고(대량 자동 질의 아님), 답변마다 받은 날짜·시간이 있다" : "질문은 직접 손으로 입력했고, 답변마다 받은 날짜·시간이 있다",
+      label:
+        {
+          api: "질문은 공식 API로 보냈고(대량 자동 질의 아님), 답변마다 받은 날짜·시간이 있다",
+          browser: "질문은 일반 회원 화면에 한 건씩 간격을 두고 입력했고(대량 자동 질의 아님), 답변마다 받은 날짜·시간이 있다",
+        }[audit.input_method] || "질문은 직접 손으로 입력했고, 답변마다 받은 날짜·시간이 있다",
       ok: !!manual.manual_input && answered.length > 0 && answered.every((i) => Number(i.answered_at) > 0),
       manual: true,
       detail: answered.length ? `답변 ${answered.length}개 · 시각 기록 ${answered.filter((i) => Number(i.answered_at) > 0).length}개` : "답변이 아직 없어요.",
