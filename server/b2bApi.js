@@ -29,6 +29,13 @@ import {
   requestContract,
 } from "./b2bDeals.js";
 import { productLabel } from "./renderB2bPages.js";
+import { canIssueTaxInvoice, taxInvoiceFrom } from "./receiptInfo.js";
+
+// 일반과세 시작 전(간이과세 기간)에는 세금계산서를 발급할 수 없다 — 운영자 안내에 붙인다.
+const taxNote = (at = Date.now()) =>
+  canIssueTaxInvoice(at)
+    ? ""
+    : `\n※ 일반과세 시작(${new Date(taxInvoiceFrom() + 9 * 3600_000).toISOString().slice(0, 10)}) 전 공급분은 세금계산서를 발급할 수 없습니다 — 지출증빙 현금영수증(위 사업자번호)으로 대신 발급하고 고객에게 알려 주세요.`;
 
 export const b2bRouter = Router();
 export const b2bAdminRouter = Router();
@@ -108,7 +115,7 @@ b2bRouter.post("/b2b/quote/:token/request", limitMiddleware(requestLimiter, (req
     to: ownerMail(),
     replyTo: b.taxEmail || q.email,
     subject: `[유메 계약 신청] ${b.bizName || q.company} · ${won(q.total_krw)} · ${PAY_METHODS[q.pay_method] || ""}`,
-    text: `${hometaxBlock(q)}\n\n견적서: ${quoteUrl(q)}\n운영 화면: ${PUBLIC()}/admin/deals`,
+    text: `${hometaxBlock(q)}${taxNote()}\n\n견적서: ${quoteUrl(q)}\n운영 화면: ${PUBLIC()}/admin/deals`,
   });
   const to = b.taxEmail || q.email;
   if (to) {
@@ -135,7 +142,7 @@ const view = (q) => ({
   statusLabel: STATUS_LABEL[q.status] || q.status,
   payLabel: PAY_METHODS[q.pay_method] || null,
   billing: parseBilling(q),
-  hometax: q.billing_json ? hometaxBlock(q) : null,
+  hometax: q.billing_json ? hometaxBlock(q) + taxNote(Number(q.requested_at) || Date.now()) : null,
   expired: isExpired(q),
   token: undefined,
   items_json: undefined,

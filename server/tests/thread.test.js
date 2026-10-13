@@ -460,3 +460,97 @@ test("사진: 의뢰인과 운영자가 주고받고, 그 대화의 열쇠로만
   const adminFile = await fetch(`${base}/api/admin/desk/file/${fromUs.files[0].id}`, { headers: { Cookie: cookie } });
   assert.equal(adminFile.status, 200);
 });
+
+// ── 계좌이체 (카드 PG 계약 전에도 받는다) ──────────────────────────────
+test("계좌이체: 확정한 견적에 증빙 정보를 받고, 데스크의 입금 확인이 결제 완료·일감으로 잇는다", async () => {
+  const token = await openThread({ contact: "transfer@example.com" });
+  const { id } = (await admin("/desk")).body.threads[0];
+  const made = await admin(`/desk/${id}/quote`, { method: "POST", body: { title: "MVP 1차", amount_krw: 3_300_000 } });
+  const qid = made.body.id;
+
+  // 카드는 실제 채널(PORTONE_CARD_LIVE)로 바꾸기 전까지 열리지 않고, 계좌이체는 늘 열려 있다.
+  const view = await client("/thread", { token });
+  assert.equal(view.body.payable, false);
+  assert.ok(view.body.transfer?.receiptKinds?.tax);
+
+  // 확정 전에는 신청할 수 없다
+  const early = await client(`/thread/quote/${qid}/transfer`, { method: "POST", token, body: { payerName: "테스트상사", kind: "none" } });
+  assert.equal(early.status, 409);
+  await client(`/thread/quote/${qid}/accept`, { method: "POST", token, body: {} });
+
+  // 사업자번호 검증번호가 틀리면 거절
+  const bad = await client(`/thread/quote/${qid}/transfer`, { method: "POST", token, body: { payerName: "테스트상사", kind: "tax", bizNo: "627-03-03901", bizName: "테스트상사", ceo: "김대표", taxEmail: "tax@example.com" } });
+  assert.equal(bad.status, 400);
+  const ok = await client(`/thread/quote/${qid}/transfer`, { method: "POST", token, body: { payerName: "테스트상사", kind: "tax", bizNo: "6270303900", bizName: "테스트상사", ceo: "김대표", taxEmail: "tax@example.com" } });
+  assert.equal(ok.status, 200);
+  assert.equal(ok.body.bank, null, "계좌 환경변수가 없으면 지어내지 않는다(메일로 안내)");
+
+  const after1 = await client("/thread", { token });
+  assert.ok(after1.body.quotes[0].transferRequestedAt);
+  assert.equal(after1.body.quotes[0].status, "accepted", "입금 확인 전에는 결제 완료가 아니다");
+
+  // 데스크: 홈택스 발급 정보(공급가액·세액 나눔)가 보이고, 입금 확인으로 완료
+  const desk = await admin(`/desk/${id}`);
+  const q = desk.body.quotes.find((x) => x.id === qid);
+  assert.match(q.transfer.receipt, /공급받는자 등록번호: 627-03-03900/);
+  assert.match(q.transfer.receipt, /공급가액: 3,000,000원 \/ 세액: 300,000원/);
+  const paid = await admin(`/desk/quote/${qid}/paid`, { method: "POST", body: {} });
+  assert.equal(paid.status, 200);
+  const done = await client("/thread", { token });
+  assert.equal(done.body.quotes[0].status, "paid");
+  assert.equal(done.body.quotes[0].method, "계좌이체");
+  const row = await db.one("SELECT t.project_id, p.paid_krw FROM threads t JOIN projects p ON p.id = t.project_id WHERE t.id = :id", { id });
+  assert.equal(Number(row.paid_krw), 3_300_000, "입금이 일감 매출로 잡힌다");
+  // 두 번 눌러도 한 번만
+  assert.equal((await admin(`/desk/quote/${qid}/paid`, { method: "POST", body: {} })).body.already, true);
+});
+
+test("운영 서버에서는 테스트 채널 카드 결제를 완료로 넘기지 않는다", async () => {
+  const portone = await import("../portone.js");
+  const { settleQuote } = await import("../quoteCheckout.js");
+  await openThread({ contact: "testpay@example.com" });
+  const { id } = (await admin("/desk")).body.threads[0];
+  const made = await admin(`/desk/${id}/quote`, { method: "POST", body: { title: "테스트 결제", amount_krw: 500_000 } });
+  await db.run("UPDATE thread_quotes SET status = 'accepted', payment_id = 'reamer_q1_test' WHERE id = :id", { id: made.body.id });
+  const quote = await db.one("SELECT * FROM thread_quotes WHERE id = :id", { id: made.body.id });
+
+  // 포트원 응답을 흉내 낸다: 결제는 PAID지만 채널이 TEST
+  const realFetch = globalThis.fetch;
+  const prevEnv = { NODE_ENV: process.env.NODE_ENV, secret: process.env.PORTONE_V2_API_SECRET };
+  globalThis.fetch = async (url, opts) => {
+    if (String(url).includes("api.portone.io/payments/")) {
+      return new Response(JSON.stringify({ status: "PAID", amount: { total: 500_000 }, method: { type: "PaymentMethodCard" }, channel: { type: "TEST" } }), { status: 200, headers: { "Content-Type": "application/json" } });
+    }
+    return realFetch(url, opts);
+  };
+  try {
+    process.env.PORTONE_V2_API_SECRET = "test-secret";
+    const r1 = await portone.confirmPayment("reamer_q1_test", 500_000);
+    assert.equal(r1.ok, true);
+    assert.equal(r1.test, true, "채널 종류를 알려 준다");
+    process.env.NODE_ENV = "production";
+    const live = await settleQuote(quote);
+    assert.equal(live.ok, false);
+    assert.equal(live.code, "TEST_PAYMENT", "운영에서는 돈이 들어오지 않는 결제로 착수하지 않는다");
+    assert.equal((await db.one("SELECT status FROM thread_quotes WHERE id = :id", { id: quote.id })).status, "accepted");
+    if (prevEnv.NODE_ENV === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = prevEnv.NODE_ENV;
+    const dev = await settleQuote(quote);
+    assert.equal(dev.ok, true, "개발·시험 환경에서는 테스트 결제로도 흐름을 시험할 수 있다");
+  } finally {
+    globalThis.fetch = realFetch;
+    if (prevEnv.NODE_ENV === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = prevEnv.NODE_ENV;
+    if (prevEnv.secret === undefined) delete process.env.PORTONE_V2_API_SECRET;
+    else process.env.PORTONE_V2_API_SECRET = prevEnv.secret;
+  }
+});
+
+test("데스크 화면: '입금 확인' 버튼이 클릭 처리 목록에 들어 있다", async () => {
+  await admin("/desk"); // 로그인 쿠키
+  const res = await fetch(`${base}/admin/desk`, { headers: { Cookie: cookie } });
+  const html = await res.text();
+  assert.match(html, /data-paid="/, "버튼을 그린다");
+  const selector = html.match(/ev\.target\.closest\("([^"]+)"\)/)?.[1] || "";
+  assert.ok(selector.includes("[data-paid]"), "클릭 위임 목록에 없으면 눌러도 아무 일이 없다");
+});

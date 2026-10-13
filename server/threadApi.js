@@ -17,6 +17,15 @@ import { logError } from "./errorLog.js";
 import { COMPANY } from "./renderPages.js";
 import { STORE_ID, CHANNEL_KEY, paymentConfigured } from "./portone.js";
 import { newPaymentId, settleQuote } from "./quoteCheckout.js";
+import { RECEIPT_KINDS, readReceipt, receiptBlock } from "./receiptInfo.js";
+import { mailConfigured, sendMail } from "./mailer.js";
+
+// 카드 결제를 의뢰인에게 열어도 되는가. 포트원 설정만으로는 모른다 — 이니시스 계약 전에는 채널이 테스트라
+// 결제해도 돈이 들어오지 않는다(quoteCheckout이 그런 결제를 완료로 넘기지 않는다). 실제 채널로 바꾼 뒤
+// 운영자가 PORTONE_CARD_LIVE=1을 넣어야 버튼이 열린다. 그 전에는 계좌이체로 받는다.
+const cardLive = () => paymentConfigured() && process.env.PORTONE_CARD_LIVE === "1";
+const bankAccount = () => String(process.env.REAMER_BANK_ACCOUNT || process.env.B2B_BANK_ACCOUNT || "").trim();
+const ownerMail = () => process.env.INQUIRY_TO || process.env.COMPANY_EMAIL || "reamer@d-reamer.com";
 import { progressFor } from "./threadProgress.js";
 import express from "express";
 import { postPhotos, readFile, sendFile, withFiles } from "./threadFiles.js";
@@ -85,6 +94,8 @@ const publicQuote = (q) => ({
   status: q.status,
   method: q.method,
   paymentId: q.status === "paid" ? q.payment_id : null,
+  // 계좌이체를 신청한 견적 — 화면이 입금 안내를 계속 보여 준다(증빙 정보 자체는 내려보내지 않는다).
+  transferRequestedAt: q.transfer_requested_at ? Number(q.transfer_requested_at) : null,
   paidAt: q.paid_at ? Number(q.paid_at) : null,
   expiresAt: q.expires_at ? Number(q.expires_at) : null,
   at: Number(q.created_at),
@@ -121,7 +132,9 @@ threadRouter.get("/thread", cors, limitMiddleware(readLimiter, (req) => `thread-
     progress,
     // 결제창을 띄울 수 있는 상태인지. 반만 설정된 채로 버튼을 보여 주면,
     // 의뢰인은 눌렀는데 아무 일도 일어나지 않는 화면을 보게 된다.
-    payable: paymentConfigured(),
+    payable: cardLive(),
+    // 계좌이체는 늘 받는다. 계좌가 설정돼 있으면 신청 직후 화면에 보여 주고, 없으면 메일로 안내한다.
+    transfer: { bank: bankAccount() || null, receiptKinds: RECEIPT_KINDS },
     company: { name: COMPANY.name, email: COMPANY.email, tel: COMPANY.tel },
   });
 });
@@ -292,6 +305,65 @@ threadRouter.post(
       currency: "CURRENCY_KRW",
       customer: { fullName: name, email, phoneNumber: phone },
     });
+  },
+);
+
+// 계좌이체로 결제 — 증빙(세금계산서·현금영수증) 정보를 받고 운영자에게 알린다. 완료 처리는 운영자가 입금을
+// 확인한 뒤 데스크에서 한다(quoteCheckout.completeQuote — 카드와 같은 완료 지점).
+threadRouter.options("/thread/quote/:id/transfer", cors);
+threadRouter.post(
+  "/thread/quote/:id/transfer",
+  cors,
+  limitMiddleware(payLimiter, (req) => `thread-transfer:${clientIp(req)}`),
+  async (req, res) => {
+    const found = await load(req, res);
+    if (!found) return;
+    const { thread } = found;
+    const quote = await one("SELECT * FROM thread_quotes WHERE id = :id AND thread_id = :tid", {
+      id: Math.floor(Number(req.params.id) || 0),
+      tid: thread.id,
+    });
+    if (!quote) return res.status(404).json({ error: "견적을 찾을 수 없어요." });
+    if (quote.status === "paid") return res.status(409).json({ error: "이미 결제가 완료된 건이에요.", code: "ALREADY_PAID" });
+    if (quote.status === "sent") return res.status(409).json({ error: "견적을 먼저 확정해주세요.", code: "NOT_ACCEPTED" });
+    if (quote.status !== "accepted") return res.status(409).json({ error: "지금은 결제할 수 없는 견적이에요." });
+    if (quote.expires_at && Number(quote.expires_at) < now()) {
+      return res.status(409).json({ error: "견적 유효기간이 지났어요. 대화로 말씀해주시면 다시 보내드리겠습니다." });
+    }
+    const payer = clean(req.body?.payerName, 60);
+    if (!payer) return res.status(400).json({ error: "입금자명을 입력해 주세요." });
+    const r = readReceipt(req.body || {});
+    if (r.error) return res.status(400).json({ error: r.error });
+
+    const first = !quote.transfer_requested_at;
+    const t = now();
+    await run(
+      "UPDATE thread_quotes SET transfer_json = :j, transfer_requested_at = COALESCE(transfer_requested_at, :t), payer_name = :n, updated_at = :t WHERE id = :id AND status = 'accepted'",
+      { j: JSON.stringify({ ...r.info, payerName: payer }), t, n: payer, id: quote.id },
+    );
+    const bank = bankAccount();
+    res.json({ ok: true, bank: bank || null });
+
+    if (first) {
+      await addMessage(thread.id, "system", `계좌이체로 결제를 신청했습니다 · ${won(quote.amount_krw)} · 입금자명 ${payer}. 입금이 확인되면 바로 착수합니다.`, { kind: "quote", quoteId: quote.id }).catch((e) => logError("transfer:message", e));
+    }
+    if (mailConfigured()) {
+      const ref = `리머 견적 #${quote.id}`;
+      sendMail({
+        brand: "REAMER",
+        to: ownerMail(),
+        replyTo: thread.client_email || undefined,
+        subject: `[리머 계좌이체 신청] ${thread.client_name || "의뢰인"} · ${quote.title} · ${won(quote.amount_krw)}`,
+        text: [
+          `입금자명: ${payer} · 금액 ${won(quote.amount_krw)}(부가세 포함)`,
+          bank ? `안내한 계좌: ${bank}` : "입금 계좌가 설정돼 있지 않습니다(REAMER_BANK_ACCOUNT) — 의뢰인에게 계좌를 직접 회신해 주세요.",
+          "",
+          receiptBlock(r.info, { title: quote.title, totalKrw: Number(quote.amount_krw), ref }),
+          "",
+          "입금을 확인하면 데스크(/admin/desk)에서 이 견적의 '입금 확인'을 누르세요. 일감·매출·영수증 메일이 함께 처리됩니다.",
+        ].join("\n"),
+      }).catch((e) => logError("transfer:mail", e));
+    }
   },
 );
 

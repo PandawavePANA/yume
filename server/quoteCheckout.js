@@ -13,6 +13,12 @@ import { confirmPayment } from "./portone.js";
 import { logError } from "./errorLog.js";
 import { addMessage, mailQuoteReceipt, threadById, won } from "./threads.js";
 import { randomToken } from "./security.js";
+
+// 운영 서버에서는 테스트 채널 결제를 실제 결제로 치지 않는다. 이니시스 계약 전에는 결제 채널이 테스트라,
+// 의뢰인이 카드로 "결제"해도 돈은 들어오지 않는다 — 그걸 완료로 넘기면 대금 없이 착수하게 된다.
+// 개발·시험 환경이나, 일부러 테스트 결제를 받아야 할 때만 ALLOW_TEST_PAYMENTS=1.
+// 호출할 때마다 읽는다(시험에서 운영 모드를 흉내 낼 수 있게).
+const acceptsTestPayments = () => process.env.NODE_ENV !== "production" || process.env.ALLOW_TEST_PAYMENTS === "1";
 import { projectForThread } from "./projectLink.js";
 
 // 포트원 주문번호. 견적 번호를 주문번호 안에 박아 둔다 — 콘솔에서 어디서 온 결제인지
@@ -60,11 +66,24 @@ export async function settleQuote(quote, { paymentId } = {}) {
     return { ok: false, code: r.code, message: r.message };
   }
 
-  // 여기가 유일한 완료 지점이다. 실제로 결제된 주문번호를 함께 적어 둔다 —
-  // 영수증과 장부에 남는 번호가 포트원에 있는 번호와 달라지면 나중에 대조할 수 없다.
+  if (r.test && !acceptsTestPayments()) {
+    logError("quote:test-payment", new Error(`테스트 채널 결제 — 완료로 넘기지 않음 :: quote ${quote.id} :: ${pid}`));
+    return { ok: false, code: "TEST_PAYMENT", message: "아직 카드 결제를 받을 수 없는 상태라 이 결제는 처리되지 않았어요. 계좌이체로 진행해 주세요." };
+  }
+  return completeQuote(quote, { method: r.method, paymentId: pid });
+}
+
+/**
+ * 견적을 결제 완료로 옮긴다 — 유일한 완료 지점. 카드(포트원 확인 후)와 계좌이체(운영자가 입금 확인)가
+ * 같은 길을 지나야 일감·매출·영수증 메일이 한 번씩만 생긴다. 확정(accepted) 상태일 때만 통과한다.
+ */
+export async function completeQuote(quote, { method, paymentId = null }) {
+  // 실제로 결제된 주문번호를 함께 적어 둔다 — 영수증과 장부에 남는 번호가 포트원에 있는 번호와
+  // 달라지면 나중에 대조할 수 없다. 계좌이체는 주문번호 대신 "입금 확인" 표시를 남긴다.
+  const pid = paymentId || quote.payment_id || `transfer_q${quote.id}`;
   const upd = await run(
     "UPDATE thread_quotes SET status = 'paid', method = :m, payment_id = :p, paid_at = :t, updated_at = :t WHERE id = :id AND status = 'accepted'",
-    { id: quote.id, m: r.method, p: pid, t: now() },
+    { id: quote.id, m: method, p: pid, t: now() },
   );
   if (!upd.changes) return { ok: true, already: true };
 
@@ -83,7 +102,7 @@ export async function settleQuote(quote, { paymentId } = {}) {
   ).catch((e) => logError("quote:message", e));
 
   if (thread) mailQuoteReceipt(thread, fresh);
-  return { ok: true, method: r.method, amount: fresh.amount_krw };
+  return { ok: true, method, amount: fresh.amount_krw };
 }
 
 /**

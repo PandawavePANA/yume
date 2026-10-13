@@ -1,3 +1,4 @@
+import { engineGate } from "./upstream.js";
 import express from "express";
 import { patchAsync } from "./asyncExpress.js";
 import { authenticateApiKey, finishApiUsage, isTrialKey, quotaUsage, recordApiUsage } from "./apiKeys.js";
@@ -57,6 +58,16 @@ setInterval(() => {
   const t = Date.now();
   for (const [k, w] of minuteWindows) if (w.resetAt <= t) minuteWindows.delete(k);
 }, 120_000).unref();
+
+// 검사 엔진이 멈춘 동안(잔액 소진·키 오류)은 시작하지 않고 503을 돌려준다. 과금하지 않고, 기록만
+// 남긴다(무과금). 5분마다 한 요청은 통과시켜 다시 확인한다 — upstream.js 멈춤 규칙.
+async function engineAvailable(req, res, next) {
+  const stopped = engineGate();
+  if (!stopped) return next();
+  await recordApiUsage(req.apiKey.id, { endpoint: `${req.method} /v1${req.path}`, statusCode: 503 }).catch(() => {});
+  res.set("Retry-After", "300");
+  return fail(res, 503, "engine_unavailable", "검사 엔진을 일시적으로 사용할 수 없습니다. 이 요청은 과금되지 않았습니다. 잠시 후 다시 시도해 주세요.", { retry_after_sec: 300 });
+}
 
 async function requireApiKey(req, res, next) {
   const raw = req.get("x-api-key") || (req.get("authorization") || "").replace(/^Bearer\s+/i, "");
@@ -189,7 +200,7 @@ function notifyWhenDone(callback, done, id, ref) {
     .catch(() => {});
 }
 
-router.post("/verify", requireApiKey, async (req, res) => {
+router.post("/verify", requireApiKey, engineAvailable, async (req, res) => {
   const key = req.apiKey;
   const text = typeof req.body?.text === "string" ? req.body.text.trim() : "";
   if (!text) {
@@ -282,7 +293,7 @@ router.post("/verify", requireApiKey, async (req, res) => {
 // 절반만 돌려주면 고객사는 무엇이 빠졌는지 맞춰 봐야 하고, 그게 가장 흔한 지원 문의가 된다.
 const MAX_BATCH = 20;
 
-router.post("/verify/batch", requireApiKey, async (req, res) => {
+router.post("/verify/batch", requireApiKey, engineAvailable, async (req, res) => {
   const key = req.apiKey;
   const raw = Array.isArray(req.body?.items) ? req.body.items : null;
   if (!raw || raw.length === 0) {
@@ -387,7 +398,7 @@ router.post("/verify/batch", requireApiKey, async (req, res) => {
 // 위치와 "고친 본문"을 돌려준다. 과금은 조각 수만큼. 이 경로만 큰 본문을 받는다(app.js BIG_BODY).
 const docJson = express.json({ limit: "16mb" });
 
-router.post("/documents", docJson, requireApiKey, async (req, res) => {
+router.post("/documents", docJson, requireApiKey, engineAvailable, async (req, res) => {
   const key = req.apiKey;
   const endpoint = "POST /v1/documents";
   let input;
