@@ -26,7 +26,8 @@ export function fromFor(brand) {
   return addr ? `${name} <${addr}>` : base;
 }
 
-export async function sendMail({ to, subject, html, text, replyTo, brand = null }) {
+// from: 이 메일만 보내는 사람을 바꾼다(예: 첫 연락 메일은 "정원영 (유메) <hello@…>"). 인증된 도메인 주소만 된다.
+export async function sendMail({ to, subject, html, text, replyTo, brand = null, from = null }) {
   if (!mailConfigured()) {
     console.log(`\n[메일 미설정 — 실제 발송 안 함]\n받는 사람: ${to}\n제목: ${subject}\n${text || html}\n`);
     return { sent: false };
@@ -35,7 +36,7 @@ export async function sendMail({ to, subject, html, text, replyTo, brand = null 
     method: "POST",
     headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      from: fromFor(brand),
+      from: from || fromFor(brand),
       to: [to],
       subject,
       html,
