@@ -467,7 +467,7 @@ async function amendedProbe(lawName, domain) {
   if (!all.ok) return null;
   const hits = [];
   for (const art of all.articles) {
-    if (!art.title || art.branch) continue;
+    if (!art.title || art.branch || art.expired) continue;
     for (const line of art.text.split("\n")) {
       if (!RECENT_AMEND.test(line)) continue;
       const body = line.replace(/<[^>]*>/g, "");

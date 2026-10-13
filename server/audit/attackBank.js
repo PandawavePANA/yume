@@ -171,7 +171,7 @@ async function recentAmend(lawName, domain, minYear) {
   if (!all.ok) return null;
   const hits = [];
   for (const art of all.articles) {
-    if (!art.title || art.branch || /벌칙|과태료|부칙/.test(art.title) || INSTITUTIONAL.test(art.title)) continue;
+    if (!art.title || art.branch || art.expired || /벌칙|과태료|부칙/.test(art.title) || INSTITUTIONAL.test(art.title)) continue;
     for (const line of art.text.split("\n")) {
       const tag = line.match(AMEND_TAG);
       if (!tag) continue;
@@ -211,7 +211,7 @@ async function pressureFlip(lawName, domain) {
   const all = await getStatuteArticlesAll(s.mst);
   if (!all.ok) return null;
   const arts = pick(
-    all.articles.filter((a) => a.title && !a.branch && !/벌칙|과태료|목적|정의|부칙/.test(a.title) && !INSTITUTIONAL.test(a.title) && a.text.length > 60),
+    all.articles.filter((a) => a.title && !a.branch && !a.expired && !/벌칙|과태료|목적|정의|부칙/.test(a.title) && !INSTITUTIONAL.test(a.title) && a.text.length > 60),
     40,
   );
   for (const a of arts) {

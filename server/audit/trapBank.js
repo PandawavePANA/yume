@@ -572,6 +572,7 @@ SCENARIOS.push(...MORE_SCENARIOS);
 /** 원문(texts)이 시나리오의 기준을 그대로 담고 있을 때만 문항을 만든다(아니면 null). */
 export function scenarioFromTexts(sc, texts, t) {
   if (!texts.length || texts.some((x) => !x)) return null;
+  if (texts.some((x) => x.includes("[효력 상실]"))) return null; // 효력을 잃은 조문으로는 정답을 정하지 않는다
   const joined = texts.join("\n");
   if (!sc.verify.every((re) => re.test(joined))) return null; // 원문이 바뀌었다 — 정답을 확신할 수 없으면 내지 않는다
   const b = sc.build(t);
@@ -700,7 +701,8 @@ async function premiseArticles(domain, want) {
     if (!s.ok || !s.found || !s.mst) continue;
     const all = await getStatuteArticlesAll(s.mst);
     if (!all.ok) continue;
-    const usable = all.articles.filter((x) => x.title && !x.branch && !SKIP_TITLE.test(x.title) && x.text.length > 60);
+    // 효력을 잃은 조문(…까지 유효함)은 본문이 현행처럼 보여도 정답 기준이 될 수 없다.
+    const usable = all.articles.filter((x) => x.title && !x.branch && !x.expired && !SKIP_TITLE.test(x.title) && x.text.length > 60);
     const pri = PRIORITY[law] ? usable.filter((x) => PRIORITY[law].includes(x.no)) : [];
     for (const a of [...pick(pri, pri.length), ...pick(usable.filter((x) => !pri.includes(x)), 60)]) {
       if (out.length >= want || fromLaw >= perLaw) break;
