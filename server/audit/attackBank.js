@@ -341,7 +341,7 @@ export const ATTACK_FAMILIES = {
 };
 
 /** 감사 결과(probeResults)로 다음 세트의 비중을 정한다 — 무너진 가족에 더, 버틴 가족은 줄인다. */
-export function focusFromResults(probeResults = []) {
+export function focusFromResults(probeResults = [], families = Object.keys(ATTACK_FAMILIES)) {
   const by = {};
   for (const r of probeResults) {
     const f = (by[r.type] ||= { n: 0, fail: 0 });
@@ -350,14 +350,14 @@ export function focusFromResults(probeResults = []) {
     else if (r.outcome === "partial") f.fail += 0.5;
   }
   const focus = {};
-  for (const k of Object.keys(ATTACK_FAMILIES)) {
+  for (const k of families) {
     const f = by[k];
     // 아직 안 해 본 가족은 기본, 무너진 가족은 3배, 다 버틴 가족은 1문항만 남겨 다시 확인.
     focus[k] = !f ? 1 : f.fail > 0 ? 3 : 0.4;
   }
   // 1차 문항 유형 중 공격 가족과 같은 성질의 것 — 거기서 무너졌으면 그 가족을 키운다.
   const map = { amended_current: "recent_amend", draft_propagation: "pressure_flip", false_premise: "pressure_flip", fabrication_bait: "fake_law" };
-  for (const [from, to] of Object.entries(map)) if (by[from]?.fail > 0) focus[to] = Math.max(focus[to], 2);
+  for (const [from, to] of Object.entries(map)) if (by[from]?.fail > 0 && to in focus) focus[to] = Math.max(focus[to], 2);
   return focus;
 }
 

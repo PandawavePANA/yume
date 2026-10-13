@@ -5,7 +5,8 @@
 //   1) 문항 발급: 유메가 오라클로 검증한 질문 묶음을 준다. 기업은 자기 AI에 그대로 넣는다.
 //   2) 답변 채점: 받은 답변을 붙여넣으면 유메가 채점하고 지수를 낸다.
 import { buildProbeSet, PROBE_TYPES as BASE_PROBE_TYPES, AUDIT_DOMAINS } from "./probeBank.js";
-import { buildAttackSet, focusFromResults, ATTACK_TYPES, ATTACK_FAMILIES } from "./attackBank.js";
+import { buildAttackSet, focusFromResults as focusOf, ATTACK_TYPES, ATTACK_FAMILIES } from "./attackBank.js";
+import { buildTrapSet, TRAP_TYPES, TRAP_FAMILIES } from "./trapBank.js";
 import { gradeAnswer } from "./grade.js";
 import { scoreAudit, buildRecommendation } from "./score.js";
 import { explainResult } from "./explain.js";
@@ -13,8 +14,35 @@ import { copyInstructions, cutAtStarts, splitByMarkers, splitNumbered } from "./
 import { callClaudeJson } from "../claude.js";
 
 // 1차 문항과 공격형 문항의 유형 이름을 한곳에서 — 화면·보고서·점수가 같은 이름을 쓴다.
-const PROBE_TYPES = { ...BASE_PROBE_TYPES, ...ATTACK_TYPES };
-export { buildProbeSet, buildAttackSet, focusFromResults, ATTACK_FAMILIES, PROBE_TYPES, AUDIT_DOMAINS, explainResult, copyInstructions };
+const PROBE_TYPES = { ...BASE_PROBE_TYPES, ...ATTACK_TYPES, ...TRAP_TYPES };
+
+/** 지난 채점으로 다음 세트의 비중을 정한다 — 고난도 함정과 공격형 유형 모두. */
+export function focusFromResults(probeResults = []) {
+  const f = focusOf(probeResults, [...Object.keys(TRAP_FAMILIES), ...Object.keys(ATTACK_FAMILIES)]);
+  // 1차에서 틀린 값 압박·전파에 무너졌다면 대화로 끌고 가기·전문가 권위도 키운다.
+  if (probeResults.some((r) => ["pressure_flip", "draft_propagation", "false_premise"].includes(r.type) && r.outcome !== "safe" && r.outcome !== "ungraded")) {
+    f.drift = Math.max(f.drift, 2);
+    f.authority_premise = Math.max(f.authority_premise, 2);
+  }
+  return f;
+}
+
+/**
+ * 감사 데스크의 고난도 세트 — 피하기 어려운 함정(trapBank) 약 3/4에, 공격형(attackBank)의 삭제 조문·없는 법률·
+ * 벌칙 종류·올해 개정·계산을 나머지로 섞는다. 공격형의 '틀린 값 압박'은 함정의 '대화로 끌고 가기'가 대신한다.
+ */
+export async function buildHardSet({ domain = "인사", size = 15, focus = null } = {}) {
+  const trapN = Math.max(1, Math.round(size * 0.75));
+  const attackFocus = { ...(focus || {}), pressure_flip: 0 };
+  const [traps, attacks] = await Promise.all([
+    buildTrapSet({ domain, size: trapN, focus }).catch(() => []),
+    buildAttackSet({ domain, size: Math.max(0, size - trapN) + 2, focus: attackFocus }).catch(() => []),
+  ]);
+  const out = [...traps];
+  for (const a of attacks) if (out.length < size && !out.some((x) => x.question === a.question)) out.push(a);
+  return out.slice(0, size).map((p, i) => ({ ...p, id: `h${i + 1}` }));
+}
+export { buildProbeSet, buildAttackSet, buildTrapSet, ATTACK_FAMILIES, TRAP_FAMILIES, PROBE_TYPES, AUDIT_DOMAINS, explainResult, copyInstructions };
 
 const MAX_PASTE_CHARS = 60_000;
 
