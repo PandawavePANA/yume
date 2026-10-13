@@ -212,15 +212,16 @@ test("후보 일괄 등록 · 질문 세트 한 번에 · 대화 붙여넣기 ·
   const ap = await call("POST", `/api/admin/audits/${id}/autopick`);
   assert.equal(ap.json.issues, 2);
 
-  // 메일에 오류 건수와 검토자가 쓴 대표 사례 제목이 들어간다(금액이 든 제목은 빠진다).
+  // 메일은 짧게: 건수는 제목에, 본문은 결과 한 문장 + 보고서 링크. 사례는 본문에 풀지 않는다(보고서를 열 이유).
   const [f1, f2] = featuredIssues;
   await call("PATCH", `/api/admin/audits/findings/${f1.id}`, { report_title: "없는 조문을 있는 것처럼 설명" });
   await call("PATCH", `/api/admin/audits/findings/${f2.id}`, { report_title: "벌금을 300만원이라고 안내" });
   const dm = (await call("GET", `/api/admin/audits/${id}`)).json;
   assert.match(dm.mail.first.subject, /2건/);
-  assert.match(dm.mail.first.body, /원문과 다른 내용 2건/);
-  assert.match(dm.mail.first.body, /- 없는 조문을 있는 것처럼 설명/);
+  assert.match(dm.mail.first.body, /2개 답변에서 법령 원문과 다른 내용을 확인했습니다/);
+  assert.ok(!/없는 조문을 있는 것처럼 설명/.test(dm.mail.first.body), "사례 제목은 본문에 넣지 않는다");
   assert.ok(!/300만원/.test(dm.mail.first.body));
+  assert.ok(dm.mail.first.body.length < 600, "본문은 휴대폰 한 화면 남짓");
   assert.deepEqual(desk.lintCopy(`${dm.mail.first.subject}\n${dm.mail.first.body}`), []);
   assert.equal(dm.findings.find((f) => f.id === f1.id).report_title, "없는 조문을 있는 것처럼 설명");
 });

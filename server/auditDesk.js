@@ -805,8 +805,10 @@ export function mailDrafts(audit, results, { reportUrl = "", issues = 0, wrongAn
     : clean
       ? `[비공개] ${brand} AI 답변 ${n}개, 법령과 다른 내용 없음`
       : `[비공개] ${brand} AI 답변 확인 결과`;
+  // 본문은 짧게 — 결과 한 문장과 보고서 링크만. 사례를 본문에 다 풀면 보고서를 열 이유가 없어진다
+  // (2026-10-13 대표: "보고서 내용을 다 말로 해버리면 의미가 없잖아"). 사례·원문은 보고서에만 둔다.
   const finding = issues
-    ? `답변 ${n}개 중 ${wrongAnswers}개에서 법령·판례 원문과 다른 내용 ${issues}건을 확인해 비공개로 공유드립니다.`
+    ? `${wrongAnswers}개 답변에서 법령 원문과 다른 내용을 확인했습니다.`
     : clean
       ? `답변을 법령·판례 원문과 하나씩 대조했고, 원문과 다른 내용은 확인되지 않아 결과를 공유드립니다.`
       : `${phrase} 일부가 원문과 다른 것을 확인해 비공개로 공유드립니다.`;
@@ -817,19 +819,18 @@ export function mailDrafts(audit, results, { reportUrl = "", issues = 0, wrongAn
     clean
       ? `${(ASKED[audit.input_method] || ASKED.manual)(service, n)} 법령·판례 원문과 하나씩 대조했습니다. 원문과 다른 내용은 확인되지 않아 결과를 공유드립니다.`
       : `${methodOf(audit).mail(service, n)}, ${finding}`,
-    ...(issues && examples.length ? ["", "예를 들면 이렇습니다.", ...examples.slice(0, 3).map((e) => `- ${e}`)] : []),
     ...(clean && goodExamples.length ? ["", "특히 이런 질문을 정확하게 처리했습니다.", ...goodExamples.slice(0, 3).map((e) => `- ${e}`)] : []),
     "",
     clean
       ? "질문별 답변과 대조한 원문, 판정 기준을 감사 보고서로 정리했습니다."
-      : "종합 판정과 발견 사항마다 AI 답변·원문 문장·원문 링크를 감사 보고서로 정리했습니다. 정확하게 답한 부분도 함께 적었습니다.",
+      : "어떤 질문에서 어떻게 달랐는지는 법령 원문과 함께 보고서에 정리했습니다. 질문 원문과 받은 시각이 있어 직접 확인해 보실 수 있습니다.",
     reportUrl ? `감사 보고서: ${reportUrl}` : "",
     "",
     NONDISCLOSURE,
     "",
     clean
       ? "원하시면 이 결과를 'YUME 감사 기록'으로 공개해, 고객이나 투자자에게 답변 정확도의 근거로 보여 주실 수 있습니다(홈페이지에 붙이는 배지 포함). 공개는 귀사가 동의하실 때만 합니다. 필요 없으시면 이 메일은 편하게 넘기셔도 됩니다."
-      : "도움이 된다면 더 넓은 범위의 검사를 무료로 한 번 진행해 드릴 수 있습니다. 필요 없으시면 이 메일은 편하게 넘기셔도 됩니다.",
+      : "필요하시면 범위를 넓혀 한 번 더 무료로 검사해 드리겠습니다. 필요 없으시면 편하게 넘기셔도 됩니다.",
     "",
     "감사합니다.",
     sign,
