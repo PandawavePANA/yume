@@ -467,7 +467,9 @@ export function renderAuditDeskPage() {
       h("div", { class: "meta" }, h("span", { text: "#" + (idx + 1) }), h("span", { class: "pill " + (it.kind === "probe" ? "v" : ""), text: KIND[it.kind] || it.kind }), it.qtype ? h("span", { class: "pill", text: state.meta.questionTypes[it.qtype] || it.qtype }) : null, probe ? h("span", { class: "pill", text: state.meta.probeTypes[probe.type] || probe.type }) : null, h("span", { class: "sp" }), h("span", { class: "pill " + st[1], text: st[0] })),
       h("div", { class: "q", text: it.question }),
       // 두 번 묻는 문항(틀린 값 압박) — 첫 답을 받은 뒤 같은 대화에서 이어서 보낸다. 답 칸에는 두 답을 모두 붙여넣는다.
-      probe && probe.followup ? h("div", { class: "lint", style: "margin-top:6px" }, h("b", { text: "이어서 보낼 말 — " }), probe.followup, " ", h("button", { class: "ghost", onclick: function (e) { e.stopPropagation(); copy(probe.followup); } }, "복사")) : null,
+      (probe && (probe.followups || (probe.followup ? [probe.followup] : [])) || []).map(function (f, k, list) {
+        return h("div", { class: "lint", style: "margin-top:6px" }, h("b", { text: "이어서 보낼 말" + (list.length > 1 ? " " + (k + 1) : "") + " — " }), f, " ", h("button", { class: "ghost", onclick: function (e) { e.stopPropagation(); copy(f); } }, "복사"));
+      }),
       h("div", { class: "actions", style: "margin-top:0" }, h("button", { class: "ghost", onclick: function () { copy(it.question); } }, "질문 복사"),
         probe ? h("details", null, h("summary", { class: "help", style: "cursor:pointer", text: "정답(내부용)" }), h("div", { class: "help", text: probe.groundTruth || "" })) : null),
       ans,

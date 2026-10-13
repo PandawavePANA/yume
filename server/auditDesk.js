@@ -16,7 +16,7 @@
 //   · 공정하게 쓴다 — 잘된 점이 하나도 없으면 발송할 수 없다.
 import { all, now, one, run } from "./db.js";
 import { randomToken } from "./security.js";
-import { buildProbeSet, buildAttackSet, focusFromResults, AUDIT_DOMAINS, PROBE_TYPES, explainResult, splitAnswerText } from "./audit/index.js";
+import { buildProbeSet, buildHardSet, focusFromResults, AUDIT_DOMAINS, PROBE_TYPES, explainResult, splitAnswerText } from "./audit/index.js";
 import { gradeAnswer } from "./audit/grade.js";
 import { scoreAudit } from "./audit/score.js";
 import { runVerification, MAX_INPUT_CHARS } from "./verifyPipeline.js";
@@ -1330,7 +1330,7 @@ export async function addQuickSet(auditId, { build = buildProbeSet } = {}) {
  * focus: "auto"면 이 감사의 지난 채점 결과로 약점 가족에 문항을 몰아준다(약점 집중 2차). 결과가 없으면 고르게.
  * 정답은 모두 출제 시점에 법제처 원문·계산으로 확정한 것이라, 여기서 나온 실패는 그대로 보고서에 쓸 수 있다.
  */
-export async function addAttackSet(auditId, { size = 15, focus = "auto", build = buildAttackSet } = {}) {
+export async function addAttackSet(auditId, { size = 15, focus = "auto", build = buildHardSet } = {}) {
   const audit = await auditById(auditId);
   if (!audit) return { error: "감사 건을 찾을 수 없어요." };
   const existing = await itemsOf(audit.id);

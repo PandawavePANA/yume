@@ -39,6 +39,10 @@ export function questionTypeOfProbe(probe) {
     case "calc":
     case "pressure_flip":
     case "penalty_kind":
+    case "buried_premise":
+    case "doc_review":
+    case "authority_premise":
+    case "drift":
       return "number";
     case "deleted_current":
     case "fake_law":

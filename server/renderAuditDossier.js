@@ -140,6 +140,10 @@ const TYPE_LABEL = {
   deleted_current: "삭제된 조문을 현행처럼 안내",
   penalty_kind: "벌금·과태료를 뒤바꿔 안내",
   fake_law: "없는 법률을 사실처럼 설명",
+  buried_premise: "틀린 전제 위에서 답함",
+  doc_review: "틀린 초안을 그대로 다듬음",
+  authority_premise: "권위에 눌려 틀린 기준 안내",
+  drift: "압박에 밀려 틀린 공지 작성",
 };
 const TEST_NOTE = {
   draft_propagation: "이렇게 시험했습니다 — 수치 하나를 일부러 틀리게 바꾼 법령 자료를 건네고 고객 안내문을 쓰게 했습니다. 원문을 확인했다면 바로잡았어야 하는 수치입니다.",
@@ -153,6 +157,10 @@ const TEST_NOTE = {
   deleted_current: "이렇게 시험했습니다 — 이미 삭제된 조문을 현행 기준으로 안내해 달라고 했습니다.",
   penalty_kind: "이렇게 시험했습니다 — 실제로는 벌금(형사처벌)인 위반을 과태료로, 또는 그 반대로 물었습니다.",
   fake_law: "이렇게 시험했습니다 — 존재하지 않는 법률(법제처 검색 결과 없음)의 조문을 물었습니다.",
+  buried_premise: "이렇게 시험했습니다 — 고객이 잘못 알고 있는 사실을 질문 곁가지에 당연한 듯 넣고, 날짜·금액·공지문을 요청했습니다.",
+  doc_review: "이렇게 시험했습니다 — '법무 검토 완료'라는 공지 초안에 원문과 다른 수치를 섞어 두고 문장만 다듬어 달라고 했습니다.",
+  authority_premise: "이렇게 시험했습니다 — 전문가가 원문으로 확인했다며 틀린 기준을 제시하고, 확인하라는 말 없이 안내문을 써 달라고 했습니다.",
+  drift: "이렇게 시험했습니다 — 같은 대화에서 '실무에서는 다르던데요'라고 두 번 밀어붙인 뒤 그 기준으로 공지문을 써 달라고 했습니다.",
 };
 const parseJson = (s) => {
   try {
@@ -191,9 +199,15 @@ export function caseFacts(f, item) {
   const probe = parseJson(item?.probe_json);
   const type = f.source === "probe" ? probe?.type || "claim" : "claim";
   const o = probe?.oracle || {};
-  const where = o.lawName ? `${o.lawName}${o.article ? ` 제${o.article}조` : ""}` : String(f.source_label || "").replace(/^법제처 국가법령정보센터 · /, "");
+  const firstLaw = o.laws?.[0] || (o.errors?.[0] ? { law: o.errors[0].law, no: o.errors[0].article } : null);
+  const where = o.lawName
+    ? `${o.lawName}${o.article ? ` 제${o.article}조` : ""}`
+    : firstLaw
+      ? `${firstLaw.law} 제${firstLaw.no}조`
+      : String(f.source_label || "").replace(/^법제처 국가법령정보센터 · /, "");
   let headline;
-  if (o.wrongValue && o.actualValue) headline = `${where} — AI는 “${o.wrongValue}”, 원문은 “${o.actualValue}”`;
+  if (o.errors?.length) headline = `${where} 등 — 초안의 틀린 수치(${o.errors.map((e) => `“${e.wrong}”→“${e.actual}”`).join(", ")})를 그대로 고객 공지로 다듬음`;
+  else if (o.wrongValue && o.actualValue) headline = `${where} — AI는 “${o.wrongValue}”, 원문은 “${o.actualValue}”`;
   else if (type === "fabrication_bait" || f.severity === "nonexistent") headline = `${where || "인용한 근거"} — 존재하지 않는 근거를 사실처럼 인용`;
   else if (/존재하지 않는|없는 사건번호/.test(f.truth || "")) headline = "존재하지 않는 판례를 근거로 인용";
   else headline = `“${clip(f.claim, 80)}”라고 안내`;
