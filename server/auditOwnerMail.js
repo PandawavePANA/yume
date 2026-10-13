@@ -13,7 +13,9 @@
 import { caseFacts, lawRef, severityOf, verdictOf, SEVERITY_LEVELS } from "./renderAuditDossier.js";
 
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-const nl = (s) => esc(s).replace(/\n/g, "<br>");
+// 긴 주소(보고서 링크)는 끊을 곳이 없어 표 전체를 화면 밖으로 민다 — / 와 - 등 뒤에 줄바꿈 기회를 넣는다.
+const breakable = (s) => s.replace(/(https?:\/\/[^\s<]+)/g, (u) => u.replace(/([/\-_.?=&])/g, "$1<wbr>"));
+const nl = (s) => breakable(esc(s)).replace(/\n/g, "<br>");
 
 const TONE = {
   risk: { bg: "#C2410C", soft: "#FFF1EB", ink: "#9A3412" },
@@ -45,20 +47,20 @@ export function ownerAuditMail(detail, { title, notes = [], goodLines = null, ba
   const service = audit.service_name || audit.company;
 
   const kpi = (big, small) => `<td width="33%" style="padding:4px" valign="top">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F6F3FB;border-radius:12px"><tr><td style="padding:12px 6px;text-align:center">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="table-layout:fixed;background:#F6F3FB;border-radius:12px"><tr><td style="padding:12px 6px;text-align:center">
       <div style="font-size:22px;line-height:1.1;font-weight:800;color:#1D1A24;letter-spacing:-0.5px">${big}</div>
       <div style="font-size:13px;line-height:1.4;color:#5E5870;margin-top:6px">${small}</div>
     </td></tr></table></td>`;
 
   const caseCard = (x, i) => `<tr><td style="padding:0 0 12px">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#FFFFFF;border:1px solid #EADFD8;border-left:5px solid #C2410C;border-radius:12px"><tr><td style="padding:16px 16px 14px">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="table-layout:fixed;background:#FFFFFF;border:1px solid #EADFD8;border-left:5px solid #C2410C;border-radius:12px"><tr><td style="padding:16px 16px 14px">
       <div style="font-size:12px;font-weight:800;color:#C2410C;letter-spacing:0.5px">오류 ${i + 1} · ${esc(SEVERITY_LEVELS[x.sev].label)}</div>
       <div style="font-size:17px;line-height:1.5;font-weight:700;color:#1D1A24;margin-top:6px">${esc(x.c.headline)}</div>
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:12px"><tr><td style="background:#FFF1EB;border-radius:8px;padding:10px 12px">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="table-layout:fixed;margin-top:12px"><tr><td style="background:#FFF1EB;border-radius:8px;padding:10px 12px">
         <div style="font-size:12px;font-weight:700;color:#9A3412">AI가 한 말</div>
         <div style="font-size:15px;line-height:1.6;color:#7C2D12;margin-top:3px">“${esc(x.c.said)}”</div>
       </td></tr></table>
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:8px"><tr><td style="background:#EAF6EF;border-radius:8px;padding:10px 12px">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="table-layout:fixed;margin-top:8px"><tr><td style="background:#EAF6EF;border-radius:8px;padding:10px 12px">
         <div style="font-size:12px;font-weight:700;color:#1F5F43">${esc(x.c.truthLabel)} · ${esc(lawRef(x.c))}</div>
         <div style="font-size:15px;line-height:1.6;color:#14532D;margin-top:3px">${esc(x.c.excerpt)}</div>
       </td></tr></table>
@@ -69,10 +71,10 @@ export function ownerAuditMail(detail, { title, notes = [], goodLines = null, ba
   const section = (label, body) => `<tr><td style="padding:26px 24px 0">
     <div style="font-size:19px;font-weight:800;color:#1D1A24;letter-spacing:-0.3px;margin:0 0 12px">${label}</div>${body}</td></tr>`;
 
-  const html = `<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light"></head>
+  const html = `<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light"><style>table{table-layout:fixed}td,div,a{overflow-wrap:anywhere;word-break:break-word}</style></head>
 <body style="margin:0;padding:0;background:#EFECF5;font-family:${FONT};-webkit-text-size-adjust:100%;word-break:keep-all;overflow-wrap:anywhere">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#EFECF5"><tr><td align="center" style="padding:12px 8px 24px">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;max-width:600px;table-layout:fixed;background:#FFFFFF;border-radius:18px;overflow:hidden">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="table-layout:fixed;background:#EFECF5"><tr><td align="center" style="padding:12px 8px 24px">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="table-layout:fixed;width:100%;max-width:600px;table-layout:fixed;background:#FFFFFF;border-radius:18px;overflow:hidden">
   ${banner ? `<tr><td style="background:#FFF8E6;color:#8A5A10;font-size:14px;line-height:1.6;padding:12px 24px;border-bottom:1px solid #F3E3B8"><b>안내</b> · ${esc(banner)}</td></tr>` : ""}
   <tr><td style="background:#1F1B2E;padding:22px 24px 20px">
     <div style="font-size:12px;font-weight:800;letter-spacing:2px;color:#B9A6F0">YUME · AI 할루시네이션 감사</div>
@@ -81,7 +83,7 @@ export function ownerAuditMail(detail, { title, notes = [], goodLines = null, ba
   </td></tr>
 
   <tr><td style="padding:22px 24px 0">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${tone.soft};border-radius:14px"><tr>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="table-layout:fixed;background:${tone.soft};border-radius:14px"><tr>
       <td style="padding:16px">
         <div style="display:inline-block;background:${tone.bg};color:#FFFFFF;font-size:22px;font-weight:900;border-radius:10px;padding:8px 16px;letter-spacing:-0.5px">판정 · ${esc(v.label)}</div>
         <div style="height:10px;line-height:10px">&nbsp;</div>
@@ -91,17 +93,17 @@ export function ownerAuditMail(detail, { title, notes = [], goodLines = null, ba
     </tr></table>
   </td></tr>
 
-  <tr><td style="padding:12px 18px 0"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="table-layout:fixed"><tr>
+  <tr><td style="padding:12px 18px 0"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="table-layout:fixed;table-layout:fixed"><tr>
     ${kpi(`${v.wrong}<span style="font-size:16px;color:#857E98"> / ${v.answered}</span>`, "틀린 내용이 든 답변")}
     ${kpi(`${cases.length}건`, "원문으로 확정한 오류")}
     ${kpi(`${results.answered}개`, "보낸 질문")}
   </tr></table></td></tr>
 
-  ${cases.length ? section(`확정 오류 ${cases.length}건`, `<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${cases.map(caseCard).join("")}</table>`) : ""}
+  ${cases.length ? section(`확정 오류 ${cases.length}건`, `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="table-layout:fixed">${cases.map(caseCard).join("")}</table>`) : ""}
 
-  ${goods.length ? section("정확하게 답한 것", `<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${goods.map((g) => `<tr><td valign="top" style="width:26px;padding:4px 0;font-size:16px;color:#2F7D5B;font-weight:900">✓</td><td style="padding:4px 0;font-size:15px;line-height:1.6;color:#2E2A38">${esc(g)}</td></tr>`).join("")}</table>`) : ""}
+  ${goods.length ? section("정확하게 답한 것", `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="table-layout:fixed">${goods.map((g) => `<tr><td valign="top" style="width:26px;padding:4px 0;font-size:16px;color:#2F7D5B;font-weight:900">✓</td><td style="padding:4px 0;font-size:15px;line-height:1.6;color:#2E2A38">${esc(g)}</td></tr>`).join("")}</table>`) : ""}
 
-  ${notes.length ? section("검토 메모", `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F6F3FB;border-radius:12px"><tr><td style="padding:12px 14px;font-size:14px;line-height:1.7;color:#4F4960">${notes.map((n) => `• ${esc(n)}`).join("<br>")}</td></tr></table>`) : ""}
+  ${notes.length ? section("검토 메모", `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="table-layout:fixed;background:#F6F3FB;border-radius:12px"><tr><td style="padding:12px 14px;font-size:14px;line-height:1.7;color:#4F4960">${notes.map((n) => `• ${esc(n)}`).join("<br>")}</td></tr></table>`) : ""}
 
   <tr><td align="center" style="padding:26px 24px 4px">
     <a href="${esc(reportUrl)}" style="display:inline-block;background:#6B4FA8;color:#FFFFFF;font-size:17px;font-weight:800;text-decoration:none;border-radius:12px;padding:15px 28px">감사 보고서 열기</a>
@@ -109,7 +111,7 @@ export function ownerAuditMail(detail, { title, notes = [], goodLines = null, ba
   </td></tr>
 
   ${section("담당자에게 보낼 메일", `<div style="font-size:14px;line-height:1.6;color:#5E5870;margin:-4px 0 10px">아래를 그대로 복사해 <b>담당자 개인 주소</b>로 보내세요(대표 메일함 X).</div>
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#FAF8FD;border:1px dashed #CDBFEA;border-radius:12px"><tr><td style="padding:14px 16px">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="table-layout:fixed;background:#FAF8FD;border:1px dashed #CDBFEA;border-radius:12px"><tr><td style="padding:14px 16px">
       <div style="font-size:12px;font-weight:700;color:#857E98">제목</div>
       <div style="font-size:15px;line-height:1.5;font-weight:700;color:#1D1A24;margin-top:2px">${esc(mail.first.subject)}</div>
       <div style="font-size:12px;font-weight:700;color:#857E98;margin-top:12px">본문</div>
