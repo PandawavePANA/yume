@@ -53,3 +53,28 @@ test("시나리오: 원문이 기준을 담고 있을 때만 내고, 바뀌었�
     assert.ok(s.verify.length > 0 && s.src.length > 0, s.id);
   }
 });
+
+test("업종별 시나리오: 모든 업종에 곁가지 틀린 전제가 있고, 그 업종으로 표시된다", () => {
+  const t = Date.UTC(2026, 9, 13);
+  for (const d of ["인사", "의료", "금융", "커머스", "제조", "공공", "법률"]) {
+    assert.ok(SCENARIOS.filter((s) => s.domain === d).length >= 4, `${d} 시나리오 4개 이상`);
+  }
+  const ids = SCENARIOS.map((s) => s.id);
+  assert.equal(new Set(ids).size, ids.length, "id는 겹치지 않는다");
+
+  const ins = SCENARIOS.find((s) => s.id === "insurance_withdraw_30");
+  const law = "1. 보장성 상품: 보험증권을 받은 날부터 15일과 청약을 한 날부터 30일 중 먼저 도래하는 기간";
+  const q = scenarioFromTexts(ins, [law], t);
+  assert.equal(q.domain, "금융");
+  // 청약 9/18, 증권 9/23 → 증권+15일(10/8)이 먼저 — 오늘(10/13)은 지났다.
+  assert.equal(q.oracle.answer, "2026년 10월 8일");
+  assert.equal(scenarioFromTexts(ins, [law.replace("15일", "20일")], t), null);
+
+  const rent = SCENARIOS.find((s) => s.id === "rent_increase_10");
+  assert.equal(scenarioFromTexts(rent, ["② 제1항에 따른 증액청구는 약정한 차임이나 보증금의 20분의 1의 금액을 초과하지 못한다."], t).oracle.answer, 315_000_000);
+
+  const pl = SCENARIOS.find((s) => s.id === "pl_1y");
+  const p = scenarioFromTexts(pl, ["① 이 법에 따른 손해배상의 청구권은 피해자 또는 그 법정대리인이 다음 각 호의 사항을 모두 알게 된 날부터 3년간 행사하지 아니하면 시효의 완성으로 소멸한다."], t);
+  assert.equal(p.domain, "제조");
+  assert.match(p.question, /1년 안에/);
+});
