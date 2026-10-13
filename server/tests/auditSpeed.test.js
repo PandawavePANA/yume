@@ -294,3 +294,14 @@ test("여러 곳을 같이 — 질문 세트 복사, 맞춤 질문, 시간 자�
   assert.ok(tos.ids.includes(a) && tos.ids.includes(b) && tos.ids.includes(c));
   assert.deepEqual(desk.workQueue([{ id: 1, next: "재확인 2건" }, { id: 2, next: "후속 연락 1회 (오늘)" }, { id: 3, next: null }]).map((q) => q.key), ["followup", "review"]);
 });
+
+test("메일 제목: 브랜드 + 숫자 하나 + 근거로 짧게, 법인명이면 서비스 이름의 첫 낱말", () => {
+  const issues = desk.mailDrafts({ company: "로무앤톡", service_name: "로무앤톡 AI 인사노무", domain: "인사" }, { answered: 12 }, { issues: 4, wrongAnswers: 4 }).first.subject;
+  assert.equal(issues, "[비공개] 로무앤톡 AI 오답 4건 — 법령 원문 대조");
+  assert.ok(issues.length <= 32, "받은편지함에서 잘리지 않는 길이");
+  const corp = desk.mailDrafts({ company: "(주)엔제이에스", service_name: "로무앤톡 AI 인사노무", domain: "인사" }, { answered: 12 }, { issues: 2, wrongAnswers: 2 }).first.subject;
+  assert.match(corp, /^\[비공개\] 로무앤톡 AI 오답 2건/);
+  const m = desk.mailDrafts({ company: "가나다", service_name: "가나다 AI", domain: "인사" }, { answered: 12 }, { issues: 1, wrongAnswers: 1 });
+  assert.equal(m.followup.subject, `Re: ${m.first.subject}`);
+  assert.deepEqual(desk.lintCopy(`${issues}\n${corp}`), []);
+});
