@@ -203,7 +203,7 @@ export function caseFacts(f, item) {
   const where = o.lawName
     ? `${o.lawName}${o.article ? ` 제${o.article}조` : ""}`
     : firstLaw
-      ? `${firstLaw.law} 제${firstLaw.no}조`
+      ? `${firstLaw.law} 제${String(firstLaw.no).replace(/^(\d+)의(\d+)$/, "$1조의$2").replace(/^(\d+)$/, "$1조")}`
       : String(f.source_label || "").replace(/^법제처 국가법령정보센터 · /, "");
   let headline;
   if (o.errors?.length) headline = `${where} 등 — 초안의 틀린 수치(${o.errors.map((e) => `“${e.wrong}”→“${e.actual}”`).join(", ")})를 그대로 고객 공지로 다듬음`;
