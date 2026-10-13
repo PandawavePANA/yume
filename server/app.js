@@ -439,6 +439,16 @@ app.get("/b2b/quote/:token", async (req, res) => {
   html(res, renderQuotePage(q));
 });
 app.get("/b2b/terms", (req, res) => html(res, renderB2bTerms()));
+// 메일에 넣는 이미지(명함 등). 메일 앱은 메일 안에 넣은 이미지를 막기 때문에 웹 주소로 불러야 한다.
+// 명함에는 개인 휴대폰 번호가 있어 공개 저장소에 파일로 넣지 않고 DB(settings, mail_asset:이름)에 둔다.
+app.get("/mail-assets/:name", async (req, res) => {
+  const name = String(req.params.name || "");
+  if (!/^[a-z0-9-]+\.(png|jpg)$/.test(name)) return res.status(404).end();
+  const raw = await getSetting(`mail_asset:${name}`).catch(() => null);
+  if (!raw) return res.status(404).end();
+  res.set("Content-Type", name.endsWith(".png") ? "image/png" : "image/jpeg").set("Cache-Control", "public, max-age=86400").set("X-Robots-Tag", "noindex");
+  res.send(Buffer.from(raw, "base64"));
+});
 app.get("/b2b/dpa", (req, res) => html(res, renderB2bDpa()));
 app.get("/b2b/security", (req, res) => html(res, renderB2bSecurity()));
 // 보낼 보고서를 관리자가 미리 본다. 공유 링크를 만들지 않아도 열린다.

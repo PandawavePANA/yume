@@ -33,9 +33,10 @@ function lawChips(detail) {
 
 /**
  * @param detail auditDetail(...) 결과 — mail.first(제목·텍스트 본문)와 결과 숫자를 쓴다
+ * @param opts.cardUrl 서명에 넣을 명함 이미지 주소(없으면 글자 서명). 기본은 유메 서버의 /mail-assets/card.png
  * 반환: { subject, html, text }
  */
-export function clientAuditMail(detail) {
+export function clientAuditMail(detail, { cardUrl = `${(process.env.PUBLIC_BASE_URL || "https://www.yume-reamer.com").replace(/\/+$/, "")}/mail-assets/card.png` } = {}) {
   const { audit, results, findings, mail, reportUrl } = detail;
   const confirmed = findings.filter((f) => f.polarity === "issue" && f.review === "confirmed");
   const wrong = new Set(confirmed.map((f) => Number(f.item_id))).size;
@@ -92,9 +93,12 @@ export function clientAuditMail(detail) {
   </td></tr>
 
   <tr><td style="padding:22px 24px 24px">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="table-layout:fixed;border-top:1px solid #ECE8F3"><tr><td style="padding-top:14px">
-      <div style="font-size:15px;font-weight:800;color:#1D1A24">${esc(COMPANY.ceo)} <span style="font-weight:600;color:#6E6780;font-size:13px">· 유메(YUME) 대표</span></div>
-      <div style="font-size:13px;line-height:1.7;color:#857E98;margin-top:2px">AI가 쓴 답의 근거를 공식 원문과 대조합니다 · <a href="https://www.yume-reamer.com" style="color:#5B3FA0;text-decoration:none;font-weight:700">www.yume-reamer.com</a><br>${esc(COMPANY.email)}</div>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="table-layout:fixed;border-top:1px solid #ECE8F3"><tr><td style="padding-top:16px">
+      <div style="font-size:15px;line-height:1.6;color:#3A3546;margin-bottom:12px">감사합니다.<br><b style="color:#1D1A24">${esc(COMPANY.ceo)}</b> 드림</div>
+      ${cardUrl
+        ? `<a href="https://www.d-reamer.com" style="text-decoration:none"><img src="${esc(cardUrl)}" width="320" alt="${esc(`${COMPANY.ceo} · REAMER Founder · ${COMPANY.email} · www.d-reamer.com`)}" style="display:block;width:100%;max-width:320px;height:auto;border-radius:10px;border:0"></a>
+      <div style="font-size:12px;line-height:1.6;color:#958EA8;margin-top:8px">유메(YUME)는 리머(REAMER)가 운영합니다 · <a href="https://www.yume-reamer.com" style="color:#5B3FA0;text-decoration:none;font-weight:700">www.yume-reamer.com</a></div>`
+        : `<div style="font-size:13px;line-height:1.7;color:#857E98">유메(YUME) 대표 · <a href="https://www.yume-reamer.com" style="color:#5B3FA0;text-decoration:none;font-weight:700">www.yume-reamer.com</a><br>${esc(COMPANY.email)}</div>`}
     </td></tr></table>
   </td></tr>
 </table>
