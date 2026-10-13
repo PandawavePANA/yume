@@ -302,4 +302,23 @@ export default {
   "지금은 맞춤 질문을 만들 수 없어요. 잠시 후 다시 시도해주세요.": "Tailored questions can't be drafted right now. Try again shortly.",
   "답을 채울 빈 질문이 없어요.": "There are no unanswered questions to fill.",
   "지금은 질문을 만들 수 없어요. 법제처 조회가 불안정합니다. 잠시 후 다시 시도해주세요.": "Questions can't be generated right now because the law.go.kr lookup is unstable. Try again shortly.",
+
+  // ── 기업 견적 · 계약 신청 ──
+  "사이트에서 바로 견적을 받을 수 있는 상품이 아니에요.": "This product can't be quoted instantly on the site.",
+  "품목 이름과 금액(공급가액)을 넣어 주세요.": "Enter an item name and an amount (before VAT).",
+  "이 상품은 범위를 듣고 견적을 드려요. 도입 문의로 보내 주세요.": "We quote this product after hearing the scope. Please send an inquiry.",
+  "알 수 없는 상품이에요.": "Unknown product.",
+  "회사명을 입력해 주세요.": "Enter your company name.",
+  "담당자 성함을 입력해 주세요.": "Enter the contact person's name.",
+  "견적서를 받으실 이메일을 정확히 입력해 주세요.": "Enter a valid email address to receive the quote.",
+  "견적서를 찾을 수 없어요.": "Quote not found.",
+  "취소된 견적이에요. 새 견적을 받아 주세요.": "This quote was cancelled. Please request a new one.",
+  "유효기간이 지난 견적이에요. 같은 조건으로 새 견적을 받아 주세요.": "This quote has expired. Please request a new one with the same terms.",
+  "사업자등록번호를 다시 확인해 주세요(10자리, 검증번호 불일치).": "Check the business registration number (10 digits; the check digit doesn't match).",
+  "상호(사업자등록증의 이름)를 입력해 주세요.": "Enter the business name as shown on the registration certificate.",
+  "대표자 성명을 입력해 주세요.": "Enter the representative's name.",
+  "세금계산서를 받을 이메일을 정확히 입력해 주세요.": "Enter a valid email address for the tax invoice.",
+  "결제 방법을 골라 주세요.": "Choose a payment method.",
+  "서비스 이용 조건과 데이터 처리 부속서에 동의해 주세요.": "Please agree to the service terms and the data processing addendum.",
+  "입금 확인된 견적은 취소할 수 없어요(환불은 수정세금계산서와 함께 따로).": "A paid quote can't be cancelled (refunds are handled separately with an amended tax invoice).",
 };

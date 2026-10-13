@@ -665,6 +665,31 @@ export function renderAuditDeskPage() {
         h("div", { style: "margin-top:8px" }, field("들은 가격", price)),
         h("div", { class: "actions" }, h("button", { class: "ghost", onclick: run(async function () { await api("PATCH", "/api/admin/audits/" + a.id, { decline_reason: reason.value, price_heard: price.value, needs: needs.value, paid_amount_krw: amount.value }); toast("저장했어요."); await refresh(); }) }, "기록 저장"))));
     }
+    // 10단계 — 견적서 링크. 범위를 정했으면 여기서 견적을 내고 링크를 답장에 붙인다. 고객은 그 화면에서
+    // 세금계산서 정보를 적고 계약을 신청하고, 입금 확인은 기업 거래 화면(/admin/deals)에서 한다.
+    var QP = { audit: ["AI 정밀 감사", "표본 감사 + 보고서 + 개선 회의 1회"], audit_regular: ["AI 정기 감사 (분기)", "분기 재감사 + 공개 감사 기록·배지"], poc: ["2주 PoC", "문서 검사 + 정확도 보고서"], custom: ["", ""], starter: null, growth: null, metered: null };
+    var qProd = h("select", null, [["audit", "정밀 감사"], ["audit_regular", "정기 감사"], ["poc", "2주 PoC"], ["custom", "맞춤"], ["growth", "API 그로스(월)"], ["starter", "API 스타터(월)"], ["metered", "API 종량제"]].map(function (o) { return h("option", { value: o[0] }, o[1]); }));
+    var qName = h("input", { value: QP.audit[0], placeholder: "품목 이름" });
+    var qSpec = h("input", { value: QP.audit[1], placeholder: "규격·설명(선택)" });
+    var qAmt = h("input", { type: "number", min: 0, step: 10000, placeholder: "공급가액(원, VAT 별도)" });
+    var qQty = h("input", { type: "number", min: 1, value: 1, placeholder: "수량" });
+    var qMail = h("input", { value: a.contact_email || "", placeholder: "견적서 받을 이메일(선택)" });
+    qProd.onchange = function () { var v = QP[qProd.value]; var isApi = !v; qName.disabled = isApi; qSpec.disabled = isApi; qAmt.disabled = isApi; if (v) { qName.value = v[0]; qSpec.value = v[1]; } qQty.value = qProd.value === "metered" ? 1000 : 1; qQty.placeholder = isApi ? (qProd.value === "metered" ? "예상 월 호출 수(100 단위)" : "기간(개월)") : "수량"; };
+    var quotes = d.quotes || [];
+    body.appendChild(h("div", { class: "box" }, h("h3", null, "10단계 · 견적서 링크 (계약까지 한 번에)", quotes.length ? h("span", { class: "pill g", text: quotes.length + "건" }) : null),
+      h("p", { class: "help", text: "금액을 정했으면 견적서 링크를 만들어 답장에 붙이세요. 고객은 그 화면에서 인쇄·PDF 저장을 하고, 세금계산서 정보를 적어 계약을 신청합니다. 메일 본문에는 금액을 쓰지 말고 링크만 — 발송 문구 점검이 금액을 막습니다." }),
+      quotes.length ? h("div", null, quotes.map(function (q) { return h("div", { class: "actions", style: "margin-top:4px" }, h("span", { class: "pill " + (q.status === "paid" ? "g" : q.status === "requested" ? "w" : ""), text: q.statusLabel }), h("span", { class: "help", text: q.number + " · " + q.productLabel + " · 합계 " + n(q.total_krw) + "원" }), h("button", { class: "ghost", onclick: function () { copy(q.url); } }, "링크 복사"), h("a", { class: "ghost", href: q.url, target: "_blank", rel: "noopener" }, "열기")); })) : null,
+      h("div", { class: "grid2", style: "margin-top:8px" }, field("상품", qProd), field("받을 이메일", qMail), field("품목 이름", qName), field("규격·설명", qSpec), field("공급가액(원)", qAmt), field("수량", qQty)),
+      h("div", { class: "actions" }, h("button", { class: "btn", onclick: run(async function () {
+        var v = QP[qProd.value];
+        var payload = { product: qProd.value, auditId: a.id, company: a.company, name: a.contact_name || "", email: qMail.value.trim() };
+        if (v) payload.items = [{ name: qName.value.trim(), spec: qSpec.value.trim(), qty: Number(qQty.value) || 1, unit: "식", unitKrw: Number(qAmt.value) }];
+        else payload.qty = Number(qQty.value);
+        var r = await api("POST", "/api/admin/b2b/quotes", payload);
+        await copy(r.quote.url);
+        toast("견적서를 만들고 링크를 복사했어요 — " + r.quote.number);
+        await refresh();
+      }) }, "견적서 만들고 링크 복사"), h("a", { class: "ghost", href: "/admin/deals", target: "_blank", rel: "noopener" }, "기업 거래 화면"))));
     function stage(s, extra) { return run(async function () { var b = extra ? extra() : {}; b.stage = s; await api("POST", "/api/admin/audits/" + a.id + "/stage", b); toast((state.meta.stages[s] || s) + "(으)로 기록했어요."); await refresh(); }); }
   }
 

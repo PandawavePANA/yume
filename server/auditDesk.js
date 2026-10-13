@@ -14,6 +14,7 @@
 //   · 직접 재확인한다 — 유메가 지목한 오류는 'pending'이다. 사람이 원문을 직접 열어 링크를 남기고
 //     confirmed로 바꾼 것만 "불일치"로 센다. 하나라도 pending이면 발송할 수 없다.
 //   · 공정하게 쓴다 — 잘된 점이 하나도 없으면 발송할 수 없다.
+import { quoteSummariesForAudit } from "./b2bDeals.js";
 import { all, now, one, run } from "./db.js";
 import { randomToken } from "./security.js";
 import { buildProbeSet, buildHardSet, focusFromResults, AUDIT_DOMAINS, PROBE_TYPES, explainResult, splitAnswerText } from "./audit/index.js";
@@ -992,6 +993,8 @@ export async function auditDetail(id, { base = "" } = {}) {
     `SELECT COALESCE(SUM(v.cost_usd), 0) AS usd, COUNT(v.id) AS n FROM ai_audit_items i JOIN verifications v ON v.id = i.verification_id WHERE i.audit_id = :id`,
     { id: audit.id },
   );
+  // 이 감사에서 이어진 견적(데스크에서 발행). 보고서의 "다음 단계"와 데스크 10단계가 같은 목록을 본다.
+  const quotes = await quoteSummariesForAudit(audit.id, base).catch(() => []);
   return {
     audit,
     items,
@@ -999,6 +1002,7 @@ export async function auditDetail(id, { base = "" } = {}) {
     files,
     results,
     mail,
+    quotes,
     checklist: checklist(audit, items, findings, files, mail),
     composition: composition(items),
     topics: topicsFor(audit.domain).map((k) => ({ key: k, label: TOPICS[k].label, count: TOPICS[k].questions.length })),
