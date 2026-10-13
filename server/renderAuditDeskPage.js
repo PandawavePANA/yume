@@ -483,6 +483,8 @@ export function renderAuditDeskPage() {
         var src = "/api/admin/audits/file/" + f.id;
         return h("span", { class: "shot" }, h("img", { src: src, alt: "답변 캡처", onclick: function () { window.open(src, "_blank"); } }), h("button", { title: "캡처 삭제", onclick: run(async function () { await api("DELETE", "/api/admin/audits/file/" + f.id); await refresh(); }) }, "×"));
       })) : null,
+      // 캡처는 답을 받은 그 자리에서만 찍을 수 있다 — 상대 서비스에 대화 기록이 안 남는 경우가 많다(2026-10-13 로무앤톡).
+      it.answer && !files.length && d.audit.input_method !== "api" ? h("div", { class: "lint", text: "캡처 없음 — 답을 받은 화면을 지금 캡처해 두세요. 상대 서비스에 기록이 남지 않으면 나중에 다시 찍을 수 없고, 캡처 없는 오류는 보고서 링크를 만들 수 없습니다(감사 러너는 자동으로 남깁니다)." }) : null,
       it.error ? h("div", { class: "lint", text: "오류: " + it.error }) : null,
       result);
   }

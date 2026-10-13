@@ -305,3 +305,27 @@ test("메일 제목: 브랜드 + 숫자 하나 + 근거로 짧게, 법인명이�
   assert.equal(m.followup.subject, `Re: ${m.first.subject}`);
   assert.deepEqual(desk.lintCopy(`${issues}\n${corp}`), []);
 });
+
+test("캡처 없는 대표 오류: 화면 감사는 보고서 링크를 만들지 않고, API 감사는 응답이 기록이라 통과", async () => {
+  const t = Date.now();
+  const mk = async (method) => {
+    const { id } = await desk.createAudit({ company: `캡처회사${method}`, domain: "인사" });
+    await db.run("UPDATE ai_audits SET input_method = :m WHERE id = :id", { m: method, id });
+    const it = await db.run("INSERT INTO ai_audit_items (audit_id, position, kind, question, answer, answered_at, status, created_at, updated_at) VALUES (:a, 1, 'probe', 'q', 'ans', :t, 'checked', :t, :t) RETURNING id", { a: id, t });
+    const itemId = it.rows[0].id;
+    await db.run("INSERT INTO ai_audit_findings (audit_id, item_id, source, polarity, review, featured, checked_url, created_at) VALUES (:a, :i, 'probe', 'issue', 'confirmed', 1, 'https://www.law.go.kr/x', :t)", { a: id, i: itemId, t });
+    return { id, itemId };
+  };
+  const web = await mk("browser");
+  assert.deepEqual(await desk.missingCaptures(web.id), [Number(web.itemId)]);
+  const blocked = await desk.shareReport(web.id);
+  assert.match(blocked.error, /화면 캡처가 없어요/);
+  // 캡처를 올리면 통과
+  const png = "data:image/png;base64," + Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 1]).toString("base64");
+  const up = await desk.addItemFile(web.itemId, png);
+  assert.ok(up.ok, JSON.stringify(up));
+  assert.ok((await desk.shareReport(web.id)).token);
+  const api = await mk("api");
+  assert.deepEqual(await desk.missingCaptures(api.id), []);
+  assert.ok((await desk.shareReport(api.id)).token, "API 감사는 캡처를 요구하지 않는다");
+});
