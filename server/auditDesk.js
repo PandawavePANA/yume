@@ -19,6 +19,7 @@ import { all, now, one, run } from "./db.js";
 import { randomToken } from "./security.js";
 import { buildProbeSet, buildHardSet, focusFromResults, AUDIT_DOMAINS, PROBE_TYPES, explainResult, splitAnswerText } from "./audit/index.js";
 import { gradeAnswer } from "./audit/grade.js";
+import { checkAnswerKey } from "./audit/keyCheck.js";
 import { scoreAudit } from "./audit/score.js";
 import { runVerification, MAX_INPUT_CHARS } from "./verifyPipeline.js";
 import { newVerificationId } from "./verificationStore.js";
@@ -497,12 +498,18 @@ async function replaceFindings(item, list) {
 /** 한 문항을 검사한다. deps는 시험에서 Claude 대신 넣는 자리다. */
 export async function checkItem(item, deps = {}) {
   const grade = deps.grade || gradeAnswer;
+  // 정답 기준 재확인(audit/keyCheck.js) — 법제처 키가 있을 때만 기본으로 돈다(시험은 네트워크 없이).
+  const keyCheck = deps.keyCheck || (process.env.LAW_OC ? checkAnswerKey : null);
   const verify = deps.verify || runVerification;
   const probe = parse(item.probe_json);
   const answer = String(item.answer || "");
   try {
     if (probe) {
-      const g = await grade(probe, answer.slice(0, 8000));
+      // 기준 조문이 효력을 잃었거나 바뀌었으면 채점하지 않는다 — 흔들리는 기준으로 상대를 판정하지 않는다.
+      const key = keyCheck ? await keyCheck(probe).catch(() => ({ valid: true })) : { valid: true };
+      const g = key.valid
+        ? await grade(probe, answer.slice(0, 8000))
+        : { outcome: "ungraded", keyInvalid: true, evidence: "", aiClaim: "", reason: `기준 무효 — ${key.reason} 이 문항은 오류로도 정확으로도 세지 않습니다.` };
       const failed = g.outcome === "ungraded" && /채점에 실패/.test(g.reason || "");
       await run(
         `UPDATE ai_audit_items SET grade_json = :g, status = :st, error = :err, updated_at = :t WHERE id = :id`,

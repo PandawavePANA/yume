@@ -216,7 +216,9 @@ export function caseFacts(f, item) {
   // 원문은 한 문장(한 항)만. 전문은 링크로 연다.
   let excerpt = "";
   const gt = String(probe?.groundTruth || "");
-  const m = gt.match(/실제 원문은 "([^"]+)"/);
+  // 정답 문장에 원문이 따옴표로 들어 있으면 그 문장만 쓴다("실제 원문은 "…"" 또는 "(원문: "…")").
+  // 정답 설명("…은(는) 원문과 다릅니다")까지 원문 칸에 들어가면 읽는 사람이 무엇이 법 문장인지 헷갈린다.
+  const m = gt.match(/실제 원문은 "([^"]+)"/) || (o.wrongValue ? gt.match(/\(원문: "([^"]+)"\)/) : null);
   if (m) excerpt = m[1];
   else if (f.truth) {
     const [head, ...rest] = String(f.truth).split(" — ");
@@ -326,7 +328,7 @@ export function severityOf(f, c) {
 }
 
 // 근거 조문 — 검토자가 연 원문 주소(법제처 /법령/…/제N조)에서 읽는 것이 가장 정확하다.
-function lawRef(c) {
+export function lawRef(c) {
   try {
     const m = decodeURI(String(c.link || "")).match(/\/법령\/([^/]+)\/제(\d+)조/);
     if (m) return `${m[1]} 제${m[2]}조`;
