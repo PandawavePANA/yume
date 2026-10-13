@@ -797,11 +797,14 @@ export function mailDrafts(audit, results, { reportUrl = "", issues = 0, wrongAn
   const phrase = domainPhrase(audit.domain);
   const n = results?.answered || 0;
   const sign = `${COMPANY.ceo} 드림 · 유메 (${SITE})`;
+  // 제목은 짧고 한 번에 읽히게(2026-10-13 대표: "제목이 너무 길다, 임팩트 있게 컴팩트하게"). 휴대폰 받은편지함에서
+  // 잘리지 않는 길이 — 브랜드 이름 + 숫자 하나 + 근거. 법인명((주)…)이면 서비스 이름의 첫 낱말을 브랜드로 쓴다.
+  const brand = /\(주\)|주식회사|㈜/.test(audit.company || "") ? String(service).split(/\s+/)[0] : audit.company || String(service).split(/\s+/)[0];
   const subject = issues
-    ? `[비공개] ${service} 답변 중 원문과 다른 ${phrase} ${issues}건 — 확인 결과 공유드립니다`
+    ? `[비공개] ${brand} AI 오답 ${issues}건 — 법령 원문 대조`
     : clean
-      ? `[비공개] ${service} 답변 ${n}개 원문 대조 결과 — 법령과 다른 내용 없음`
-      : `[비공개] ${service} 서비스 답변의 ${phrase} 관련 확인 결과 공유드립니다`;
+      ? `[비공개] ${brand} AI 답변 ${n}개, 법령과 다른 내용 없음`
+      : `[비공개] ${brand} AI 답변 확인 결과`;
   const finding = issues
     ? `답변 ${n}개 중 ${wrongAnswers}개에서 법령·판례 원문과 다른 내용 ${issues}건을 확인해 비공개로 공유드립니다.`
     : clean
@@ -836,11 +839,11 @@ export function mailDrafts(audit, results, { reportUrl = "", issues = 0, wrongAn
   return {
     first: { subject: audit.mail_subject || subject, body: audit.mail_body || body, edited: !!(audit.mail_subject || audit.mail_body), defaultSubject: subject, defaultBody: body },
     followup: {
-      subject: `Re: [비공개] ${service} 서비스 답변의 ${phrase} 관련 확인 결과`,
+      subject: `Re: ${subject}`,
       body: `${who}, 지난주 보내드린 보고서가 잘 전달되었는지 확인차 연락드립니다. 사례 중 확인이 필요하신 부분이 있으면 원문과 함께 설명드리겠습니다. 이후로는 따로 연락드리지 않겠습니다.\n\n${COMPANY.ceo} 드림`,
     },
     interested: {
-      subject: `Re: [비공개] ${service} 서비스 답변의 ${phrase} 관련 확인 결과`,
+      subject: `Re: ${subject}`,
       body: "답장 감사합니다. 15~20분 정도 통화가 가능하실까요? 귀사 서비스에서 가장 신경 쓰이는 오류 유형을 들으면, 그 범위로 무료 검사를 설계해 보겠습니다. 편하신 시간 두세 개만 알려주세요.",
     },
     callQuestions: [
