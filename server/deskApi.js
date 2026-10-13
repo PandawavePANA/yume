@@ -2,6 +2,8 @@
 //
 // 문은 새로 만들지 않고 adminApi의 requireAdmin을 그대로 쓴다. 관리자 화면이 여럿인데
 // 문이 여럿이면, 한쪽 문만 잠그는 실수가 반드시 생긴다.
+import { completeQuote } from "./quoteCheckout.js";
+import { receiptBlock } from "./receiptInfo.js";
 import express from "express";
 import { patchAsync } from "./asyncExpress.js";
 import { requireAdmin } from "./adminApi.js";
@@ -119,6 +121,25 @@ deskRouter.get("/desk", async (req, res) => {
 });
 
 // ── 대화 하나 ──────────────────────────────────────────────────────────
+// 계좌이체 신청 정보 — 데스크는 입금자명과 홈택스에 옮겨 적을 증빙 블록을 본다.
+function withTransfer(q) {
+  if (!q.transfer_json) return q;
+  let info = null;
+  try {
+    info = JSON.parse(q.transfer_json);
+  } catch {
+    return q;
+  }
+  return {
+    ...q,
+    transfer: {
+      payerName: info.payerName || q.payer_name || "",
+      requestedAt: Number(q.transfer_requested_at) || null,
+      receipt: receiptBlock(info, { title: q.title, totalKrw: Number(q.amount_krw), ref: `리머 견적 #${q.id}`, at: Number(q.transfer_requested_at) || Date.now() }),
+    },
+  };
+}
+
 deskRouter.get("/desk/:id", async (req, res) => {
   const t = await threadById(int(req.params.id));
   if (!t) return res.status(404).json({ error: "대화를 찾을 수 없어요." });
@@ -147,7 +168,7 @@ deskRouter.get("/desk/:id", async (req, res) => {
       linkable: !!openToken(t.link_enc),
     },
     messages,
-    quotes,
+    quotes: quotes.map(withTransfer),
     project,
     tasks,
     inquiry: inquiry ? { id: inquiry.id, kind: inquiry.kind, budget: inquiry.budget, message: inquiry.message } : null,
@@ -236,6 +257,17 @@ deskRouter.patch("/desk/quote/:id", async (req, res) => {
   if (!upd.changes) return res.status(409).json({ error: "방금 상태가 바뀌었어요. 새로고침 후 다시 시도해주세요." });
   await addMessage(q.thread_id, "system", `견적을 회수했습니다 · ${q.title}`, { kind: "quote_cancelled", quoteId: q.id });
   res.json({ ok: true });
+});
+
+// 계좌이체 입금 확인 — 카드 결제와 같은 완료 지점(completeQuote)을 지나야 일감·매출·영수증 메일이 한 번씩만 생긴다.
+// 확정(accepted)된 견적만. 계좌이체를 신청하지 않았어도(전화·메일로 받은 입금) 누를 수 있다.
+deskRouter.post("/desk/quote/:id/paid", async (req, res) => {
+  const q = await one("SELECT * FROM thread_quotes WHERE id = :id", { id: int(req.params.id) });
+  if (!q) return res.status(404).json({ error: "견적을 찾을 수 없어요." });
+  if (q.status === "paid") return res.json({ ok: true, already: true });
+  if (q.status !== "accepted") return res.status(409).json({ error: "의뢰인이 확정한 견적만 입금 확인할 수 있어요." });
+  const r = await completeQuote(q, { method: "계좌이체" });
+  res.json({ ok: true, already: !!r.already });
 });
 
 // ── 진행 상황 ──────────────────────────────────────────────────────────

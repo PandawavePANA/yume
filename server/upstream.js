@@ -67,15 +67,80 @@ let lastFailure = null;
 // 쓰기 때문에, 기록용 객체를 돌려주면 UpstreamError가 아닌 게 던져져서 분류가 통째로 샌다.
 export function noteUpstreamFailure(err) {
   lastFailure = { code: err.code, message: err.message, at: Date.now() };
+  if (HARD.has(err.code)) markHardDown(err.code, err.message);
   return err;
 }
 
 export function noteUpstreamSuccess() {
   lastFailure = null;
+  lastSuccessAt = Date.now();
+  if (hardDown) {
+    const was = hardDown;
+    hardDown = null;
+    onRecover?.(was);
+  }
+}
+
+// ── 엔진 정지(잔액 소진·키 오류) ─────────────────────────────────────
+//
+// 2026-10-13: 잔액이 0인 채로 하루가 갔다. 그 사이 결제가 열려 있었다면 사람들은 돈을 내고 쓰지
+// 못했을 것이고, 기업 API 고객은 영문 모를 실패를 받았을 것이다. 과부하·시간 초과는 저절로
+// 풀리지만 잔액 소진과 키 오류는 사람이 손대기 전까지 계속된다 — 이 둘은 "멈춤"으로 따로 다룬다.
+//   · 멈춘 동안 새 결제(크레딧 충전)를 받지 않는다 — 돈을 받고 못 쓰게 하지 않는다
+//   · 검사 요청은 차감하기 전에 바로 안내하고 돌려보낸다(API는 과금하지 않는 503)
+//   · 운영자에게 메일을 한 번 보낸다(6시간에 한 번까지)
+//   · 5분마다 한 요청은 그대로 통과시켜 다시 시도해 본다 — 충전하면 저절로 풀린다
+const HARD = new Set(["credit_exhausted", "auth_failed"]);
+const PROBE_EVERY_MS = 5 * 60 * 1000;
+let hardDown = null; // { code, message, since, lastTry }
+let lastSuccessAt = 0;
+let onDown = null;
+let onRecover = null;
+
+/** 멈춤·회복 알림을 받는다(메일 발송은 app이 건다 — 이 모듈은 아무것도 import 하지 않는다). */
+export function onEngineState({ down, recover } = {}) {
+  onDown = down || null;
+  onRecover = recover || null;
+}
+
+function markHardDown(code, message) {
+  const t = Date.now();
+  const fresh = !hardDown || hardDown.code !== code;
+  hardDown = { code, message, since: fresh ? t : hardDown.since, lastTry: t };
+  if (fresh) onDown?.(hardDown);
+}
+
+/**
+ * 지금 엔진이 멈춘 상태면 그 원인 코드를, 아니면 null. 멈춘 뒤에도 5분마다 한 번은 null을 돌려
+ * 실제 호출로 다시 확인하게 한다(그 호출이 성공하면 멈춤이 풀린다).
+ */
+export function engineGate({ probe = true } = {}) {
+  if (!hardDown) return null;
+  if (probe && Date.now() - hardDown.lastTry > PROBE_EVERY_MS) {
+    hardDown.lastTry = Date.now();
+    return null;
+  }
+  return hardDown.code;
+}
+
+/** 결제처럼 "되돌릴 수 없는 일" 앞에서 묻는다 — 시험 통과를 허락하지 않는다. */
+export const engineStopped = () => (hardDown ? hardDown.code : null);
+export const engineState = () => (hardDown ? { ...hardDown, lastSuccessAt } : { ok: true, lastSuccessAt });
+export const msSinceSuccess = () => (lastSuccessAt ? Date.now() - lastSuccessAt : Infinity);
+
+/** 시험용 — 상태를 처음으로 돌린다. */
+export function resetEngineState() {
+  hardDown = null;
+  lastFailure = null;
+  lastSuccessAt = 0;
 }
 
 // 최근 장애만 의미가 있다. 10분이 지나면 지나간 일로 본다.
 export function upstreamStatus() {
+  // 멈춤은 10분이 지나도 지나간 일이 아니다 — 풀릴 때(성공 호출)까지 그대로 보인다.
+  if (hardDown) {
+    return { ok: false, stopped: true, code: hardDown.code, note: OPERATOR_NOTE[hardDown.code], message: hardDown.message, at: hardDown.since };
+  }
   if (!lastFailure || Date.now() - lastFailure.at > 10 * 60 * 1000) return { ok: true };
   return {
     ok: false,

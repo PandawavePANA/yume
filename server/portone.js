@@ -73,7 +73,9 @@ export async function confirmPayment(paymentId, expectedAmount) {
           : type.includes("EASY")
             ? "간편결제"
             : type || "카드";
-  return { ok: true, amount: total, method: label, paidAt: p?.paidAt || null };
+  // 테스트 채널(이니시스 INIpayTest 등)로 난 결제는 실제 돈이 들어오지 않는다. 받는 쪽이 판단하게 알려 준다.
+  const test = String(p?.channel?.type || "").toUpperCase() === "TEST";
+  return { ok: true, amount: total, method: label, paidAt: p?.paidAt || null, test };
 }
 
 // 본인확인 건 조회. CI는 사람마다 서비스와 무관하게 같은 값이라 그대로 저장하지 않는다 —

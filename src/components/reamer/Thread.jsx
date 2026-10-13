@@ -36,6 +36,7 @@ export default function Thread() {
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [payFor, setPayFor] = useState(null);
+  const [transferFor, setTransferFor] = useState(null);
   // 보내기 전에 고른 사진(줄인 data URL). 글과 같이 한 번에 나간다.
   const [photos, setPhotos] = useState([]);
   const pickRef = useRef(null);
@@ -170,6 +171,8 @@ export default function Thread() {
           thread={data.thread}
           payable={data.payable}
           onPay={() => setPayFor(q)}
+          transfer={data.transfer}
+          onTransfer={() => setTransferFor(q)}
           onAccept={async (accept) => {
             setError("");
             try {
@@ -251,6 +254,7 @@ export default function Thread() {
 
       <ThreadFoot company={data.company} />
 
+      {transferFor && <TransferSheet quote={transferFor} thread={data.thread} transfer={data.transfer} token={token} onDone={() => load()} onClose={() => setTransferFor(null)} />}
       {payFor && <PaySheet quote={payFor} thread={data.thread} token={token} onDone={() => { setPayFor(null); load(); }} onClose={() => setPayFor(null)} />}
     </div>
   );
@@ -360,7 +364,7 @@ function Bubble({ m, quotes, token }) {
  * 포함되는지를 읽지 않게 만들기 때문이다. 확정을 먼저 누르게 하면 범위를 읽고
  * 결정할 자리가 생기고, 결제는 그다음에 하는 일이 된다.
  */
-function QuoteCard({ quote, thread, payable, onPay, onAccept }) {
+function QuoteCard({ quote, thread, payable, onPay, onAccept, transfer, onTransfer }) {
   const [busy, setBusy] = useState(false);
   const expired = quote.expiresAt && quote.expiresAt < Date.now();
   const accepted = quote.status === "accepted";
@@ -389,18 +393,30 @@ function QuoteCard({ quote, thread, payable, onPay, onAccept }) {
         <p className="th__quoteNote">유효기간이 지난 견적입니다. 대화로 말씀해주시면 다시 보내드리겠습니다.</p>
       ) : accepted ? (
         <>
-          {payable ? (
-            <div className="th__quoteRow">
-              <button className="th__pay" type="button" onClick={onPay}>
-                결제하기 <span aria-hidden>→</span>
-              </button>
-              <button className="th__undo" type="button" onClick={() => accept(false)} disabled={busy}>
-                확정 취소
-              </button>
+          {quote.transferRequestedAt ? (
+            <div className="th__quoteNote" role="status">
+              <b>계좌이체 신청됨 · 입금 확인 대기</b>
+              <br />
+              {transfer?.bank
+                ? <>입금 계좌 <b>{transfer.bank}</b> · {won(quote.amount)} · 입금이 확인되면 바로 착수하고 증빙을 발급합니다.</>
+                : <>입금 계좌를 영업일 하루 안에 메일로 보내 드립니다. 입금이 확인되면 바로 착수합니다.</>}
             </div>
-          ) : (
-            <p className="th__quoteNote">지금은 카드 결제를 열 수 없습니다. {BUSINESS.email}로 문의해주세요.</p>
-          )}
+          ) : null}
+          <div className="th__quoteRow">
+            {payable && (
+              <button className="th__pay" type="button" onClick={onPay}>
+                카드로 결제 <span aria-hidden>→</span>
+              </button>
+            )}
+            {transfer && (
+              <button className={payable ? "th__doc" : "th__pay"} type="button" onClick={onTransfer}>
+                {quote.transferRequestedAt ? "계좌이체 정보 고치기" : "계좌이체로 결제"} {payable ? null : <span aria-hidden>→</span>}
+              </button>
+            )}
+            <button className="th__undo" type="button" onClick={() => accept(false)} disabled={busy}>
+              확정 취소
+            </button>
+          </div>
           <p className="th__quoteNote">
             결제가 확인되면 바로 착수합니다. 착수 전에는 전액 환불되고, 착수 이후에는 진행된 부분을 제외하고
             환불됩니다.
@@ -566,6 +582,96 @@ function PaySheet({ quote, thread, token, onDone, onClose }) {
           <button className="th__pay" type="submit" disabled={state === "busy"}>
             {state === "busy" ? "결제창을 여는 중…" : `${won(quote.amount)} 결제`}
           </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+/**
+ * 계좌이체 신청 — 입금자명과 증빙(세금계산서·현금영수증)을 받는다. 금액은 서버의 견적에서만 온다.
+ * 카드 PG 계약 전에도 이 길로 받는다. 운영자가 입금을 확인하면 결제 완료로 바뀐다.
+ */
+function TransferSheet({ quote, thread, transfer, token, onDone, onClose }) {
+  const [form, setForm] = useState({ payerName: thread.name || "", kind: "tax", bizNo: "", bizName: "", ceo: "", taxEmail: "", cashId: "" });
+  const [state, setState] = useState("idle");
+  const [error, setError] = useState("");
+  const [bank, setBank] = useState(null);
+  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+  const kinds = transfer?.receiptKinds || { tax: "전자세금계산서 (사업자)", cash_personal: "현금영수증 — 소득공제용 (개인)", cash_business: "현금영수증 — 지출증빙용 (사업자)", none: "증빙 필요 없음" };
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setError("");
+    setState("busy");
+    try {
+      const r = await call(`/thread/quote/${quote.id}/transfer`, { method: "POST", token, body: form });
+      setBank(r.bank || "");
+      setState("done");
+      onDone();
+    } catch (err) {
+      setError(err.message);
+      setState("idle");
+    }
+  };
+
+  if (state === "done") {
+    return (
+      <div className="th__sheetWrap" role="dialog" aria-modal="true" aria-label="계좌이체 안내">
+        <div className="th__sheet">
+          <p className="th__sheetLabel">계좌이체</p>
+          <h2 className="th__sheetTitle">신청했습니다</h2>
+          <p className="th__sheetAmount">{won(quote.amount)}</p>
+          {bank
+            ? <p className="th__sheetTerms">입금 계좌 <b>{bank}</b><br />입금자명 <b>{form.payerName}</b>으로 보내 주세요. 입금이 확인되면 바로 착수하고, 요청하신 증빙을 발급합니다.</p>
+            : <p className="th__sheetTerms">입금 계좌를 영업일 하루 안에 메일로 보내 드립니다. 입금이 확인되면 바로 착수하고, 요청하신 증빙을 발급합니다.</p>}
+          <div className="th__sheetRow">
+            <button className="th__pay" type="button" onClick={onClose}>확인</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="th__sheetWrap" role="dialog" aria-modal="true" aria-label="계좌이체로 결제">
+      <form className="th__sheet" onSubmit={submit}>
+        <p className="th__sheetLabel">계좌이체로 결제</p>
+        <h2 className="th__sheetTitle">{quote.title}</h2>
+        <p className="th__sheetAmount">{won(quote.amount)} <span style={{ fontSize: 13, fontWeight: 500 }}>부가세 포함</span></p>
+
+        <label className="th__field">
+          <span>입금자명</span>
+          <input id="tr-payer" value={form.payerName} onChange={set("payerName")} required maxLength={60} />
+        </label>
+        <label className="th__field">
+          <span>증빙</span>
+          <select id="tr-kind" value={form.kind} onChange={set("kind")}>
+            {Object.entries(kinds).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          </select>
+        </label>
+        {form.kind === "tax" && (
+          <>
+            <label className="th__field"><span>사업자등록번호</span><input id="tr-bizno" value={form.bizNo} onChange={set("bizNo")} required inputMode="numeric" placeholder="000-00-00000" /></label>
+            <label className="th__field"><span>상호</span><input id="tr-bizname" value={form.bizName} onChange={set("bizName")} required maxLength={100} /></label>
+            <label className="th__field"><span>대표자 성명</span><input id="tr-ceo" value={form.ceo} onChange={set("ceo")} required maxLength={60} /></label>
+            <label className="th__field"><span>세금계산서 받을 이메일</span><input id="tr-taxemail" type="email" value={form.taxEmail} onChange={set("taxEmail")} required maxLength={200} /></label>
+          </>
+        )}
+        {(form.kind === "cash_personal" || form.kind === "cash_business") && (
+          <label className="th__field">
+            <span>{form.kind === "cash_personal" ? "휴대폰 번호" : "사업자등록번호"}</span>
+            <input id="tr-cashid" value={form.cashId} onChange={set("cashId")} required inputMode="numeric" placeholder={form.kind === "cash_personal" ? "01012345678" : "000-00-00000"} />
+          </label>
+        )}
+
+        {error && <p className="th__sheetError">{error}</p>}
+        <p className="th__sheetTerms">
+          신청하시면 위 금액으로 개발 용역 계약이 성립합니다. 입금이 확인되면 착수하고, 착수 전에는 전액 환불되며 착수 이후에는 진행된 부분을 제외하고 환불됩니다.
+        </p>
+        <div className="th__sheetRow">
+          <button className="th__sheetGhost" type="button" onClick={onClose} disabled={state === "busy"}>취소</button>
+          <button className="th__pay" type="submit" disabled={state === "busy"}>{state === "busy" ? "보내는 중…" : "계좌이체 신청"}</button>
         </div>
       </form>
     </div>

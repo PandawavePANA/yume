@@ -60,7 +60,7 @@ import { renderResetPasswordPage, renderTermsPage, renderPrivacyPage, renderRefu
 import { clientIp, createLimiter, limitMiddleware, sameOriginGuard, securityHeaders, IS_PROD } from "./security.js";
 import { localizeResponses } from "./i18n.js";
 import { mailConfigured } from "./mailer.js";
-import { UpstreamError, OPERATOR_NOTE, userMessageFor, upstreamStatus } from "./upstream.js";
+import { UpstreamError, OPERATOR_NOTE, userMessageFor, upstreamStatus, engineGate } from "./upstream.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const distDir = path.join(__dirname, "..", "dist");
@@ -185,6 +185,11 @@ app.post("/api/verify", limitMiddleware(verifyLimiter, (req) => `verify:${client
 
   const user = req.user;
   const ip = clientIp(req);
+
+  // 검사 엔진이 멈춘 동안(잔액 소진·키 오류)은 차감하기 전에 돌려보낸다. 5분마다 한 요청은 통과시켜
+  // 다시 확인한다 — 그 요청이 실패해도 아래 catch가 환급하므로 손님이 잃는 것은 없다.
+  const stopped = engineGate();
+  if (stopped) return res.status(503).json({ error: userMessageFor(stopped), upstream: true, code: "ENGINE_PAUSED" });
 
   // 휴대폰 본인확인은 크레딧을 쓰기 시작할 때만 요구한다.
   //

@@ -65,6 +65,31 @@ function cachedSystem(system) {
 const THINKING_FLOOR = 16000;
 const capFor = (model, n) => (model === FAST_MODEL ? n : Math.max(n, THINKING_FLOOR));
 
+/**
+ * 엔진이 살아 있는지 한 번 확인한다(가장 싼 모델, 출력 1토큰 — 1원도 안 든다). 배포 직후와
+ * 한동안 호출이 없을 때 쓴다. 잔액이 바닥난 걸 첫 손님의 실패로 알게 되지 않도록.
+ */
+export async function probeEngine() {
+  if (!process.env.ANTHROPIC_API_KEY) return { ok: false, code: "no_key" };
+  try {
+    const res = await fetch(ANTHROPIC_API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-api-key": apiKey(), "anthropic-version": "2023-06-01" },
+      body: JSON.stringify({ model: FAST_MODEL, max_tokens: 1, messages: [{ role: "user", content: "ping" }] }),
+      signal: AbortSignal.timeout(20_000),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (data.type === "error" || !res.ok) {
+      const err = noteUpstreamFailure(classifyUpstream(new Error(data.error?.message || `Claude API 오류 (${res.status})`), res.status));
+      return { ok: false, code: err.code };
+    }
+    noteUpstreamSuccess();
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, code: classifyUpstream(e).code };
+  }
+}
+
 async function callClaude({ system, messages, tools, max_tokens = 4000, model = MODEL, label = "call", ledger = null }) {
   max_tokens = capFor(model, max_tokens);
   const res = await fetch(ANTHROPIC_API_URL, {

@@ -321,4 +321,9 @@ export default {
   "결제 방법을 골라 주세요.": "Choose a payment method.",
   "서비스 이용 조건과 데이터 처리 부속서에 동의해 주세요.": "Please agree to the service terms and the data processing addendum.",
   "입금 확인된 견적은 취소할 수 없어요(환불은 수정세금계산서와 함께 따로).": "A paid quote can't be cancelled (refunds are handled separately with an amended tax invoice).",
+  "지금은 검사 엔진 점검 중이라 충전을 잠시 멈췄어요. 결제하고 쓰지 못하는 일이 없도록 한 조치예요. 잠시 후 다시 시도해 주세요.": "Top-ups are paused while the checking engine is under maintenance, so you don't pay for something you can't use. Please try again shortly.",
+  "아직 카드 결제를 받을 수 없는 상태라 이 결제는 처리되지 않았어요. 계좌이체로 진행해 주세요.": "Card payments aren't available yet, so this payment wasn't processed. Please pay by bank transfer.",
+  "증빙 종류를 골라 주세요.": "Choose the type of receipt.",
+  "현금영수증을 받을 휴대폰 번호를 정확히 입력해 주세요.": "Enter a valid mobile number for the cash receipt.",
+  "입금자명을 입력해 주세요.": "Enter the depositor name.",
 };

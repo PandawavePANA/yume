@@ -260,7 +260,8 @@
   margin-top: 12px;
 }
 .th textarea,
-.th input {
+.th input,
+.th select {
   width: 100%;
   padding: 12px 14px;
   border-radius: 13px;
@@ -277,7 +278,8 @@
   color: var(--ink-faint);
 }
 .th textarea:focus,
-.th input:focus {
+.th input:focus,
+.th select:focus {
   outline: 2px solid rgba(109, 90, 224, 0.62);
   outline-offset: 1px;
 }
@@ -833,3 +835,6 @@
   max-height: 320px;
   object-fit: contain;
 }
+
+/* 어두운 화면에서 드롭다운 항목이 흰 바탕에 흰 글씨가 되지 않게 */
+.th select option { background: #15131c; color: var(--ink); }

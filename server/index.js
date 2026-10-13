@@ -2,11 +2,14 @@ import "dotenv/config";
 import app, { maintenance, markInterruptedJobs } from "./app.js";
 import { closeDb, DB_DESCRIPTION, PERSISTENT_STORAGE } from "./db.js";
 import { IS_PROD } from "./security.js";
+import { startEngineWatch } from "./engineWatch.js";
 
 // 서버가 재시작되면 진행 중이던 검증은 끝나지 않으므로 오류로 정리한다.
 await markInterruptedJobs();
 await maintenance();
 setInterval(() => maintenance(), 60 * 60 * 1000).unref();
+// 검사 엔진(Anthropic) 감시 — 잔액이 바닥나면 결제를 멈추고 운영자에게 메일을 보낸다(engineWatch.js).
+startEngineWatch();
 
 if (IS_PROD && !PERSISTENT_STORAGE) {
   console.warn("⚠️  DATABASE_URL(Supabase)이 지정되지 않아 로컬 PGlite에 저장합니다. 배포 환경이라면 재배포 때 데이터가 사라집니다.");

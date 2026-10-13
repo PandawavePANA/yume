@@ -147,11 +147,13 @@ export function renderDeskPage() {
   .pics { display:grid; grid-template-columns:repeat(auto-fill,minmax(110px,1fr)); gap:6px; margin:2px 0 6px; min-width:min(240px,60vw); }
   .pics a { display:block; aspect-ratio:1; border-radius:9px; overflow:hidden; background:rgba(0,0,0,.3); }
   .pics img { width:100%; height:100%; object-fit:cover; display:block; }
-  .picked { display:flex; flex-wrap:wrap; gap:7px; margin-top:9px; }
-  .picked:empty { display:none; }
-  .picked span { position:relative; width:58px; height:58px; border-radius:9px; overflow:hidden; border:1px solid var(--line2); }
-  .picked img { width:100%; height:100%; object-fit:cover; display:block; }
-  .picked button { position:absolute; top:2px; right:2px; width:20px; height:20px; border-radius:50%; border:0; padding:0;
+  /* 사진 미리보기. 클래스(.picked)로 잡으면 "대화 열림" 표시인 .split.picked까지 걸려 화면 전체가 flex가 되고
+     모든 버튼이 작은 동그라미로 구석에 붙는다 — 그래서 id로만 잡는다. */
+  #picked { display:flex; flex-wrap:wrap; gap:7px; margin-top:9px; }
+  #picked:empty { display:none; }
+  #picked span { position:relative; width:58px; height:58px; border-radius:9px; overflow:hidden; border:1px solid var(--line2); }
+  #picked img { width:100%; height:100%; object-fit:cover; display:block; }
+  #picked button { position:absolute; top:2px; right:2px; width:20px; height:20px; border-radius:50%; border:0; padding:0;
                    background:rgba(0,0,0,.7); color:#fff; font-size:13px; line-height:20px; cursor:pointer; }
   .amt { font-size:11.5px; color:#9fe0c0; min-height:1em; }
   .linkbox { margin:10px 16px 0; padding:10px 12px; border-radius:11px; font:12px/1.6 var(--mono);
@@ -352,7 +354,10 @@ export function renderDeskPage() {
       (q.status === "paid"
         ? '<div class="qd">' + E(q.method || "카드") + " \\u00B7 " + E(q.payment_id || "") + "</div>"
         : open
-          ? '<div class="qd"><button class="ghost" data-pull="' + q.id + '">견적 회수</button>' +
+          ? (q.transfer ? '<div class="qd"><b>계좌이체 신청</b> · 입금자명 ' + E(q.transfer.payerName) + '<pre style="white-space:pre-wrap;font-size:12px;margin:6px 0 0">' + E(q.transfer.receipt) + "</pre></div>" : "") +
+            '<div class="qd">' +
+            (q.status === "accepted" ? '<button class="ghost" data-paid="' + q.id + '">입금 확인</button> ' : "") +
+            '<button class="ghost" data-pull="' + q.id + '">견적 회수</button>' +
             (q.status === "sent" ? ' <span class="hint" style="display:inline">의뢰인이 확정하면 결제 버튼이 열립니다</span>' : "") +
             "</div>"
           : "") +
@@ -522,7 +527,7 @@ export function renderDeskPage() {
 
   // ── 조작 ──
   document.addEventListener("click", async function (ev) {
-    var el = ev.target.closest("[data-open],[data-send],[data-back],[data-link],[data-close],[data-pull],[data-mkproj],[data-pgsave],[data-tadd],[data-tdone],[data-tshare],[data-tdel],[data-deliver],[data-attach],[data-unpick],#newThread");
+    var el = ev.target.closest("[data-open],[data-send],[data-back],[data-link],[data-close],[data-pull],[data-paid],[data-mkproj],[data-pgsave],[data-tadd],[data-tdone],[data-tshare],[data-tdel],[data-deliver],[data-attach],[data-unpick],#newThread");
     if (!el || state.busy) return;
     // 사진 고르기와 빼기는 서버를 부르지 않는다. 바쁨 표시 없이 바로 처리한다.
     if (el.hasAttribute("data-attach")) { ev.preventDefault(); document.getElementById("deskPhoto").click(); return; }
@@ -564,6 +569,11 @@ export function renderDeskPage() {
       if (el.hasAttribute("data-close")) {
         var next = state.detail.thread.status === "closed" ? "open" : "closed";
         await api("/desk/" + state.picked, { method: "PATCH", body: { status: next } });
+        return await openThread(state.picked);
+      }
+      if (el.dataset.paid) {
+        if (!confirm("입금을 확인했나요? 결제 완료로 바꾸고 일감·매출·영수증 메일을 처리합니다.")) return;
+        await api("/desk/quote/" + el.dataset.paid + "/paid", { method: "POST", body: {} });
         return await openThread(state.picked);
       }
       if (el.dataset.pull) {

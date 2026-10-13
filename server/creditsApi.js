@@ -1,3 +1,4 @@
+import { engineStopped } from "./upstream.js";
 import express from "express";
 import { patchAsync } from "./asyncExpress.js";
 import { requireUser } from "./auth.js";
@@ -176,6 +177,8 @@ router.get("/checkout/config", (req, res) => {
 // 금액은 서버가 정한다 — 브라우저가 보낸 금액은 쓰지 않는다.
 router.post("/checkout", limitMiddleware(checkoutLimiter, (req) => `checkout:${req.user.id}`), async (req, res) => {
   if (!paymentConfigured()) return res.status(503).json({ error: "결제 연동이 아직 설정되지 않았어요." });
+  // 검사 엔진이 멈춘 동안에는 돈을 받지 않는다 — 충전하고 쓰지 못하는 일이 없게(upstream.js 멈춤 규칙).
+  if (engineStopped()) return res.status(503).json({ error: "지금은 검사 엔진 점검 중이라 충전을 잠시 멈췄어요. 결제하고 쓰지 못하는 일이 없도록 한 조치예요. 잠시 후 다시 시도해 주세요.", code: "ENGINE_PAUSED" });
 
   // 이니시스 V2는 구매자 휴대폰 번호 없이는 결제창을 열지 않는다. 그 번호는 본인확인에서
   // 받아 둔 값이므로, 인증 전에 주문을 만들면 열리지도 않을 결제창을 위해 주문만 쌓인다.

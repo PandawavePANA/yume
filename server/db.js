@@ -1201,6 +1201,12 @@ const MIGRATIONS = [
   CREATE INDEX idx_b2b_quotes_audit ON b2b_quotes(audit_id);
   ALTER TABLE b2b_quotes ENABLE ROW LEVEL SECURITY;
   `,
+  // 리머 견적의 계좌이체 신청(카드 PG 계약 전에도 받을 수 있게). transfer_json은 증빙 정보 —
+  // 세금계산서(사업자번호·상호·대표자·이메일) 또는 현금영수증(휴대폰·사업자번호) — 홈택스에 옮겨 적는 값.
+  `
+  ALTER TABLE thread_quotes ADD COLUMN transfer_json TEXT;
+  ALTER TABLE thread_quotes ADD COLUMN transfer_requested_at BIGINT;
+  `,
 ];
 
 async function migrate() {
