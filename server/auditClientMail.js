@@ -89,7 +89,9 @@ export function clientAuditMail(detail, { cardUrl = `${(process.env.PUBLIC_BASE_
     </td></tr></table>
   </td></tr>
   <tr><td style="padding:16px 24px 0;font-size:15px;line-height:1.75;color:#3A3546">
-    ${clean ? "원하시면 이 결과를 ‘YUME 감사 기록’으로 공개해 고객이나 투자자에게 근거로 보여 주실 수 있습니다. 공개는 귀사가 동의하실 때만 합니다." : "필요하시면 범위를 넓혀 한 번 더 무료로 검사해 드리겠습니다. 필요 없으시면 편하게 넘기셔도 됩니다."}
+    ${clean ? "원하시면 이 결과를 ‘YUME 감사 기록’으로 공개해 고객이나 투자자에게 근거로 보여 주실 수 있습니다. 공개는 귀사가 동의하실 때만 합니다." : "필요하시면 범위를 넓혀 한 번 더 무료로 검사해 드리겠습니다."}
+    <div style="margin-top:10px;font-weight:800;color:#1D1A24">관심 있으시면 이 메일로 답장 주세요. 친절히 설명해 드리겠습니다.</div>
+    <div style="margin-top:6px;font-size:14px;color:#857E98">필요 없으시면 편하게 넘기셔도 됩니다.</div>
   </td></tr>
 
   <tr><td style="padding:22px 24px 24px">
