@@ -896,14 +896,16 @@ export function checklist(audit, items, findings, files, mail) {
     {
       key: "evidence",
       label: "보낼 근거가 있다 — 원문으로 확인된 불일치가 하나 이상, 대표 사례에는 캡처가 있다",
-      ok: (confirmed.length > 0 && featured.length > 0 && featured.every((f) => filesByItem.has(Number(f.item_id)))) || (!confirmed.length && answered.length > 0 && !findings.some((f) => f.polarity === "issue" && f.review === "pending")),
+      ok: (confirmed.length > 0 && featured.length > 0 && (!needsCapture(audit) || featured.every((f) => filesByItem.has(Number(f.item_id))))) || (!confirmed.length && answered.length > 0 && !findings.some((f) => f.polarity === "issue" && f.review === "pending")),
       detail: !confirmed.length
         ? answered.length && !findings.some((f) => f.polarity === "issue" && f.review === "pending")
           ? "확인된 불일치 없음 — '이상 없음' 결과로 보냅니다(공개 감사 기록을 권하는 메일)."
           : "재확인을 마치면 결과에 맞는 메일을 씁니다."
         : !featured.length
           ? "보고서에 실을 대표 사례(가장 확실한 것 2~3건)를 골라주세요."
-          : featured.every((f) => filesByItem.has(Number(f.item_id)))
+          : !needsCapture(audit)
+            ? `대표 사례 ${featured.length}건 · 공식 API 응답이 기록입니다`
+            : featured.every((f) => filesByItem.has(Number(f.item_id)))
             ? `대표 사례 ${featured.length}건 · 캡처 있음`
             : "대표 사례로 고른 질문에 캡처를 올려주세요.",
     },
@@ -1094,10 +1096,33 @@ export async function listAudits() {
 }
 
 // ── 보고서 공유·발송 ──────────────────────────────────────────────────
+// 화면에서 묻는 감사(손 입력·브라우저)는 상대 서비스에 기록이 남지 않는 경우가 많다 — 2026-10-13 로무앤톡 2차 감사는
+// 대화 기록이 남지 않는 서비스였고 크레딧도 다 써서, 보고서를 다 만든 뒤에야 대표 사례 캡처가 없다는 걸 알았다.
+// 그래서 캡처가 없는 대표 오류가 있으면 보고서 링크부터 만들지 않는다(발송 체크리스트까지 가기 전에 막는다).
+// 공식 API로 물은 감사는 API 응답 자체가 기록이라 캡처를 요구하지 않는다.
+export const needsCapture = (audit) => audit?.input_method !== "api";
+
+/** 캡처가 필요한데 없는 대표 오류의 질문 id 목록. */
+export async function missingCaptures(auditId) {
+  const audit = await auditById(auditId);
+  if (!audit || !needsCapture(audit)) return [];
+  const rows = await all(
+    `SELECT DISTINCT f.item_id FROM ai_audit_findings f
+      WHERE f.audit_id = :id AND f.polarity = 'issue' AND f.review = 'confirmed' AND f.featured = 1
+        AND NOT EXISTS (SELECT 1 FROM ai_audit_files x WHERE x.item_id = f.item_id)`,
+    { id: audit.id },
+  );
+  return rows.map((r) => Number(r.item_id));
+}
+
 export async function shareReport(id) {
   const audit = await auditById(id);
   if (!audit) return { error: "감사 건을 찾을 수 없어요." };
   if (audit.report_token) return { ok: true, token: audit.report_token };
+  const missing = await missingCaptures(audit.id);
+  if (missing.length) {
+    return { error: `대표 오류 ${missing.length}건에 화면 캡처가 없어요. 상대가 "그렇게 답한 적 없다"고 하면 근거가 없습니다 — 캡처를 올리거나(감사 러너는 자동으로 남깁니다) 그 사례를 대표 사례에서 빼 주세요.`, missing };
+  }
   const token = randomToken(18);
   await run("UPDATE ai_audits SET report_token = :tk, report_shared_at = :t, updated_at = :t WHERE id = :id", { id: audit.id, tk: token, t: now() });
   return { ok: true, token };
