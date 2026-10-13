@@ -1166,6 +1166,41 @@ const MIGRATIONS = [
   `
   ALTER TABLE ai_audit_findings ADD COLUMN report_title TEXT;
   `,
+  // 기업 견적·계약 신청(b2bDeals.js). 금액은 서버가 정한 값만 들어간다. billing_json은 세금계산서 발급
+  // 정보(사업자등록번호·상호·대표자·이메일…) — 홈택스에 옮겨 적는 값이라 그대로 둔다. audit_id는 감사
+  // 보고서에서 이어진 견적이면 그 감사 건.
+  `
+  CREATE TABLE b2b_quotes (
+    id BIGSERIAL PRIMARY KEY,
+    token TEXT NOT NULL UNIQUE,
+    product TEXT NOT NULL,
+    items_json TEXT NOT NULL,
+    supply_krw BIGINT NOT NULL,
+    vat_krw BIGINT NOT NULL,
+    total_krw BIGINT NOT NULL,
+    company TEXT NOT NULL,
+    contact_name TEXT,
+    email TEXT,
+    phone TEXT,
+    note TEXT,
+    source TEXT NOT NULL DEFAULT 'self',
+    audit_id BIGINT REFERENCES ai_audits(id) ON DELETE SET NULL,
+    valid_until BIGINT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'issued',
+    billing_json TEXT,
+    pay_method TEXT,
+    terms_version TEXT,
+    agreed_at BIGINT,
+    requested_at BIGINT,
+    request_ip TEXT,
+    paid_at BIGINT,
+    ip TEXT,
+    created_at BIGINT NOT NULL,
+    updated_at BIGINT NOT NULL
+  );
+  CREATE INDEX idx_b2b_quotes_audit ON b2b_quotes(audit_id);
+  ALTER TABLE b2b_quotes ENABLE ROW LEVEL SECURITY;
+  `,
 ];
 
 async function migrate() {

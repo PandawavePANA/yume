@@ -14,6 +14,7 @@
 import { useEffect, useState } from "react";
 import AuditModal from "./components/yume/AuditModal.jsx";
 import InquiryModal from "./components/business/InquiryModal.jsx";
+import QuoteModal, { QUOTE_PRODUCTS } from "./components/business/QuoteModal.jsx";
 import { CONTACT_EMAIL } from "./components/yume/api.js";
 import { YUME_URL } from "./businessConfig.js";
 import { BUSINESS, telHref, COPYRIGHT, businessLine, COMPLAINT_NOTICE, COMPLAINT_OFFICER } from "./businessInfo.js";
@@ -85,6 +86,7 @@ const CSS = `
 .g2 { grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); }
 .g3 { grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); }
 .g4 { grid-template-columns:repeat(auto-fit,minmax(215px,1fr)); }
+.g5 { grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); }
 .bz-card { background:rgba(255,255,255,.88); border:1px solid var(--line); border-radius:18px; padding:18px 20px; display:flex; flex-direction:column; gap:7px; }
 .bz-card.main { background:#fff; border:1.5px solid var(--accent); }
 .bz-card .k { font-size:12px; font-weight:750; letter-spacing:.08em; color:var(--accent); }
@@ -128,6 +130,7 @@ const NAV = [
   ["#audit", "AI 감사"],
   ["#check", "검사·API"],
   ["#pricing", "요금"],
+  ["#buy", "구매·계약"],
   ["#trust", "신뢰"],
   ["#faq", "자주 묻는 질문"],
 ];
@@ -203,14 +206,30 @@ const FAQ = [
   ["결과를 보증해 주나요?", "유메가 드리는 것은 무엇을 언제 어떤 원문으로 확인했는지의 검사 기록입니다. 서비스 품질이나 앞으로의 답변을 보증하지 않으며, 법률·의료·금융 자문이 아닙니다."],
 ];
 
+// 구매 흐름 — server/b2bDeals.js가 실제로 거치는 상태 그대로(견적 발행 → 계약 신청 → 입금 확인).
+const BUY_FLOW = [
+  ["견적서 바로 받기", "상품과 기간(물량)을 고르면 공급자 정보·부가세·유효기간(30일)이 들어간 A4 견적서가 바로 나옵니다. 인쇄하거나 PDF로 저장해 결재에 붙이세요."],
+  ["견적서 화면에서 계약 신청", "사업자등록번호·상호·대표자·세금계산서 받을 이메일과 결제 방법을 적고 계약 조건에 동의하면 신청이 끝납니다."],
+  ["입금 · 전자세금계산서", "계좌이체는 입금 확인 후 전자세금계산서를 발급합니다. 법인카드는 결제 링크를 보내 드립니다."],
+  ["바로 사용", "입금이 확인되면 담당자 계정의 API 키에 계약한 월 한도가 걸리고, 견적서 화면에서도 진행 상태를 볼 수 있습니다."],
+];
+
+const BUY_DOCS = [
+  { k: "견적서", v: "API 약정·종량제는 지금 바로. 감사·PoC는 범위를 듣고 견적서 링크를 보내 드립니다.", quote: true },
+  { k: "기업 서비스 이용 조건", v: "요금·한도·장애·해지·책임 한도·비밀 유지를 담은 표준 조건입니다.", href: "/b2b/terms" },
+  { k: "데이터 처리 부속서", v: "개인정보 처리 위탁 문서로 쓸 수 있는 표준본 — 목적, 보관 기간, 재위탁·국외 이전, 사고 통지.", href: "/b2b/dpa" },
+  { k: "보안·데이터 처리 설명서", v: "보안 검토 담당자가 묻는 항목에 대한 답. 받지 않은 인증은 받지 않았다고 적었습니다.", href: "/b2b/security" },
+  { k: "거래처 등록 서류", v: "사업자등록증명, 통장 사본, 국세·지방세 납세증명서가 필요하시면 메일로 요청해 주세요. 영업일 하루 안에 보내 드립니다." },
+];
+
 const PRICE_CARDS = [
   { key: "trial", label: API_RATES.trial.label, price: "0원", period: "", detail: `매달 ${API_RATES.trial.calls}회. 가입하면 바로 키를 받아 응답 형식을 확인할 수 있습니다.`, unit: "계정당 한도 · 키는 여러 개 만들어도 함께 씁니다", cta: "가입하고 키 발급받기", href: `${YUME_URL}/?open=api` },
-  { key: "metered", label: API_RATES.metered.label, price: won(API_RATES.metered.unitKrw), period: " / 회", detail: "월 약정 없이 쓴 만큼 냅니다. 물량을 가늠하기 전에 붙여 보기 좋습니다.", unit: "기본료 없음", cta: "종량제 신청", plan: "metered" },
+  { key: "metered", label: API_RATES.metered.label, price: won(API_RATES.metered.unitKrw), period: " / 회", detail: "월 약정 없이 쓴 만큼 냅니다. 물량을 가늠하기 전에 붙여 보기 좋습니다.", unit: "기본료 없음 · 후불 월 정산", cta: "견적서 받기", plan: "metered" },
   ...API_RATES.tiers.map((t) => ({
     key: t.key, label: t.label, price: won(t.monthlyKrw), period: " / 월",
     detail: `매달 ${t.calls.toLocaleString("ko-KR")}회 포함.`,
     unit: `건당 ${won(Math.round(t.monthlyKrw / t.calls))} · 종량제보다 ${Math.round((1 - t.monthlyKrw / t.calls / API_RATES.metered.unitKrw) * 100)}% 저렴`,
-    cta: `${t.label} 신청`, plan: t.key,
+    cta: "견적서 받기", plan: t.key,
   })),
 ];
 
@@ -219,6 +238,15 @@ function initialInquiry() {
   try {
     const p = new URLSearchParams(window.location.search).get("inquiry");
     return p ? { plan: p, note: "" } : null;
+  } catch {
+    return null;
+  }
+}
+
+function initialQuote() {
+  try {
+    const p = new URLSearchParams(window.location.search).get("quote");
+    return p && QUOTE_PRODUCTS[p] ? p : null;
   } catch {
     return null;
   }
@@ -281,6 +309,8 @@ export default function BusinessPage() {
   // 도입 문의 창. { plan, note } — 카드의 "신청"은 그 플랜을 골라 둔 채로 연다.
   const [inquiry, setInquiry] = useState(initialInquiry);
   const ask = (plan = "unsure") => () => setInquiry({ plan, note: "" });
+  // 견적서 바로 받기 창. 값은 상품 키(starter·growth·metered).
+  const [quote, setQuote] = useState(initialQuote);
   const latest = useLatestIndex();
 
   return (
@@ -478,7 +508,7 @@ Authorization: Bearer <API_KEY>
                 <div className="d" style={{ flex: 1 }}>{c.detail}</div>
                 <div className="f">{c.unit}</div>
                 {c.plan
-                  ? <button type="button" className="bz-btn ghost sm" onClick={ask(c.plan)}>{c.cta}</button>
+                  ? <button type="button" className="bz-btn ghost sm" onClick={() => setQuote(c.plan)}>{c.cta}</button>
                   : <a className="bz-btn primary sm" href={c.href}>{c.cta}</a>}
               </div>
             ))}
@@ -495,6 +525,45 @@ Authorization: Bearer <API_KEY>
               <div className="t">맞춤 견적</div>
               <div className="d">전용 한도, 계약서, 대량 처리가 필요하시면 알려 주세요. 처리하지 못하고 실패한 호출은 세지 않습니다.</div>
               <div className="act"><button type="button" className="bz-btn ghost sm" onClick={ask("custom")}>맞춤 견적 요청</button></div>
+            </div>
+          </div>
+        </Section>
+
+        {/* ── 구매·계약 ── 구매 담당자가 결재·거래처 등록에 쓰는 것. 문서는 서버가 같은 내용을 렌더링한다. */}
+        <Section id="buy" eyebrow="구매 · 계약" title="결재에 필요한 서류를 기다리지 않고 받으세요" lede="견적서는 바로 나오고, 계약 조건과 데이터 처리 부속서는 지금 열어 볼 수 있습니다. 결재가 끝나면 견적서 화면에서 세금계산서 정보를 적어 계약을 신청하시면 됩니다.">
+          <ol className="bz-steps">
+            {BUY_FLOW.map(([k, v], i) => (
+              <li key={k} className="bz-card">
+                <div className="n">{String(i + 1).padStart(2, "0")}</div>
+                <div className="t">{k}</div>
+                <div className="d">{v}</div>
+              </li>
+            ))}
+          </ol>
+          <div className="bz-grid g5">
+            {BUY_DOCS.map((d) => (
+              <div key={d.k} className="bz-card">
+                <div className="t">{d.k}</div>
+                <div className="d" style={{ flex: 1 }}>{d.v}</div>
+                <div className="act">
+                  {d.quote
+                    ? <button type="button" className="bz-btn primary sm" onClick={() => setQuote("growth")}>견적서 받기</button>
+                    : d.href
+                      ? <a className="bz-btn ghost sm" href={`${YUME_URL}${d.href}`} target="_blank" rel="noreferrer">열기</a>
+                      : <a className="bz-btn ghost sm" href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent("[유메] 거래처 등록 서류 요청")}`}>메일로 요청</a>}
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="bz-grid g2" style={{ marginTop: 12 }}>
+            <div className="bz-card">
+              <div className="k">결제와 세금계산서</div>
+              <div className="d">계좌이체는 전자세금계산서를 발급하고, 법인카드는 결제 링크를 보내 드립니다(카드 결제 건은 카드 매출전표가 증빙). 월 약정은 매달 선결제, 종량제는 매달 사용량으로 정산해 다음 달 10일까지 발급합니다.</div>
+            </div>
+            <div className="bz-card">
+              <div className="k">귀사 계약서로도 진행합니다</div>
+              <div className="d">표준 조건 대신 귀사 계약서·보안서약서·개인정보 위탁 계약서 양식이 있으면 보내 주세요. 감사·PoC·큰 물량은 범위를 듣고 견적서를 따로 드립니다.</div>
+              <div className="act"><button type="button" className="bz-btn ghost sm" onClick={ask("custom")}>계약 협의 요청</button></div>
             </div>
           </div>
         </Section>
@@ -588,6 +657,7 @@ Authorization: Bearer <API_KEY>
 
       {showAudit && <AuditModal onClose={() => setShowAudit(false)} />}
       {inquiry && <InquiryModal plan={inquiry.plan} note={inquiry.note} onClose={() => setInquiry(null)} />}
+      {quote && <QuoteModal product={quote} onClose={() => setQuote(null)} />}
     </main>
   );
 }

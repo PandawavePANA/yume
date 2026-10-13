@@ -24,6 +24,9 @@ import creditsRouter from "./creditsApi.js";
 import portoneWebhookRouter from "./portoneWebhook.js";
 import { auditRouter, getAuditReport, renderAuditReport } from "./auditApi.js";
 import { inquiryRouter } from "./inquiryApi.js";
+import { b2bRouter, b2bAdminRouter } from "./b2bApi.js";
+import { quoteByToken } from "./b2bDeals.js";
+import { renderQuotePage, renderB2bTerms, renderB2bDpa, renderB2bSecurity, renderDealsAdminPage } from "./renderB2bPages.js";
 import { threadRouter } from "./threadApi.js";
 import screenshotRouter from "./screenshotApi.js";
 import documentsWebRouter from "./documentsWeb.js";
@@ -107,6 +110,8 @@ app.use(mcpRouter);
 // 쿠키 세션 미들웨어보다 먼저 붙여야 동일 출처 가드에 걸리지 않는다(/v1과 같은 이유).
 app.use("/api", auditRouter);
 app.use("/api", inquiryRouter);
+// 기업 견적·계약 신청 — 견적 발행은 기업용 도메인에서도 오므로 같은 출처 검사 앞에 둔다.
+app.use("/api", b2bRouter);
 // 의뢰 스레드(대화·견적·결제) — 리머 사이트가 부른다. 토큰 헤더로만 인증하므로
 // 쿠키 세션 미들웨어보다 앞에 둔다(위 둘과 같은 이유).
 app.use("/api", threadRouter);
@@ -400,6 +405,7 @@ app.use("/api/admin", studioRouter);
 app.use("/api/admin", deskRouter);
 // 감사 데스크(특정 회사 AI 감사)와 지수 발행. 같은 문(requireAdmin)을 쓴다.
 app.use("/api/admin", auditDeskRouter);
+app.use("/api/admin", b2bAdminRouter);
 
 app.use("/api", (req, res) => res.status(404).json({ error: "존재하지 않는 API예요." }));
 
@@ -419,6 +425,17 @@ app.get("/admin/studio", attachUser, adminPage(renderStudioPage));
 app.get("/admin/desk", attachUser, adminPage(renderDeskPage));
 app.get("/admin/funnel", attachUser, adminPage(renderFunnelPage));
 app.get("/admin/audits", attachUser, adminPage(renderAuditDeskPage));
+app.get("/admin/deals", attachUser, adminPage(renderDealsAdminPage));
+// 견적서 — 추측할 수 없는 토큰이 열쇠라 검색에 잡히지 않게 하고 캐시하지 않는다(상태가 바뀐다).
+app.get("/b2b/quote/:token", async (req, res) => {
+  res.set("Cache-Control", "no-store").set("X-Robots-Tag", "noindex, nofollow");
+  const q = await quoteByToken(req.params.token);
+  if (!q) return res.status(404).type("text/plain; charset=utf-8").send("견적서를 찾을 수 없어요. 링크를 다시 확인해 주세요.");
+  html(res, renderQuotePage(q));
+});
+app.get("/b2b/terms", (req, res) => html(res, renderB2bTerms()));
+app.get("/b2b/dpa", (req, res) => html(res, renderB2bDpa()));
+app.get("/b2b/security", (req, res) => html(res, renderB2bSecurity()));
 // 보낼 보고서를 관리자가 미리 본다. 공유 링크를 만들지 않아도 열린다.
 app.get("/admin/audits/:id/report", attachUser, async (req, res) => {
   res.set("Cache-Control", "no-store").set("X-Robots-Tag", "noindex, nofollow");

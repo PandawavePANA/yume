@@ -412,6 +412,11 @@ mark.good { background:#C6EAD5; color:#14532D; font-weight:800; padding:0 2px; b
 .goods { margin:0; padding-left:18px; } .goods li { font-size:13.5px; margin:5px 0; }
 .note { font-size:13px; color:var(--ink2); background:var(--soft); border-radius:8px; padding:12px 14px; margin-top:10px; }
 .crit th { width:150px; background:none; color:var(--ink3); font-size:12.5px; }
+.next { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:10px; margin-top:6px; }
+.next a { display:flex; flex-direction:column; gap:4px; border:1px solid var(--line); border-radius:10px; padding:12px 14px; text-decoration:none; color:var(--ink); }
+.next a b { font-size:14px; } .next a span { font-size:12.5px; color:var(--ink2); line-height:1.6; } .next a i { font-style:normal; font-size:12.5px; font-weight:700; color:var(--brand); margin-top:auto; }
+.next a.main { border:1.5px solid var(--brand); background:var(--soft); }
+.docs { font-size:12.5px; color:var(--ink3); margin-top:10px; } .docs a { color:var(--ink2); }
 .nums { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:1px; background:var(--line); border:1px solid var(--line); border-radius:8px; overflow:hidden; margin:8px 0 0; }
 .nums div { background:#fff; padding:9px 12px; } .nums dt { font-size:11.5px; color:var(--ink3); } .nums dd { margin:2px 0 0; font-size:18px; font-weight:750; font-variant-numeric:tabular-nums; }
 .muted { color:var(--ink3); font-size:12.5px; }
@@ -472,6 +477,31 @@ function auditNumbers(results) {
 <dl class="nums"><div><dt>검사한 주장</dt><dd>${c.total}</dd></div><div><dt>원문과 일치</dt><dd>${c.match}</dd></div><div><dt>원문과 다름</dt><dd>${c.mismatch}</dd></div><div><dt>확인 불가</dt><dd>${c.unverifiable}</dd></div></dl>`);
   }
   return out.join("");
+}
+
+// 보고서를 받은 담당자가 메일 회신 없이 다음 단계로 가게 한다. 데스크에서 이 감사로 낸 견적이 있으면 맨 앞.
+// 금액은 싣지 않는다 — 금액은 견적서에만 있다(보고서는 결재 첨부로 돌고, 금액이 섞이면 영업 문서가 된다).
+function nextSteps(detail, confirmed) {
+  const { audit } = detail;
+  const www = (process.env.PUBLIC_BASE_URL || "https://www.yume-reamer.com").replace(/\/+$/, "");
+  const biz = (process.env.BUSINESS_URL || "https://business.yume-reamer.com").replace(/\/+$/, "");
+  const abs = (u) => (/^https?:/.test(u) ? u : `${www}${u}`);
+  const open = (detail.quotes || []).find((q) => q.status === "requested" || (q.status === "issued" && !q.expired));
+  const cards = [];
+  if (open) {
+    cards.push({ main: true, href: abs(open.url), t: open.status === "requested" ? `계약 신청 접수됨 — ${open.number}` : `준비된 견적서 — ${open.number}`, d: open.status === "requested" ? "진행 상태와 입금·세금계산서 안내를 견적서 화면에서 확인하실 수 있습니다." : `${open.productLabel}. 인쇄·PDF 저장 후 결재가 끝나면 그 화면에서 바로 계약을 신청하실 수 있습니다.`, a: "견적서 열기 →" });
+  }
+  const types = [...new Set(confirmed.map((f) => TYPE_LABEL[parseJson(detail.items.find((i) => Number(i.id) === Number(f.item_id))?.probe_json)?.type]).filter(Boolean))].slice(0, 3);
+  if (confirmed.length) {
+    cards.push({ href: `${biz}/?quote=growth#pricing`, t: "답변이 나가기 전에 막기", d: `${types.length ? `이번에 확인된 유형(${types.join(" · ")})은` : "이번에 확인된 오류는"} 답변 생성과 고객 노출 사이에 유메 검증 API를 두면 원문과 대조해 걸러 냅니다.`, a: "API 견적서 받기 →" });
+    cards.push({ href: `${biz}/?inquiry=audit_regular`, t: "고친 뒤 다시 재기", d: "같은 질문으로 다시 감사해 개선을 숫자로 확인합니다. 결과가 깨끗해지면 공개 감사 기록과 배지를 받으실 수 있습니다.", a: "재감사 문의 →" });
+  } else {
+    cards.push({ href: `${biz}/?inquiry=audit_regular`, t: "깨끗한 결과를 기록으로", d: "동의하시면 공개 감사 기록 페이지와 홈페이지 배지(90일 유효)를 드립니다. 분기마다 재감사해 기록을 이어 갑니다.", a: "정기 감사 문의 →" });
+    cards.push({ href: `${biz}/?quote=growth#pricing`, t: "매 답변을 상시 확인", d: "표본 감사 사이의 답변은 검증 API로 상시 확인할 수 있습니다. 개정·신설 조문이 나와도 현행 원문과 대조합니다.", a: "API 견적서 받기 →" });
+  }
+  cards.push({ href: `mailto:${COMPANY.email}?subject=${encodeURIComponent(`[${docNo(audit)}] 감사 결과 설명 요청`)}`, t: "결과 설명 (30분)", d: "발견 사항마다 원문을 같이 열어 보며 설명드리고, 개선 우선순위를 함께 정합니다. 비용은 없습니다.", a: "메일로 시간 정하기 →" });
+  return `<div class="next">${cards.map((c) => `<a${c.main ? ' class="main"' : ""} href="${esc(c.href)}" target="_blank" rel="noopener"><b>${esc(c.t)}</b><span>${esc(c.d)}</span><i>${esc(c.a)}</i></a>`).join("")}</div>
+  <p class="docs">계약 서류: <a href="${www}/b2b/terms">기업 서비스 이용 조건</a> · <a href="${www}/b2b/dpa">데이터 처리 부속서</a> · <a href="${www}/b2b/security">보안·데이터 처리 설명서</a> — 전자세금계산서 발급, 귀사 계약서 양식으로도 진행합니다.</p>`;
 }
 
 /** 비공개 감사 보고서. mode: 'admin'(관리자 미리보기) | 'shared'(상대 회사가 여는 링크). */
@@ -550,6 +580,9 @@ export function renderAuditReport(detail, { fileUrl = null, mode = "shared" } = 
   ${goods.length ? `<ul class="goods">${goods.map((g) => (g.report_title ? `<li><b>${esc(oneLine(g.report_title))}</b> — ${esc(firstSentence(g.yume_reason || g.ai_quote))}</li>` : `<li><b>${esc(clip(byItem.get(Number(g.item_id))?.question || g.claim, 70))}</b> — ${esc(firstSentence(g.yume_reason || g.ai_quote))}</li>`)).join("")}</ul>` : ""}
   ${audit.highlights ? `<div class="note">${esc(audit.highlights).replace(/\n/g, "<br />")}</div>` : ""}
   ${!goods.length && !audit.highlights ? `<p class="muted">—</p>` : ""}
+
+  <h2><span class="no">${no()}</span>다음 단계</h2>
+  ${nextSteps(detail, confirmed)}
 
   <h2><span class="no">${no()}</span>판정 기준과 방법</h2>
   <table class="crit">
