@@ -101,7 +101,16 @@ const EFLAW_DISPLAY = 100;
 
 const sameName = (a, b) => normalizeLawName(a) === normalizeLawName(b);
 
+// 현행 버전의 시행일을 MST별로 기억한다. 같은 MST 안에 시행일이 여러 개일 수 있다 — 공포는 됐지만 아직
+// 시행 전인 개정(예: 고용보험법 2028.1.1 시행분)이 같은 MST에 붙는다. lawService를 MST만으로 부르면
+// 가장 늦은 시행일의 본문이 와서, 아직 시행되지 않은 조문을 현행처럼 대조하게 된다(2026-10-13 감사
+// 재확인에서 발견). 그래서 본문은 현행 시행일 기준(eflaw + efYd)으로 받는다.
+const currentEfYd = new Map();
+
 function toResult(picked, status) {
+  if (status === "current" && picked["법령일련번호"] && picked["시행일자"]) {
+    currentEfYd.set(String(picked["법령일련번호"]), String(picked["시행일자"]));
+  }
   return {
     ok: true,
     found: true,
@@ -343,6 +352,18 @@ export async function searchOrdinance(name) {
 // 전체 텍스트가 있음). 실사례 확인: 아동·청소년의 성보호에 관한 법률 제2조(정의)는
 // "조문내용"이 비어 있고 9개 호가 전부 "호"."호내용"에만 존재 — 이걸 놓치면 grounding에
 // 빈 텍스트를 넘기게 되어 판정이 부정확해진다.
+// 효력을 잃은 조문 — 본문은 그대로 남아 있지만 "○○년 ○월 ○일까지 유효함"이라는 참고자료가 붙는다.
+// 예: 근로기준법 제16조(계약기간 1년)는 2007.6.30까지만 유효했다(이후 기간제법). 본문만 보면 현행 같아서,
+// 2026-10-13 감사에서 이 조문을 정답으로 잡은 문항이 나왔다. 참고자료를 읽어 만료 여부를 함께 돌려준다.
+export function articleValidity(unit, today = new Date()) {
+  const note = String(unit?.["조문참고자료"] || "").trim();
+  const m = note.match(/(\d{4})\s*년\s*(\d{1,2})\s*월\s*(\d{1,2})\s*일까지\s*유효/);
+  if (!m) return { note, expired: false, validUntil: null };
+  const validUntil = `${m[1]}${m[2].padStart(2, "0")}${m[3].padStart(2, "0")}`;
+  const ymd = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, "0")}${String(today.getDate()).padStart(2, "0")}`;
+  return { note, expired: validUntil < ymd, validUntil };
+}
+
 function flattenArticleText(unit) {
   const lines = [];
   if (unit["조문내용"]) lines.push(String(unit["조문내용"]).trim());
@@ -355,13 +376,26 @@ function flattenArticleText(unit) {
       }
     }
   }
+  // 효력을 잃은 조문이면 본문 끝에 그 사실을 붙인다 — 본문을 읽는 쪽(대조 모델·함정 검증)이 알게.
+  const v = articleValidity(unit);
+  if (v.expired) lines.push(`[효력 상실] ${v.note}`);
   return lines.filter(Boolean).join("\n");
+}
+
+/** 법령 본문 — 현행 시행일을 알면 그 날짜 본문(eflaw)을, 모르면 예전처럼 MST 본문을 받는다. */
+async function lawBody(mst) {
+  const efYd = currentEfYd.get(String(mst));
+  if (efYd) {
+    const r = await callLawApi("lawService.do", { target: "eflaw", MST: mst, efYd });
+    if (r.ok && r.data?.["법령"]?.["조문"]) return r;
+  }
+  return callLawApi("lawService.do", { target: "law", MST: mst });
 }
 
 // 법령의 조문 목록(가지조문 포함). 무료 AI 점검이 "제23조의3까지 있는 조문"을 찾아
 // 바로 다음 가지번호(제23조의4)를 미끼로 묻는 데 쓴다.
 export async function getStatuteIndex(mst) {
-  const r = await callLawApi("lawService.do", { target: "law", MST: mst });
+  const r = await lawBody(mst);
   if (!r.ok) return r;
   const arr = toArray(r.data?.["법령"]?.["조문"]?.["조문단위"]).filter((u) => u["조문여부"] === "조문");
   return {
@@ -378,7 +412,7 @@ export async function getStatuteIndex(mst) {
 // 법령 전체 조문(본문 포함)을 한 번에. 최근 개정된 항을 찾을 때처럼 조문을 훑어야 할 때 쓴다 —
 // getStatuteArticle을 조문마다 부르면 같은 법령을 조문 수만큼 다시 받는다.
 export async function getStatuteArticlesAll(mst) {
-  const r = await callLawApi("lawService.do", { target: "law", MST: mst });
+  const r = await lawBody(mst);
   if (!r.ok) return r;
   const arr = toArray(r.data?.["법령"]?.["조문"]?.["조문단위"]).filter((u) => u["조문여부"] === "조문");
   return {
@@ -389,13 +423,14 @@ export async function getStatuteArticlesAll(mst) {
       title: String(u["조문제목"] || "").trim(),
       text: flattenArticleText(u) || "",
       effectiveDate: u["조문시행일자"] || "",
+      expired: articleValidity(u).expired,
     })),
   };
 }
 
 // maxArticleNo는 형식 검증(범위 적합성)에 쓴다 — 마지막 조문보다 큰 번호는 존재할 수 없다.
 export async function getStatuteArticle(mst, articleNo, branchNo = null) {
-  const r = await callLawApi("lawService.do", { target: "law", MST: mst });
+  const r = await lawBody(mst);
   if (!r.ok) return r;
   const arr = toArray(r.data?.["법령"]?.["조문"]?.["조문단위"]).filter((u) => u["조문여부"] === "조문");
   const maxArticleNo = arr.reduce((m, u) => Math.max(m, Number(normalizeArticleNo(u["조문번호"])) || 0), 0);
@@ -414,6 +449,7 @@ export async function getStatuteArticle(mst, articleNo, branchNo = null) {
     text,
     title: match["조문제목"] || "",
     effectiveDate: match["조문시행일자"] || "",
+    expired: articleValidity(match).expired,
     maxArticleNo,
   };
 }

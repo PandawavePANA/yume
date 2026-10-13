@@ -78,3 +78,16 @@ test("업종별 시나리오: 모든 업종에 곁가지 틀린 전제가 있고
   assert.equal(p.domain, "제조");
   assert.match(p.question, /1년 안에/);
 });
+
+test("효력 상실 조문: '…까지 유효함' 참고자료가 붙은 조문으로는 시나리오를 내지 않는다", async () => {
+  const { articleValidity } = await import("../lawApi.js");
+  const unit = { 조문참고자료: "[법률 제8372호(2007.4.11) 제16조의 개정규정은 같은 법 부칙 제3조의 규정에 의하여 2007년 6월 30일까지 유효함]" };
+  const v = articleValidity(unit, new Date("2026-10-13T00:00:00+09:00"));
+  assert.equal(v.expired, true);
+  assert.equal(v.validUntil, "20070630");
+  assert.equal(articleValidity({ 조문참고자료: "" }).expired, false);
+  assert.equal(articleValidity({ 조문참고자료: "2030년 1월 1일까지 유효함" }, new Date("2026-10-13")).expired, false, "아직 기한 안이면 유효");
+  const sc = SCENARIOS.find((s) => s.id === "notice_60");
+  const t = Date.UTC(2026, 9, 13);
+  assert.equal(scenarioFromTexts(sc, ["제26조(해고의 예고) 사용자는 근로자를 해고하려면 적어도 30일 전에 예고를 하여야 하고\n[효력 상실] …까지 유효함"], t), null);
+});
