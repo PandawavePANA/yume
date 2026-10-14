@@ -39,13 +39,19 @@ const fakeMail = async (m) => { sent.push(m); return { sent: true }; };
 const deps = (over = {}) => ({ sendMail: fakeMail, confirmPayment, readPage: async () => ({ url: "https://x.example/terms", text: "", links: [] }), ai: async () => ({ json: {}, usd: 0 }), addAttackSet: async () => ({ error: "x" }), addTailoredQuestions: async () => ({ error: "x" }), startChecks: async () => ({ ok: true }), isChecking: () => false, ...over });
 const GOOD_BIZ = "627-03-03900";
 
-test("근무 시간표: 매일 정해진 시각 · 근무 시간대 · 평일", () => {
+test("근무 시간표: 매일 정해진 시각 · 근무 시간대(06:00~19:30) · 평일만 도는 일", async () => {
   const kst = (s) => Date.parse(`${s}+09:00`);
   const daily = { schedule: { daily: { h: 8, m: 30 } } };
   assert.equal(staff.notBefore(daily, kst("2026-10-14T08:00:00")), null, "8:30 전에는 차례가 아님");
   assert.equal(staff.notBefore(daily, kst("2026-10-14T09:00:00")), kst("2026-10-14T08:30:00"));
-  const hours = { schedule: { every: 30 * 60_000, hours: [8, 22] } };
-  assert.equal(staff.notBefore(hours, kst("2026-10-14T23:00:00")), null);
+  // 근무 시간 06:00~19:30(분 단위) — 대표가 정한 시간표
+  const { WORK_HOURS } = await import("../staff/roster.js");
+  const hours = { schedule: { every: 30 * 60_000, hours: WORK_HOURS } };
+  assert.equal(staff.notBefore(hours, kst("2026-10-14T05:59:00")), null, "6시 전 출근 안 함");
+  assert.ok(staff.notBefore(hours, kst("2026-10-14T06:00:00")));
+  assert.ok(staff.notBefore(hours, kst("2026-10-14T19:29:00")));
+  assert.equal(staff.notBefore(hours, kst("2026-10-14T19:30:00")), null, "19:30 퇴근");
+  assert.ok(staff.notBefore(hours, kst("2026-10-17T10:00:00")), "주말에도 근무");
   const weekdays = { schedule: { daily: { h: 10, m: 0 }, weekdays: true } };
   assert.equal(staff.notBefore(weekdays, kst("2026-10-17T11:00:00")), null, "토요일은 쉼");
   assert.equal(staff.businessHours(kst("2026-10-14T10:00:00")), true);
@@ -185,7 +191,9 @@ test("반려·사무실 화면·비서실장 브리핑", async () => {
 
   assert.equal((await fetch(`${base}/api/admin/staff`)).status, 401);
   const o = await (await fetch(`${base}/api/admin/staff`, { headers: ADMIN })).json();
-  assert.equal(o.staff.length, 8);
+  assert.equal(o.staff.length, 9);
+  assert.equal(o.staff.find((s) => s.id === "field").status, "off", "PC의 현장 요원이 연결되지 않았으면 쉬는 중");
+  assert.equal(o.summary.fieldAgent, false);
   assert.deepEqual([...new Set(o.staff.map((s) => s.team))].sort(), ["audit", "legal", "office", "ops", "sales"]);
   assert.ok(o.summary.pending >= 1);
   const off = await fetch(`${base}/api/admin/staff/seoyeon`, { method: "POST", headers: { ...ADMIN, "Content-Type": "application/json" }, body: JSON.stringify({ enabled: false }) });
@@ -243,4 +251,49 @@ test("비서실 서윤: 메일함을 정리해 답장 초안을 결재로 — �
   assert.deepEqual(answered, [11]);
   delete process.env.GMAIL_USER;
   delete process.env.GMAIL_APP_PASSWORD;
+});
+
+test("답 수집 배정: 약관에 자동 접속 금지가 없으면 현장 요원에게, 있으면 대표에게 — 가입·로그인이 막히면 결재, 처리하면 다시 줄 세움", async () => {
+  await store.setState("doyun", { daily_cap: 50 });
+  const terms = "제9조(회원의 의무) 회원은 타인의 정보를 도용해서는 안 됩니다. ".repeat(10);
+  const readPage = async () => ({ url: "https://free.example.com/terms", text: terms, links: [] });
+  const freeAi = async () => ({ usd: 0.01, json: { verdict: "ok", confidence: "high", quote: "회원은 타인의 정보를 도용해서는 안 됩니다", reason: "막는 조항 없음", automation_banned: false } });
+  const free = await desk.createAudit({ company: "자동가능AI", service_url: "https://free.example.com", domain: "인사" });
+  await desk.updateAudit(free.id, { tos_url: "https://free.example.com/terms" });
+  await staff.runStaff("doyun", { manual: true, deps: deps({ ai: freeAi, readPage }) });
+  const a1 = await desk.auditById(free.id);
+  assert.equal(a1.tos_verdict, "ok");
+  assert.equal(a1.collect_mode, "agent", "자동 접속 금지 조항이 없으면 현장 요원");
+  assert.match(a1.tos_note, /현장 요원 자동/);
+
+  // 질문이 준비되면 현장 요원 줄에 선다(대표 결재 없음)
+  await desk.addCustomItem(free.id, { question: "연차 미사용 수당은?" });
+  await staff.runStaff("harin", { manual: true, deps: deps() });
+  assert.equal((await desk.auditById(free.id)).collect_status, "queued");
+  assert.ok(!(await store.listApprovals()).some((x) => x.kind === "collect_answers" && x.payload.auditId === free.id));
+
+  // 현장 요원이 로그인 화면을 만나면 → 대표 결재 → '처리했어요'면 다시 줄에
+  await db.run("UPDATE ai_audits SET collect_status = 'login_required', collect_note = '로그인 화면', collect_at = :t WHERE id = :id", { id: free.id, t: Date.now() });
+  await staff.runStaff("harin", { manual: true, deps: deps() });
+  const issue = (await store.listApprovals()).find((x) => x.kind === "collect_issue" && x.payload.auditId === free.id);
+  assert.ok(issue, "가입·로그인 필요 결재");
+  assert.match(issue.title, /회원가입·로그인 필요/);
+  assert.ok((await staff.approve(issue.id, {}, { deps: deps() })).ok);
+  assert.equal((await desk.auditById(free.id)).collect_status, "queued");
+
+  // 또 막혔는데 대표가 반려하면 → 사람이 넣는 방식으로 바뀌고 답 수집 요청이 올라온다
+  await db.run("UPDATE ai_audits SET collect_status = 'failed', collect_note = '입력창 없음', collect_at = :t WHERE id = :id", { id: free.id, t: Date.now() + 1 });
+  await staff.runStaff("harin", { manual: true, deps: deps() });
+  const issue2 = (await store.listApprovals()).find((x) => x.kind === "collect_issue" && x.payload.auditId === free.id);
+  assert.ok((await staff.reject(issue2.id, "사람이 할게")).ok);
+  assert.equal((await desk.auditById(free.id)).collect_mode, "manual");
+  await staff.runStaff("harin", { manual: true, deps: deps() });
+  assert.ok((await store.listApprovals()).some((x) => x.kind === "collect_answers" && x.payload.auditId === free.id), "사람용 답 수집 요청");
+
+  // 금지 조항이 있으면 처음부터 사람 몫
+  const banned = await desk.createAudit({ company: "자동금지AI", service_url: "https://ban.example.com", domain: "인사" });
+  await desk.updateAudit(banned.id, { tos_url: "https://ban.example.com/terms" });
+  const banTerms = "제12조 회원은 로봇, 스크립트 등 자동화된 수단으로 서비스에 접속해서는 안 됩니다. ".repeat(8);
+  await staff.runStaff("doyun", { manual: true, deps: deps({ readPage: async () => ({ url: "https://ban.example.com/terms", text: banTerms, links: [] }), ai: async () => ({ usd: 0, json: { verdict: "ok", confidence: "high", quote: "", reason: "평가 금지 없음", automation_banned: true, automation_quote: "회원은 로봇, 스크립트 등 자동화된 수단으로 서비스에 접속해서는 안 됩니다" } }) }) });
+  assert.equal((await desk.auditById(banned.id)).collect_mode, "manual");
 });

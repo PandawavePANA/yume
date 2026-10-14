@@ -2,12 +2,14 @@
 //
 // 2026-10-14 대표: "다 알아서 하고, 나는 보고서 읽고 발송 메일만 컨펌" — 그래서 밖으로 나가는 메일(과 은행 앱으로만 볼 수 있는
 // 입금 확인)만 대표 결재이고, 나머지(후보 등록·약관 판정·오류 재확인)는 팀장 전결로 바로 처리한다(KINDS.auto).
+// 같은 날: "근무시간은 오전 6시부터 저녁 7시 반, 계속 찾고 추리고 감사하고 보고서·메일까지 계속, 회원가입·이슈는 결재로."
+// 그래서 모든 직원이 06:00~19:30(매일)에 일하고, 리서치는 하루 한 번이 아니라 시간마다 이어서 한다(파이프라인이 차면 쉰다).
 //
-//   대표 정원영 ─┬─ 비서실   유나(비서실장) · 서윤(메일) 아침 브리핑·급한 결재 알림 / 메일함 정리·답장 초안
-//               ├─ 영업팀   지호(팀장) · 서연(리서처)  첫 메일·후속 / 기업 발굴
-//               ├─ 법무팀   도윤                     약관 검토 · 나가는 문구 검토
-//               ├─ 감사팀   하린(팀장) · 수아(QA)      질문 준비·채점 / 오류 후보 원문 대조
-//               └─ 경영지원 민재(팀장)                 입금 확인 요청·보고서 발송·안부 메일
+//   대표 정원영 ─┬─ 비서실   유나(비서실장) · 서윤(메일)   아침 브리핑·급한 결재 알림 / 메일함 정리·답장 초안
+//               ├─ 영업팀   지호(팀장) · 서연(리서처)     첫 메일·후속 / 기업 발굴
+//               ├─ 법무팀   도윤                        약관 검토(감사 가능 여부·자동 접속 금지) · 나가는 문구 검토
+//               ├─ 감사팀   하린(팀장) · 수아(QA) · 현장 요원(대표 PC)  질문 준비·채점 / 원문 대조 / 답 수집
+//               └─ 경영지원 민재(팀장)                    입금 확인 요청·보고서 발송·안부 메일
 import * as research from "./jobs/research.js";
 import * as tos from "./jobs/tos.js";
 import * as prep from "./jobs/prep.js";
@@ -16,9 +18,13 @@ import * as sales from "./jobs/sales.js";
 import * as ops from "./jobs/ops.js";
 import * as secretary from "./jobs/secretary.js";
 import * as inbox from "./jobs/inbox.js";
+import * as field from "./jobs/field.js";
+import { run as exec } from "../db.js";
 import { lintCopy } from "../auditDesk.js";
 
 const MIN = 60_000;
+// 근무 시간(한국 시각, 분 단위) — 06:00~19:30, 매일.
+export const WORK_HOURS = [6 * 60, 19 * 60 + 30];
 
 export const CEO = { name: "정원영", title: "대표" };
 
@@ -30,24 +36,43 @@ export const TEAMS = {
   ops: { label: "경영지원팀", hue: 45 },
 };
 
-// ai: Claude를 부르는 직원(엔진이 멈추면 쉰다). schedule: every(간격) 또는 daily(한국 시각) + hours(근무 시간대) + weekdays.
+const work = (every) => ({ every, hours: WORK_HOURS });
+
+// ai: Claude를 부르는 직원(엔진이 멈추면 쉰다). schedule: every(간격) 또는 daily(한국 시각) + hours(근무 시간대, 분) + weekdays.
 export const ROSTER = {
   yuna: { name: "유나", title: "비서실장", team: "office", lead: true, duty: "매일 아침 브리핑 · 급한 결재 알림", job: secretary, schedule: { daily: { h: 8, m: 30 } }, ai: false, defaults: { autonomy: "auto" }, autoOnly: true },
-  seoyun: { name: "서윤", title: "비서(메일)", team: "office", reportsTo: "yuna", duty: "대표 메일함 정리 · 답장 초안 결재 · 수신 거부 처리", job: inbox, schedule: { every: 10 * 60_000 }, ai: true, defaults: { autonomy: "auto" }, autoOnly: true },
-  jiho: { name: "지호", title: "영업팀장", team: "sales", lead: true, duty: "재확인 끝난 감사의 첫 메일 · 7일 뒤 후속 1회", job: sales, schedule: { every: 15 * MIN }, ai: false, defaults: { autonomy: "approve", dailyCap: 10 }, approveOnly: true },
-  seoyeon: { name: "서연", title: "리서처", team: "sales", reportsTo: "jiho", duty: "한국어 AI 상담 서비스를 웹에서 찾아 감사 후보로", job: research, schedule: { daily: { h: 10, m: 0 }, weekdays: true }, ai: true, defaults: { autonomy: "auto", dailyCap: 3 }, autoOnly: true },
-  doyun: { name: "도윤", title: "법무 담당", team: "legal", lead: true, duty: "후보 회사 이용약관 검토 · 나가는 메일 문구 검토", job: tos, schedule: { every: 30 * MIN, hours: [8, 22] }, ai: true, defaults: { autonomy: "auto", dailyCap: 3 }, autoOnly: true },
-  harin: { name: "하린", title: "감사팀장", team: "audit", lead: true, duty: "질문 세트 준비 · 답이 오면 채점 · 답 수집 요청", job: prep, schedule: { every: 10 * MIN }, ai: true, defaults: { autonomy: "auto", dailyCap: 2 }, autoOnly: true },
-  sua: { name: "수아", title: "QA 검수", team: "audit", reportsTo: "harin", duty: "오류 후보를 법령 원문과 다시 대조해 재확인 결재", job: qa, schedule: { every: 15 * MIN }, ai: true, defaults: { autonomy: "auto" }, autoOnly: true },
-  minjae: { name: "민재", title: "경영지원팀장", team: "ops", lead: true, duty: "입금 확인 요청 · 유료 보고서 발송 · 견적 안부 · 입금 안내", job: ops, schedule: { every: 30 * MIN }, ai: false, defaults: { autonomy: "approve" }, approveOnly: true },
+  seoyun: { name: "서윤", title: "비서(메일)", team: "office", reportsTo: "yuna", duty: "대표 메일함 정리 · 답장 초안 결재 · 수신 거부 처리", job: inbox, schedule: work(10 * MIN), ai: true, defaults: { autonomy: "auto" }, autoOnly: true },
+  jiho: { name: "지호", title: "영업팀장", team: "sales", lead: true, duty: "재확인 끝난 감사의 첫 메일 · 7일 뒤 후속 1회", job: sales, schedule: work(15 * MIN), ai: false, defaults: { autonomy: "approve", dailyCap: 10 }, approveOnly: true },
+  seoyeon: { name: "서연", title: "리서처", team: "sales", reportsTo: "jiho", duty: "한국어 AI 상담 서비스를 계속 찾아 감사 후보로(하루 최대 12곳)", job: research, schedule: work(60 * MIN), ai: true, defaults: { autonomy: "auto", dailyCap: 3 }, autoOnly: true },
+  doyun: { name: "도윤", title: "법무 담당", team: "legal", lead: true, duty: "이용약관 검토 — 감사 가능 여부 · 자동 접속 금지 · 나가는 메일 문구", job: tos, schedule: work(20 * MIN), ai: true, defaults: { autonomy: "auto", dailyCap: 3 }, autoOnly: true },
+  harin: { name: "하린", title: "감사팀장", team: "audit", lead: true, duty: "질문 세트 준비 · 답 수집 배정 · 답이 오면 채점", job: prep, schedule: work(10 * MIN), ai: true, defaults: { autonomy: "auto", dailyCap: 2 }, autoOnly: true },
+  sua: { name: "수아", title: "QA 검수", team: "audit", reportsTo: "harin", duty: "오류 후보를 법령 원문과 다시 대조", job: qa, schedule: work(15 * MIN), ai: true, defaults: { autonomy: "auto" }, autoOnly: true },
+  field: { name: "현장 요원", title: "답 수집(대표 PC)", team: "audit", reportsTo: "harin", duty: "자동 접속 금지가 없는 서비스에 질문을 한 건씩 넣고 답·캡처 저장", job: field, schedule: work(10 * MIN), ai: false, defaults: { autonomy: "auto" }, autoOnly: true },
+  minjae: { name: "민재", title: "경영지원팀장", team: "ops", lead: true, duty: "입금 확인 요청 · 유료 보고서 발송 · 견적 안부 · 입금 안내", job: ops, schedule: work(30 * MIN), ai: false, defaults: { autonomy: "approve" }, approveOnly: true },
 };
 
 // 결재 문서 종류. drafter(기안) → reviewer(검토) → 대표(결재). work: 대표가 직접 손을 대야 하는 업무 요청.
 // auto: 대표에게 올리지 않고 검토자(팀장) 전결로 바로 처리 — 기록은 결재함 이력에 남는다.
+// onReject: 대표가 반려했을 때 할 일(없으면 기록만).
 export const KINDS = {
   add_prospects: { label: "감사 후보 등록", drafter: "seoyeon", reviewer: "jiho", auto: true, apply: (p, i) => applyProspects(p, i) },
   tos_verdict: { label: "약관 판정", drafter: "doyun", reviewer: "jiho", auto: true, apply: (p) => tos.apply(p) },
   collect_answers: { label: "답 수집 요청", drafter: "harin", work: true, apply: async () => ({ ok: true, result: "대표가 답 수집을 맡음 — 답이 저장되면 감사팀이 채점을 이어 갑니다" }) },
+  collect_issue: {
+    label: "답 수집 막힘",
+    drafter: "field",
+    reviewer: "harin",
+    work: true,
+    urgent: true,
+    apply: async (p) => {
+      await exec("UPDATE ai_audits SET collect_status = 'queued', collect_note = NULL, collect_at = :t WHERE id = :id", { id: p.auditId, t: Date.now() });
+      return { ok: true, result: "현장 요원이 다시 질문을 넣습니다" };
+    },
+    onReject: async (p) => {
+      await exec("UPDATE ai_audits SET collect_mode = 'manual', collect_status = NULL WHERE id = :id", { id: p.auditId });
+    },
+  },
+  field_offline: { label: "현장 요원 꺼짐", drafter: "field", work: true, apply: async () => ({ ok: true, result: "확인 — PC에서 현장 요원을 켜면 이어서 합니다" }) },
   review_findings: { label: "오류 재확인", drafter: "sua", reviewer: "harin", auto: true, apply: (p, i) => qa.apply(p, i) },
   send_first: { label: "첫 메일 발송", drafter: "jiho", reviewer: "doyun", apply: (p, i, d) => sales.sendFirst(p, i, d) },
   send_followup: { label: "후속 메일", drafter: "jiho", reviewer: "doyun", apply: (p, i, d) => sales.sendFollowup(p, i, d) },
