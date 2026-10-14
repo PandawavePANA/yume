@@ -57,7 +57,8 @@ function contextFor(id, def, state, deps) {
     deps,
     owner,
     businessHours: () => businessHours(),
-    log: (title, opts = {}) => store.log(id, title, opts),
+    // 경고(warn)는 하루 한 번만 — 같은 이유로 매 차례 보류되는 일이 일지를 덮지 않게.
+    log: (title, opts = {}) => (opts.level === "warn" ? store.logOnce(id, title, opts) : store.log(id, title, opts)),
     hasProposal: (dedupe) => store.hasProposal(dedupe),
     propose: async (p) => {
       const pid = await store.propose(id, { ...p, payload: { ...(p.payload || {}), line: lineFor(p.kind) } });
