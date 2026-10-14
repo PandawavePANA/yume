@@ -6,6 +6,7 @@ import { engineState } from "../../upstream.js";
 import { USD_KRW } from "../../costGuard.js";
 import { kstDayStart, listApprovals } from "../store.js";
 import { base } from "./sales.js";
+import { inboxDigest } from "./inbox.js";
 
 const won = (n) => `${Math.round(Number(n) || 0).toLocaleString("ko-KR")}원`;
 
@@ -19,6 +20,9 @@ export async function briefing(at = Date.now(), roster = {}) {
   const logs = await all("SELECT staff, COUNT(*) AS n, COALESCE(SUM(cost_usd), 0) AS usd FROM staff_log WHERE created_at >= :y AND created_at < :t AND level = 'info' GROUP BY staff", { y: yesterday, t: today });
   const audits = await one("SELECT COALESCE(SUM(cost_usd), 0) AS usd FROM verifications WHERE source = 'audit' AND created_at >= :y AND created_at < :t", { y: yesterday, t: today });
   const staffUsd = logs.reduce((s, r) => s + Number(r.usd), 0) + Number(audits?.usd || 0);
+  const mails = await inboxDigest(yesterday).catch(() => []);
+  const mailTotal = mails.reduce((n, r) => n + Number(r.n), 0);
+  const mailReply = mails.reduce((n, r) => n + Number(r.r || 0), 0);
   const eng = engineState();
   const name = (id) => roster[id]?.name || id;
   const lines = [
@@ -31,6 +35,7 @@ export async function briefing(at = Date.now(), roster = {}) {
     `■ 오늘 할 감사 ${w.now.length}건${w.now.some((c) => c.overdue) ? ` — 마감 지남 ${w.now.filter((c) => c.overdue).length}건` : ""}`,
     ...w.now.slice(0, 5).map((c) => `  · ${c.company} · ${c.productLabel} · ${c.overdue ? "마감 지남" : `영업일 ${c.daysLeft}일 남음`}`),
     `■ 입금 확인 기다림 ${w.pay.length}건`,
+    `■ 메일(어제부터) ${mailTotal}통 — 답장 필요 ${mailReply}통은 초안과 함께 결재함에`,
     "",
     `■ 어제`,
     `  · 입금 확인 ${Number(paid?.n || 0)}건 ${won(paid?.krw)} · 새 견적 ${Number(quoted?.n || 0)}건`,

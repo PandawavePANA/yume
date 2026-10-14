@@ -39,7 +39,7 @@ export async function run(ctx) {
     if (isPaidOrder(a)) continue; // 유료 고객 보고서는 경영지원팀(민재)이 보낸다
     const dedupe = `send:audit:${a.id}`;
     if (await ctx.hasProposal(dedupe)) continue;
-    const d = await auditDetail(a.id, { base: base() });
+    let d = await auditDetail(a.id, { base: base() });
     const blocking = d.checklist.items.filter((c) => !c.ok && !MANUAL_CHECKS.includes(c.key));
     if (blocking.length) {
       await ctx.log(`${a.company} 첫 메일 보류 — ${blocking.map((c) => c.label).join(" / ")}`, { level: "warn", ref: `audit:${a.id}` });
@@ -50,11 +50,20 @@ export async function run(ctx) {
       await ctx.log(`${a.company} 첫 메일 문구가 법무 검토에서 걸렸어요`, { level: "warn", detail: legal.note, ref: `audit:${a.id}` });
       continue;
     }
+    // 대표가 결재 전에 보고서를 읽을 수 있게 비공개 링크를 미리 만든다(받는 사람에게는 승인 뒤에만 나간다).
+    if (!d.audit.report_token) {
+      const s = await shareReport(a.id);
+      if (s.error) {
+        await ctx.log(`${a.company} 보고서 링크를 만들지 못했어요`, { level: "warn", detail: s.error, ref: `audit:${a.id}` });
+        continue;
+      }
+      d = await auditDetail(a.id, { base: base() });
+    }
     await ctx.propose({
       kind: "send_first",
       title: `첫 메일 발송 — ${a.company}`,
       summary: `제목: ${d.mail.first.subject}\n받는 사람: ${a.contact_email || "(없음 — 결재 문서에서 적어 주세요)"}\n결과: 답변 ${d.results.answered}개 중 오류 ${new Set(d.findings.filter((f) => f.polarity === "issue" && f.review === "confirmed").map((f) => f.item_id)).size}개`,
-      payload: { auditId: Number(a.id), to: a.contact_email || "", subject: d.mail.first.subject, legal: legal.note },
+      payload: { auditId: Number(a.id), to: a.contact_email || "", subject: d.mail.first.subject, legal: legal.note, reportUrl: d.reportUrl },
       ref: `audit:${a.id}`,
       dedupe,
     });

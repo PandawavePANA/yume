@@ -9,6 +9,7 @@ import { logError } from "../errorLog.js";
 import { USD_KRW } from "../costGuard.js";
 import { isBusinessDay } from "../businessDays.js";
 import { askJson, readPage } from "./ai.js";
+import { fetchNew, gmailConfigured, markAnswered, sendReply } from "./gmail.js";
 import * as store from "./store.js";
 import { CEO, KINDS, ROSTER, TEAMS, lineFor } from "./roster.js";
 import { defaults as prepDefaults } from "./jobs/prep.js";
@@ -43,7 +44,7 @@ export function businessHours(t = Date.now()) {
 
 async function defaultDeps() {
   const { confirmPayment } = await import("../b2bApi.js");
-  return { ai: askJson, readPage, sendMail, confirmPayment, ...prepDefaults };
+  return { ai: askJson, readPage, sendMail, confirmPayment, gmailFetch: fetchNew, gmailSend: sendReply, gmailMarkAnswered: markAnswered, ...prepDefaults };
 }
 
 function contextFor(id, def, state, deps) {
@@ -58,7 +59,12 @@ function contextFor(id, def, state, deps) {
     businessHours: () => businessHours(),
     log: (title, opts = {}) => store.log(id, title, opts),
     hasProposal: (dedupe) => store.hasProposal(dedupe),
-    propose: (p) => store.propose(id, { ...p, payload: { ...(p.payload || {}), line: lineFor(p.kind) } }),
+    propose: async (p) => {
+      const pid = await store.propose(id, { ...p, payload: { ...(p.payload || {}), line: lineFor(p.kind) } });
+      // 전결 문서는 대표에게 올리지 않고 그 자리에서 처리한다(기록은 결재 이력에 남는다).
+      if (pid && KINDS[p.kind]?.auto) await approve(pid, {}, { deps, delegated: true });
+      return pid;
+    },
     notify: async (subject, text) => {
       try {
         await deps.sendMail({ brand: "YUME", to: owner(), subject, text });
@@ -107,8 +113,16 @@ export async function runStaff(id, { manual = false, deps = null } = {}) {
   }
 }
 
+/** 전결 종류인데 결재함에 남아 있는 문서(규칙이 바뀌기 전에 올라온 것)를 처리한다. */
+export async function sweepDelegated(deps = null) {
+  const left = (await store.listApprovals({ status: "pending" })).filter((a) => KINDS[a.kind]?.auto && !a.result);
+  for (const a of left) await approve(a.id, {}, { deps: deps || (await defaultDeps()), delegated: true });
+  return left.length;
+}
+
 /** 한 바퀴 — 차례가 된 직원만 일한다(서버 여러 대여도 claimRun으로 한 대만). */
 export async function tick(t = Date.now()) {
+  await sweepDelegated().catch((e) => logError("staff:sweep", e));
   for (const [id, def] of Object.entries(ROSTER)) {
     const nb = notBefore(def, t);
     if (nb == null) continue;
@@ -126,7 +140,7 @@ export function startStaff() {
 }
 
 // ── 결재 ─────────────────────────────────────────────────────────────
-export async function approve(approvalId, input = {}, { deps = null } = {}) {
+export async function approve(approvalId, input = {}, { deps = null, delegated = false } = {}) {
   const a = await store.getApproval(approvalId);
   if (!a) return { error: "결재 문서를 찾을 수 없어요." };
   if (a.status !== "pending") return { error: "이미 처리한 결재예요." };
@@ -140,8 +154,10 @@ export async function approve(approvalId, input = {}, { deps = null } = {}) {
     logError(`staff:approve:${a.kind}`, e);
     r = { ok: false, result: String(e?.message || e).slice(0, 300) };
   }
+  const who = delegated ? `${ROSTER[KINDS[a.kind].reviewer]?.name || "팀장"} 전결` : "대표 결재";
+  if (delegated && r.ok) r.result = `전결 · ${r.result}`;
   await store.finish(a.id, r);
-  await store.log(a.staff, r.ok ? `대표 결재 완료 — ${a.title}: ${r.result}` : `결재는 났지만 실행 실패 — ${a.title}: ${r.result}`, { level: r.ok ? "info" : "warn", ref: a.ref });
+  await store.log(a.staff, r.ok ? `${who} 완료 — ${a.title}: ${r.result}` : `${who}는 났지만 실행 실패 — ${a.title}: ${r.result}`, { level: r.ok ? "info" : "warn", ref: a.ref });
   return r.ok ? { ok: true, result: r.result } : { error: r.result };
 }
 
@@ -191,7 +207,7 @@ export async function office(t = Date.now()) {
     ceo: CEO,
     teams: TEAMS,
     staff,
-    approvals: approvals.map((a) => ({ ...a, kindLabel: KINDS[a.kind]?.label || a.kind, urgent: !!KINDS[a.kind]?.urgent, work: !!KINDS[a.kind]?.work })),
+    approvals: approvals.map((a) => ({ ...a, kindLabel: KINDS[a.kind]?.label || a.kind, urgent: !!KINDS[a.kind]?.urgent || a.payload?.urgency === "high", work: !!KINDS[a.kind]?.work })),
     logs: logs.map((l) => ({ ...l, id: Number(l.id), created_at: Number(l.created_at), name: ROSTER[l.staff]?.name || l.staff, team: ROSTER[l.staff]?.team || "office" })),
     summary: {
       pending: approvals.length,
@@ -199,6 +215,7 @@ export async function office(t = Date.now()) {
       doneToday: Object.values(stats).reduce((n, x) => n + x.done, 0),
       costKrw: Math.round(usd * USD_KRW),
       engine: engineState(),
+      gmail: gmailConfigured(),
       outreachReady: Boolean((process.env.MAIL_FROM_OUTREACH || process.env.MAIL_FROM_YUME || "").match(/yume-reamer\.com/i)),
     },
   };

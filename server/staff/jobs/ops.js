@@ -5,7 +5,7 @@
 //   · 견적 안부(견적만 받고 3일) · 입금 안내(신청 후 영업일 2일) — 각 1회. 자동 모드면 근무 시간에 바로 보낸다.
 import { all } from "../../db.js";
 import { AUDIT_RATES } from "../../apiRates.js";
-import { auditDetail, shareReport } from "../../auditDesk.js";
+import { auditDetail, reportPath, shareReport } from "../../auditDesk.js";
 import { isAuditProduct, parseBilling, quoteById, quoteNumber } from "../../b2bDeals.js";
 import { markDelivered, roundsOf } from "../../workList.js";
 import { addBusinessDays, kstDate } from "../../businessDays.js";
@@ -62,12 +62,19 @@ export async function run(ctx) {
       continue;
     }
     const b = parseBilling(q) || {};
+    // 대표가 결재 전에 읽을 비공개 보고서 링크(고객에게는 승인 뒤에만 나간다).
+    const share = await shareReport(q.audit_id);
+    if (share.error) {
+      await ctx.log(`${q.company} 보고서 링크를 만들지 못했어요`, { level: "warn", detail: share.error, ref: `quote:${q.id}` });
+      continue;
+    }
+    const reportUrl = `${base()}${reportPath(share.token)}`;
     const issues = d.findings.filter((f) => f.polarity === "issue" && f.review === "confirmed").length;
     await ctx.propose({
       kind: "deliver_report",
       title: `보고서 발송 — ${b.bizName || q.company}${roundsOf(q) > 1 ? ` (${round}/${roundsOf(q)}회차)` : ""}`,
       summary: `유료 감사 보고서를 고객에게 보냅니다. 답변 ${d.results.answered}개 · 확정 오류 ${issues}건 · 마감 ${q.due_at ? kstDate(q.due_at) : "-"}\n받는 사람: ${b.taxEmail || q.email}`,
-      payload: { quoteId: Number(q.id), auditId: Number(q.audit_id), to: q.email || b.taxEmail, round },
+      payload: { quoteId: Number(q.id), auditId: Number(q.audit_id), to: q.email || b.taxEmail, round, reportUrl },
       ref: `quote:${q.id}`,
       dedupe,
     });

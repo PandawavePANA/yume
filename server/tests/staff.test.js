@@ -52,7 +52,7 @@ test("근무 시간표: 매일 정해진 시각 · 근무 시간대 · 평일", 
   assert.equal(staff.businessHours(kst("2026-10-14T19:00:00")), false);
 });
 
-test("영업팀 서연: 후보를 찾아 결재 → 대표가 고른 곳만 감사 데스크에 (이미 있는 곳은 빼고)", async () => {
+test("영업팀 서연: 후보를 찾아 팀장 전결로 감사 데스크에 바로 올린다(이미 있는 곳은 빼고) — 대표 결재함에는 안 올라온다", async () => {
   await desk.createAudit({ company: "있던곳", service_url: "https://old.example.com", domain: "인사" });
   const ai = async () => ({
     usd: 0.12,
@@ -64,38 +64,40 @@ test("영업팀 서연: 후보를 찾아 결재 → 대표가 고른 곳만 감�
   });
   const r = await staff.runStaff("seoyeon", { manual: true, deps: deps({ ai }) });
   assert.ok(r.ok, r.error);
-  const [a] = (await store.listApprovals()).filter((x) => x.kind === "add_prospects");
+  assert.equal((await store.listApprovals()).filter((x) => x.kind === "add_prospects").length, 0, "대표 결재함에 남지 않는다");
+  const [a] = (await store.listApprovals({ status: "all" })).filter((x) => x.kind === "add_prospects");
+  assert.equal(a.status, "done");
+  assert.match(a.result, /^전결/);
   assert.equal(a.payload.candidates.length, 2, "이미 있는 호스트는 뺀다");
-  assert.deepEqual(a.payload.line.map((p) => p.role), ["기안", "검토", "결재"], "결재선: 서연 → 지호 → 대표");
-  const ok = await staff.approve(a.id, { pick: [0] }, { deps: deps() });
-  assert.ok(ok.ok, ok.error);
   const made = await db.one("SELECT * FROM ai_audits WHERE company = '노무AI'");
   assert.equal(made.tos_url, "https://nomu.example.com/terms");
   assert.match(made.found_via, /서연/);
-  assert.ok(!(await db.one("SELECT 1 AS x FROM ai_audits WHERE company = '세무AI'")), "고르지 않은 후보는 안 올린다");
-  assert.equal((await staff.approve(a.id, {}, { deps: deps() })).error, "이미 처리한 결재예요.", "두 번 결재해도 한 번만");
+  assert.ok(await db.one("SELECT 1 AS x FROM ai_audits WHERE company = '세무AI'"));
+  assert.equal((await staff.approve(a.id, {}, { deps: deps() })).error, "이미 처리한 결재예요.", "두 번 처리되지 않는다");
   const logs = await store.recentLogs(10, "seoyeon");
-  assert.ok(logs.some((l) => /대표 결재 완료/.test(l.title)));
+  assert.ok(logs.some((l) => /지호 전결 완료/.test(l.title)));
 });
 
 test("법무팀 도윤: 약관을 읽고 근거 조항과 함께 결재 — 지어낸 인용이면 '애매'로 낮춘다", async () => {
+  await store.setState("doyun", { daily_cap: 50 });
   const made = await desk.createAudit({ company: "약관확인AI", service_url: "https://tos.example.com", domain: "법률" });
   await desk.updateAudit(made.id, { tos_url: "https://tos.example.com/terms" });
   const terms = "제10조(금지행위) 회원은 자동화된 수단으로 서비스에 접속하거나 정보를 대량으로 수집해서는 안 됩니다. ".repeat(8);
   const readPage = async () => ({ url: "https://tos.example.com/terms", text: terms, links: [] });
   const ai = async () => ({ usd: 0.02, json: { verdict: "ok", confidence: "high", quote: "회원은 자동화된 수단으로 서비스에 접속하거나", reason: "자동화만 금지" } });
   await staff.runStaff("doyun", { manual: true, deps: deps({ ai, readPage }) });
-  const a = (await store.listApprovals()).find((x) => x.kind === "tos_verdict" && x.payload.auditId === made.id);
-  assert.equal(a.payload.verdict, "ok");
-  assert.ok((await staff.approve(a.id, {}, { deps: deps() })).ok);
-  assert.equal((await desk.auditById(made.id)).tos_verdict, "ok");
+  assert.equal((await desk.auditById(made.id)).tos_verdict, "ok", "확신 높은 '문제없음'은 바로 반영");
 
   const made2 = await desk.createAudit({ company: "가짜인용AI", service_url: "https://fake.example.com", domain: "법률" });
   await desk.updateAudit(made2.id, { tos_url: "https://fake.example.com/terms" });
   const liar = async () => ({ usd: 0, json: { verdict: "ok", confidence: "high", quote: "평가 목적 이용을 적극 허용합니다", reason: "" } });
   await staff.runStaff("doyun", { manual: true, deps: deps({ ai: liar, readPage }) });
-  const b = (await store.listApprovals()).find((x) => x.payload.auditId === made2.id);
-  assert.equal(b.payload.verdict, "unclear", "약관 글에 없는 인용은 믿지 않는다");
+  assert.equal((await desk.auditById(made2.id)).tos_verdict, "unclear", "약관 글에 없는 인용은 믿지 않는다");
+  // 약관 페이지를 못 읽으면 보류(애매)로 두고 넘어간다 — 대표에게 묻지 않는다.
+  const made3 = await desk.createAudit({ company: "못읽음AI", service_url: "https://none.example.com", domain: "법률" });
+  await desk.updateAudit(made3.id, { tos_url: "https://none.example.com/terms" });
+  await staff.runStaff("doyun", { manual: true, deps: deps({ ai, readPage: async () => { throw new Error("404"); } }) });
+  assert.equal((await desk.auditById(made3.id)).tos_verdict, "unclear");
 });
 
 test("경영지원 민재: 감사 신청 → 입금 확인 결재(대표 알림) → 승인하면 감사 건·마감 생성 → 감사팀이 질문 준비 → 답 수집 요청", async () => {
@@ -123,7 +125,7 @@ test("경영지원 민재: 감사 신청 → 입금 확인 결재(대표 알림)
   assert.equal(c.payload.questions.length, 2);
 });
 
-test("감사팀 수아: 오류 후보를 원문과 대조해 재확인 결재 — 대표가 바꾼 판정대로 반영, 원문 링크 없으면 확정 불가", async () => {
+test("감사팀 수아: 오류 후보를 원문과 대조해 하린 전결로 반영 — 원문 링크 없으면 확정 불가", async () => {
   const made = await desk.createAudit({ company: "재확인AI", service_url: "https://qa.example.com", domain: "인사" });
   await desk.updateAudit(made.id, { tos_verdict: "ok" });
   await desk.addCustomItem(made.id, { question: "질문1" });
@@ -140,18 +142,16 @@ test("감사팀 수아: 오류 후보를 원문과 대조해 재확인 결재 �
   const f2 = (await ins(its[1].id, "")).rows[0].id;
   const ai = async () => ({ usd: 0.05, json: { items: [{ id: Number(f1), verdict: "confirmed", reason: "1주와 2주", title: "AI가 \"2주\"라고 안내" }, { id: Number(f2), verdict: "confirmed", reason: "?" }] } });
   await staff.runStaff("sua", { manual: true, deps: deps({ ai }) });
-  const a = (await store.listApprovals()).find((x) => x.kind === "review_findings" && x.payload.auditId === Number(made.id));
-  assert.ok(a);
+  const a = (await store.listApprovals({ status: "all" })).find((x) => x.kind === "review_findings" && x.payload.auditId === Number(made.id));
+  assert.equal(a.status, "done");
   const byId = Object.fromEntries(a.payload.items.map((x) => [x.id, x]));
   assert.equal(byId[Number(f1)].qa, "confirmed");
-  assert.equal(byId[Number(f2)].qa, "excluded", "원문 링크가 없으면 확정 권고를 하지 않는다");
-  const r = await staff.approve(a.id, { decisions: { [Number(f2)]: "yume_wrong" } }, { deps: deps() });
-  assert.ok(r.ok, r.error);
+  assert.equal(byId[Number(f2)].qa, "excluded", "원문 링크가 없으면 확정하지 않는다");
   const rows = await db.all("SELECT id, review, checked_url, report_title FROM ai_audit_findings WHERE audit_id = :id ORDER BY id", { id: made.id });
   assert.equal(rows[0].review, "confirmed");
   assert.match(rows[0].checked_url, /law\.go\.kr/);
   assert.match(rows[0].report_title, /2주/);
-  assert.equal(rows[1].review, "yume_wrong", "대표가 바꾼 판정");
+  assert.equal(rows[1].review, "excluded");
 });
 
 test("영업팀 지호: 후속 메일은 유메 도메인 인증 전에는 결재해도 안 나가고, 인증 뒤에는 유메 주소로 나간다", async () => {
@@ -185,14 +185,14 @@ test("반려·사무실 화면·비서실장 브리핑", async () => {
 
   assert.equal((await fetch(`${base}/api/admin/staff`)).status, 401);
   const o = await (await fetch(`${base}/api/admin/staff`, { headers: ADMIN })).json();
-  assert.equal(o.staff.length, 7);
+  assert.equal(o.staff.length, 8);
   assert.deepEqual([...new Set(o.staff.map((s) => s.team))].sort(), ["audit", "legal", "office", "ops", "sales"]);
   assert.ok(o.summary.pending >= 1);
   const off = await fetch(`${base}/api/admin/staff/seoyeon`, { method: "POST", headers: { ...ADMIN, "Content-Type": "application/json" }, body: JSON.stringify({ enabled: false }) });
   assert.equal(off.status, 200);
   assert.equal((await staff.runStaff("seoyeon", { deps: deps() })).skipped, "off", "퇴근한 직원은 차례가 와도 쉬다");
   const fixed = await fetch(`${base}/api/admin/staff/sua`, { method: "POST", headers: { ...ADMIN, "Content-Type": "application/json" }, body: JSON.stringify({ autonomy: "auto" }) });
-  assert.equal(fixed.status, 400, "QA는 늘 결재 후");
+  assert.equal(fixed.status, 400, "모드가 정해진 직원은 바꿀 수 없다");
 
   const { briefing } = await import("../staff/jobs/secretary.js");
   const b = await briefing(Date.now(), (await import("../staff/roster.js")).ROSTER);
@@ -200,4 +200,47 @@ test("반려·사무실 화면·비서실장 브리핑", async () => {
   assert.match(b.text, /결재 대기 \d+건/);
   const { renderStaffPage } = await import("../renderStaffPage.js");
   assert.match(renderStaffPage(), /AI 본사/);
+});
+
+test("비서실 서윤: 메일함을 정리해 답장 초안을 결재로 — 승인하면 대표 주소로 같은 대화에 답장, 수신 거부는 감사 건을 닫는다", async () => {
+  process.env.GMAIL_USER = "reamer@d-reamer.com";
+  process.env.GMAIL_APP_PASSWORD = "test-not-real";
+  const made = await desk.createAudit({ company: "답장회사", service_url: "https://reply.example.com", domain: "인사", contact_email: "lee@reply.example.com" });
+  await db.run("UPDATE ai_audits SET tos_verdict = 'ok', stage = 'sent', sent_at = :t WHERE id = :id", { id: made.id, t: Date.now() - 86_400_000 });
+  const stop = await desk.createAudit({ company: "그만회사", service_url: "https://stop.example.com", domain: "인사", contact_email: "no@stop.example.com" });
+  await db.run("UPDATE ai_audits SET stage = 'sent', sent_at = :t WHERE id = :id", { id: stop.id, t: Date.now() });
+  const msgs = [
+    { uid: 11, messageId: "<m1@reply>", references: "", from: "lee@reply.example.com", fromName: "이담당", subject: "Re: [비공개] 답장회사 AI 오답 2건", date: Date.now(), text: "보고서 잘 봤습니다. 통화 가능할까요?", autoSubmitted: "", listId: "" },
+    { uid: 12, messageId: "<m2@stop>", references: "", from: "no@stop.example.com", fromName: "", subject: "Re: 안내", date: Date.now(), text: "수신 거부합니다.", autoSubmitted: "", listId: "" },
+    { uid: 13, messageId: "<m3@noreply>", references: "", from: "no-reply@railway.app", fromName: "Railway", subject: "Deploy succeeded", date: Date.now(), text: "ok", autoSubmitted: "auto-generated", listId: "" },
+  ];
+  const ai = async ({ user }) => /수신 거부/.test(user)
+    ? { usd: 0.01, json: { category: "unsubscribe", needs_reply: false, summary: "수신 거부" } }
+    : { usd: 0.02, json: { category: "audit_reply", needs_reply: true, urgency: "high", summary: "통화 요청", draft: "이담당님, 연락 주셔서 감사합니다. 편하신 시간 두세 개를 알려 주세요.\n\n감사합니다.\n정원영 드림" } };
+  const replies = [];
+  const answered = [];
+  sent.length = 0;
+  const d = deps({ ai, gmailFetch: async () => ({ uidValidity: "1", messages: msgs }), gmailSend: async (m) => { replies.push(m); return {}; }, gmailMarkAnswered: async (uid) => answered.push(uid) });
+  const r = await staff.runStaff("seoyun", { manual: true, deps: d });
+  assert.ok(r.ok, r.error);
+  assert.equal((await desk.auditById(made.id)).stage, "replied", "감사 메일에 온 답장 → 답장 단계");
+  assert.equal((await desk.auditById(stop.id)).stage, "declined", "수신 거부 → 감사 건을 닫는다");
+  const a = (await store.listApprovals()).find((x) => x.kind === "reply_mail");
+  assert.ok(a, "답장 결재");
+  assert.equal(a.payload.to, "lee@reply.example.com");
+  assert.ok(sent.some((m) => /급한 답장/.test(m.subject)), "급한 답장은 대표에게 바로 알림");
+  assert.equal(Number((await db.one("SELECT COUNT(*) AS n FROM mail_inbox")).n), 3, "알림 메일도 분류해 남긴다");
+  await staff.runStaff("seoyun", { manual: true, deps: d });
+  assert.equal((await store.listApprovals()).filter((x) => x.kind === "reply_mail").length, 1, "같은 메일을 또 올리지 않는다");
+
+  const bad = await staff.approve(a.id, { body: "[확인 필요: 일정] 연락드리겠습니다." }, { deps: d });
+  assert.match(bad.error, /확인 필요/);
+  const ok = await staff.approve(a.id, { body: "이담당님, 감사합니다. 목요일 오후 어떠세요?\n\n정원영 드림" }, { deps: d });
+  assert.ok(ok.ok, ok.error);
+  assert.equal(replies[0].to, "lee@reply.example.com");
+  assert.equal(replies[0].inReplyTo, "<m1@reply>", "원래 대화에 붙인다");
+  assert.match(replies[0].text, /목요일/, "대표가 고친 본문으로");
+  assert.deepEqual(answered, [11]);
+  delete process.env.GMAIL_USER;
+  delete process.env.GMAIL_APP_PASSWORD;
 });

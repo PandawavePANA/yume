@@ -1262,6 +1262,26 @@ const MIGRATIONS = [
   ALTER TABLE staff_log ENABLE ROW LEVEL SECURITY;
   ALTER TABLE staff_approvals ENABLE ROW LEVEL SECURITY;
   `,
+  // 2026-10-14 대표 메일함 정리(비서실 서윤). 한 번 본 메일은 다시 분류하지 않는다(message_id).
+  `
+  CREATE TABLE mail_inbox (
+    id BIGSERIAL PRIMARY KEY,
+    message_id TEXT NOT NULL UNIQUE,
+    uid BIGINT,
+    from_addr TEXT NOT NULL DEFAULT '',
+    from_name TEXT NOT NULL DEFAULT '',
+    subject TEXT NOT NULL DEFAULT '',
+    received_at BIGINT NOT NULL,
+    category TEXT NOT NULL DEFAULT 'other',
+    needs_reply INTEGER NOT NULL DEFAULT 0,
+    summary TEXT NOT NULL DEFAULT '',
+    ref TEXT,
+    approval_id BIGINT,
+    created_at BIGINT NOT NULL
+  );
+  CREATE INDEX idx_mail_inbox_time ON mail_inbox(received_at);
+  ALTER TABLE mail_inbox ENABLE ROW LEVEL SECURITY;
+  `,
 ];
 
 async function migrate() {

@@ -104,7 +104,11 @@ export const LABEL = { ok: "문제없음", prohibited: "금지", unclear: "애�
 /** 결재 승인 — 판정을 감사 건에 반영한다. */
 export async function apply(payload) {
   // 페이지를 못 읽은 건 — 승인은 "데스크에서 직접 보겠다"는 뜻이라 결재만 닫는다.
-  if (!payload?.verdict) return { ok: true, result: "대표가 감사 데스크에서 직접 확인" };
+  if (!payload?.verdict) {
+    // 페이지를 못 읽었으면 감사하지 않는다(애매로 둠) — 대표가 원하면 데스크에서 직접 바꿀 수 있다.
+    const r = await updateAudit(payload.auditId, { tos_verdict: "unclear", tos_note: "약관 페이지를 읽지 못해 보류 — 감사하지 않음(필요하면 감사 데스크에서 직접 확인)" });
+    return r.error ? { ok: false, result: r.error } : { ok: true, result: "약관을 읽지 못해 보류(애매)로 두고 넘어감" };
+  }
   const r = await updateAudit(payload.auditId, { tos_verdict: payload.verdict, tos_url: payload.url || undefined, tos_note: `${payload.note || ""}\n(대표 승인)` });
   return r.error ? { ok: false, result: r.error } : { ok: true, result: `약관 ${LABEL[payload.verdict]}로 반영` };
 }

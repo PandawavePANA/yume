@@ -26,6 +26,8 @@ export async function getState(id, defaults = {}) {
 }
 
 export async function setState(id, patch = {}) {
+  // 처음 일하기 전에 설정을 바꿔도 남게 — 줄이 없으면 먼저 만든다.
+  await getState(id);
   const sets = ["updated_at = :t"];
   const params = { id, t: now() };
   if (patch.enabled !== undefined) {
