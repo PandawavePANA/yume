@@ -462,3 +462,29 @@ test("메일함 연결(대표가 화면에서 직접): 접속 시험에 성공�
   await db.run("DELETE FROM settings WHERE key = 'gmail:creds'");
   await gmail.loadGmailCreds();
 });
+
+test("답장 대기열: 결재하면 대기열에 넣고(서버는 메일 포트가 막힘), PC가 보내면 '보냄', 실패하면 결재함으로 되돌린다", async () => {
+  const outbox = await import("../staff/outbox.js");
+  const mk = (n) => store.propose("seoyun", { kind: "reply_mail", title: `답장 — 대기열시험 ${n}`, payload: { to: `q${n}@x.co.kr`, subject: "문의", draft: "안녕하세요.\n\n정원영 드림", messageId: `<q${n}@x>`, references: "", uid: 70 + n }, dedupe: `outbox:${n}` });
+  const d = deps({ gmailSend: (m) => outbox.enqueue({ ...m, kind: "reply" }) });
+  const a1 = await mk(1);
+  const r = await staff.approve(a1, {}, { deps: d });
+  assert.ok(r.ok, r.error);
+  assert.match(r.result, /대기열/);
+  const m1 = await outbox.claimNext();
+  assert.equal(m1.to_addr, "q1@x.co.kr");
+  assert.equal(Number(m1.uid), 71);
+  assert.equal(Number(m1.approval_id), a1, "결재와 이어져 있다");
+  assert.equal(m1.in_reply_to, "<q1@x>");
+  assert.equal(await outbox.claimNext(), null, "보내는 중인 메일은 다시 잡히지 않는다");
+  await outbox.markSent(m1);
+  assert.match((await store.getApproval(a1)).result, /보냄/);
+
+  const a2 = await mk(2);
+  await staff.approve(a2, {}, { deps: d });
+  const m2 = await outbox.claimNext();
+  await outbox.markFailed(m2, new Error("Invalid login"));
+  const back = await store.getApproval(a2);
+  assert.equal(back.status, "pending", "실패하면 결재함으로 돌아온다");
+  assert.match(back.result, /발송 실패: Invalid login/);
+});

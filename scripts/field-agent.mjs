@@ -208,6 +208,38 @@ async function renderTos(a) {
   }
 }
 
+// ── 대표 주소로 나가는 메일 보내기 ─────────────────────────────────────
+// Railway 서버는 메일 발송 포트가 막혀 있어(SMTP), 대표가 결재한 답장은 대기열(mail_outbox)에 쌓이고 이 PC가 Gmail로 보낸다.
+// 근무 시간과 상관없이 30초마다 — 대표가 결재한 메일은 바로 나가야 한다.
+const gmail = await import("../server/staff/gmail.js");
+const outbox = await import("../server/staff/outbox.js");
+let sendingNow = false;
+async function sendOutbox() {
+  if (sendingNow) return;
+  sendingNow = true;
+  try {
+    await gmail.loadGmailCreds();
+    if (!gmail.gmailConfigured()) return;
+    for (let m = await outbox.claimNext(); m; m = await outbox.claimNext()) {
+      try {
+        await gmail.sendReply({ to: m.to_addr, subject: m.subject, text: m.body, inReplyTo: m.in_reply_to || "", references: m.refs || "", fromName: m.from_name || "" });
+        if (m.uid) await gmail.markAnswered(m.uid);
+        await outbox.markSent(m);
+        log(`메일 보냄 — ${m.to_addr}: ${m.subject}`);
+      } catch (e) {
+        await outbox.markFailed(m, e);
+        log(`메일 실패 — ${m.to_addr}: ${e.message}`);
+      }
+    }
+  } catch (e) {
+    log(`메일 대기열 확인 오류: ${e.message}`);
+  } finally {
+    sendingNow = false;
+  }
+}
+await sendOutbox();
+setInterval(() => sendOutbox(), 30_000);
+
 // ── 근무 ─────────────────────────────────────────────────────────────
 log(`현장 요원 시작 — 근무 06:00~19:30(한국 시각). 창은 ${args.show ? "보이게" : "숨겨서"} 엽니다. 끄려면 이 창을 닫으세요.`);
 for (;;) {

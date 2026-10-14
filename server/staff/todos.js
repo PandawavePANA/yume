@@ -24,10 +24,10 @@ export async function seed() {
   const t = now();
   for (const s of SEED) {
     await run(
-      `INSERT INTO owner_todos (key, title, steps, link, due_date, after_key, check_key, created_at)
-       VALUES (:k, :ti, :st, :li, :du, :af, :ck, :t)
-       ON CONFLICT (key) DO UPDATE SET title = EXCLUDED.title, steps = EXCLUDED.steps, link = EXCLUDED.link`,
-      { k: s.key, ti: s.title, st: s.steps || "", li: s.link || "", du: s.due_date || null, af: s.after_key || null, ck: s.check_key || null, t },
+      `INSERT INTO owner_todos (key, title, steps, link, due_date, after_key, check_key, priority, created_at)
+       VALUES (:k, :ti, :st, :li, :du, :af, :ck, :pr, :t)
+       ON CONFLICT (key) DO UPDATE SET title = EXCLUDED.title, steps = EXCLUDED.steps, link = EXCLUDED.link, priority = EXCLUDED.priority`,
+      { k: s.key, ti: s.title, st: s.steps || "", li: s.link || "", du: s.due_date || null, af: s.after_key || null, ck: s.check_key || null, pr: s.priority || 2, t },
     );
   }
 }
@@ -72,14 +72,19 @@ export async function sync(deps = {}) {
 
 /** 오늘 보여 줄 할 일(열려 있고, 날짜가 됐고, 미룬 날이 지났고, 앞 일이 끝난 것). */
 export async function list(today = kstDay()) {
-  const rows = await all("SELECT * FROM owner_todos WHERE status = 'open' ORDER BY (due_date IS NULL), due_date, id");
+  const rows = await all("SELECT * FROM owner_todos WHERE status = 'open' ORDER BY priority, (due_date IS NULL), due_date, id");
   const done = new Set((await all("SELECT key FROM owner_todos WHERE status = 'done'")).map((r) => r.key));
   return rows
     .filter((t) => (!t.due_date || t.due_date <= today) && (!t.snooze_until || t.snooze_until <= today) && (!t.after_key || done.has(t.after_key)))
     .map(shape);
 }
 
-const shape = (t) => ({ id: Number(t.id), key: t.key, title: t.title, steps: t.steps, link: t.link, due_date: t.due_date, check: !!t.check_key, created_at: Number(t.created_at), age: Math.max(0, Math.floor((now() - Number(t.created_at)) / 86_400_000)) });
+// age — 오늘이 그 일을 처음 보인 날(날짜가 있는 일은 그날, 아니면 만든 날)부터 며칠째인지. 끝내지 않으면 다음 날에도 그대로 보이고 하루씩 는다.
+const KST_DAY = (t) => Math.floor((Number(t) + 9 * 3600_000) / 86_400_000);
+const shape = (t) => {
+  const start = t.due_date ? Date.parse(`${t.due_date}T00:00:00+09:00`) : Number(t.created_at);
+  return { id: Number(t.id), key: t.key, title: t.title, steps: t.steps, link: t.link, due_date: t.due_date, check: !!t.check_key, priority: Number(t.priority || 2), created_at: Number(t.created_at), age: Math.max(0, KST_DAY(now()) - KST_DAY(start)) };
+};
 
 /** 다가오는 할 일(날짜가 아직인 것) — 화면 아래 "곧 할 일". */
 export async function upcoming(today = kstDay()) {
@@ -106,11 +111,12 @@ export async function snooze(id) {
 }
 
 /** 대표(또는 Claude)가 직접 넣는 할 일. */
-export async function add({ title, steps = "", due_date = null, link = "" }) {
+export async function add({ title, steps = "", due_date = null, link = "", priority = 2 }) {
   const ti = String(title || "").trim().slice(0, 200);
   if (!ti) return { error: "할 일을 적어 주세요." };
   const due = /^\d{4}-\d{2}-\d{2}$/.test(String(due_date || "")) ? due_date : null;
+  const pr = [1, 2, 3].includes(Number(priority)) ? Number(priority) : 2;
   const key = `custom:${now()}:${Math.random().toString(36).slice(2, 7)}`;
-  await run("INSERT INTO owner_todos (key, title, steps, link, due_date, created_at) VALUES (:k, :t, :s, :l, :d, :c)", { k: key, t: ti, s: String(steps).slice(0, 2000), l: String(link).slice(0, 400), d: due, c: now() });
+  await run("INSERT INTO owner_todos (key, title, steps, link, due_date, priority, created_at) VALUES (:k, :t, :s, :l, :d, :p, :c)", { k: key, t: ti, s: String(steps).slice(0, 2000), l: String(link).slice(0, 400), d: due, p: pr, c: now() });
   return { ok: true };
 }

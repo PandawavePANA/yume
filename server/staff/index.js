@@ -9,7 +9,8 @@ import { logError } from "../errorLog.js";
 import { USD_KRW } from "../costGuard.js";
 import { isBusinessDay } from "../businessDays.js";
 import { askJson, askText, readPage } from "./ai.js";
-import { fetchNew, gmailConfigured, loadGmailCreds, markAnswered, saveGmailCreds, sendReply } from "./gmail.js";
+import { fetchNew, gmailConfigured, loadGmailCreds, saveGmailCreds } from "./gmail.js";
+import * as outbox from "./outbox.js";
 import * as store from "./store.js";
 import { CEO, KINDS, ROSTER, TEAMS, lineFor } from "./roster.js";
 import { defaults as prepDefaults } from "./jobs/prep.js";
@@ -94,7 +95,7 @@ export function businessHours(t = Date.now()) {
 
 async function defaultDeps() {
   const { confirmPayment } = await import("../b2bApi.js");
-  return { ai: askJson, askText, readPage, sendMail, confirmPayment, gmailFetch: fetchNew, gmailSend: sendReply, gmailMarkAnswered: markAnswered, ...prepDefaults };
+  return { ai: askJson, askText, readPage, sendMail, confirmPayment, gmailFetch: fetchNew, gmailSend: (m) => outbox.enqueue({ ...m, kind: "reply" }), gmailMarkAnswered: async () => {}, ...prepDefaults };
 }
 
 function contextFor(id, def, state, deps) {
@@ -200,7 +201,7 @@ export async function approve(approvalId, input = {}, { deps = null, delegated =
   if (!(await store.decide(a.id, "approved"))) return { error: "이미 처리한 결재예요." };
   let r;
   try {
-    r = await kind.apply(a.payload, input, deps || (await defaultDeps()));
+    r = await kind.apply(a.payload, input, { ...(deps || (await defaultDeps())), approvalId: a.id });
   } catch (e) {
     logError(`staff:approve:${a.kind}`, e);
     r = { ok: false, result: String(e?.message || e).slice(0, 300) };

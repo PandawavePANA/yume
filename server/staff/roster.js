@@ -92,7 +92,9 @@ async function sendReplyMail(payload, input = {}, deps = {}) {
   if (hits.length) return { ok: false, result: `법무 검토: ${hits.map((h) => `“${h.match}”`).join(", ")} 표현을 빼 주세요.` };
   const to = String(input.to || payload.to || "").trim();
   if (!to) return { ok: false, result: "받는 사람이 없어요." };
-  await deps.gmailSend({ to, subject: payload.subject || "", text, inReplyTo: payload.messageId, references: payload.references, fromName: CEO.name });
+  const sent = await deps.gmailSend({ to, subject: payload.subject || "", text, inReplyTo: payload.messageId, references: payload.references, fromName: CEO.name, uid: payload.uid, approvalId: deps.approvalId });
+  // 운영에서는 대기열에 넣고 대표 PC의 현장 요원이 보낸다(Railway가 메일 발송 포트를 막음 — outbox.js). 보내면 결재 기록이 "보냄"으로 바뀐다.
+  if (sent?.queued) return { ok: true, result: `${to}에게 보낼 답장을 대기열에 넣었어요 — 대표 PC의 현장 요원이 1분 안에 대표 주소로 보냅니다` };
   if (payload.uid) await deps.gmailMarkAnswered(payload.uid);
   return { ok: true, result: `${to}에게 답장 보냄(대표 메일함 보낸편지함에 남음)` };
 }

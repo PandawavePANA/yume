@@ -1319,6 +1319,32 @@ const MIGRATIONS = [
   );
   ALTER TABLE owner_todos ENABLE ROW LEVEL SECURITY;
   `,
+  // 할 일 중요도 — 1 중요 · 2 보통 · 3 여유. 끝내지 않은 일은 다음 날에도 그대로(며칠째인지 함께) 중요도 순으로 보인다.
+  `
+  ALTER TABLE owner_todos ADD COLUMN priority INTEGER NOT NULL DEFAULT 2;
+  `,
+  // 대표 주소로 나가는 메일(답장) 대기열 — Railway는 메일 발송 포트(SMTP)를 막아서 서버가 Gmail로 직접 못 보낸다(2026-10-14
+  // "Connection timeout"). 결재가 나면 여기 넣고, 대표 PC의 현장 요원이 Gmail로 보낸다(queued → sending → sent | failed).
+  `
+  CREATE TABLE mail_outbox (
+    id BIGSERIAL PRIMARY KEY,
+    kind TEXT NOT NULL DEFAULT 'reply',
+    to_addr TEXT NOT NULL,
+    subject TEXT NOT NULL DEFAULT '',
+    body TEXT NOT NULL DEFAULT '',
+    in_reply_to TEXT,
+    refs TEXT,
+    from_name TEXT,
+    uid BIGINT,
+    approval_id BIGINT,
+    status TEXT NOT NULL DEFAULT 'queued',
+    error TEXT,
+    created_at BIGINT NOT NULL,
+    sent_at BIGINT
+  );
+  CREATE INDEX idx_mail_outbox_status ON mail_outbox(status, id);
+  ALTER TABLE mail_outbox ENABLE ROW LEVEL SECURITY;
+  `,
 ];
 
 async function migrate() {

@@ -5,6 +5,7 @@
 export const SEED = [
   {
     key: "outreach_domain",
+    priority: 1,
     title: "유메 메일 도메인(yume-reamer.com) 인증",
     link: "https://resend.com/domains",
     check_key: "outreach_domain",
@@ -35,6 +36,7 @@ export const SEED = [
   },
   {
     key: "gmail",
+    priority: 1,
     title: "대표 메일함(Gmail) 연결 — 앱 비밀번호",
     link: "https://myaccount.google.com/apppasswords",
     check_key: "gmail",
@@ -68,6 +70,7 @@ export const SEED = [
   },
   {
     key: "anthropic_reload",
+    priority: 1,
     title: "Anthropic 잔액 충전 · 자동 충전 켜기",
     link: "https://console.anthropic.com/settings/billing",
     steps: `왜: 지금 키는 잔액이 적은 테스트용입니다. 잔액이 바닥나면 AI 직원, 검사 엔진, 그리고 이니시스 심사 결제(충전 화면)까지 함께 멈춥니다. (약 5분)
@@ -90,6 +93,7 @@ export const SEED = [
   },
   {
     key: "biz_address",
+    priority: 2,
     title: "홈택스 사업자등록 소재지 정정 (테크노상업로 112, 204호)",
     link: "https://www.hometax.go.kr",
     steps: `왜: 사이트와 이니시스 심사는 사업자등록증 주소를 기준으로 봅니다. 등록증이 아직 옛 주소(테크노대로5길 80)라 사이트도 옛 주소로 되돌려 둔 상태입니다. (약 20분 + 처리 2~3일)
@@ -115,6 +119,7 @@ export const SEED = [
   },
   {
     key: "inicis_address",
+    priority: 2,
     title: "이니시스 가맹점·보증보험 주소 변경",
     after_key: "biz_address",
     steps: `왜: 카드 가맹점 정보와 보증보험 증권 주소가 사업자등록증과 같아야 정산·심사가 문제없습니다. (약 10분)
@@ -136,6 +141,7 @@ export const SEED = [
   },
   {
     key: "kmong_mvp",
+    priority: 2,
     title: "크몽 '모두의 창업 시제품·MVP 제작' 서비스 등록",
     link: "https://kmong.com",
     steps: `왜: 모두의 창업 진출자들이 협약 기간 안에 외주처를 찾는 시기라, 리머의 가장 빠른 매출 통로입니다. 모든 글과 이미지는 이미 만들어져 있습니다. (약 20분 + 크몽 심사 1~3 영업일)
@@ -161,6 +167,7 @@ export const SEED = [
   },
   {
     key: "b2b_terms",
+    priority: 3,
     title: "기업 이용 조건 한 번 읽어 보기 (환불·책임 한도·관할)",
     link: "https://www.yume-reamer.com/b2b/terms",
     steps: `왜: 기업이 감사·API를 살 때 동의하는 표준 조건입니다. Claude가 쓴 초안이라 대표님이 한 번 봐야 합니다. 세 곳만 보면 됩니다. (약 10분)
@@ -182,6 +189,7 @@ export const SEED = [
   },
   {
     key: "modu_result",
+    priority: 1,
     title: "모두의 창업 발표 확인",
     due_date: "2026-10-15",
     steps: `오늘 발표일입니다.
@@ -193,6 +201,7 @@ export const SEED = [
   },
   {
     key: "tax_general",
+    priority: 2,
     title: "일반과세 시작 — 이제 세금계산서를 발급할 수 있어요",
     due_date: "2026-11-01",
     steps: `오늘부터 일반과세자입니다(간이과세 포기 신고 반영).
@@ -211,6 +220,7 @@ export const SEED = [
   },
   {
     key: "sojin_loan",
+    priority: 2,
     title: "업력 90일 — 소진공 신용취약 소상공인 자금 직접대출 신청 가능",
     due_date: "2026-12-15",
     link: "https://ols.semas.or.kr",
@@ -221,5 +231,75 @@ export const SEED = [
 2. 준비물: 사업자등록증명, 부가가치세 과세표준증명(또는 매출 자료), 대표자 신분증, 통장 사본
 3. 온라인 접수 뒤 지역센터 상담·교육 안내가 옵니다. 일정이 오면 Claude에게 알려 주세요.
 4. 신청했으면 여기서 '완료' 체크`,
+  },
+  // ── 2026-10-14 대표가 말해 준 일 ──
+  {
+    key: "startup_registration",
+    title: "창업기업 등록 다시 하기",
+    priority: 1,
+    steps: `대표님이 카카오톡 "나에게 보내기"에 관련 자료를 보내 두셨습니다(카톡은 Claude가 열 수 없어요).
+
+1. 카톡 "나에게 보내기"에서 그 자료(안내문·링크·서류)를 엽니다.
+2. 안내에 적힌 시스템에 로그인해 창업기업 등록(확인) 신청을 다시 합니다. 보통 필요한 것:
+   · 사업자등록증명(홈택스 → 민원증명 → 사업자등록증명, PDF)
+   · 대표자 정보, 개업일(2026-09-16), 업종(정보통신업·응용 소프트웨어 개발)
+   · 사업장 주소 — 사업자등록 정정 전이면 등록증에 있는 옛 주소(테크노대로5길 80) 그대로 씁니다.
+3. 막히는 부분이 있으면 그 자료 내용을 Claude에게 붙여 넣거나 캡처해 보여 주세요 — 칸별로 무엇을 쓸지 정리해 드립니다.
+4. 신청했으면 여기서 '완료' 체크(처리 결과가 나오면 업무 일지에 '내가 한 일'로 적어 두세요).`,
+  },
+  {
+    key: "inicis_guarantee_reply",
+    title: "KG이니시스 보증보험 관련 메일에 답장",
+    priority: 1,
+    steps: `이니시스 담당자(조선아, sunachozz@kggroup.co.kr)가 보증보험 관련으로 보낸 메일에 답해야 합니다.
+
+1. reamer@d-reamer.com 메일함에서 "조선아" 또는 "이니시스"로 검색해 가장 최근 메일을 엽니다.
+2. 요청한 것(증권 사본, 가입 확인, 보험 기간·금액 등)을 확인하고 답장합니다.
+   · 보증보험 증권(PDF)을 달라는 경우가 많습니다 — 보증보험사에서 받은 증권 파일을 첨부하세요.
+3. 메일함이 AI 본사에 연결되면 비서실 서윤이 이 메일을 찾아 답장 초안을 결재함에 올립니다 — 그때는 결재함에서 고쳐서 승인만 하면 됩니다.
+4. 답장했으면 여기서 '완료' 체크.`,
+  },
+  // ── 할 일로 챙겨 둘 것(급하지 않음 — 안 하면 다음 날로 넘어간다) ──
+  {
+    key: "rotate_gmail_pw",
+    title: "노출된 Gmail 앱 비밀번호 바꾸기",
+    priority: 2,
+    after_key: "gmail",
+    steps: `메일함 연결에 쓴 앱 비밀번호가 대화에 노출됐었습니다.
+
+1. myaccount.google.com/apppasswords → "유메 비서" 삭제
+2. 같은 화면에서 새로 만들기(앱 이름: 유메 비서) → 16자리 복사
+3. AI 본사 → 오늘 할 일의 메일함 연결 칸에 새 비밀번호를 넣고 "연결 시험 후 저장"(옛 것을 덮어씁니다)
+4. 여기서 '완료' 체크`,
+    link: "https://myaccount.google.com/apppasswords",
+  },
+  {
+    key: "inicis_review_pw",
+    title: "이니시스 심사가 끝나면 심사용 계정 비밀번호 바꾸기",
+    priority: 3,
+    steps: `심사용으로 이니시스에 알려 준 유메 계정(reamer@d-reamer.com) 비밀번호가 대화에도 노출됐습니다. 심사가 끝났다는 연락을 받으면:
+1. www.yume-reamer.com 로그인 → 계정 → 비밀번호 변경
+2. 여기서 '완료' 체크
+심사 중이라면 "내일로"를 눌러 두세요(심사 중에 바꾸면 담당자가 못 들어갑니다).`,
+  },
+  {
+    key: "search_console",
+    title: "구글 서치콘솔에 사이트맵 제출 · 색인 요청",
+    priority: 3,
+    link: "https://search.google.com/search-console",
+    steps: `유메의 할루시네이션 글·지수 페이지가 구글 검색에 잡히게 하는 일입니다(10분).
+1. search.google.com/search-console 접속 → 속성 www.yume-reamer.com (없으면 "속성 추가" → URL 접두어 → https://www.yume-reamer.com → HTML 태그 방식은 Claude에게 말하면 태그를 넣어 드림)
+2. 왼쪽 Sitemaps → "https://www.yume-reamer.com/sitemap.xml" 입력 → 제출
+3. 위쪽 검색창에 https://www.yume-reamer.com/hallucination 입력 → "색인 생성 요청"
+4. 여기서 '완료' 체크`,
+  },
+  {
+    key: "kmong_reamer",
+    title: "크몽에 리머 외주 서비스 더 올리기 (08 · 04 · 01 먼저)",
+    priority: 3,
+    steps: `모두의 창업 MVP 말고 리머의 다른 외주 서비스도 등록 키트가 다 준비돼 있습니다. 단가가 낮아 첫 주문·후기가 빨리 나는 것부터:
+  · 08 오류 수정·기능 추가 → 04 업무 자동화 → 01 홈페이지·랜딩
+자료: 바탕화면\\유메\\마켓등록\\크몽\\(서비스 폴더)\\ — 이미지와 등록문구.txt. 올리는 방법은 MVP 등록과 같습니다(등록문구 순서대로 붙여 넣기, 이미지 파일 이름 순서대로).
+하나 올릴 때마다 업무 일지에 '내가 한 일'로 적고, 셋 다 올렸으면 '완료'.`,
   },
 ];
