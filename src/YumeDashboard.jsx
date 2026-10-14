@@ -14,6 +14,7 @@ import { BountyPrompt } from "@/components/yume/BountyModal";
 import { CorrectionPrompt } from "@/components/yume/CorrectionModal";
 import { apiJson, safeUrl, CONTACT_EMAIL } from "@/components/yume/api";
 import { BUSINESS, COMPLAINT_NOTICE, COMPLAINT_CONTACT, telHref, COPYRIGHT, businessLine } from "@/businessInfo";
+import BusinessAddress from "@/BusinessAddress";
 import BusinessInfo from "@/components/yume/BusinessInfo";
 import { IS_NATIVE_APP, onNativeBack, shareLink } from "./native.js";
 import { IS_STORE_BUILD } from "./storeBuild.js";
@@ -2185,7 +2186,7 @@ export default function YumeDashboard() {
                   BUSINESS.mailOrderNo && `통신판매업 신고 ${BUSINESS.mailOrderNo}`,
                 ])}
               </div>
-              <div>주소 {BUSINESS.address}</div>
+              <div>주소 <BusinessAddress /></div>
               <div>
                 {BUSINESS.tel && (
                   <>

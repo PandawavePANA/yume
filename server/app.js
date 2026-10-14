@@ -29,6 +29,7 @@ import { quoteByToken } from "./b2bDeals.js";
 import { renderQuotePage, renderB2bTerms, renderB2bDpa, renderB2bSecurity, renderDealsAdminPage } from "./renderB2bPages.js";
 import { renderWorkPage } from "./renderWorkPage.js";
 import { renderStaffPage } from "./renderStaffPage.js";
+import { publicBusiness } from "./businessAddress.js";
 import { staffRouter } from "./staffApi.js";
 import { threadRouter } from "./threadApi.js";
 import screenshotRouter from "./screenshotApi.js";
@@ -111,6 +112,11 @@ app.use(mcpRouter);
 
 // 무료 할루시네이션 점검 — 기업용 사이트(별도 도메인)에서 부르므로 자체 CORS를 쓴다.
 // 쿠키 세션 미들웨어보다 먼저 붙여야 동일 출처 가드에 걸리지 않는다(/v1과 같은 이유).
+// 사이트 하단의 사업자 정보(공개) — 기업용·리머 사이트가 다른 도메인에서 읽으므로 같은 출처 검사(sameOriginGuard) 앞에 두고
+// 누구에게나 연다. 사업자등록 주소가 바뀌면(할 일 "소재지 정정" 완료) 여기만 바뀐다.
+app.get("/api/public/business", (_req, res) => {
+  res.set("Access-Control-Allow-Origin", "*").set("Cache-Control", "public, max-age=300").json(publicBusiness());
+});
 app.use("/api", auditRouter);
 app.use("/api", inquiryRouter);
 // 기업 견적·계약 신청 — 견적 발행은 기업용 도메인에서도 오므로 같은 출처 검사 앞에 둔다.
@@ -447,6 +453,7 @@ app.get("/b2b/quote/:token", async (req, res) => {
 app.get("/b2b/terms", (req, res) => html(res, renderB2bTerms()));
 // 메일에 넣는 이미지(명함 등). 메일 앱은 메일 안에 넣은 이미지를 막기 때문에 웹 주소로 불러야 한다.
 // 명함에는 개인 휴대폰 번호가 있어 공개 저장소에 파일로 넣지 않고 DB(settings, mail_asset:이름)에 둔다.
+
 app.get("/mail-assets/:name", async (req, res) => {
   const name = String(req.params.name || "");
   if (!/^[a-z0-9-]+\.(png|jpg)$/.test(name)) return res.status(404).end();

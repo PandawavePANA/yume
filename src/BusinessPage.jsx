@@ -18,6 +18,7 @@ import QuoteModal, { QUOTE_PRODUCTS } from "./components/business/QuoteModal.jsx
 import { CONTACT_EMAIL } from "./components/yume/api.js";
 import { API_ORIGIN, YUME_URL } from "./businessConfig.js";
 import { BUSINESS, telHref, COPYRIGHT, businessLine, COMPLAINT_NOTICE, COMPLAINT_OFFICER } from "./businessInfo.js";
+import BusinessAddress from "./BusinessAddress.jsx";
 import { API_RATES, API_UNIT_CHARS, AUDIT_LEAD, AUDIT_PILOT_SEATS, AUDIT_RATES } from "../server/apiRates.js";
 
 const won = (n) => `${n.toLocaleString("ko-KR")}원`;
@@ -663,7 +664,7 @@ Authorization: Bearer <API_KEY>
                 BUSINESS.mailOrderNo && `통신판매업 신고 ${BUSINESS.mailOrderNo}`,
               ])}
             </div>
-            <div>주소 {BUSINESS.address}</div>
+            <div>주소 <BusinessAddress /></div>
             {BUSINESS.tel && <div>대표전화 <a href={telHref}>{BUSINESS.tel}</a></div>}
             <div>이메일 {BUSINESS.email}</div>
             <div>{COMPLAINT_NOTICE} {COMPLAINT_OFFICER}</div>

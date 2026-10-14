@@ -212,6 +212,12 @@ iframe.preview { width:100%; height:620px; border:1px solid var(--line); border-
 .tsteps div { white-space:pre-wrap; margin-top:6px; background:var(--panel2); border-radius:9px; padding:9px 11px; line-height:1.7; }
 .tacts { display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-top:8px; }
 .tmsg { font-size:12.5px; color:var(--bad); margin-top:4px; }
+.tnote { width:100%; margin-top:8px; padding:8px 10px; border-radius:9px; border:1px dashed var(--line2); background:var(--panel2); font-size:13px; }
+.cform { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; padding:10px; border-radius:12px; background:var(--todo-soft); }
+.cform .ctitle { flex-basis:100%; font-size:12.5px; font-weight:700; color:var(--todo); }
+.cform input { padding:8px 10px; border-radius:9px; border:1px solid var(--line2); background:var(--panel); font-size:13.5px; flex:1 1 180px; }
+.cform input[name=relation] { flex:0 0 70px; }
+.tframe { width:100%; height:520px; border:1px solid var(--line); border-radius:10px; margin-top:8px; background:#fff; }
 .gform { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
 .gform input { padding:9px 11px; border-radius:10px; border:1px solid var(--line2); background:var(--panel); font-size:14px; flex:1 1 200px; }
 .gbtn { background:var(--todo); color:#fff; }
@@ -434,6 +440,21 @@ const SCRIPT = String.raw`
     $("#view").innerHTML = head + (rows ? '<div class="log">' + rows + "</div>" : '<div class="empty"><div class="big">📓</div>아직 기록이 없습니다.</div>');
   }
 
+  // 할 일 안에서 바로 끝낼 수 있게 붙이는 도구(할 일마다 다르다).
+  function todoExtra(t) {
+    if (t.key === "biz_address") {
+      return '<form class="cform" method="post" action="/api/admin/staff/docs/free-use" target="_blank">' +
+        '<div class="ctitle">무상사용승낙서 만들기 — 칸을 채우고 누르면 인쇄용 화면이 새 창으로 열립니다(입력한 값은 저장하지 않아요)</div>' +
+        '<input name="owner" maxlength="40" placeholder="상가 소유자 성함(어머니)" /><input name="birth" maxlength="20" placeholder="생년월일(선택, 예: 1965-03-02)" />' +
+        '<input name="ownerAddr" maxlength="160" placeholder="소유자 주소(선택)" /><input name="relation" maxlength="20" value="모" aria-label="관계" />' +
+        '<input name="start" type="date" aria-label="사용 시작일" /><button type="submit" class="btn sm gbtn">승낙서 만들기 · 인쇄</button></form>' +
+        '<div class="hint">홈택스 정정이 끝나 \'완료\'를 누르면 유메·기업용·리머 사이트 주소가 새 주소로 자동으로 바뀝니다.</div>';
+    }
+    if (t.key === "b2b_terms") return '<details class="tsteps"><summary>여기서 바로 읽기</summary><iframe class="tframe" src="/b2b/terms" title="기업 서비스 이용 조건"></iframe></details><div class="hint">고칠 곳이 있으면 아래 메모에 적고 완료를 누르세요 — 업무 일지에 남고 Claude가 반영합니다. 그대로 좋으면 그냥 완료.</div>';
+    if (t.key === "modu_result") return '<div class="hint">결과(합격 여부·지원금·일정)를 아래 메모에 적고 완료를 누르세요.</div>';
+    return "";
+  }
+
   // ── 오늘 할 일(대표 투두) — 결재 문서와 다른 체크리스트 모양 ──
   function renderTodos() {
     var d = S.data;
@@ -441,8 +462,10 @@ const SCRIPT = String.raw`
       return '<li class="todo" data-id="' + t.id + '">' +
         '<button type="button" class="tcheck" data-tdone="' + t.id + '" aria-label="' + esc(t.title) + ' 완료"><span></span></button>' +
         '<div class="tmain"><div class="ttitle"><span class="tpri p' + t.priority + '">' + ({ 1: "중요", 2: "보통", 3: "여유" }[t.priority] || "보통") + "</span>" + esc(t.title) + (t.age ? '<span class="tage">' + (t.age + 1) + "일째 · 어제에서 넘어옴</span>" : "") + (t.check ? '<span class="tauto">완료 누르면 서버가 확인</span>' : "") + "</div>" +
-        (t.key === "gmail" ? '<form class="gform" id="gform" autocomplete="off"><input id="g-user" type="email" value="reamer@d-reamer.com" aria-label="메일 주소" /><input id="g-pass" type="password" autocomplete="new-password" placeholder="앱 비밀번호 16자리" aria-label="앱 비밀번호" /><button type="submit" class="btn sm gbtn">연결 시험 후 저장</button></form><div class="hint">Railway에 못 들어갈 때 여기에 직접 넣으세요. 서버가 메일함 접속을 시험하고, 성공하면 암호화해서 저장합니다(화면·기록에 남지 않음).</div>' : "") +
+        ((t.key === "gmail" || t.key === "rotate_gmail_pw") ? '<form class="gform" id="gform" autocomplete="off"><input id="g-user" type="email" value="reamer@d-reamer.com" aria-label="메일 주소" /><input id="g-pass" type="password" autocomplete="new-password" placeholder="앱 비밀번호 16자리" aria-label="앱 비밀번호" /><button type="submit" class="btn sm gbtn">연결 시험 후 저장</button></form><div class="hint">Railway에 못 들어갈 때 여기에 직접 넣으세요. 서버가 메일함 접속을 시험하고, 성공하면 암호화해서 저장합니다(화면·기록에 남지 않음).</div>' : "") +
         (t.steps ? '<details class="tsteps"><summary>어떻게 하나요</summary><div>' + esc(t.steps) + "</div></details>" : "") +
+        todoExtra(t) +
+        '<input class="tnote" id="tnote-' + t.id + '" maxlength="500" placeholder="메모(선택) — 완료할 때 업무 일지에 함께 남아요" />' +
         '<div class="tacts">' + (t.link ? (/^https?:/.test(t.link) ? '<a class="btn plain sm" href="' + esc(t.link) + '" target="_blank" rel="noopener">열기 ↗</a>' : '<span class="hint">문서: ' + esc(t.link) + "</span>") : "") +
         '<button type="button" class="btn plain sm" data-tsnooze="' + t.id + '">내일로</button></div><div class="tmsg" id="tmsg-' + t.id + '"></div></div></li>';
     }).join("");
@@ -456,7 +479,7 @@ const SCRIPT = String.raw`
   function typing() {
     var a = document.activeElement;
     if (a && a.closest && a.closest("#view") && /INPUT|TEXTAREA/.test(a.tagName)) return true;
-    return [].some.call(document.querySelectorAll("#view .gform input[type=password], #view .tadd input, #view .ladd input"), function (x) { return x.value; });
+    return [].some.call(document.querySelectorAll("#view .gform input[type=password], #view .tadd input[type=text], #view #tadd-title, #view .ladd input, #view .tnote, #view .cform input[name=owner], #view .cform input[name=birth], #view .cform input[name=ownerAddr]"), function (x) { return x.value; });
   }
   function render(full) {
     if (!S.data) return;
@@ -481,7 +504,7 @@ const SCRIPT = String.raw`
     if (t.dataset.tdone) {
       var li = t.closest(".todo"), tm = $("#tmsg-" + t.dataset.tdone);
       t.disabled = true; li.classList.add("checking"); if (tm) tm.textContent = "";
-      try { var rr = await api("/staff/todos/" + t.dataset.tdone + "/done", {}); li.classList.add("done"); toast(rr.result || "완료"); setTimeout(function () { load(); }, 700); }
+      var noteEl = $("#tnote-" + t.dataset.tdone); try { var rr = await api("/staff/todos/" + t.dataset.tdone + "/done", { note: noteEl ? noteEl.value : "" }); li.classList.add("done"); toast(rr.result || "완료"); setTimeout(function () { load(); }, 700); }
       catch (err) { li.classList.remove("checking"); t.disabled = false; if (tm) tm.textContent = err.message; }
       return;
     }
