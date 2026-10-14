@@ -92,12 +92,14 @@ export async function complete(id, deps = {}) {
     if (!r.ok) return { error: r.why };
   }
   await run("UPDATE owner_todos SET status = 'done', done_at = :t WHERE id = :id", { id: t.id, t: now() });
-  return { ok: true, result: t.check_key === "outreach_domain" ? "확인 완료 — 유메 주소로 시험 메일을 보냈고, 첫 메일 발송이 열렸습니다" : "완료" };
+  return { ok: true, title: t.title, result: t.check_key === "outreach_domain" ? "확인 완료 — 유메 주소로 시험 메일을 보냈고, 첫 메일 발송이 열렸습니다" : "완료" };
 }
 
 export async function snooze(id) {
-  const r = await run("UPDATE owner_todos SET snooze_until = :d WHERE id = :id AND status = 'open'", { id: Number(id) || 0, d: tomorrow() });
-  return r.changes ? { ok: true } : { error: "할 일을 찾을 수 없어요." };
+  const t = await one("SELECT title FROM owner_todos WHERE id = :id AND status = 'open'", { id: Number(id) || 0 });
+  if (!t) return { error: "할 일을 찾을 수 없어요." };
+  await run("UPDATE owner_todos SET snooze_until = :d WHERE id = :id", { id: Number(id), d: tomorrow() });
+  return { ok: true, title: t.title };
 }
 
 /** 대표(또는 Claude)가 직접 넣는 할 일. */
