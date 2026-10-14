@@ -364,3 +364,52 @@ test("현장 요원 질문 검수: 기준 AI도 맞히는 쉬운 문항은 빼�
   assert.ok(c, "검수가 끝나면 답 수집으로");
   assert.ok(!c.payload.questions.some((q) => /^쉬운 질문/.test(q)), "답 수집 목록에도 쉬운 문항이 없다");
 });
+
+test("대표 할 일: 결재함과 따로 — 날짜·앞 일 조건대로 보이고, 확인 가능한 일은 서버가 확인하고 닫는다", async () => {
+  const todos = await import("../staff/todos.js");
+  await db.run("DELETE FROM owner_todos"); // 앞 시험(메일함 연결)이 닫은 할 일을 되살린다
+  await todos.seed();
+  const today = await todos.list("2026-10-14");
+  const keys = today.map((t) => t.key);
+  assert.ok(keys.includes("outreach_domain") && keys.includes("gmail") && keys.includes("biz_address"));
+  assert.ok(!keys.includes("modu_result"), "10/15 일은 그날부터");
+  assert.ok(!keys.includes("tax_general"), "11/1 일은 그날부터");
+  assert.ok(!keys.includes("inicis_address"), "사업자 정정이 끝나야 보인다");
+  assert.ok((await todos.list("2026-10-15")).some((t) => t.key === "modu_result"));
+
+  // Gmail — 설정이 없으면 완료를 막고, 있으면 닫는다
+  const gm = today.find((t) => t.key === "gmail");
+  const no = await staff.completeTodo(gm.id, { deps: deps() });
+  assert.match(no.error, /GMAIL/);
+  process.env.GMAIL_USER = "reamer@d-reamer.com";
+  process.env.GMAIL_APP_PASSWORD = "x";
+  assert.ok((await staff.completeTodo(gm.id, { deps: deps() })).ok);
+  delete process.env.GMAIL_USER;
+  delete process.env.GMAIL_APP_PASSWORD;
+
+  // 메일 도메인 — 완료를 누르면 유메 주소로 시험 발송, 실패면 막고 성공이면 첫 메일 발송이 열린다
+  const od = today.find((t) => t.key === "outreach_domain");
+  const fail = await staff.completeTodo(od.id, { deps: deps({ sendMail: async () => { throw new Error("domain not verified"); } }) });
+  assert.match(fail.error, /인증되지 않았어요/);
+  const sales = await import("../staff/jobs/sales.js");
+  await sales.loadOutreach();
+  assert.equal(sales.outreachFrom(), null);
+  sent.length = 0;
+  const ok = await staff.completeTodo(od.id, { deps: deps() });
+  assert.ok(ok.ok, ok.error);
+  assert.match(sent[0].from, /hello@yume-reamer\.com/);
+  assert.match(sales.outreachFrom(), /정원영 \(유메\) <hello@yume-reamer\.com>/, "환경변수 없이도 발송이 열린다");
+
+  // 내일로 · 직접 추가
+  const kmong = (await todos.list("2026-10-14")).find((t) => t.key === "kmong_mvp");
+  assert.ok((await staff.snoozeTodo(kmong.id)).ok);
+  assert.ok(!(await todos.list()).some((t) => t.key === "kmong_mvp"), "내일로 미룬 일은 오늘 안 보인다");
+  const add = await fetch(`${base}/api/admin/staff/todos`, { method: "POST", headers: { ...ADMIN, "Content-Type": "application/json" }, body: JSON.stringify({ title: "세무서 서류 제출" }) });
+  assert.equal(add.status, 201);
+  const o = await (await fetch(`${base}/api/admin/staff`, { headers: ADMIN })).json();
+  assert.ok(o.todos.some((t) => t.title === "세무서 서류 제출"));
+  assert.equal(o.summary.todos, o.todos.length);
+  assert.ok(!o.approvals.some((a) => /세무서/.test(a.title)), "결재함에는 섞이지 않는다");
+  await db.run("DELETE FROM settings WHERE key = 'outreach_from'").catch(() => {});
+  await sales.loadOutreach();
+});

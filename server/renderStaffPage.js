@@ -178,6 +178,41 @@ iframe.preview { width:100%; height:620px; border:1px solid var(--line); border-
 .ctls .grow { margin-left:auto; }
 .hint { font-size:11.5px; color:var(--ink3); }
 
+/* ── 오늘 할 일(대표 투두) — 결재(보라·기안서)와 다른 청록·체크리스트 ── */
+:root { --todo:#0F8C7E; --todo-soft:rgba(15,140,126,.10); }
+@media (prefers-color-scheme: dark) { :root { --todo:#3FD1BE; --todo-soft:rgba(63,209,190,.12); } }
+.kpi.todo-kpi { background:linear-gradient(135deg, #0F8C7E, #1FA9A0 70%, #6BC7A8); color:#fff; border:0; }
+.kpi.todo-kpi .l, .kpi.todo-kpi .s { color:rgba(255,255,255,.85); }
+.tabs .badge.todo-badge { background:var(--todo); }
+.todos { background:var(--panel); border:1px solid var(--line); border-top:4px solid var(--todo); border-radius:18px; box-shadow:var(--shadow); padding:18px 20px 20px; }
+.thead2 { display:flex; justify-content:space-between; gap:14px; flex-wrap:wrap; align-items:flex-end; margin-bottom:12px; }
+.thead2 h2 { margin:0; font-size:20px; color:var(--todo); letter-spacing:-.01em; }
+.thead2 p { margin:4px 0 0; font-size:13px; color:var(--ink2); max-width:520px; }
+.tadd { display:flex; gap:6px; flex-wrap:wrap; }
+.tadd input { padding:8px 10px; border-radius:9px; border:1px solid var(--line2); background:var(--panel); font-size:13.5px; }
+.tadd input#tadd-title { min-width:min(260px, 100%); }
+.tadd .btn.primary { background:var(--todo); box-shadow:0 6px 16px color-mix(in srgb, var(--todo) 30%, transparent); }
+.tlist { list-style:none; margin:0; padding:0; display:grid; gap:2px; }
+.todo { display:grid; grid-template-columns:34px 1fr; gap:10px; padding:12px 6px; border-bottom:1px dashed var(--line2); align-items:start; transition:opacity .3s; }
+.todo:last-child { border-bottom:0; }
+.tcheck { width:26px; height:26px; margin-top:1px; border-radius:50%; border:2px solid var(--todo); background:var(--panel); cursor:pointer; display:grid; place-items:center; padding:0; }
+.tcheck span { width:10px; height:6px; border-left:2.5px solid transparent; border-bottom:2.5px solid transparent; transform:rotate(-45deg) translate(1px,-1px); }
+.tcheck:hover span { border-color:var(--todo); }
+.todo.checking .tcheck { opacity:.6; cursor:progress; }
+.todo.done .tcheck { background:var(--todo); } .todo.done .tcheck span { border-color:#fff; }
+.todo.done .ttitle { text-decoration:line-through; color:var(--ink3); }
+.ttitle { font-weight:750; font-size:15px; line-height:1.45; display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+.tage { font-size:11px; font-weight:800; color:var(--warn); background:var(--warn-soft); border-radius:6px; padding:0 6px; }
+.tauto { font-size:11px; font-weight:700; color:var(--todo); background:var(--todo-soft); border-radius:6px; padding:0 6px; }
+.tsteps { margin-top:4px; font-size:13px; color:var(--ink2); }
+.tsteps summary { cursor:pointer; color:var(--todo); font-weight:700; font-size:12.5px; }
+.tsteps div { white-space:pre-wrap; margin-top:6px; background:var(--panel2); border-radius:9px; padding:9px 11px; line-height:1.7; }
+.tacts { display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-top:8px; }
+.tmsg { font-size:12.5px; color:var(--bad); margin-top:4px; }
+.tnext-h { font-size:13px; color:var(--ink3); margin:18px 0 6px; }
+.tnext { list-style:none; margin:0; padding:0; display:grid; gap:4px; font-size:13px; color:var(--ink2); }
+.tnext b { color:var(--todo); font-variant-numeric:tabular-nums; margin-right:6px; }
+
 /* ── 업무 일지 ── */
 .log { background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); padding:6px 0; }
 .lrow { display:grid; grid-template-columns:40px 1fr auto; gap:10px; padding:10px 16px; align-items:start; border-bottom:1px solid var(--line); }
@@ -232,9 +267,10 @@ const SCRIPT = String.raw`
       '<div class="kpi hero"><div class="l">결재 대기</div><div class="v num">' + s.pending + '</div><div class="s">' + (s.urgent ? "급한 결재 " + s.urgent + "건" : "급한 결재 없음") + "</div></div>" +
       '<div class="kpi"><div class="l">오늘 직원들이 처리한 일</div><div class="v num">' + s.doneToday + '</div><div class="s">업무 일지 기준</div></div>' +
       '<div class="kpi"><div class="l">오늘 AI 비용</div><div class="v num">' + won(s.costKrw) + '</div><div class="s">직원 업무 + 감사 채점</div></div>' +
-      '<div class="kpi"><div class="l">출근한 직원</div><div class="v num">' + on + "<small style=\"font-size:16px;color:var(--ink3)\"> / " + d.staff.length + '</small></div><div class="s">' + (working ? "지금 " + working + "명 일하는 중" : "모두 대기 중") + "</div></div>";
+      '<div class="kpi todo-kpi"><div class="l">오늘 할 일</div><div class="v num">' + s.todos + '</div><div class="s">대표님만 할 수 있는 일 · 출근 ' + on + "/" + d.staff.length + (working ? " · " + working + "명 근무 중" : "") + "</div></div>";
     document.querySelectorAll(".tabs button").forEach(function (b) { b.setAttribute("aria-selected", String(b.dataset.tab === S.tab)); });
     $("#badge").textContent = s.pending; $("#badge").style.display = s.pending ? "" : "none";
+    $("#badge2").textContent = s.todos; $("#badge2").style.display = s.todos ? "" : "none";
   }
 
   // ── 결재함 ──
@@ -372,10 +408,28 @@ const SCRIPT = String.raw`
     }).join("") + "</div>" : '<div class="empty"><div class="big">📓</div>아직 기록이 없습니다.</div>';
   }
 
+  // ── 오늘 할 일(대표 투두) — 결재 문서와 다른 체크리스트 모양 ──
+  function renderTodos() {
+    var d = S.data;
+    var rows = d.todos.map(function (t) {
+      return '<li class="todo" data-id="' + t.id + '">' +
+        '<button type="button" class="tcheck" data-tdone="' + t.id + '" aria-label="' + esc(t.title) + ' 완료"><span></span></button>' +
+        '<div class="tmain"><div class="ttitle">' + esc(t.title) + (t.age ? '<span class="tage">' + t.age + "일째</span>" : "") + (t.check ? '<span class="tauto">완료 누르면 서버가 확인</span>' : "") + "</div>" +
+        (t.steps ? '<details class="tsteps"><summary>어떻게 하나요</summary><div>' + esc(t.steps) + "</div></details>" : "") +
+        '<div class="tacts">' + (t.link ? (/^https?:/.test(t.link) ? '<a class="btn plain sm" href="' + esc(t.link) + '" target="_blank" rel="noopener">열기 ↗</a>' : '<span class="hint">문서: ' + esc(t.link) + "</span>") : "") +
+        '<button type="button" class="btn plain sm" data-tsnooze="' + t.id + '">내일로</button></div><div class="tmsg" id="tmsg-' + t.id + '"></div></div></li>';
+    }).join("");
+    var next = d.todosNext.length ? '<h3 class="tnext-h">곧 할 일</h3><ul class="tnext">' + d.todosNext.map(function (t) { return "<li><b>" + esc(t.due_date.slice(5).replace("-", "/")) + "</b> " + esc(t.title) + "</li>"; }).join("") + "</ul>" : "";
+    $("#view").innerHTML = '<section class="todos"><div class="thead2"><div><h2>오늘 할 일</h2><p>계정·DNS·홈택스·충전처럼 대표님 본인만 할 수 있는 일입니다. 직원들의 결재 문서와 따로 모았습니다.</p></div>' +
+      '<form class="tadd" id="tadd"><input id="tadd-title" placeholder="할 일 추가 (예: 세무서 서류 제출)" maxlength="200" /><input id="tadd-date" type="date" aria-label="날짜(선택)" /><button type="submit" class="btn primary sm">추가</button></form></div>' +
+      (rows ? '<ul class="tlist">' + rows + "</ul>" : '<div class="empty"><div class="big">✅</div>오늘 할 일을 다 끝냈습니다.</div>') + next + "</section>";
+  }
+
   function render(full) {
     if (!S.data) return;
     renderTop();
     if (S.tab === "inbox") renderInbox(full);
+    else if (S.tab === "todo") renderTodos();
     else if (S.tab === "org") renderOrg();
     else renderLog();
   }
@@ -389,6 +443,14 @@ const SCRIPT = String.raw`
     var t = e.target.closest("button, [data-open]");
     if (!t) return;
     if (t.dataset.tab) { S.tab = t.dataset.tab; render(true); return; }
+    if (t.dataset.tdone) {
+      var li = t.closest(".todo"), tm = $("#tmsg-" + t.dataset.tdone);
+      t.disabled = true; li.classList.add("checking"); if (tm) tm.textContent = "";
+      try { var rr = await api("/staff/todos/" + t.dataset.tdone + "/done", {}); li.classList.add("done"); toast(rr.result || "완료"); setTimeout(function () { load(); }, 700); }
+      catch (err) { li.classList.remove("checking"); t.disabled = false; if (tm) tm.textContent = err.message; }
+      return;
+    }
+    if (t.dataset.tsnooze) { try { await api("/staff/todos/" + t.dataset.tsnooze + "/snooze", {}); toast("내일 다시 올려 둘게요"); load(); } catch (err) { toast(err.message); } return; }
     if (t.dataset.open) { S.sel = Number(t.dataset.open); renderInbox(false); var dp = $("#docpane"); if (dp) dp.scrollIntoView({ block: "start", behavior: "smooth" }); return; }
     if (t.hasAttribute("data-close")) { S.sel = null; renderInbox(false); return; }
     if (t.dataset.dec) { var a1 = S.data.approvals.find(function (x) { return x.id === S.sel; }); inputOf(a1).decisions[t.dataset.dec] = t.dataset.v; t.parentNode.querySelectorAll("button").forEach(function (b) { b.setAttribute("aria-pressed", String(b === t)); }); return; }
@@ -419,6 +481,12 @@ const SCRIPT = String.raw`
     if (t.dataset.toggle) { var s1 = staffById(t.dataset.toggle); try { await api("/staff/" + s1.id, { enabled: !s1.enabled }); toast(s1.name + (s1.enabled ? " 퇴근" : " 출근")); load(); } catch (err) { toast(err.message); } return; }
     if (t.dataset.mode) { try { await api("/staff/" + t.dataset.id, { autonomy: t.dataset.mode }); toast(t.dataset.mode === "auto" ? "자동으로 처리하게 했어요" : "결재 후 처리하게 했어요"); load(); } catch (err) { toast(err.message); } return; }
     if (t.dataset.run) { var s2 = staffById(t.dataset.run); try { await api("/staff/" + s2.id + "/run", {}); toast(s2.name + "에게 일을 맡겼어요"); setTimeout(load, 1200); } catch (err) { toast(err.message); } return; }
+  });
+  document.addEventListener("submit", async function (e) {
+    if (e.target.id !== "tadd") return;
+    e.preventDefault();
+    var title = $("#tadd-title").value.trim(); if (!title) return;
+    try { await api("/staff/todos", { title: title, due_date: $("#tadd-date").value || null }); toast("할 일을 추가했어요"); load(); } catch (err) { toast(err.message); }
   });
   document.addEventListener("change", function (e) {
     var t = e.target; var a = S.data && S.data.approvals.find(function (x) { return x.id === S.sel; });
@@ -452,6 +520,7 @@ export function renderStaffPage() {
   <div class="kpis" id="kpis"></div>
   <div class="tabs" role="tablist" aria-label="화면">
     <button type="button" role="tab" data-tab="inbox" aria-selected="true">결재함 <span class="badge num" id="badge"></span></button>
+    <button type="button" role="tab" data-tab="todo" aria-selected="false">오늘 할 일 <span class="badge todo-badge num" id="badge2"></span></button>
     <button type="button" role="tab" data-tab="org" aria-selected="false">조직도</button>
     <button type="button" role="tab" data-tab="log" aria-selected="false">업무 일지</button>
   </div>

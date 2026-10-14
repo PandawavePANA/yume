@@ -10,7 +10,7 @@ import { requireAdmin } from "./adminApi.js";
 import { audit as auditLog } from "./audit.js";
 import { clientIp } from "./security.js";
 import { logError } from "./errorLog.js";
-import { approve, office, reject, runStaff, updateStaff } from "./staff/index.js";
+import { addTodo, approve, completeTodo, office, reject, runStaff, snoozeTodo, updateStaff } from "./staff/index.js";
 import { getApproval } from "./staff/store.js";
 import { auditDetail } from "./auditDesk.js";
 import { clientAuditMail } from "./auditClientMail.js";
@@ -45,6 +45,25 @@ staffRouter.post("/staff/approvals/:id/approve", async (req, res) => {
 staffRouter.post("/staff/approvals/:id/reject", async (req, res) => {
   const r = await reject(req.params.id, String(req.body?.reason || "").slice(0, 300));
   log(req, "staff.reject", `staff_approval:${req.params.id}`, { reason: req.body?.reason || "" });
+  if (r.error) return res.status(400).json({ error: r.error });
+  res.json(r);
+});
+
+// 대표 할 일(투두) — /staff/:id 보다 먼저 둔다("todos"를 직원 id로 읽지 않게).
+staffRouter.post("/staff/todos", async (req, res) => {
+  const r = await addTodo({ title: req.body?.title, steps: req.body?.steps, due_date: req.body?.due_date, link: req.body?.link });
+  log(req, "staff.todo.add", "owner_todo", { title: req.body?.title });
+  if (r.error) return res.status(400).json({ error: r.error });
+  res.status(201).json(r);
+});
+staffRouter.post("/staff/todos/:id/done", async (req, res) => {
+  const r = await completeTodo(req.params.id);
+  log(req, "staff.todo.done", `owner_todo:${req.params.id}`, { ok: !r.error });
+  if (r.error) return res.status(400).json({ error: r.error });
+  res.json(r);
+});
+staffRouter.post("/staff/todos/:id/snooze", async (req, res) => {
+  const r = await snoozeTodo(req.params.id);
   if (r.error) return res.status(400).json({ error: r.error });
   res.json(r);
 });

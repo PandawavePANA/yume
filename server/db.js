@@ -1301,6 +1301,24 @@ const MIGRATIONS = [
   ALTER TABLE ai_audits ADD COLUMN qcheck_at BIGINT;
   ALTER TABLE ai_audits ADD COLUMN qcheck_note TEXT;
   `,
+  // 대표 할 일(투두) — 비서실이 그날 할 일을 결재함에 "오늘 할 일"로 올린다. check가 있으면 서버가 완료를 직접 확인한다.
+  `
+  CREATE TABLE owner_todos (
+    id BIGSERIAL PRIMARY KEY,
+    key TEXT NOT NULL UNIQUE,
+    title TEXT NOT NULL,
+    steps TEXT NOT NULL DEFAULT '',
+    link TEXT NOT NULL DEFAULT '',
+    due_date TEXT,
+    after_key TEXT,
+    check_key TEXT,
+    status TEXT NOT NULL DEFAULT 'open',
+    snooze_until TEXT,
+    created_at BIGINT NOT NULL,
+    done_at BIGINT
+  );
+  ALTER TABLE owner_todos ENABLE ROW LEVEL SECURITY;
+  `,
 ];
 
 async function migrate() {
