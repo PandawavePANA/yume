@@ -151,6 +151,13 @@ export async function getApproval(id) {
   return a ? shape(a) : null;
 }
 
+/** 결재 문서 내용에 덮어쓴다 — 대표가 고친 받는 사람·본문을 남겨, 발송이 실패해 다시 올라와도 고친 글이 그대로 보이게. */
+export async function patchPayload(id, patch) {
+  const a = await getApproval(id);
+  if (!a) return;
+  await run("UPDATE staff_approvals SET payload_json = :p WHERE id = :id", { id: Number(id), p: JSON.stringify({ ...a.payload, ...patch }) });
+}
+
 /** 대기 중인 결재만 바꾼다(두 번 눌러도 한 번만 실행되게). 바꿨으면 true. */
 export async function decide(id, status, result = null) {
   const r = await run(

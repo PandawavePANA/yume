@@ -199,6 +199,14 @@ export async function approve(approvalId, input = {}, { deps = null, delegated =
   const kind = KINDS[a.kind];
   if (!kind) return { error: "알 수 없는 결재예요." };
   if (!(await store.decide(a.id, "approved"))) return { error: "이미 처리한 결재예요." };
+  // 대표가 고친 받는 사람·본문은 문서에도 남긴다 — 발송이 실패해 결재함으로 돌아와도 고친 글이 사라지지 않게.
+  const edits = {};
+  if (typeof input.to === "string" && input.to.trim()) edits.to = input.to.trim();
+  if (typeof input.body === "string" && input.body.trim()) edits.draft = input.body;
+  if (Object.keys(edits).length) {
+    await store.patchPayload(a.id, edits);
+    Object.assign(a.payload, edits);
+  }
   let r;
   try {
     r = await kind.apply(a.payload, input, { ...(deps || (await defaultDeps())), approvalId: a.id });
