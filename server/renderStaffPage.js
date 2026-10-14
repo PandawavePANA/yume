@@ -108,7 +108,14 @@ table.line td.nm { font-size:11.5px; color:var(--ink2); padding:4px 6px; }
 .seg button[aria-pressed="true"] { background:var(--ink); color:var(--panel); }
 .qs ol { margin:0; padding-left:22px; display:grid; gap:4px; font-size:13.5px; }
 .field { display:grid; gap:5px; font-size:12.5px; font-weight:700; color:var(--ink2); }
-.field input { padding:10px 12px; border-radius:10px; border:1px solid var(--line2); background:var(--panel); font-size:14.5px; font-weight:500; }
+.field input, .field textarea { padding:10px 12px; border-radius:10px; border:1px solid var(--line2); background:var(--panel); font-size:14.5px; font-weight:500; }
+.field textarea { min-height:220px; resize:vertical; line-height:1.7; font-family:inherit; }
+.mailcard { border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+.mailcard .mh { padding:10px 12px; background:var(--panel2); font-size:12.5px; color:var(--ink2); display:grid; gap:2px; }
+.mailcard .mh b { color:var(--ink); font-size:14px; }
+.mailcard .mb { padding:12px; font-size:13.5px; white-space:pre-wrap; max-height:260px; overflow:auto; }
+.readbtn { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:14px 16px; border-radius:14px; background:linear-gradient(135deg, var(--accent-soft), transparent); border:1px solid color-mix(in srgb, var(--accent) 30%, transparent); text-decoration:none; color:var(--ink); }
+.readbtn b { font-size:15px; } .readbtn span { font-size:12.5px; color:var(--ink2); } .readbtn i { font-style:normal; font-weight:800; color:var(--accent); white-space:nowrap; }
 .checks { display:grid; gap:6px; }
 .checks label { display:flex; gap:9px; align-items:flex-start; font-size:13.5px; padding:9px 11px; border:1px solid var(--line); border-radius:10px; cursor:pointer; }
 .checks input { margin-top:3px; accent-color:var(--accent); width:16px; height:16px; }
@@ -216,7 +223,8 @@ const SCRIPT = String.raw`
     var d = S.data, s = d.summary;
     var eng = s.engine && s.engine.ok ? '<span class="chip"><i></i>검사 엔진 정상</span>' : '<span class="chip bad"><i></i>엔진 멈춤 · 충전 필요</span>';
     var mail = s.outreachReady ? '<span class="chip"><i></i>유메 메일 발송 가능</span>' : '<span class="chip warn"><i></i>유메 메일 인증 전</span>';
-    $("#chips").innerHTML = eng + mail;
+    var inbox = s.gmail ? '<span class="chip"><i></i>메일함 연결됨</span>' : '<span class="chip warn"><i></i>메일함 연결 전</span>';
+    $("#chips").innerHTML = eng + mail + inbox;
     var working = d.staff.filter(function (x) { return x.status === "working"; }).length;
     var on = d.staff.filter(function (x) { return x.enabled; }).length;
     $("#kpis").innerHTML =
@@ -255,6 +263,7 @@ const SCRIPT = String.raw`
     if (a.kind === "add_prospects") return { pick: (p.candidates || []).map(function (_, i) { return i; }) };
     if (a.kind === "review_findings") { var d = {}; (p.items || []).forEach(function (x) { d[x.id] = x.qa; }); return { decisions: d }; }
     if (a.kind === "send_first") return { to: p.to || "", checks: {} };
+    if (a.kind === "reply_mail") return { to: p.to || "", body: p.draft || "" };
     return { to: p.to || "" };
   }
   function bodyHtml(a) {
@@ -278,7 +287,12 @@ const SCRIPT = String.raw`
           '<div class="hint">QA 수아: ' + esc(x.qaReason) + "</div>" +
           '<div class="ctl"><span class="seg">' + b("confirmed", "오류 확정") + b("excluded", "애매 · 제외") + b("yume_wrong", "유메 오판") + "</span>" + (x.url ? '<a class="btn plain sm" href="' + esc(x.url) + '" target="_blank" rel="noopener">원문 열기 ↗</a>' : '<span class="hint">원문 링크 없음 — 확정 불가</span>') + "</div></div>";
       }).join("") + "</div></div>";
+    } else if (a.kind === "reply_mail") {
+      h += '<div class="mailcard"><div class="mh"><b>' + esc(p.subject || "(제목 없음)") + "</b><span>" + esc(p.fromName ? p.fromName + " · " : "") + esc(p.to) + " · " + kst(p.date) + '</span></div><div class="mb">' + esc(p.original || "") + "</div></div>";
+      h += '<label class="field">받는 사람<input id="in-to" type="email" value="' + esc(inp.to) + '" /></label>';
+      h += '<label class="field">답장 (고쳐서 승인하면 고친 대로 대표 메일함에서 나갑니다)<textarea id="in-body">' + esc(inp.body) + "</textarea></label>";
     } else if (a.kind === "send_first") {
+      if (p.reportUrl) h += '<a class="readbtn" href="' + esc(p.reportUrl) + '" target="_blank" rel="noopener"><span><b>보고서 먼저 읽기</b><br><span>받는 사람이 열어 볼 비공개 보고서 그대로입니다</span></span><i>열기 ↗</i></a>';
       h += '<label class="field">받는 사람(담당자 개인 이메일)<input id="in-to" type="email" value="' + esc(inp.to) + '" placeholder="name@company.com" /></label>';
       h += '<div class="sec"><h4>대표 확인 — 세 줄 모두 체크해야 나갑니다</h4><div class="checks">' +
         [["manual_input", "질문은 사람이 일반 사용자로서 넣었고(대량 자동 질의 아님), 답마다 받은 시각이 있다"], ["ambiguous_removed", "애매한 사례는 모두 뺐다"], ["recipient_person", "받는 사람이 담당자 개인이다(대표 메일함 아님)"]].map(function (c) {
@@ -290,6 +304,7 @@ const SCRIPT = String.raw`
       var m = /합계 ([\d,]+원)/.exec(a.summary || "");
       h += m ? '<div class="money num">' + esc(m[1]) + "</div>" : "";
     } else if (a.kind === "send_followup" || a.kind === "quote_reminder" || a.kind === "pay_reminder" || a.kind === "deliver_report") {
+      if (a.kind === "deliver_report" && p.reportUrl) h += '<a class="readbtn" href="' + esc(p.reportUrl) + '" target="_blank" rel="noopener"><span><b>보고서 먼저 읽기</b><br><span>고객에게 보낼 보고서 그대로입니다</span></span><i>열기 ↗</i></a>';
       h += '<label class="field">받는 사람<input id="in-to" type="email" value="' + esc(inp.to) + '" /></label>';
     }
     return h;
@@ -381,7 +396,7 @@ const SCRIPT = String.raw`
         try { await api("/staff/approvals/" + a.id + "/reject", { reason: reason }); toast("반려했어요"); S.sel = null; await load(true); } catch (err) { msg.textContent = err.message; } finally { S.busy = false; }
         return;
       }
-      var inp = inputOf(a); var to = $("#in-to"); if (to) inp.to = to.value.trim();
+      var inp = inputOf(a); var to = $("#in-to"); if (to) inp.to = to.value.trim(); var bd = $("#in-body"); if (bd) inp.body = bd.value;
       S.busy = true; t.disabled = true; t.textContent = "처리 중…";
       try {
         var r = await api("/staff/approvals/" + a.id + "/approve", { input: inp });

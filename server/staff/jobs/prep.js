@@ -32,7 +32,7 @@ export const needQuestions = (limit) =>
     `SELECT a.* FROM ai_audits a
       WHERE a.tos_verdict = 'ok' AND a.sent_at IS NULL AND a.closed_at IS NULL
         AND NOT EXISTS (SELECT 1 FROM ai_audit_items i WHERE i.audit_id = a.id)
-      ORDER BY a.id ASC LIMIT :limit`,
+      ORDER BY (a.found_via LIKE '유료 주문%') DESC, a.id ASC LIMIT :limit`,
     { limit },
   );
 

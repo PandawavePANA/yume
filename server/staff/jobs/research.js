@@ -80,11 +80,7 @@ export async function run(ctx) {
     await ctx.log(`${target.domain} 업종에서 새 후보를 찾지 못했어요`, { level: "warn", costUsd: usd });
     return { note: `${target.domain} — 새 후보 없음` };
   }
-  if (ctx.autonomy === "auto") {
-    const ids = await addProspects(picked, ctx.staff.name);
-    await ctx.log(`${target.domain} 후보 ${ids.length}곳을 감사 데스크에 올렸어요`, { detail: picked.map((p) => `${p.company} · ${p.service_url}`).join("\n"), costUsd: usd });
-    return { note: `후보 ${ids.length}곳 등록` };
-  }
+  // 후보 등록은 영업팀장 전결(KINDS.add_prospects.auto) — 기안으로 남겨 결재 이력에서 무엇을 왜 올렸는지 볼 수 있게 한다.
   const day = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10);
   await ctx.propose({
     kind: "add_prospects",
