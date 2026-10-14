@@ -10,7 +10,7 @@ import { requireAdmin } from "./adminApi.js";
 import { audit as auditLog } from "./audit.js";
 import { clientIp } from "./security.js";
 import { logError } from "./errorLog.js";
-import { addCeoLog, addTodo, approve, completeTodo, office, reject, runByCeo, snoozeTodo, updateStaff } from "./staff/index.js";
+import { addCeoLog, addTodo, approve, completeTodo, connectGmail, office, reject, runByCeo, snoozeTodo, updateStaff } from "./staff/index.js";
 import { getApproval } from "./staff/store.js";
 import { auditDetail } from "./auditDesk.js";
 import { clientAuditMail } from "./auditClientMail.js";
@@ -74,6 +74,14 @@ staffRouter.post("/staff/:id/run", async (req, res) => {
   const r = await runByCeo(req.params.id);
   if (r.error) return res.status(400).json({ error: r.error });
   res.status(202).json({ ok: true });
+});
+
+// 메일함 연결 — 대표가 직접 넣은 앱 비밀번호로 접속을 시험하고, 성공하면 봉인해 저장한다(비밀번호는 기록하지 않는다).
+staffRouter.post("/staff/gmail", async (req, res) => {
+  const r = await connectGmail(req.body?.user, req.body?.password);
+  log(req, "staff.gmail.connect", "gmail", { user: String(req.body?.user || "").slice(0, 120), ok: !r.error });
+  if (r.error) return res.status(400).json({ error: r.error });
+  res.json({ ok: true, user: r.user });
 });
 
 // 대표가 직접 적는 "내가 한 일" — 업무 일지에 대표 이름으로 남는다.

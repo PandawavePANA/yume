@@ -437,3 +437,28 @@ test("업무 일지: 대표가 한 일(결재·반려·할 일·직원 설정·�
   assert.ok(o.summary.ceoToday >= 2, "대표가 오늘 한 일 수");
   assert.ok(!o.logs.some((l) => !l.ceo && /결재 승인 — 입금 안내 — 일지시험/.test(l.title)), "대표 기록은 직원 줄로 섞이지 않는다");
 });
+
+test("메일함 연결(대표가 화면에서 직접): 접속 시험에 성공해야 봉인해 저장하고, 할 일을 닫는다 — 평문은 남지 않는다", async () => {
+  const gmail = await import("../staff/gmail.js");
+  delete process.env.GMAIL_USER;
+  delete process.env.GMAIL_APP_PASSWORD;
+  const todos = await import("../staff/todos.js");
+  await db.run("DELETE FROM owner_todos WHERE key = 'gmail'");
+  await todos.seed();
+  assert.match((await staff.connectGmail("reamer@d-reamer.com", "짧음", { test: async () => ({ ok: true }) })).error, /16자리/);
+  const bad = await staff.connectGmail("reamer@d-reamer.com", "abcd efgh ijkl mnop", { test: async () => ({ ok: false, error: "로그인 실패 — 계정 주소나 앱 비밀번호(16자리)를 확인해 주세요." }) });
+  assert.match(bad.error, /로그인 실패/);
+  assert.equal(gmail.gmailConfigured(), false, "시험에 실패하면 저장하지 않는다");
+  const ok = await staff.connectGmail("Reamer@D-Reamer.com", "abcd efgh ijkl mnop", { test: async (u, p) => ({ ok: u === "reamer@d-reamer.com" && p === "abcdefghijklmnop" }) });
+  assert.ok(ok.ok, ok.error);
+  assert.equal(gmail.gmailConfigured(), true);
+  assert.equal(gmail.gmailUser(), "reamer@d-reamer.com");
+  const row = await db.one("SELECT value FROM settings WHERE key = 'gmail:creds'");
+  assert.ok(row && !String(row.value).includes("abcdefghijklmnop"), "DB에는 봉인된 값만");
+  assert.equal((await db.one("SELECT status FROM owner_todos WHERE key = 'gmail'")).status, "done", "할 일 Gmail 연결이 닫힌다");
+  const logs = await store.recentLogs(20, "ceo");
+  assert.ok(logs.some((l) => /메일함 연결 — reamer@d-reamer.com/.test(l.title)));
+  assert.ok(!logs.some((l) => /abcdefghijklmnop/.test(`${l.title} ${l.detail || ""}`)), "일지에 비밀번호가 없다");
+  await db.run("DELETE FROM settings WHERE key = 'gmail:creds'");
+  await gmail.loadGmailCreds();
+});

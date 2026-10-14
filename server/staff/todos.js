@@ -8,7 +8,7 @@
 // 비서실(서윤)이 10분마다 정리하고, 아침 브리핑(유나)에 오늘 할 일이 들어간다.
 import { all, now, one, run } from "../db.js";
 import { getSetting, setSetting } from "../auditDesk.js";
-import { gmailConfigured } from "./gmail.js";
+import { gmailConfigured, loadGmailCreds } from "./gmail.js";
 import { engineStopped } from "../upstream.js";
 import { COMPANY } from "../renderPages.js";
 import { SEED } from "./todoSeed.js";
@@ -38,7 +38,10 @@ export const OUTREACH_SETTING = "outreach_from";
 const OUTREACH_ADDR = () => `${COMPANY.ceo} (유메) <hello@yume-reamer.com>`;
 
 async function checkDone(key, deps = {}) {
-  if (key === "gmail") return gmailConfigured() ? { ok: true } : { ok: false, why: "서버에 GMAIL_USER·GMAIL_APP_PASSWORD가 아직 보이지 않아요(Railway에 넣으면 1~2분 뒤 반영)." };
+  if (key === "gmail") {
+    await loadGmailCreds().catch(() => {});
+    return gmailConfigured() ? { ok: true } : { ok: false, why: "아직 메일함이 연결되지 않았어요 — 위 입력칸에 앱 비밀번호를 넣고 '연결'을 누르세요(또는 Railway에 GMAIL_USER·GMAIL_APP_PASSWORD)." };
+  }
   if (key === "engine") return engineStopped() ? { ok: false, why: "검사 엔진이 아직 멈춰 있어요." } : { ok: true };
   if (key === "outreach_domain") {
     if (process.env.MAIL_FROM_YUME || (await getSetting(OUTREACH_SETTING).catch(() => null))) return { ok: true };
