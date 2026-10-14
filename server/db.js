@@ -1216,6 +1216,52 @@ const MIGRATIONS = [
   ALTER TABLE b2b_quotes ADD COLUMN delivered_at BIGINT;
   ALTER TABLE b2b_quotes ADD COLUMN rounds_done INTEGER NOT NULL DEFAULT 0;
   `,
+  // 2026-10-14 AI 직원(server/staff/). 직원마다 근무 상태·모드, 업무 일지, 결재함.
+  // 결재함 dedupe는 같은 일을 두 번 올리지 않게 하는 열쇠다(예: "send:audit:12") — 반려해도 남겨 둔다.
+  `
+  CREATE TABLE staff_state (
+    id TEXT PRIMARY KEY,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    autonomy TEXT NOT NULL DEFAULT 'approve',
+    daily_cap INTEGER,
+    last_run_at BIGINT,
+    last_status TEXT,
+    last_note TEXT,
+    updated_at BIGINT NOT NULL
+  );
+  CREATE TABLE staff_log (
+    id BIGSERIAL PRIMARY KEY,
+    staff TEXT NOT NULL,
+    title TEXT NOT NULL,
+    detail TEXT,
+    ref TEXT,
+    level TEXT NOT NULL DEFAULT 'info',
+    cost_usd DOUBLE PRECISION NOT NULL DEFAULT 0,
+    created_at BIGINT NOT NULL
+  );
+  CREATE INDEX idx_staff_log_time ON staff_log(created_at);
+  CREATE INDEX idx_staff_log_staff ON staff_log(staff, created_at);
+  CREATE TABLE staff_approvals (
+    id BIGSERIAL PRIMARY KEY,
+    staff TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    title TEXT NOT NULL,
+    summary TEXT,
+    payload_json TEXT NOT NULL DEFAULT '{}',
+    ref TEXT,
+    dedupe TEXT UNIQUE,
+    status TEXT NOT NULL DEFAULT 'pending',
+    result TEXT,
+    created_at BIGINT NOT NULL,
+    decided_at BIGINT
+  );
+  CREATE INDEX idx_staff_approvals_status ON staff_approvals(status, created_at);
+  ALTER TABLE b2b_quotes ADD COLUMN reminded_at BIGINT;
+  ALTER TABLE b2b_quotes ADD COLUMN pay_reminded_at BIGINT;
+  ALTER TABLE staff_state ENABLE ROW LEVEL SECURITY;
+  ALTER TABLE staff_log ENABLE ROW LEVEL SECURITY;
+  ALTER TABLE staff_approvals ENABLE ROW LEVEL SECURITY;
+  `,
 ];
 
 async function migrate() {

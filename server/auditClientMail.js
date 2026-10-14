@@ -10,6 +10,7 @@
 // 메일 클라이언트용이라 표(table)와 인라인 스타일만 쓴다.
 import { caseFacts, lawRef } from "./renderAuditDossier.js";
 import { COMPANY } from "./renderPages.js";
+import { OPT_OUT } from "./auditDesk.js";
 
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const FONT = "-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif";
@@ -101,6 +102,7 @@ export function clientAuditMail(detail, { cardUrl = `${(process.env.PUBLIC_BASE_
         ? `<a href="https://www.d-reamer.com" style="text-decoration:none"><img src="${esc(cardUrl)}" width="320" alt="${esc(`${COMPANY.ceo} · REAMER Founder · ${COMPANY.email} · www.d-reamer.com`)}" style="display:block;width:100%;max-width:320px;height:auto;border-radius:10px;border:0"></a>
       <div style="font-size:12px;line-height:1.6;color:#958EA8;margin-top:8px">유메(YUME)는 리머(REAMER)가 운영합니다 · <a href="https://www.yume-reamer.com" style="color:#5B3FA0;text-decoration:none;font-weight:700">www.yume-reamer.com</a></div>`
         : `<div style="font-size:13px;line-height:1.7;color:#857E98">유메(YUME) 대표 · <a href="https://www.yume-reamer.com" style="color:#5B3FA0;text-decoration:none;font-weight:700">www.yume-reamer.com</a><br>${esc(COMPANY.email)}</div>`}
+      <div style="font-size:11.5px;line-height:1.6;color:#A8A2B8;margin-top:12px">${esc(OPT_OUT)}</div>
     </td></tr></table>
   </td></tr>
 </table>

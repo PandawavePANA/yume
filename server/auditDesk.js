@@ -782,6 +782,8 @@ export const domainPhrase = (d) => DOMAIN_PHRASE[d] || "법령 인용";
 
 // 비공개 고지 문장. 메일에서 이 두 마디가 빠지면 체크리스트가 막는다.
 export const NONDISCLOSURE = "이 결과는 외부에 공개하지 않았으며 앞으로도 공개할 계획이 없습니다.";
+// 수신 거부 안내 — 받는 사람이 그만 받겠다고 말할 길(정보통신망법 제50조의 취지). 첫 메일·후속 메일 끝에 붙인다.
+export const OPT_OUT = "이 메일은 귀사 AI 답변 점검 결과를 알려 드리는 안내입니다. 더 받지 않으시려면 '수신 거부'라고 답장해 주세요.";
 const hasNondisclosure = (s) => /공개하지\s*않았/.test(s) && /공개할\s*계획이\s*없/.test(s);
 
 const SITE = "www.yume-reamer.com";
@@ -834,6 +836,8 @@ export function mailDrafts(audit, results, { reportUrl = "", issues = 0, wrongAn
     "",
     "감사합니다.",
     sign,
+    "",
+    OPT_OUT,
   ]
     .filter((l, i, a) => !(l === "" && a[i - 1] === ""))
     .join("\n");
@@ -841,7 +845,7 @@ export function mailDrafts(audit, results, { reportUrl = "", issues = 0, wrongAn
     first: { subject: audit.mail_subject || subject, body: audit.mail_body || body, edited: !!(audit.mail_subject || audit.mail_body), defaultSubject: subject, defaultBody: body },
     followup: {
       subject: `Re: ${subject}`,
-      body: `${who}, 지난주 보내드린 보고서가 잘 전달되었는지 확인차 연락드립니다. 사례 중 확인이 필요하신 부분이 있으면 원문과 함께 설명드리겠습니다. 이후로는 따로 연락드리지 않겠습니다.\n\n${COMPANY.ceo} 드림`,
+      body: `${who}, 지난주 보내드린 보고서가 잘 전달되었는지 확인차 연락드립니다. 사례 중 확인이 필요하신 부분이 있으면 원문과 함께 설명드리겠습니다. 이후로는 따로 연락드리지 않겠습니다.\n\n${COMPANY.ceo} 드림\n\n${OPT_OUT}`,
     },
     interested: {
       subject: `Re: ${subject}`,
