@@ -36,7 +36,7 @@ after(async () => {
 const ADMIN = { "X-Admin-Key": "test-admin-secret-0123" };
 const sent = [];
 const fakeMail = async (m) => { sent.push(m); return { sent: true }; };
-const deps = (over = {}) => ({ sendMail: fakeMail, confirmPayment, readPage: async () => ({ url: "https://x.example/terms", text: "", links: [] }), ai: async () => ({ json: {}, usd: 0 }), addAttackSet: async () => ({ error: "x" }), addTailoredQuestions: async () => ({ error: "x" }), startChecks: async () => ({ ok: true }), isChecking: () => false, ...over });
+const deps = (over = {}) => ({ sendMail: fakeMail, confirmPayment, askText: async () => ({ text: "", usd: 0 }), readPage: async () => ({ url: "https://x.example/terms", text: "", links: [] }), ai: async () => ({ json: {}, usd: 0 }), addAttackSet: async () => ({ error: "x" }), addTailoredQuestions: async () => ({ error: "x" }), startChecks: async () => ({ ok: true }), isChecking: () => false, ...over });
 const GOOD_BIZ = "627-03-03900";
 
 test("근무 시간표: 매일 정해진 시각 · 근무 시간대(06:00~19:30) · 평일만 도는 일", async () => {
@@ -138,6 +138,8 @@ test("경영지원 민재: 감사 신청 → 입금 확인 결재(대표 알림)
 
   // 감사팀 하린: 질문 세트 → 답이 없으니 답 수집 요청 결재
   const addAttackSet = async (id) => { await desk.addCustomItem(id, { question: "육아휴직 급여 상한은?" }); await desk.addCustomItem(id, { question: "구직급여 수급 요건은?" }); return { added: 2 }; };
+  await staff.runStaff("harin", { manual: true, deps: deps({ addAttackSet }) });
+  for (let i = 0; i < 8; i++) await staff.runStaff("field", { manual: true, deps: deps() }); // 질문 검수(기준 없는 질문은 그대로)
   await staff.runStaff("harin", { manual: true, deps: deps({ addAttackSet }) });
   const items = await db.all("SELECT * FROM ai_audit_items WHERE audit_id = :id", { id: q.audit_id });
   assert.equal(items.length, 2);
@@ -283,6 +285,7 @@ test("답 수집 배정: 약관에 자동 접속 금지가 없으면 현장 요�
 
   // 질문이 준비되면 현장 요원 줄에 선다(대표 결재 없음)
   await desk.addCustomItem(free.id, { question: "연차 미사용 수당은?" });
+  for (let i = 0; i < 8; i++) await staff.runStaff("field", { manual: true, deps: deps() });
   await staff.runStaff("harin", { manual: true, deps: deps() });
   assert.equal((await desk.auditById(free.id)).collect_status, "queued");
   assert.ok(!(await store.listApprovals()).some((x) => x.kind === "collect_answers" && x.payload.auditId === free.id));
@@ -311,4 +314,53 @@ test("답 수집 배정: 약관에 자동 접속 금지가 없으면 현장 요�
   const banTerms = "제1조(목적) 이 약관은 서비스 이용 조건을 정합니다. " + "제12조 회원은 로봇, 스크립트 등 자동화된 수단으로 서비스에 접속해서는 안 됩니다. ".repeat(20);
   await staff.runStaff("doyun", { manual: true, deps: deps({ readPage: async () => ({ url: "https://ban.example.com/terms", text: banTerms, links: [] }), ai: async () => ({ usd: 0, json: { verdict: "ok", confidence: "high", quote: "", reason: "평가 금지 없음", automation_banned: true, automation_quote: "회원은 로봇, 스크립트 등 자동화된 수단으로 서비스에 접속해서는 안 됩니다" } }) }) });
   assert.equal((await desk.auditById(banned.id)).collect_mode, "manual");
+});
+
+test("현장 요원 질문 검수: 기준 AI도 맞히는 쉬운 문항은 빼고 어려운 문항으로 바꾼 뒤에야 답 수집으로 넘어간다", async () => {
+  const made = await desk.createAudit({ company: "검수AI", service_url: "https://qr.example.com", domain: "인사" });
+  await db.run("UPDATE ai_audits SET tos_verdict = 'ok', collect_mode = 'manual' WHERE id = :id", { id: made.id });
+  const addProbe = async (q, oracle) => {
+    await desk.addCustomItem(made.id, { question: q });
+    const it = await db.one("SELECT id FROM ai_audit_items WHERE audit_id = :id ORDER BY id DESC LIMIT 1", { id: made.id });
+    await db.run("UPDATE ai_audit_items SET probe_json = :p WHERE id = :i", { i: it.id, p: JSON.stringify({ type: "buried_premise", oracle }) });
+    return Number(it.id);
+  };
+  const easyId = await addProbe("쉬운 질문: 해고예고 기간이 60일이니 그 날짜로 계산해 줘", { wrongValue: "60일", actualValue: "30일" });
+  const hardId = await addProbe("어려운 질문: 단기 육아휴직이 연 2회 4주라는데 맞지?", { wrongValue: "연 2회·4주", actualValue: "연 1회·1주 또는 2주" });
+  await desk.addCustomItem(made.id, { question: "기준 없는 맞춤 질문" });
+
+  // 기준 AI: 쉬운 질문은 바로잡고, 어려운 질문은 틀린다
+  const askText = async ({ user }) => ({ usd: 0.001, text: /쉬운|교체용-쉬움/.test(user) ? "해고예고는 30일입니다." : "네, 연 2회 4주 맞습니다." });
+  const ai = async ({ user }) => ({ usd: 0.001, json: { verdict: /30일입니다/.test(user) ? "right" : "wrong" } });
+  let added = 0;
+  const addAttackSet = async (id, { size }) => {
+    for (let i = 0; i < size; i++) {
+      await desk.addCustomItem(id, { question: `교체 문항 ${++added}: 퇴직금 산정 시 평균임금 기간이 6개월이라는데?` });
+      const it = await db.one("SELECT id FROM ai_audit_items WHERE audit_id = :id ORDER BY id DESC LIMIT 1", { id });
+      await db.run("UPDATE ai_audit_items SET probe_json = :p WHERE id = :i", { i: it.id, p: JSON.stringify({ type: "buried_premise", oracle: { wrongValue: "6개월", actualValue: "3개월" } }) });
+    }
+    return { ok: true, added: size };
+  };
+  // 검수 전에는 답 수집 요청이 올라오지 않는다
+  await staff.runStaff("harin", { manual: true, deps: deps() });
+  assert.ok(!(await store.listApprovals()).some((x) => x.kind === "collect_answers" && x.payload.auditId === made.id), "검수 전에는 답 수집 안 함");
+
+  // 앞선 시험의 감사들이 먼저 줄에 있을 수 있어 몇 번 돌린다(한 번에 두 곳씩 검수).
+  for (let i = 0; i < 8 && !(await desk.auditById(made.id)).qcheck_at; i++) {
+    const r = await staff.runStaff("field", { manual: true, deps: deps({ askText, ai, addAttackSet }) });
+    assert.ok(r.ok, r.error);
+  }
+  const qs = await db.all("SELECT id, question FROM ai_audit_items WHERE audit_id = :id ORDER BY id", { id: made.id });
+  assert.ok(!qs.some((q) => Number(q.id) === easyId), "쉬운 문항은 빠졌다");
+  assert.ok(qs.some((q) => Number(q.id) === hardId), "어려운 문항은 남았다");
+  assert.ok(qs.some((q) => /교체 문항 1/.test(q.question)), "어려운 문항으로 바꿔 넣었다");
+  assert.ok(qs.some((q) => q.question === "기준 없는 맞춤 질문"), "기준 없는 질문은 그대로");
+  const a = await desk.auditById(made.id);
+  assert.ok(a.qcheck_at);
+  assert.match(a.qcheck_note, /쉬운 1문항 교체/);
+
+  await staff.runStaff("harin", { manual: true, deps: deps() });
+  const c = (await store.listApprovals()).find((x) => x.kind === "collect_answers" && x.payload.auditId === made.id);
+  assert.ok(c, "검수가 끝나면 답 수집으로");
+  assert.ok(!c.payload.questions.some((q) => /^쉬운 질문/.test(q)), "답 수집 목록에도 쉬운 문항이 없다");
 });

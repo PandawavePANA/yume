@@ -64,6 +64,31 @@ export async function askJson({ system, user, searches = 0, maxTokens = 4000, fa
   return { json: lastJson(text), usd };
 }
 
+/**
+ * 글 답을 그대로 받는다(JSON 아님) — 질문 검수에서 "평범한 AI 챗봇"이 어떻게 답하는지 볼 때 쓴다.
+ * 반환: { text, usd }
+ */
+export async function askText({ system, user, maxTokens = 800, fast = true, label = "staff:text" }) {
+  const key = process.env.ANTHROPIC_API_KEY;
+  if (!key) throw new Error("ANTHROPIC_API_KEY가 없어요.");
+  const model = fast ? FAST_MODEL : MODEL;
+  const ledger = newLedger({ searchBudget: 0 });
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" },
+    body: JSON.stringify({ model, max_tokens: floorFor(model, maxTokens), system, messages: [{ role: "user", content: user }] }),
+    signal: AbortSignal.timeout(90_000),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (data.type === "error" || !res.ok) {
+    throw noteUpstreamFailure(classifyUpstream(new Error(data.error?.message || `Claude API 오류 (${res.status})`), res.status));
+  }
+  noteUpstreamSuccess();
+  record(ledger, { label, model, usage: data.usage });
+  const text = (data.content || []).filter((b) => b.type === "text").map((b) => b.text).join("\n");
+  return { text, usd: Number(summarize(ledger)?.usd || 0) };
+}
+
 // ── 공개 웹페이지 글 읽기 ──────────────────────────────────────────────
 // 약관 검토처럼 "그 페이지에 뭐라고 적혀 있나"만 본다. 내부망 주소(서버 자신, 클라우드 메타데이터)는 열지 않는다 —
 // 주소는 AI가 찾아 온 값이라 그대로 믿지 않는다.
