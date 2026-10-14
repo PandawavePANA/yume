@@ -10,6 +10,7 @@ import { getSetting, setSetting, setStage } from "../../auditDesk.js";
 import { API_RATES, AUDIT_LEAD, AUDIT_RATES } from "../../apiRates.js";
 import { COMPANY } from "../../renderPages.js";
 import { gmailConfigured, gmailUser } from "../gmail.js";
+import { sync as syncTodos } from "../todos.js";
 
 const won = (n) => `${Number(n).toLocaleString("ko-KR")}원`;
 const FACTS = () => [
@@ -58,7 +59,9 @@ function contextLine({ audit, quote }) {
 }
 
 export async function run(ctx) {
-  if (!gmailConfigured()) return { note: "메일함 연결 전 — Railway에 GMAIL_USER·GMAIL_APP_PASSWORD를 넣으면 시작해요" };
+  // 대표 할 일 정리(비서 몫) — 서버가 확인할 수 있는 일은 됐으면 닫고, 오늘 보여 줄 목록을 맞춘다. AI를 쓰지 않는다.
+  const todos = await syncTodos(ctx.deps).catch(() => []);
+  if (!gmailConfigured()) return { note: `대표 할 일 ${todos.length}건 정리 · 메일함 연결 전(대표 할 일에 있음)` };
   const lastUid = Number(await getSetting("gmail:last_uid").catch(() => 0)) || 0;
   const validity = await getSetting("gmail:uid_validity").catch(() => null);
   const { uidValidity, messages } = await ctx.deps.gmailFetch({ sinceUid: lastUid, uidValidity: validity });

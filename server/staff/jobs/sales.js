@@ -6,18 +6,24 @@
 //
 // 보내는 주소는 유메 도메인(MAIL_FROM_YUME)이어야 한다 — 인증 전에는 결재까지만 올리고 발송은 막는다.
 import { all } from "../../db.js";
-import { auditDetail, lintCopy, markSent, MANUAL_CHECKS, setStage, shareReport, updateAudit } from "../../auditDesk.js";
+import { auditDetail, getSetting, lintCopy, markSent, MANUAL_CHECKS, setStage, shareReport, updateAudit } from "../../auditDesk.js";
 import { clientAuditMail } from "../../auditClientMail.js";
 import { COMPANY } from "../../renderPages.js";
 
 export const base = () => (process.env.PUBLIC_BASE_URL || "https://www.yume-reamer.com").replace(/\/+$/, "");
 
 /** 첫 연락·후속 메일의 보내는 사람. 유메 도메인이 인증돼 있을 때만(아니면 null). */
+// 환경변수가 없으면, 대표 할 일 "메일 도메인 인증"을 끝낼 때 서버가 시험 발송으로 확인하고 저장해 둔 주소(todos.js)를 쓴다.
+let storedFrom = null;
+export async function loadOutreach() {
+  storedFrom = (await getSetting("outreach_from").catch(() => null)) || null;
+  return storedFrom;
+}
 export function outreachFrom() {
   const raw = process.env.MAIL_FROM_OUTREACH || process.env.MAIL_FROM_YUME || "";
   const m = /<([^>]+)>/.exec(raw);
   const addr = (m ? m[1] : raw).trim();
-  if (!addr || !/yume-reamer\.com$/i.test(addr)) return null;
+  if (!addr || !/yume-reamer\.com$/i.test(addr)) return storedFrom;
   return process.env.MAIL_FROM_OUTREACH || `${COMPANY.ceo} (유메) <${addr}>`;
 }
 
@@ -30,6 +36,7 @@ export function legalReview(subject, body) {
 }
 
 export async function run(ctx) {
+  await loadOutreach();
   const notes = [];
   // ① 첫 메일 — 재확인이 끝나고, 사람만 확인할 수 있는 줄 말고는 체크리스트가 다 통과한 영업 건.
   const ready = await all(
@@ -101,6 +108,7 @@ export async function run(ctx) {
 
 // ── 결재 승인 후 실행 ────────────────────────────────────────────────
 export async function sendFirst(payload, input = {}, deps = {}) {
+  await loadOutreach();
   const from = outreachFrom();
   if (!from) return { ok: false, result: "유메 메일 주소(yume-reamer.com) 인증 전이라 보낼 수 없어요. 도메인 인증 후 다시 승인해 주세요." };
   const checks = input.checks || {};
@@ -127,6 +135,7 @@ const htmlOf = (text) =>
   `<div style="font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;font-size:15px;line-height:1.75;color:#2b2735;white-space:pre-wrap">${String(text).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]))}</div>`;
 
 export async function sendFollowup(payload, input = {}, deps = {}) {
+  await loadOutreach();
   const from = outreachFrom();
   if (!from) return { ok: false, result: "유메 메일 주소 인증 전이라 보낼 수 없어요." };
   const to = String(input.to || payload.to || "").trim();

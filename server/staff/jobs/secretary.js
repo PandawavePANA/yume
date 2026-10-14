@@ -7,6 +7,7 @@ import { USD_KRW } from "../../costGuard.js";
 import { kstDayStart, listApprovals } from "../store.js";
 import { base } from "./sales.js";
 import { inboxDigest } from "./inbox.js";
+import { list as listTodos } from "../todos.js";
 
 const won = (n) => `${Math.round(Number(n) || 0).toLocaleString("ko-KR")}원`;
 
@@ -23,10 +24,14 @@ export async function briefing(at = Date.now(), roster = {}) {
   const mails = await inboxDigest(yesterday).catch(() => []);
   const mailTotal = mails.reduce((n, r) => n + Number(r.n), 0);
   const mailReply = mails.reduce((n, r) => n + Number(r.r || 0), 0);
+  const todoList = await listTodos().catch(() => []);
   const eng = engineState();
   const name = (id) => roster[id]?.name || id;
   const lines = [
     `대표님, 좋은 아침입니다. 비서실장 유나입니다.`,
+    "",
+    `■ 오늘 할 일 ${todoList.length}건 (대표님만 할 수 있는 일)`,
+    ...todoList.slice(0, 8).map((t) => `  □ ${t.title}${t.age ? ` (${t.age}일째)` : ""}`),
     "",
     `■ 결재 대기 ${approvals.length}건`,
     ...approvals.slice(0, 8).map((a) => `  · ${a.title} (${name(a.staff)})`),
@@ -46,7 +51,7 @@ export async function briefing(at = Date.now(), roster = {}) {
     "",
     `결재함: ${base()}/admin/staff`,
   ].filter((l) => l !== null);
-  return { subject: `[유메 아침 브리핑] 결재 ${approvals.length} · 감사 ${w.now.length} · 입금 대기 ${w.pay.length}`, text: lines.join("\n") };
+  return { subject: `[유메 아침 브리핑] 할 일 ${todoList.length} · 결재 ${approvals.length} · 감사 ${w.now.length} · 입금 대기 ${w.pay.length}`, text: lines.join("\n") };
 }
 
 export async function run(ctx) {

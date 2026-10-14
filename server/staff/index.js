@@ -14,6 +14,17 @@ import * as store from "./store.js";
 import { CEO, KINDS, ROSTER, TEAMS, lineFor } from "./roster.js";
 import { defaults as prepDefaults } from "./jobs/prep.js";
 import { heartbeat } from "./jobs/field.js";
+import { loadOutreach, outreachFrom } from "./jobs/sales.js";
+import * as todos from "./todos.js";
+
+/** 대표 할 일 — 완료(확인이 필요한 일은 서버가 확인)·내일로·추가. */
+export async function completeTodo(id, { deps = null } = {}) {
+  const r = await todos.complete(id, deps || (await defaultDeps()));
+  if (!r.error) await loadOutreach().catch(() => {});
+  return r;
+}
+export const snoozeTodo = (id) => todos.snooze(id);
+export const addTodo = (input) => todos.add(input);
 
 const KST = 9 * 3600_000;
 const running = new Set();
@@ -176,6 +187,9 @@ export async function reject(approvalId, reason = "") {
 // ── 사무실 화면 상태 ──────────────────────────────────────────────────
 export async function office(t = Date.now()) {
   const [stats, pend, approvals, logs] = await Promise.all([store.todayStats(t), store.pendingCounts(), store.listApprovals({ status: "pending" }), store.recentLogs(80)]);
+  await todos.seed().catch(() => {});
+  const [todoList, todoNext] = await Promise.all([todos.list(), todos.upcoming()]);
+  await loadOutreach().catch(() => {});
   const hb = await heartbeat();
   const auditUsd = Number((await one("SELECT COALESCE(SUM(cost_usd), 0) AS usd FROM verifications WHERE source = 'audit' AND created_at >= :s", { s: store.kstDayStart(t) }))?.usd || 0);
   const staff = [];
@@ -224,8 +238,11 @@ export async function office(t = Date.now()) {
       engine: engineState(),
       gmail: gmailConfigured(),
       fieldAgent: hb.alive,
-      outreachReady: Boolean((process.env.MAIL_FROM_OUTREACH || process.env.MAIL_FROM_YUME || "").match(/yume-reamer\.com/i)),
+      outreachReady: Boolean(outreachFrom()),
+      todos: todoList.length,
     },
+    todos: todoList,
+    todosNext: todoNext,
   };
 }
 
