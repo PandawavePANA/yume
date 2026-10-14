@@ -42,7 +42,7 @@ export function authenticateApiKey(raw) {
 
 export async function monthlyUsage(keyId) {
   return (
-    await one("SELECT COUNT(*) AS n FROM api_usage WHERE api_key_id = :id AND billable = 1 AND created_at >= :since", {
+    await one("SELECT COALESCE(SUM(units), 0) AS n FROM api_usage WHERE api_key_id = :id AND billable = 1 AND created_at >= :since", {
       id: keyId,
       since: kstMonthStart(),
     })
@@ -57,7 +57,7 @@ export const isTrialKey = (k) => Number(k.monthly_quota) <= API_TRIAL_QUOTA;
 async function trialPoolUsage(userId) {
   return (
     await one(
-      `SELECT COUNT(*) AS n FROM api_usage u JOIN api_keys k ON k.id = u.api_key_id
+      `SELECT COALESCE(SUM(u.units), 0) AS n FROM api_usage u JOIN api_keys k ON k.id = u.api_key_id
         WHERE k.user_id = :uid AND k.monthly_quota <= :trial AND u.billable = 1 AND u.created_at >= :since`,
       { uid: userId, trial: API_TRIAL_QUOTA, since: kstMonthStart() },
     )
@@ -69,12 +69,13 @@ export function quotaUsage(k) {
   return isTrialKey(k) ? trialPoolUsage(k.user_id) : monthlyUsage(k.id);
 }
 
-export async function recordApiUsage(keyId, { verificationId = null, endpoint, statusCode, billable = false, cached = false }) {
+// units: 과금 건수(1,000자마다 1건 — apiRates.js apiUnits). 한도와 정산은 행 수가 아니라 이 합으로 센다.
+export async function recordApiUsage(keyId, { verificationId = null, endpoint, statusCode, billable = false, cached = false, units = 1 }) {
   const t = now();
   const r = await run(
-    `INSERT INTO api_usage (api_key_id, verification_id, endpoint, status_code, billable, cached, created_at)
-     VALUES (:id, :vid, :ep, :sc, :b, :c, :t) RETURNING id`,
-    { id: keyId, vid: verificationId, ep: endpoint, sc: statusCode, b: billable ? 1 : 0, c: cached ? 1 : 0, t },
+    `INSERT INTO api_usage (api_key_id, verification_id, endpoint, status_code, billable, cached, units, created_at)
+     VALUES (:id, :vid, :ep, :sc, :b, :c, :u, :t) RETURNING id`,
+    { id: keyId, vid: verificationId, ep: endpoint, sc: statusCode, b: billable ? 1 : 0, c: cached ? 1 : 0, u: Math.max(1, Math.floor(Number(units) || 1)), t },
   );
   await run("UPDATE api_keys SET last_used_at = :t WHERE id = :id", { id: keyId, t });
   return r.rows[0]?.id ?? null;
@@ -154,12 +155,12 @@ export async function adminUpdateKey(keyId, { monthlyQuota, ratePerMin, dataShar
   return shape(await one("SELECT * FROM api_keys WHERE id = :id", { id: keyId }));
 }
 
-// 청구서용 월별 사용량 — 고객(계정)별 과금 대상 호출 수.
+// 청구서용 월별 사용량 — 고객(계정)별 과금 대상 건수(1,000자 단위의 합. 요청 수는 total_requests).
 export function monthlyBillingReport(monthStartTs, monthEndTs) {
   return all(
     `SELECT u.id AS user_id, u.email, u.company, k.id AS key_id, k.label,
-            COUNT(*) FILTER (WHERE a.billable = 1) AS billable_calls,
-            COUNT(*) FILTER (WHERE a.cached = 1 AND a.billable = 1) AS cached_calls,
+            COALESCE(SUM(a.units) FILTER (WHERE a.billable = 1), 0) AS billable_calls,
+            COALESCE(SUM(a.units) FILTER (WHERE a.cached = 1 AND a.billable = 1), 0) AS cached_calls,
             COUNT(*) AS total_requests
        FROM api_usage a JOIN api_keys k ON k.id = a.api_key_id JOIN users u ON u.id = k.user_id
       WHERE a.created_at >= :from AND a.created_at < :to

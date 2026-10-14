@@ -1207,6 +1207,15 @@ const MIGRATIONS = [
   ALTER TABLE thread_quotes ADD COLUMN transfer_json TEXT;
   ALTER TABLE thread_quotes ADD COLUMN transfer_requested_at BIGINT;
   `,
+  // 2026-10-14 가격 개편: API는 1,000자마다 1건(units). 감사 주문(order_json: 감사할 서비스·업종·접근 방법),
+  // 작업 마감(due_at = 입금 확인 + 영업일 3일), 보고서 전달(delivered_at)과 정기 감사 회차(rounds_done).
+  `
+  ALTER TABLE api_usage ADD COLUMN units INTEGER NOT NULL DEFAULT 1;
+  ALTER TABLE b2b_quotes ADD COLUMN order_json TEXT;
+  ALTER TABLE b2b_quotes ADD COLUMN due_at BIGINT;
+  ALTER TABLE b2b_quotes ADD COLUMN delivered_at BIGINT;
+  ALTER TABLE b2b_quotes ADD COLUMN rounds_done INTEGER NOT NULL DEFAULT 0;
+  `,
 ];
 
 async function migrate() {

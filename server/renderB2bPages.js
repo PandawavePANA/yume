@@ -7,9 +7,12 @@
 // 계약 문서는 "표준본"이다. 실제로 하는 일만 적는다 — 보관 기간·위탁·국외 이전은 개인정보처리방침과
 // 같은 값이고, 받지 않은 인증이나 지키지 못할 수치(SLA)는 적지 않는다.
 import { COMPANY, COMPLAINT_NOTICE, complaintOfficer, businessLine, esc, layout } from "./renderPages.js";
-import { API_RATES } from "./apiRates.js";
+import { API_RATES, API_UNIT_CHARS, AUDIT_LEAD, AUDIT_RATES } from "./apiRates.js";
+import { kstDate } from "./businessDays.js";
 import {
   DESK_PRODUCTS,
+  isAuditProduct,
+  parseOrder,
   PAY_METHODS,
   QUOTE_VALID_DAYS,
   SELF_PRODUCTS,
@@ -29,7 +32,7 @@ const kdate = (t) => {
 const bankAccount = () => String(process.env.B2B_BANK_ACCOUNT || "").trim();
 const productLabel = (key) => SELF_PRODUCTS[key]?.label || DESK_PRODUCTS[key] || key;
 
-const SHEET_CSS = `
+export const SHEET_CSS = `
 :root { --ink:#1d1a24; --ink2:#4f4960; --ink3:#857e98; --line:#e2dcec; --soft:#f6f3fb; --accent:#6b4fa8; --ok:#2f7d5b; --fail:#c2410c; --ground:#eeeaf4; }
 * { box-sizing:border-box; }
 body { margin:0; background:var(--ground); color:var(--ink); font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR','Pretendard Variable','Malgun Gothic',sans-serif; word-break:keep-all; }
@@ -103,6 +106,8 @@ export function renderQuotePage(q) {
   const no = quoteNumber(q);
   const bank = bankAccount();
   const isMetered = q.product === "metered";
+  const isAudit = isAuditProduct(q.product);
+  const order = parseOrder(q);
 
   const sheet = `
 <article class="sheet" aria-label="견적서">
@@ -135,13 +140,22 @@ export function renderQuotePage(q) {
     <tr><td>부가세 (10%)</td><td class="n">${won(q.vat_krw)}</td></tr>
     <tr class="g"><td>합계</td><td class="n">${won(q.total_krw)}</td></tr>
   </table>
+  ${order ? `<div class="party" style="margin-top:14px">
+    <div class="k">감사 대상</div>
+    <b>${esc(order.serviceName)}</b> · ${esc(order.domain)}<br/>
+    ${esc(order.serviceUrl)}${order.access ? `<br/>접근: ${esc(order.access)}` : ""}${order.focus ? `<br/>중점: ${esc(order.focus)}` : ""}
+  </div>` : ""}
   <div class="terms">
     <b>조건</b>
     <ol>
-      ${isMetered
+      ${isAudit
+        ? `<li>결제: 계좌이체(전자세금계산서 발급) 또는 법인카드. 입금(카드 결제) 확인 후 <b>${esc(AUDIT_LEAD)}</b> 안에 비공개 감사 보고서를 보냅니다. 로그인이 필요한 서비스는 테스트 계정을 받은 날부터 셉니다.</li>
+      <li>감사는 일반 사용자로서 서비스에 질문을 넣고, 유메가 원문과 대조한 뒤 사람이 공식 원문으로 재확인한 오류만 보고서에 담습니다. 자동으로 대량 질의하지 않습니다.</li>
+      <li>착수 전에 취소하면 전액 환불합니다. 보고서는 귀사에만 드리며, 회사 이름은 서면 동의가 있을 때만 공개합니다.</li>`
+        : isMetered
         ? `<li>종량제는 후불입니다. 수량은 예상 월 호출 수이며, 매달 말일까지의 실제 사용량 × 단가로 정산해 다음 달 10일까지 전자세금계산서를 발급합니다. 예상 물량을 월 상한으로 설정하고, 늘릴 때는 알려 주시면 됩니다.</li>`
         : `<li>결제: 계좌이체(전자세금계산서 발급) 또는 법인카드. 월 약정은 매달 선결제이며, 쓰지 않은 호출은 다음 달로 넘어가지 않습니다.</li>`}
-      <li>처리하지 못하고 실패한 호출은 세지 않습니다. 같은 요청을 다시 보내도 멱등 키로 두 번 과금되지 않습니다.</li>
+      ${isAudit ? "" : `<li>보낸 글 ${API_UNIT_CHARS.toLocaleString("ko-KR")}자마다 1건으로 셉니다. 처리하지 못하고 실패한 건은 세지 않고, 같은 요청을 다시 보내도 멱등 키로 두 번 과금되지 않습니다.</li>`}
       <li>서비스 조건은 <b>유메 기업 서비스 이용 조건</b>(${esc(TERMS_VERSION)})과 <b>데이터 처리 부속서</b>를 따르며, 귀사 계약서 양식으로 진행할 수도 있습니다.</li>
       <li>유메의 판정은 검증 시점의 공개 원문으로 확인한 기록이며, 서비스 품질 보증이나 법률·의료·금융 자문이 아닙니다.</li>
     </ol>
@@ -152,6 +166,13 @@ export function renderQuotePage(q) {
   let tail = "";
   if (q.status === "cancelled") {
     tail = `<section class="state warn"><h2>취소된 견적입니다</h2>새 견적이 필요하시면 <a href="/business#pricing">기업용 페이지</a>에서 다시 받거나 ${esc(COMPANY.email)}로 알려 주세요.</section>`;
+  } else if (q.status === "paid" && isAudit) {
+    const done = Number(q.rounds_done || 0);
+    tail = `<section class="state ok"><h2>${done ? "감사 보고서를 보냈습니다" : "감사를 진행하고 있습니다"}</h2>
+      ${esc(kdate(q.paid_at))} 입금 확인.${done
+        ? ` 보고서는 ${esc(kdate(q.delivered_at))}에 ${esc(billing?.taxEmail || q.email || "담당자 이메일")}로 보냈습니다.${q.due_at && Number(q.due_at) > Number(q.delivered_at) ? ` 다음 정기 감사는 ${esc(kstDate(q.due_at))} 무렵입니다.` : ""}`
+        : ` 보고서는 <b>${q.due_at ? esc(kstDate(q.due_at)) : esc(AUDIT_LEAD)}까지</b> 보내 드립니다. 로그인이 필요한 서비스라면 테스트 계정을 ${esc(COMPANY.email)}로 보내 주세요.`}
+      전자세금계산서는 ${esc(billing?.taxEmail || "등록하신 이메일")}로 발급됩니다.</section>`;
   } else if (q.status === "paid") {
     tail = `<section class="state ok"><h2>${isMetered ? "계약이 확정됐습니다" : "입금이 확인됐습니다"}</h2>${esc(kdate(q.paid_at))} 확인. 전자세금계산서는 ${esc(billing?.taxEmail || "등록하신 이메일")}로 발급됩니다. 문의: ${esc(COMPANY.email)}</section>`;
   } else if (q.status === "requested") {
@@ -161,16 +182,17 @@ export function renderQuotePage(q) {
         ? isMetered
           ? "종량제는 후불이라 지금 입금하실 것은 없습니다. 이용을 시작하면 매달 사용량으로 세금계산서를 발급합니다."
           : bank
-            ? `입금 계좌: <b>${esc(bank)}</b> · 입금자명에 견적번호 <b>${esc(no)}</b> 또는 회사명을 적어 주세요. 입금이 확인되면 전자세금계산서를 발급하고 이용을 시작합니다.`
+            ? `입금 계좌: <b>${esc(bank)}</b> · 입금자명에 견적번호 <b>${esc(no)}</b> 또는 회사명을 적어 주세요. 입금이 확인되면 전자세금계산서를 발급하고 ${isAudit ? "감사를 시작합니다" : "이용을 시작합니다"}.`
             : `입금 계좌는 영업일 하루 안에 ${esc(billing?.taxEmail || q.email || "담당자 이메일")}로 보내 드립니다.`
         : "법인카드 결제 링크를 영업일 하루 안에 보내 드립니다."}
+      ${isAudit ? `<br/>입금이 확인되면 <b>${esc(AUDIT_LEAD)}</b> 안에 감사 보고서를 보내 드립니다.` : ""}
       <div class="noprint" style="margin-top:8px;font-size:12.5px;color:#857e98">이 주소를 즐겨찾기해 두시면 진행 상태를 언제든 확인할 수 있습니다.</div></section>`;
   } else if (expired) {
     tail = `<section class="state warn"><h2>유효기간이 지난 견적입니다</h2>같은 조건으로 <a href="/business#pricing">새 견적</a>을 받아 주세요.</section>`;
   } else {
     tail = `
 <form class="req" id="req" novalidate>
-  <h2>이 견적으로 계약 신청</h2>
+  <h2>이 견적으로 ${isAudit ? "감사" : "계약"} 신청</h2>
   <p class="lede">전자세금계산서 발급에 쓰는 정보입니다. 사업자등록증에 적힌 그대로 적어 주세요. 신청하면 담당자 이메일로 다음 단계를 보내 드리고, 이 페이지에서도 진행 상태를 볼 수 있습니다.</p>
   <div class="grid2">
     <label class="f">사업자등록번호 *<input id="bizNo" name="bizNo" inputmode="numeric" autocomplete="off" placeholder="000-00-00000" required /></label>
@@ -188,7 +210,7 @@ export function renderQuotePage(q) {
     ${Object.entries(PAY_METHODS).map(([k, v], i) => `<label><input type="radio" name="payMethod" value="${k}" ${i === 0 ? "checked" : ""} /> <span>${esc(v)}${k === "transfer" && isMetered ? " — 매달 사용량으로 청구" : ""}</span></label>`).join("")}
   </div>
   <label class="agree"><input type="checkbox" id="agree" /> <span><a href="/b2b/terms" target="_blank" rel="noopener">유메 기업 서비스 이용 조건</a>과 <a href="/b2b/dpa" target="_blank" rel="noopener">데이터 처리 부속서</a>(${esc(TERMS_VERSION)})를 읽었고 동의합니다. 귀사 계약서로 진행하시려면 신청 후 메일로 보내 주세요.</span></label>
-  <div><button class="btn" type="submit" id="send">계약 신청하기</button></div>
+  <div><button class="btn" type="submit" id="send">${isAudit ? "감사 신청하기" : "계약 신청하기"}</button></div>
   <div class="msg" id="msg" role="status"></div>
 </form>`;
   }
@@ -224,7 +246,8 @@ export function renderQuotePage(q) {
 const docFoot = `<p class="muted">판: ${esc(TERMS_VERSION)} · 공급자 ${esc(COMPANY.name)}(대표 ${esc(COMPANY.ceo)}, 사업자등록번호 ${esc(COMPANY.regNo)}) · 이 문서는 표준본이며, 귀사 계약서 양식으로 진행하거나 조항을 협의할 수 있습니다. 함께 보기: <a href="/b2b/terms">기업 서비스 이용 조건</a> · <a href="/b2b/dpa">데이터 처리 부속서</a> · <a href="/b2b/security">보안·데이터 처리 설명서</a></p>`;
 
 export function renderB2bTerms() {
-  const t = API_RATES.tiers.map((x) => `${esc(x.label)} 월 ${won(x.monthlyKrw)}(${x.calls.toLocaleString("ko-KR")}회)`).join(", ");
+  const t = API_RATES.tiers.map((x) => `${esc(x.label)} 월 ${won(x.monthlyKrw)}(${x.calls.toLocaleString("ko-KR")}건)`).join(", ");
+  const a = Object.values(AUDIT_RATES).map((x) => `${esc(x.label)} ${won(x.krw)}`).join(", ");
   return layout("기업 서비스 이용 조건", `
 <h1>유메 기업 서비스 이용 조건</h1>
 <p class="muted">기업 고객이 견적서로 계약하는 서비스(검증 API 약정·종량제, 문서 검사, AI 감사, PoC)에 적용되는 표준 조건입니다.</p>
@@ -245,17 +268,18 @@ export function renderB2bTerms() {
 
 <h2>제4조 (요금과 결제)</h2>
 <ol>
-<li>표시 금액은 부가가치세 별도입니다. 공개 요금: 종량제 호출당 ${won(API_RATES.metered.unitKrw)}, ${t}. 감사·PoC·맞춤 물량은 견적서의 금액을 따릅니다.</li>
+<li>표시 금액은 부가가치세 별도입니다. API는 보낸 글 ${API_UNIT_CHARS.toLocaleString("ko-KR")}자마다 1건으로 셉니다. 공개 요금: 종량제 건당 ${won(API_RATES.metered.unitKrw)}, ${t}. AI 감사: ${a}. PoC·맞춤 물량은 견적서의 금액을 따릅니다.</li>
 <li>결제는 계좌이체(전자세금계산서 발급) 또는 법인카드로 합니다. 카드로 결제한 건에는 세금계산서를 따로 발급하지 않습니다(카드 매출전표가 증빙입니다).</li>
 <li><b>월 약정</b>은 매달 선결제이며 쓰지 않은 호출은 다음 달로 넘어가지 않습니다. <b>종량제</b>는 매달 말일까지의 실제 사용량으로 정산해 다음 달 10일까지 세금계산서를 발급합니다.</li>
 <li>처리하지 못하고 실패한 호출은 세지 않습니다. 같은 멱등 키(Idempotency-Key)로 다시 보낸 요청은 한 번만 셉니다.</li>
 </ol>
 
 <h2>제5조 (한도)</h2>
-<p>API 키에는 계약한 월 호출 한도가 걸립니다. 한도를 넘는 호출은 처리하지 않고 오류(quota_exceeded)로 돌려주며, 한도 증액을 요청하시면 다음 영업일까지 반영합니다. 분당 요청 한도는 공정 이용을 위한 장치이며 협의로 조정할 수 있습니다.</p>
+<p>API 키에는 계약한 월 한도(건)가 걸립니다. 한도를 넘는 호출은 처리하지 않고 오류(quota_exceeded)로 돌려주며, 한도 증액을 요청하시면 다음 영업일까지 반영합니다. 분당 요청 한도는 공정 이용을 위한 장치이며 협의로 조정할 수 있습니다.</p>
 
 <h2>제6조 (AI 감사 특칙)</h2>
 <ol>
+<li>감사 보고서는 입금(카드 결제) 확인 후 ${esc(AUDIT_LEAD)} 안에 보냅니다. 로그인이 필요한 서비스는 귀사가 테스트 계정을 보내 주신 날부터 셉니다. 정기 감사는 첫 보고서 뒤 분기마다 한 번씩 같은 방식으로 감사합니다.</li>
 <li>감사 보고서는 귀사에만 비공개 링크로 드리고, 귀사가 요청하면 링크를 회수합니다.</li>
 <li>귀사의 이름은 서면으로 동의한 경우에만 공개 감사 기록·배지·YUME 할루시네이션 지수에 싣습니다. 지수에는 그 밖에 업종 단위 익명 숫자로만 들어갑니다.</li>
 <li>감사 결과는 질문한 기간의 표본 검사 기록입니다. 결과가 나쁘다고 빼거나, 좋게 내 달라는 대가를 받지 않습니다.</li>
@@ -402,7 +426,7 @@ export function renderDealsAdminPage() {
 details summary { cursor:pointer; font-size:13px; color:var(--accent); font-weight:650; }
 </style></head>
 <body><div class="wrap">
-  <div class="top"><h1>기업 거래 — 견적 · 계약 신청 · 입금</h1><span><a href="/admin/audits">감사 데스크</a> · <a href="/admin">관리자</a></span></div>
+  <div class="top"><h1>기업 거래 — 견적 · 계약 신청 · 입금</h1><span><a href="/admin/work">작업 리스트</a> · <a href="/admin/audits">감사 데스크</a> · <a href="/admin">관리자</a></span></div>
   <p class="meta">계약 신청이 오면 ① 세금계산서 정보를 복사해 홈택스에서 발급(입금 전 '청구' / 후 '영수') ② 입금을 확인하면 <b>입금 확인</b> — API 상품은 고객 이메일 계정의 최근 키에 월 한도가 자동으로 걸립니다.</p>
   <div id="list"><div class="empty">불러오는 중…</div></div>
 </div>

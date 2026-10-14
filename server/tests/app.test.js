@@ -275,6 +275,16 @@ test("API 키 발급 → 캐시 경로로 검증 → 소유권·한도", async (
   assert.equal(raised.month.used, 0, "계약 키는 자기 사용량만");
   assert.equal(raised.month.quota, 500);
 
+  // 1,000자마다 1건 — 남은 1건으로 1,500자 글은 받지 않는다(시작도, 과금도 안 함).
+  // 이번 달 499건을 쓴 것으로 만든다(units 합으로 센다).
+  await db.run("INSERT INTO api_usage (api_key_id, endpoint, status_code, billable, units, created_at) VALUES (:id, 'POST /v1/verify', 200, 1, 499, :t)", { id: secondId, t: Date.now() });
+  const long = await fetch(`${base}/v1/verify`, { method: "POST", headers: { Authorization: `Bearer ${secondKey}`, "Content-Type": "application/json" }, body: JSON.stringify({ text: "가".repeat(1500) }) });
+  assert.equal(long.status, 429);
+  const longBody = await long.json();
+  assert.equal(longBody.error.needed, 2);
+  assert.match(longBody.error.message, /2건/);
+  await db.run("DELETE FROM api_usage WHERE api_key_id = :id AND units = 499", { id: secondId });
+
   // ── 묶음 검증 (계약 키로) ──
   const batchAuth = { Authorization: `Bearer ${secondKey}` };
 

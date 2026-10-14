@@ -20,14 +20,20 @@ import {
   cancelQuote,
   createQuote,
   hometaxBlock,
+  isAuditProduct,
   isExpired,
   listQuotes,
   markPaid,
   parseBilling,
+  parseOrder,
+  pilotSeatsLeft,
   quoteById,
   quoteNumber,
   requestContract,
 } from "./b2bDeals.js";
+import { AUDIT_LEAD } from "./apiRates.js";
+import { ensureAuditForQuote, markDelivered, workList } from "./workList.js";
+import { kstDate } from "./businessDays.js";
 import { productLabel } from "./renderB2bPages.js";
 import { canIssueTaxInvoice, taxInvoiceFrom } from "./receiptInfo.js";
 
@@ -47,6 +53,27 @@ const won = (n) => `${Number(n).toLocaleString("ko-KR")}원`;
 
 const cors = crossOriginGate("B2B_ALLOWED_ORIGINS", "INQUIRY_ALLOWED_ORIGINS", "AUDIT_ALLOWED_ORIGINS");
 b2bRouter.options("/b2b/quote", cors);
+b2bRouter.options("/b2b/seats", cors);
+
+// 파일럿 남은 자리 — 기업용 페이지 감사 카드가 읽는다.
+b2bRouter.get("/b2b/seats", cors, async (_req, res) => {
+  res.set("Cache-Control", "no-store").json({ pilot: await pilotSeatsLeft() });
+});
+
+// 감사 주문서 내용 — 운영자 메일에 그대로 붙인다.
+const orderLines = (q) => {
+  const o = parseOrder(q);
+  if (!o) return "";
+  return [
+    "",
+    "",
+    "[감사할 서비스]",
+    `서비스: ${o.serviceName} (${o.domain})`,
+    `주소: ${o.serviceUrl}`,
+    o.access ? `접근 방법: ${o.access}` : null,
+    o.focus ? `걱정하는 부분: ${o.focus}` : null,
+  ].filter((l) => l !== null).join("\n");
+};
 
 // 사람이 쓰는 양식이다. 견적을 몇 번 다시 뽑아 보는 건 정상이라 문의보다 조금 넉넉하게.
 const quoteLimiter = createLimiter({ windowMs: 60 * 60 * 1000, max: 20 });
@@ -81,6 +108,7 @@ b2bRouter.post("/b2b/quote", cors, limitMiddleware(quoteLimiter, (req) => `b2bq:
     email: req.body?.email,
     phone: req.body?.phone,
     note: req.body?.note,
+    order: req.body?.order,
     source: "self",
     ip: clientIp(req),
   });
@@ -111,20 +139,23 @@ b2bRouter.post("/b2b/quote/:token/request", limitMiddleware(requestLimiter, (req
   if (r.already) return;
 
   const b = parseBilling(q) || {};
+  const audit = isAuditProduct(q.product);
   mailSafe({
     to: ownerMail(),
     replyTo: b.taxEmail || q.email,
-    subject: `[유메 계약 신청] ${b.bizName || q.company} · ${won(q.total_krw)} · ${PAY_METHODS[q.pay_method] || ""}`,
-    text: `${hometaxBlock(q)}${taxNote()}\n\n견적서: ${quoteUrl(q)}\n운영 화면: ${PUBLIC()}/admin/deals`,
+    subject: `[유메 ${audit ? "감사 주문" : "계약 신청"}] ${b.bizName || q.company} · ${won(q.total_krw)} · ${PAY_METHODS[q.pay_method] || ""}`,
+    text: `${hometaxBlock(q)}${taxNote()}${orderLines(q)}\n\n견적서: ${quoteUrl(q)}\n작업 리스트: ${PUBLIC()}/admin/work`,
   });
   const to = b.taxEmail || q.email;
   if (to) {
+    const lead = audit ? ` 입금이 확인되면 ${AUDIT_LEAD} 안에 감사 보고서를 보내 드립니다.` : "";
+    const what = audit ? "감사 신청" : "계약 신청";
     mailSafe({
       to,
       replyTo: COMPANY.email,
-      subject: `[유메] 계약 신청 접수 — 견적 ${quoteNumber(q)}`,
-      text: `${b.bizName || q.company}의 계약 신청이 접수됐습니다.\n견적번호 ${quoteNumber(q)} · 합계 ${won(q.total_krw)}\n결제 방법: ${PAY_METHODS[q.pay_method]}\n\n진행 상태: ${quoteUrl(q)}`,
-      html: quoteMailHtml(q, `${esc(b.bizName || q.company)}의 계약 신청이 접수됐습니다. 결제 방법: ${esc(PAY_METHODS[q.pay_method])}. 다음 단계는 견적서 화면에 안내돼 있습니다.`),
+      subject: `[유메] ${what} 접수 — 견적 ${quoteNumber(q)}`,
+      text: `${b.bizName || q.company}의 ${what}이 접수됐습니다.${lead}\n견적번호 ${quoteNumber(q)} · 합계 ${won(q.total_krw)}\n결제 방법: ${PAY_METHODS[q.pay_method]}\n\n진행 상태: ${quoteUrl(q)}`,
+      html: quoteMailHtml(q, `${esc(b.bizName || q.company)}의 ${what}이 접수됐습니다. 결제 방법: ${esc(PAY_METHODS[q.pay_method])}.${esc(lead)} 다음 단계는 견적서 화면에 안내돼 있습니다.`),
     });
   }
 });
@@ -143,6 +174,8 @@ const view = (q) => ({
   payLabel: PAY_METHODS[q.pay_method] || null,
   billing: parseBilling(q),
   hometax: q.billing_json ? hometaxBlock(q) + taxNote(Number(q.requested_at) || Date.now()) : null,
+  order: parseOrder(q),
+  order_json: undefined,
   expired: isExpired(q),
   token: undefined,
   items_json: undefined,
@@ -176,20 +209,36 @@ b2bAdminRouter.post("/b2b/quotes", async (req, res) => {
 b2bAdminRouter.post("/b2b/quotes/:id/paid", async (req, res) => {
   const r = await markPaid(req.params.id, { applyQuota: req.body?.applyQuota !== false });
   if (r.error) return res.status(400).json({ error: r.error });
-  log(req, "b2b.quote.paid", `b2b_quote:${r.quote.id}`, { applied: r.applied });
-  res.json({ quote: view(r.quote), applied: r.applied, already: Boolean(r.already) });
+  // 감사 주문이면 감사 데스크에 그 회사 감사 건을 만든다(작업 리스트의 "감사 열기"가 여기로 간다).
+  const auditId = isAuditProduct(r.quote.product) ? await ensureAuditForQuote(r.quote.id) : null;
+  const q = auditId ? await quoteById(r.quote.id) : r.quote;
+  log(req, "b2b.quote.paid", `b2b_quote:${q.id}`, { applied: r.applied, auditId });
+  res.json({ quote: view(q), applied: r.applied, auditId, already: Boolean(r.already) });
   if (!r.already) {
-    const b = parseBilling(r.quote) || {};
-    const to = b.taxEmail || r.quote.email;
+    const b = parseBilling(q) || {};
+    const to = b.taxEmail || q.email;
     if (to) {
+      const due = q.due_at ? `\n감사 보고서는 ${kstDate(q.due_at)}까지 보내 드립니다(${AUDIT_LEAD}). 감사에 테스트 계정이 필요하면 이 메일에 답장으로 알려 주세요.` : "";
       mailSafe({
         to,
         replyTo: COMPANY.email,
-        subject: `[유메] ${r.quote.product === "metered" ? "계약 확정" : "입금 확인"} — 견적 ${quoteNumber(r.quote)}`,
-        text: `${r.quote.product === "metered" ? "계약이 확정됐습니다." : "입금이 확인됐습니다."} 전자세금계산서는 ${to}로 발급됩니다.\n${r.applied?.key ? `API 키(${r.applied.key}…)의 월 한도를 ${r.applied.quota.toLocaleString("ko-KR")}회로 설정했습니다.\n` : ""}\n${quoteUrl(r.quote)}`,
+        subject: `[유메] ${q.product === "metered" ? "계약 확정" : "입금 확인"} — 견적 ${quoteNumber(q)}`,
+        text: `${q.product === "metered" ? "계약이 확정됐습니다." : "입금이 확인됐습니다."} 전자세금계산서는 ${to}로 발급됩니다.${due}\n${r.applied?.key ? `API 키(${r.applied.key}…)의 월 한도를 ${r.applied.quota.toLocaleString("ko-KR")}건으로 설정했습니다.\n` : ""}\n${quoteUrl(q)}`,
       });
     }
   }
+});
+
+// 대표 작업 리스트(/admin/work).
+b2bAdminRouter.get("/b2b/work", async (_req, res) => {
+  res.json(await workList());
+});
+
+b2bAdminRouter.post("/b2b/quotes/:id/delivered", async (req, res) => {
+  const r = await markDelivered(req.params.id);
+  if (r.error) return res.status(400).json({ error: r.error });
+  log(req, "b2b.audit.delivered", `b2b_quote:${r.quote.id}`, { rounds: r.quote.rounds_done });
+  res.json({ ok: true, finished: r.finished });
 });
 
 b2bAdminRouter.post("/b2b/quotes/:id/cancel", async (req, res) => {

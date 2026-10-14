@@ -11,6 +11,7 @@ import { bodyHash, claimKey, readIdempotencyKey, releaseKey } from "./idempotenc
 import { deliverWebhook, validateCallback } from "./webhooks.js";
 import { documentInput, documentPayload, getDocumentView, newDocumentId, startDocument } from "./documents.js";
 import { FileTextError } from "./fileText.js";
+import { API_UNIT_CHARS, apiUnits } from "./apiRates.js";
 import { getMark, issueMark, markBase, publicMark, revokeMark } from "./trustMarks.js";
 
 // 유메 검증 API(/v1) — AI 서비스를 운영하는 기업이 자기 서비스의 답변을 유메로 검증하는
@@ -233,7 +234,9 @@ router.post("/verify", requireApiKey, engineAvailable, async (req, res) => {
   const release = () => (extras.idemKey ? releaseKey(key.id, extras.idemKey) : null);
 
   const usage = await usageInfo(key);
-  if (usage.remaining <= 0) {
+  // 1,000자마다 1건. 원가가 글자 수를 따라가서, 긴 글을 1건으로 받으면 짧은 글이 긴 글을 보조한다.
+  const units = apiUnits(text.length);
+  if (usage.remaining < units) {
     await release();
     await recordApiUsage(key.id, { endpoint: "POST /v1/verify", statusCode: 429 });
     // 이 응답을 받는 건 사람이 아니라 고객사의 서버다. 메일 주소 대신 요금표 주소를 준다 —
@@ -241,16 +244,18 @@ router.post("/verify", requireApiKey, engineAvailable, async (req, res) => {
     const trial = isTrialKey(key);
     return fail(
       res, 429, "quota_exceeded",
-      trial
-        ? `이번 달 체험 호출 ${usage.quota}회(계정 전체)를 모두 사용했습니다. 요금제와 한도: ${UPGRADE_URL}`
-        : `이번 달 호출 한도(${usage.quota}회)를 모두 사용했습니다. 한도 올리기: ${UPGRADE_URL}`,
-      { usage, upgrade_url: UPGRADE_URL },
+      usage.remaining > 0
+        ? `이 요청은 ${units}건(${API_UNIT_CHARS.toLocaleString()}자마다 1건)인데 이번 달 남은 건수가 ${usage.remaining}건입니다. 나눠 보내거나 한도를 올려주세요: ${UPGRADE_URL}`
+        : trial
+          ? `이번 달 체험 ${usage.quota}건(계정 전체)을 모두 사용했습니다. 요금제와 한도: ${UPGRADE_URL}`
+          : `이번 달 한도(${usage.quota}건)를 모두 사용했습니다. 한도 올리기: ${UPGRADE_URL}`,
+      { usage, needed: units, upgrade_url: UPGRADE_URL },
     );
   }
 
   // 한도는 과금 행 수로 센다. 결과를 기다린 뒤(최대 60초)에야 행을 남기면 그 사이에 들어온
   // 요청이 전부 한도 확인을 통과한다. 받아들이는 순간 먼저 잡아 둔다.
-  const usageId = await recordApiUsage(key.id, { verificationId: id, endpoint: "POST /v1/verify", statusCode: 202, billable: true });
+  const usageId = await recordApiUsage(key.id, { verificationId: id, endpoint: "POST /v1/verify", statusCode: 202, billable: true, units });
   let done;
   try {
     ({ done } = await startVerification({
@@ -280,7 +285,7 @@ router.post("/verify", requireApiKey, engineAvailable, async (req, res) => {
   const v = await getVerification(id);
   const status = v.status === "pending" ? 202 : 200;
   if (usageId) await finishApiUsage(usageId, { statusCode: status, cached: !!v.from_cache });
-  res.status(status).json({ ...publicVerification(v), poll_url: `/v1/verify/${id}`, usage: await usageInfo(key) });
+  res.status(status).json({ ...publicVerification(v), poll_url: `/v1/verify/${id}`, billed_units: units, usage: await usageInfo(key) });
 });
 
 // 여러 건을 한 번에 보낸다.
@@ -289,7 +294,7 @@ router.post("/verify", requireApiKey, engineAvailable, async (req, res) => {
 // 묶음 검사다. 단건 API로 하려면 고객사가 반복·동시성·한도를 직접 다뤄야 하는데,
 // 그 코드를 쓰다가 그만두는 곳이 많다. 그래서 묶음을 서버가 받는다.
 //
-// 과금은 단건과 같다 — 받아들인 항목 수만큼. 한도가 모자라면 **한 건도 시작하지 않는다.**
+// 과금은 단건과 같다 — 항목마다 1,000자당 1건. 한도가 모자라면 **한 건도 시작하지 않는다.**
 // 절반만 돌려주면 고객사는 무엇이 빠졌는지 맞춰 봐야 하고, 그게 가장 흔한 지원 문의가 된다.
 const MAX_BATCH = 20;
 
@@ -318,7 +323,7 @@ router.post("/verify/batch", requireApiKey, engineAvailable, async (req, res) =>
       await recordApiUsage(key.id, { endpoint: "POST /v1/verify/batch", statusCode: 413 });
       return fail(res, 413, "text_too_long", `items[${i}](ref: ${ref})의 text가 ${MAX_INPUT_CHARS.toLocaleString()}자를 넘습니다.`);
     }
-    items.push({ ref, text });
+    items.push({ ref, text, units: apiUnits(text.length) });
   }
   // 기준 자료·자사명은 묶음 전체에 한 번만 받는다(항목마다 같은 회사의 글이다).
   const ctx = normalizeReferences(req.body?.references, req.body?.organization);
@@ -342,20 +347,21 @@ router.post("/verify/batch", requireApiKey, engineAvailable, async (req, res) =>
   }
 
   const usage = await usageInfo(key);
-  if (usage.remaining < items.length) {
+  const needed = items.reduce((n, it) => n + it.units, 0);
+  if (usage.remaining < needed) {
     if (extras.idemKey) await releaseKey(key.id, extras.idemKey);
     await recordApiUsage(key.id, { endpoint: "POST /v1/verify/batch", statusCode: 429 });
     return fail(
       res, 429, "quota_exceeded",
-      `이번 달 남은 호출이 ${usage.remaining}회인데 ${items.length}건을 요청했습니다. 나눠 보내거나 한도를 올려주세요: ${UPGRADE_URL}`,
-      { usage, upgrade_url: UPGRADE_URL },
+      `이번 달 남은 건수가 ${usage.remaining}건인데 이 묶음은 ${needed}건(항목 ${items.length}개, ${API_UNIT_CHARS.toLocaleString()}자마다 1건)입니다. 나눠 보내거나 한도를 올려주세요: ${UPGRADE_URL}`,
+      { usage, needed, upgrade_url: UPGRADE_URL },
     );
   }
 
   const waitSec = req.body?.wait === true ? MAX_WAIT_SEC : Math.min(MAX_WAIT_SEC, Math.max(0, Number(req.body?.wait) || 0));
   const started = await Promise.all(
-    items.map(async ({ ref, text, id }) => {
-      const usageId = await recordApiUsage(key.id, { verificationId: id, endpoint: "POST /v1/verify/batch", statusCode: 202, billable: true });
+    items.map(async ({ ref, text, id, units }) => {
+      const usageId = await recordApiUsage(key.id, { verificationId: id, endpoint: "POST /v1/verify/batch", statusCode: 202, billable: true, units });
       try {
         const { done } = await startVerification({
           id, text, source: "api", userId: null, apiKeyId: key.id,

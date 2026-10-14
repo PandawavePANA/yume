@@ -15,14 +15,15 @@
 // 칸과 같은 순서·이름으로 받고, 사업자등록번호는 검증번호까지 확인한다(틀린 번호로 발급하면
 // 수정세금계산서를 다시 끊어야 한다).
 import { now, one, run, all } from "./db.js";
-import { API_RATES } from "./apiRates.js";
+import { API_RATES, AUDIT_LEAD_DAYS, AUDIT_ORDER_DOMAINS, AUDIT_PILOT_SEATS, AUDIT_RATES } from "./apiRates.js";
 import { randomToken } from "./security.js";
+import { addBusinessDays } from "./businessDays.js";
 
 export const VAT_RATE = 0.1;
 export const QUOTE_VALID_DAYS = 30;
 // 계약 신청 때 동의받는 조건의 판. 문서(/b2b/terms·/b2b/dpa)를 고치면 함께 올린다 — 누가 어느 판에
 // 동의했는지 남아야 나중에 다툴 일이 없다.
-export const TERMS_VERSION = "B2B-2026-10-13";
+export const TERMS_VERSION = "B2B-2026-10-14";
 const DAY = 86_400_000;
 
 const tier = (key) => API_RATES.tiers.find((t) => t.key === key);
@@ -33,7 +34,40 @@ export const SELF_PRODUCTS = {
   growth: { label: `유메 검증 API ${tier("growth").label}`, spec: `월 ${tier("growth").calls.toLocaleString("ko-KR")}회`, unit: "개월", unitKrw: tier("growth").monthlyKrw, min: 1, max: 12, step: 1 },
   // 종량제는 후불이다 — 견적의 수량은 "예상 월 호출 수"이고, 실제 사용량으로 매달 정산한다. 계약을 확정하면
   // 그 예상 물량을 월 상한으로 걸어 둔다(예상을 크게 넘는 청구가 고객 모르게 쌓이지 않게).
-  metered: { label: "유메 검증 API 종량제 (후불 월 정산)", spec: "예상 월 호출 수 · 실제 사용량으로 정산", unit: "회", unitKrw: API_RATES.metered.unitKrw, min: 100, max: 100_000, step: 100 },
+  metered: { label: "유메 검증 API 종량제 (후불 월 정산)", spec: "예상 월 건수(1,000자마다 1건) · 실제 사용량으로 정산", unit: "건", unitKrw: API_RATES.metered.unitKrw, min: 100, max: 100_000, step: 100 },
+  // AI 감사 — 2026-10-14부터 사이트에서 바로 산다(정가 공개). 감사할 서비스 정보(order)를 같이 받는다.
+  ...Object.fromEntries(Object.entries(AUDIT_RATES).map(([k, a]) => [k, { label: a.label, spec: a.spec, unit: a.unit, unitKrw: a.krw, min: 1, max: k === "audit_regular" ? 4 : 1, step: 1, kind: "audit" }])),
+};
+
+export const isAuditProduct = (key) => Boolean(AUDIT_RATES[key]);
+
+/** 파일럿 남은 자리 — 계약 신청·입금된 파일럿만 자리를 차지한다(견적만 받은 것은 아님). */
+export async function pilotSeatsLeft({ exceptId = null } = {}) {
+  const r = await one(
+    "SELECT COUNT(*) AS n FROM b2b_quotes WHERE product = 'audit_pilot' AND status IN ('requested','paid') AND id <> :ex",
+    { ex: Number(exceptId) || 0 },
+  );
+  return Math.max(0, AUDIT_PILOT_SEATS - Number(r?.n || 0));
+}
+
+/** 감사 주문서(감사할 서비스). 사람이 감사를 시작하려면 이것만 있으면 된다. */
+export function readOrder(raw) {
+  const serviceName = clean(raw?.serviceName, 120);
+  let serviceUrl = clean(raw?.serviceUrl, 400);
+  if (serviceUrl && !/^https?:\/\//i.test(serviceUrl)) serviceUrl = `https://${serviceUrl}`;
+  const domain = AUDIT_ORDER_DOMAINS.includes(raw?.domain) ? raw.domain : "";
+  const order = { serviceName, serviceUrl, domain, access: clean(raw?.access, 300), focus: clean(raw?.focus, 600) };
+  if (!serviceName) return { error: "감사할 AI 서비스 이름을 입력해 주세요." };
+  if (!/^https?:\/\/[^\s.]+\.[^\s]+/i.test(serviceUrl)) return { error: "감사할 서비스 주소(웹사이트·앱 링크)를 입력해 주세요." };
+  if (!domain) return { error: "서비스 업종을 골라 주세요." };
+  return { order };
+}
+export const parseOrder = (q) => {
+  try {
+    return q.order_json ? JSON.parse(q.order_json) : null;
+  } catch {
+    return null;
+  }
 };
 
 // 범위를 듣고 운영자가 금액을 정하는 상품.
@@ -66,7 +100,8 @@ export function totals(items) {
 export function priceSelf(product, qty) {
   const p = SELF_PRODUCTS[product];
   if (!p) return { error: "사이트에서 바로 견적을 받을 수 있는 상품이 아니에요." };
-  const n = intOf(qty);
+  // 수량이 하나뿐인 상품(감사 1회)은 수량을 안 보내도 1로 본다.
+  const n = qty == null && p.min === p.max ? p.min : intOf(qty);
   if (!Number.isFinite(n) || n < p.min || n > p.max) {
     return { error: `수량은 ${p.min.toLocaleString("ko-KR")}~${p.max.toLocaleString("ko-KR")}${p.unit} 사이로 입력해 주세요.` };
   }
@@ -132,12 +167,21 @@ export const isExpired = (q, t = now()) => q.status === "issued" && Number(q.val
  * 견적을 만든다. product가 공개 단가 상품이면 qty로 계산하고, 아니면 items(운영자 입력)를 쓴다.
  * 반환: { quote } 또는 { error }
  */
-export async function createQuote({ product, qty, items, company, contactName, email, phone, note, source = "self", auditId = null, ip = null }) {
-  const isSelf = Boolean(SELF_PRODUCTS[product]);
+export async function createQuote({ product, qty, items, company, contactName, email, phone, note, order = null, source = "self", auditId = null, ip = null }) {
+  // 데스크가 품목·금액을 직접 넣어 내는 견적(감사 할인·맞춤 범위)은 공개 단가가 있어도 그 금액을 쓴다.
+  const deskPriced = source === "desk" && Array.isArray(items) && items.length > 0;
+  const isSelf = Boolean(SELF_PRODUCTS[product]) && !deskPriced;
   if (source === "self" && !isSelf) return { error: "이 상품은 범위를 듣고 견적을 드려요. 도입 문의로 보내 주세요." };
-  if (!isSelf && !DESK_PRODUCTS[product]) return { error: "알 수 없는 상품이에요." };
+  if (!SELF_PRODUCTS[product] && !DESK_PRODUCTS[product]) return { error: "알 수 없는 상품이에요." };
   const priced = isSelf ? priceSelf(product, qty) : priceDesk(items);
   if (priced.error) return { error: priced.error };
+  let orderJson = null;
+  if (isAuditProduct(product) && source === "self") {
+    const o = readOrder(order);
+    if (o.error) return { error: o.error };
+    orderJson = JSON.stringify(o.order);
+    if (product === "audit_pilot" && !(await pilotSeatsLeft())) return { error: "파일럿 3곳이 모두 찼어요. 정밀 감사 정가로 신청해 주세요." };
+  }
 
   const c = clean(company, 100);
   const name = clean(contactName, 60);
@@ -149,9 +193,9 @@ export async function createQuote({ product, qty, items, company, contactName, e
   const t = now();
   const row = await run(
     `INSERT INTO b2b_quotes (token, product, items_json, supply_krw, vat_krw, total_krw, company, contact_name, email, phone, note,
-       source, audit_id, valid_until, status, ip, created_at, updated_at)
+       order_json, source, audit_id, valid_until, status, ip, created_at, updated_at)
      VALUES (:token, :product, :items, :supply, :vat, :total, :company, :name, :email, :phone, :note,
-       :source, :auditId, :validUntil, 'issued', :ip, :t, :t) RETURNING id`,
+       :order, :source, :auditId, :validUntil, 'issued', :ip, :t, :t) RETURNING id`,
     {
       token: randomToken(18),
       product,
@@ -164,6 +208,7 @@ export async function createQuote({ product, qty, items, company, contactName, e
       email: mail || null,
       phone: clean(phone, 40) || null,
       note: clean(note, 1000) || null,
+      order: orderJson,
       source,
       auditId: auditId ? Number(auditId) : null,
       validUntil: t + QUOTE_VALID_DAYS * DAY,
@@ -228,6 +273,9 @@ export async function requestContract(token, body, { ip = null } = {}) {
   if (!looksEmail(billing.taxEmail)) return { error: "세금계산서를 받을 이메일을 정확히 입력해 주세요.", status: 400 };
   if (!payMethod) return { error: "결제 방법을 골라 주세요.", status: 400 };
   if (body?.agree !== true) return { error: "서비스 이용 조건과 데이터 처리 부속서에 동의해 주세요.", status: 400 };
+  if (q.product === "audit_pilot" && !(await pilotSeatsLeft({ exceptId: q.id }))) {
+    return { error: "그사이 파일럿 3곳이 모두 찼어요. 정밀 감사 정가로 새 견적을 받아 주세요.", status: 409 };
+  }
 
   const t = now();
   const upd = await run(
@@ -244,6 +292,7 @@ export async function requestContract(token, body, { ip = null } = {}) {
 export function quotaFor(q) {
   const plan = tier(q.product);
   if (plan) return plan.calls;
+  if (q.product === "audit_package") return tier("starter").calls;
   if (q.product === "metered") return parseItems(q)[0]?.qty || null;
   return null;
 }
@@ -259,7 +308,9 @@ export async function markPaid(id, { applyQuota = true } = {}) {
   if (q.status === "paid") return { quote: q, already: true, applied: null };
   if (q.status === "cancelled") return { error: "취소된 견적이에요." };
   const t = now();
-  await run("UPDATE b2b_quotes SET status = 'paid', paid_at = :t, updated_at = :t WHERE id = :id AND status IN ('issued','requested')", { id: q.id, t });
+  // 감사는 입금 확인 순간부터 영업일 기준 1~3일 — 마감을 그 자리에서 박아 둔다(작업 리스트·고객 메일이 같은 날을 쓴다).
+  const due = isAuditProduct(q.product) ? addBusinessDays(t, AUDIT_LEAD_DAYS) : null;
+  await run("UPDATE b2b_quotes SET status = 'paid', paid_at = :t, due_at = COALESCE(due_at, :due), updated_at = :t WHERE id = :id AND status IN ('issued','requested')", { id: q.id, t, due });
   let applied = null;
   const quota = quotaFor(q);
   if (applyQuota && quota) {

@@ -27,6 +27,7 @@ import { inquiryRouter } from "./inquiryApi.js";
 import { b2bRouter, b2bAdminRouter } from "./b2bApi.js";
 import { quoteByToken } from "./b2bDeals.js";
 import { renderQuotePage, renderB2bTerms, renderB2bDpa, renderB2bSecurity, renderDealsAdminPage } from "./renderB2bPages.js";
+import { renderWorkPage } from "./renderWorkPage.js";
 import { threadRouter } from "./threadApi.js";
 import screenshotRouter from "./screenshotApi.js";
 import documentsWebRouter from "./documentsWeb.js";
@@ -431,6 +432,7 @@ app.get("/admin/desk", attachUser, adminPage(renderDeskPage));
 app.get("/admin/funnel", attachUser, adminPage(renderFunnelPage));
 app.get("/admin/audits", attachUser, adminPage(renderAuditDeskPage));
 app.get("/admin/deals", attachUser, adminPage(renderDealsAdminPage));
+app.get("/admin/work", attachUser, adminPage(renderWorkPage));
 // 견적서 — 추측할 수 없는 토큰이 열쇠라 검색에 잡히지 않게 하고 캐시하지 않는다(상태가 바뀐다).
 app.get("/b2b/quote/:token", async (req, res) => {
   res.set("Cache-Control", "no-store").set("X-Robots-Tag", "noindex, nofollow");

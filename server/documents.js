@@ -12,6 +12,7 @@
 import crypto from "node:crypto";
 import { all, now, one, run } from "./db.js";
 import { finishApiUsage, quotaUsage, recordApiUsage } from "./apiKeys.js";
+import { apiUnits } from "./apiRates.js";
 import { getVerification, newVerificationId } from "./verificationStore.js";
 import { extractFileText } from "./fileText.js";
 import { startVerificationsLimited } from "./verifyPipeline.js";
@@ -56,17 +57,19 @@ export async function startDocument({ key, text, title = "", refs = [], organiza
   if (!chunks.length) return { error: { status: 400, code: "invalid_request", message: "검사할 내용이 없습니다." } };
   const ids = chunks.map(() => newVerificationId());
 
-  // 한도: 조각 수만큼 남아 있어야 한다. 모자라면 한 조각도 시작하지 않는다.
+  // 한도: 조각마다 1,000자당 1건(apiUnits). 모자라면 한 조각도 시작하지 않는다.
+  const units = chunks.map((c) => apiUnits(c.end - c.start));
+  const needed = units.reduce((n, u) => n + u, 0);
   const used = Number(await quotaUsage(key));
   const remaining = Math.max(0, key.monthly_quota - used);
-  if (remaining < chunks.length) {
+  if (remaining < needed) {
     await recordApiUsage(key.id, { endpoint, statusCode: 429 });
     return {
       error: {
         status: 429,
         code: "quota_exceeded",
-        message: `이 문서는 ${chunks.length}건(조각)으로 검사되는데 이번 달 남은 호출이 ${remaining}회입니다.`,
-        extra: { needed: chunks.length, remaining },
+        message: `이 문서는 ${needed}건(${text.length.toLocaleString()}자, 1,000자마다 1건)인데 이번 달 남은 건수가 ${remaining}건입니다.`,
+        extra: { needed, remaining },
       },
     };
   }
@@ -81,7 +84,7 @@ export async function startDocument({ key, text, title = "", refs = [], organiza
     },
   );
   const usageIds = [];
-  for (const vid of ids) usageIds.push(await recordApiUsage(key.id, { verificationId: vid, endpoint, statusCode: 202, billable: true }));
+  for (const [i, vid] of ids.entries()) usageIds.push(await recordApiUsage(key.id, { verificationId: vid, endpoint, statusCode: 202, billable: true, units: units[i] }));
 
   const dones = await startVerificationsLimited(
     chunks.map((c, i) => ({
