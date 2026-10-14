@@ -118,7 +118,7 @@ export function renderWorkPage() {
 <meta name="robots" content="noindex, nofollow" /><title>작업 리스트 · 유메 관리자</title>
 <style>${CSS}</style></head>
 <body><div class="wrap">
-  <div class="top"><h1>작업 리스트</h1><span><a href="/admin/deals">기업 거래</a> · <a href="/admin/audits">감사 데스크</a> · <a href="/admin">관리자</a></span></div>
+  <div class="top"><h1>작업 리스트</h1><span><a href="/admin/staff">AI 본사</a> · <a href="/admin/deals">기업 거래</a> · <a href="/admin/audits">감사 데스크</a> · <a href="/admin">관리자</a></span></div>
   <p class="meta">감사 주문은 고객이 감사 신청을 하면 <b>입금 대기</b>에 올라오고, <b>입금 확인</b>을 누르면 감사 데스크에 그 회사 감사 건이 생기면서 <b>지금 할 감사</b>로 옮겨 갑니다. 마감은 입금 확인 + 영업일 3일(고객 안내: ${esc(AUDIT_LEAD)}). 보고서를 보냈으면 <b>보고서 보냄</b>.</p>
   <div class="kpis" id="kpis"></div>
   <div id="list"><div class="empty">불러오는 중…</div></div>

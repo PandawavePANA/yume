@@ -1,0 +1,220 @@
+// AI 직원 운영 — 정해진 때에 일을 돌리고(스케줄러), 결재를 실행하고, 사무실 화면에 보여 줄 상태를 모은다.
+//
+// 서버 프로세스(index.js)에서만 startStaff()로 타이머를 띄운다(시험에서는 runStaff·approve를 직접 부른다).
+// 실패해도 서버를 멈추지 않는다 — 그 직원의 상태가 "문제 있음"이 되고 업무 일지에 남는다.
+import { one } from "../db.js";
+import { sendMail } from "../mailer.js";
+import { engineState, engineStopped } from "../upstream.js";
+import { logError } from "../errorLog.js";
+import { USD_KRW } from "../costGuard.js";
+import { isBusinessDay } from "../businessDays.js";
+import { askJson, readPage } from "./ai.js";
+import * as store from "./store.js";
+import { CEO, KINDS, ROSTER, TEAMS, lineFor } from "./roster.js";
+import { defaults as prepDefaults } from "./jobs/prep.js";
+
+const KST = 9 * 3600_000;
+const running = new Set();
+// 직원 업무(리서치·약관·QA)의 하루 AI 예산. 감사 채점은 prep.js의 STAFF_AUDIT_BUDGET_USD로 따로 묶는다.
+export const staffBudgetUsd = () => {
+  const v = Number(process.env.STAFF_DAILY_BUDGET_USD);
+  return Number.isFinite(v) && v > 0 ? v : 3;
+};
+const owner = () => process.env.STAFF_CEO_EMAIL || process.env.OPS_ALERT_TO || process.env.INQUIRY_TO || process.env.COMPANY_EMAIL || "reamer@d-reamer.com";
+
+/** 이번 차례의 기준 시각(그 뒤에 실행된 적이 없으면 일한다). 근무 시간 밖이면 null. */
+export function notBefore(def, t = Date.now()) {
+  const k = new Date(t + KST);
+  const hour = k.getUTCHours();
+  const s = def.schedule || {};
+  if (s.weekdays && !isBusinessDay(t)) return null;
+  if (s.hours && (hour < s.hours[0] || hour >= s.hours[1])) return null;
+  if (s.daily) {
+    const at = store.kstDayStart(t) + (s.daily.h * 60 + s.daily.m) * 60_000;
+    return t >= at ? at : null;
+  }
+  return t - (s.every || 3600_000);
+}
+
+export function businessHours(t = Date.now()) {
+  const h = new Date(t + KST).getUTCHours();
+  return isBusinessDay(t) && h >= 9 && h < 18;
+}
+
+async function defaultDeps() {
+  const { confirmPayment } = await import("../b2bApi.js");
+  return { ai: askJson, readPage, sendMail, confirmPayment, ...prepDefaults };
+}
+
+function contextFor(id, def, state, deps) {
+  return {
+    staff: { id, ...def },
+    state,
+    roster: ROSTER,
+    autonomy: def.autoOnly ? "auto" : def.approveOnly ? "approve" : state.autonomy,
+    cap: (d) => Number(state.daily_cap) || d,
+    deps,
+    owner,
+    businessHours: () => businessHours(),
+    log: (title, opts = {}) => store.log(id, title, opts),
+    hasProposal: (dedupe) => store.hasProposal(dedupe),
+    propose: (p) => store.propose(id, { ...p, payload: { ...(p.payload || {}), line: lineFor(p.kind) } }),
+    notify: async (subject, text) => {
+      try {
+        await deps.sendMail({ brand: "YUME", to: owner(), subject, text });
+      } catch (e) {
+        logError("staff:notify", e);
+      }
+    },
+  };
+}
+
+/** 직원 한 명에게 일을 시킨다. manual이면 근무 시간·차례와 상관없이(꺼져 있어도) 지금 한다. */
+export async function runStaff(id, { manual = false, deps = null } = {}) {
+  const def = ROSTER[id];
+  if (!def) return { error: "없는 직원이에요." };
+  const state = await store.getState(id, def.defaults);
+  if (!manual && !Number(state.enabled)) return { skipped: "off" };
+  if (def.ai && engineStopped()) {
+    await store.setState(id, { last_status: "engine", last_note: "검사 엔진이 멈춰 쉬는 중 (Anthropic 잔액·키 확인)" });
+    return { skipped: "engine" };
+  }
+  // 하루 AI 예산 — 직원 업무로 쓴 돈이 넘으면 AI 직원은 내일까지 쉰다(잔액이 바닥나면 결제·검사가 멈추므로).
+  if (def.ai && !manual) {
+    const spent = Object.values(await store.todayStats()).reduce((n, x) => n + x.usd, 0);
+    if (spent >= staffBudgetUsd()) {
+      await store.setState(id, { last_status: "idle", last_note: `오늘 AI 예산(${staffBudgetUsd()}달러)을 다 써서 내일 이어서 해요` });
+      return { skipped: "budget" };
+    }
+  }
+  if (running.has(id)) return { skipped: "busy" };
+  running.add(id);
+  await store.setState(id, { last_status: "working" });
+  if (manual) await store.claimRun(id, Date.now() + 1);
+  try {
+    const ctx = contextFor(id, def, state, deps || (await defaultDeps()));
+    const r = (await def.job.run(ctx)) || {};
+    await store.setState(id, { last_status: "idle", last_note: r.note || "" });
+    return { ok: true, note: r.note || "" };
+  } catch (e) {
+    logError(`staff:${id}`, e);
+    const msg = String(e?.message || e).slice(0, 200);
+    await store.setState(id, { last_status: "error", last_note: msg });
+    await store.log(id, `일하다 문제가 생겼어요: ${msg}`, { level: "error" });
+    return { error: msg };
+  } finally {
+    running.delete(id);
+  }
+}
+
+/** 한 바퀴 — 차례가 된 직원만 일한다(서버 여러 대여도 claimRun으로 한 대만). */
+export async function tick(t = Date.now()) {
+  for (const [id, def] of Object.entries(ROSTER)) {
+    const nb = notBefore(def, t);
+    if (nb == null) continue;
+    const state = await store.getState(id, def.defaults);
+    if (!Number(state.enabled)) continue;
+    if (!(await store.claimRun(id, nb, t))) continue;
+    runStaff(id).catch((e) => logError(`staff:${id}`, e));
+  }
+}
+
+export function startStaff() {
+  if (process.env.STAFF_DISABLED === "1") return;
+  setTimeout(() => tick().catch((e) => logError("staff:tick", e)), 45_000).unref();
+  setInterval(() => tick().catch((e) => logError("staff:tick", e)), 60_000).unref();
+}
+
+// ── 결재 ─────────────────────────────────────────────────────────────
+export async function approve(approvalId, input = {}, { deps = null } = {}) {
+  const a = await store.getApproval(approvalId);
+  if (!a) return { error: "결재 문서를 찾을 수 없어요." };
+  if (a.status !== "pending") return { error: "이미 처리한 결재예요." };
+  const kind = KINDS[a.kind];
+  if (!kind) return { error: "알 수 없는 결재예요." };
+  if (!(await store.decide(a.id, "approved"))) return { error: "이미 처리한 결재예요." };
+  let r;
+  try {
+    r = await kind.apply(a.payload, input, deps || (await defaultDeps()));
+  } catch (e) {
+    logError(`staff:approve:${a.kind}`, e);
+    r = { ok: false, result: String(e?.message || e).slice(0, 300) };
+  }
+  await store.finish(a.id, r);
+  await store.log(a.staff, r.ok ? `대표 결재 완료 — ${a.title}: ${r.result}` : `결재는 났지만 실행 실패 — ${a.title}: ${r.result}`, { level: r.ok ? "info" : "warn", ref: a.ref });
+  return r.ok ? { ok: true, result: r.result } : { error: r.result };
+}
+
+export async function reject(approvalId, reason = "") {
+  const a = await store.getApproval(approvalId);
+  if (!a) return { error: "결재 문서를 찾을 수 없어요." };
+  if (!(await store.decide(a.id, "rejected", reason || "반려"))) return { error: "이미 처리한 결재예요." };
+  await store.log(a.staff, `대표 반려 — ${a.title}${reason ? `: ${reason}` : ""}`, { level: "warn", ref: a.ref });
+  return { ok: true };
+}
+
+// ── 사무실 화면 상태 ──────────────────────────────────────────────────
+export async function office(t = Date.now()) {
+  const [stats, pend, approvals, logs] = await Promise.all([store.todayStats(t), store.pendingCounts(), store.listApprovals({ status: "pending" }), store.recentLogs(80)]);
+  const auditUsd = Number((await one("SELECT COALESCE(SUM(cost_usd), 0) AS usd FROM verifications WHERE source = 'audit' AND created_at >= :s", { s: store.kstDayStart(t) }))?.usd || 0);
+  const staff = [];
+  for (const [id, def] of Object.entries(ROSTER)) {
+    const s = await store.getState(id, def.defaults);
+    const nb = notBefore(def, t);
+    const st = !Number(s.enabled) ? "off" : running.has(id) ? "working" : def.ai && engineStopped() ? "engine" : s.last_status === "error" ? "error" : pend[id] ? "waiting" : "idle";
+    staff.push({
+      id,
+      name: def.name,
+      title: def.title,
+      team: def.team,
+      teamLabel: TEAMS[def.team].label,
+      hue: TEAMS[def.team].hue,
+      lead: !!def.lead,
+      reportsTo: def.reportsTo || null,
+      duty: def.duty,
+      ai: !!def.ai,
+      enabled: !!Number(s.enabled),
+      autonomy: def.autoOnly ? "auto" : def.approveOnly ? "approve" : s.autonomy,
+      autonomyFixed: !!(def.autoOnly || def.approveOnly),
+      dailyCap: s.daily_cap ? Number(s.daily_cap) : def.defaults?.dailyCap || null,
+      status: st,
+      note: s.last_note || "",
+      lastRunAt: s.last_run_at ? Number(s.last_run_at) : null,
+      nextHint: nextHint(def, t, nb),
+      doneToday: stats[id]?.done || 0,
+      usdToday: stats[id]?.usd || 0,
+      pending: pend[id] || 0,
+    });
+  }
+  const usd = Object.values(stats).reduce((n, x) => n + x.usd, 0) + auditUsd;
+  return {
+    ceo: CEO,
+    teams: TEAMS,
+    staff,
+    approvals: approvals.map((a) => ({ ...a, kindLabel: KINDS[a.kind]?.label || a.kind, urgent: !!KINDS[a.kind]?.urgent, work: !!KINDS[a.kind]?.work })),
+    logs: logs.map((l) => ({ ...l, id: Number(l.id), created_at: Number(l.created_at), name: ROSTER[l.staff]?.name || l.staff, team: ROSTER[l.staff]?.team || "office" })),
+    summary: {
+      pending: approvals.length,
+      urgent: approvals.filter((a) => KINDS[a.kind]?.urgent).length,
+      doneToday: Object.values(stats).reduce((n, x) => n + x.done, 0),
+      costKrw: Math.round(usd * USD_KRW),
+      engine: engineState(),
+      outreachReady: Boolean((process.env.MAIL_FROM_OUTREACH || process.env.MAIL_FROM_YUME || "").match(/yume-reamer\.com/i)),
+    },
+  };
+}
+
+function nextHint(def, t, nb) {
+  const s = def.schedule || {};
+  if (s.daily) return `매일 ${String(s.daily.h).padStart(2, "0")}:${String(s.daily.m).padStart(2, "0")}${s.weekdays ? " (평일)" : ""}`;
+  const m = Math.round((s.every || 0) / 60_000);
+  return `${m}분마다${s.hours ? ` (${s.hours[0]}~${s.hours[1]}시)` : ""}${nb == null ? " · 지금은 근무 시간 밖" : ""}`;
+}
+
+export async function updateStaff(id, patch) {
+  const def = ROSTER[id];
+  if (!def) return { error: "없는 직원이에요." };
+  await store.getState(id, def.defaults);
+  if (patch.autonomy !== undefined && (def.autoOnly || def.approveOnly)) return { error: "이 직원은 모드를 바꿀 수 없어요." };
+  return store.setState(id, patch);
+}

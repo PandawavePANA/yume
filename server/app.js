@@ -28,6 +28,8 @@ import { b2bRouter, b2bAdminRouter } from "./b2bApi.js";
 import { quoteByToken } from "./b2bDeals.js";
 import { renderQuotePage, renderB2bTerms, renderB2bDpa, renderB2bSecurity, renderDealsAdminPage } from "./renderB2bPages.js";
 import { renderWorkPage } from "./renderWorkPage.js";
+import { renderStaffPage } from "./renderStaffPage.js";
+import { staffRouter } from "./staffApi.js";
 import { threadRouter } from "./threadApi.js";
 import screenshotRouter from "./screenshotApi.js";
 import documentsWebRouter from "./documentsWeb.js";
@@ -412,6 +414,7 @@ app.use("/api/admin", deskRouter);
 // 감사 데스크(특정 회사 AI 감사)와 지수 발행. 같은 문(requireAdmin)을 쓴다.
 app.use("/api/admin", auditDeskRouter);
 app.use("/api/admin", b2bAdminRouter);
+app.use("/api/admin", staffRouter);
 
 app.use("/api", (req, res) => res.status(404).json({ error: "존재하지 않는 API예요." }));
 
@@ -433,6 +436,7 @@ app.get("/admin/funnel", attachUser, adminPage(renderFunnelPage));
 app.get("/admin/audits", attachUser, adminPage(renderAuditDeskPage));
 app.get("/admin/deals", attachUser, adminPage(renderDealsAdminPage));
 app.get("/admin/work", attachUser, adminPage(renderWorkPage));
+app.get("/admin/staff", attachUser, adminPage(renderStaffPage));
 // 견적서 — 추측할 수 없는 토큰이 열쇠라 검색에 잡히지 않게 하고 캐시하지 않는다(상태가 바뀐다).
 app.get("/b2b/quote/:token", async (req, res) => {
   res.set("Cache-Control", "no-store").set("X-Robots-Tag", "noindex, nofollow");

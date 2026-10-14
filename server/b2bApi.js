@@ -206,15 +206,28 @@ b2bAdminRouter.post("/b2b/quotes", async (req, res) => {
   res.status(201).json({ quote: view(r.quote) });
 });
 
-b2bAdminRouter.post("/b2b/quotes/:id/paid", async (req, res) => {
-  const r = await markPaid(req.params.id, { applyQuota: req.body?.applyQuota !== false });
-  if (r.error) return res.status(400).json({ error: r.error });
-  // 감사 주문이면 감사 데스크에 그 회사 감사 건을 만든다(작업 리스트의 "감사 열기"가 여기로 간다).
+/**
+ * 입금(계약) 확인 — 작업 리스트 버튼과 AI 직원 결재(경영지원팀 "입금 확인 요청")가 같은 길을 쓴다.
+ * 감사 주문이면 감사 데스크에 그 회사 감사 건을 만들고, 고객에게 확인 메일(감사는 보고서 마감일 포함)을 보낸다.
+ */
+export async function confirmPayment(id, { applyQuota = true } = {}) {
+  const r = await markPaid(id, { applyQuota });
+  if (r.error) return r;
   const auditId = isAuditProduct(r.quote.product) ? await ensureAuditForQuote(r.quote.id) : null;
   const q = auditId ? await quoteById(r.quote.id) : r.quote;
-  log(req, "b2b.quote.paid", `b2b_quote:${q.id}`, { applied: r.applied, auditId });
-  res.json({ quote: view(q), applied: r.applied, auditId, already: Boolean(r.already) });
-  if (!r.already) {
+  if (!r.already) notifyPaid(q, r.applied);
+  return { quote: q, applied: r.applied, auditId, already: Boolean(r.already) };
+}
+
+b2bAdminRouter.post("/b2b/quotes/:id/paid", async (req, res) => {
+  const r = await confirmPayment(req.params.id, { applyQuota: req.body?.applyQuota !== false });
+  if (r.error) return res.status(400).json({ error: r.error });
+  log(req, "b2b.quote.paid", `b2b_quote:${r.quote.id}`, { applied: r.applied, auditId: r.auditId });
+  res.json({ quote: view(r.quote), applied: r.applied, auditId: r.auditId, already: r.already });
+});
+
+function notifyPaid(q, applied) {
+  {
     const b = parseBilling(q) || {};
     const to = b.taxEmail || q.email;
     if (to) {
@@ -223,11 +236,11 @@ b2bAdminRouter.post("/b2b/quotes/:id/paid", async (req, res) => {
         to,
         replyTo: COMPANY.email,
         subject: `[유메] ${q.product === "metered" ? "계약 확정" : "입금 확인"} — 견적 ${quoteNumber(q)}`,
-        text: `${q.product === "metered" ? "계약이 확정됐습니다." : "입금이 확인됐습니다."} 전자세금계산서는 ${to}로 발급됩니다.${due}\n${r.applied?.key ? `API 키(${r.applied.key}…)의 월 한도를 ${r.applied.quota.toLocaleString("ko-KR")}건으로 설정했습니다.\n` : ""}\n${quoteUrl(q)}`,
+        text: `${q.product === "metered" ? "계약이 확정됐습니다." : "입금이 확인됐습니다."} 전자세금계산서는 ${to}로 발급됩니다.${due}\n${applied?.key ? `API 키(${applied.key}…)의 월 한도를 ${applied.quota.toLocaleString("ko-KR")}건으로 설정했습니다.\n` : ""}\n${quoteUrl(q)}`,
       });
     }
   }
-});
+}
 
 // 대표 작업 리스트(/admin/work).
 b2bAdminRouter.get("/b2b/work", async (_req, res) => {
