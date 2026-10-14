@@ -88,7 +88,7 @@ test("법무팀 도윤: 약관을 읽고 근거 조항과 함께 결재 — 지�
   await store.setState("doyun", { daily_cap: 50 });
   const made = await desk.createAudit({ company: "약관확인AI", service_url: "https://tos.example.com", domain: "법률" });
   await desk.updateAudit(made.id, { tos_url: "https://tos.example.com/terms" });
-  const terms = "제10조(금지행위) 회원은 자동화된 수단으로 서비스에 접속하거나 정보를 대량으로 수집해서는 안 됩니다. ".repeat(8);
+  const terms = "제1조(목적) 이 약관은 서비스 이용 조건을 정합니다. " + "제10조(금지행위) 회원은 자동화된 수단으로 서비스에 접속하거나 정보를 대량으로 수집해서는 안 됩니다. ".repeat(20);
   const readPage = async () => ({ url: "https://tos.example.com/terms", text: terms, links: [] });
   const ai = async () => ({ usd: 0.02, json: { verdict: "ok", confidence: "high", quote: "회원은 자동화된 수단으로 서비스에 접속하거나", reason: "자동화만 금지" } });
   await staff.runStaff("doyun", { manual: true, deps: deps({ ai, readPage }) });
@@ -99,11 +99,26 @@ test("법무팀 도윤: 약관을 읽고 근거 조항과 함께 결재 — 지�
   const liar = async () => ({ usd: 0, json: { verdict: "ok", confidence: "high", quote: "평가 목적 이용을 적극 허용합니다", reason: "" } });
   await staff.runStaff("doyun", { manual: true, deps: deps({ ai: liar, readPage }) });
   assert.equal((await desk.auditById(made2.id)).tos_verdict, "unclear", "약관 글에 없는 인용은 믿지 않는다");
-  // 약관 페이지를 못 읽으면 보류(애매)로 두고 넘어간다 — 대표에게 묻지 않는다.
+  // 서버가 약관을 못 읽으면 → 현장 요원(PC 브라우저)에게 열어 오게 한다
   const made3 = await desk.createAudit({ company: "못읽음AI", service_url: "https://none.example.com", domain: "법률" });
   await desk.updateAudit(made3.id, { tos_url: "https://none.example.com/terms" });
-  await staff.runStaff("doyun", { manual: true, deps: deps({ ai, readPage: async () => { throw new Error("404"); } }) });
-  assert.equal((await desk.auditById(made3.id)).tos_verdict, "unclear");
+  const broken = async () => { throw new Error("404"); };
+  await staff.runStaff("doyun", { manual: true, deps: deps({ ai, readPage: broken }) });
+  assert.equal((await desk.auditById(made3.id)).tos_render, "queued");
+  assert.equal((await desk.auditById(made3.id)).tos_verdict, null, "PC가 열어 올 때까지 기다린다");
+  // 현장 요원이 가져온 글로 판단한다
+  await db.run("UPDATE ai_audits SET tos_render = 'done', tos_text = :t WHERE id = :id", { id: made3.id, t: terms });
+  await staff.runStaff("doyun", { manual: true, deps: deps({ ai, readPage: broken }) });
+  assert.equal((await desk.auditById(made3.id)).tos_verdict, "ok");
+  // PC 브라우저로도 못 찾으면 보류(애매)로 두고 넘어간다 — 대표에게 묻지 않는다
+  const made4 = await desk.createAudit({ company: "끝내못읽음AI", service_url: "https://none2.example.com", domain: "법률" });
+  await db.run("UPDATE ai_audits SET tos_render = 'failed' WHERE id = :id", { id: made4.id });
+  await staff.runStaff("doyun", { manual: true, deps: deps({ ai, readPage: broken }) });
+  assert.equal((await desk.auditById(made4.id)).tos_verdict, "unclear");
+  // 메인 화면을 약관으로 착각하지 않는다
+  const { looksLikeTos } = await import("../staff/jobs/tos.js");
+  assert.equal(looksLikeTos("세금 환급 AI 상담 — 지금 시작하세요 이용약관 개인정보처리방침"), false);
+  assert.equal(looksLikeTos(terms), true);
 });
 
 test("경영지원 민재: 감사 신청 → 입금 확인 결재(대표 알림) → 승인하면 감사 건·마감 생성 → 감사팀이 질문 준비 → 답 수집 요청", async () => {
@@ -255,7 +270,7 @@ test("비서실 서윤: 메일함을 정리해 답장 초안을 결재로 — �
 
 test("답 수집 배정: 약관에 자동 접속 금지가 없으면 현장 요원에게, 있으면 대표에게 — 가입·로그인이 막히면 결재, 처리하면 다시 줄 세움", async () => {
   await store.setState("doyun", { daily_cap: 50 });
-  const terms = "제9조(회원의 의무) 회원은 타인의 정보를 도용해서는 안 됩니다. ".repeat(10);
+  const terms = "제1조(목적) 이 약관은 서비스 이용 조건을 정합니다. " + "제9조(회원의 의무) 회원은 타인의 정보를 도용해서는 안 됩니다. ".repeat(25);
   const readPage = async () => ({ url: "https://free.example.com/terms", text: terms, links: [] });
   const freeAi = async () => ({ usd: 0.01, json: { verdict: "ok", confidence: "high", quote: "회원은 타인의 정보를 도용해서는 안 됩니다", reason: "막는 조항 없음", automation_banned: false } });
   const free = await desk.createAudit({ company: "자동가능AI", service_url: "https://free.example.com", domain: "인사" });
@@ -293,7 +308,7 @@ test("답 수집 배정: 약관에 자동 접속 금지가 없으면 현장 요�
   // 금지 조항이 있으면 처음부터 사람 몫
   const banned = await desk.createAudit({ company: "자동금지AI", service_url: "https://ban.example.com", domain: "인사" });
   await desk.updateAudit(banned.id, { tos_url: "https://ban.example.com/terms" });
-  const banTerms = "제12조 회원은 로봇, 스크립트 등 자동화된 수단으로 서비스에 접속해서는 안 됩니다. ".repeat(8);
+  const banTerms = "제1조(목적) 이 약관은 서비스 이용 조건을 정합니다. " + "제12조 회원은 로봇, 스크립트 등 자동화된 수단으로 서비스에 접속해서는 안 됩니다. ".repeat(20);
   await staff.runStaff("doyun", { manual: true, deps: deps({ readPage: async () => ({ url: "https://ban.example.com/terms", text: banTerms, links: [] }), ai: async () => ({ usd: 0, json: { verdict: "ok", confidence: "high", quote: "", reason: "평가 금지 없음", automation_banned: true, automation_quote: "회원은 로봇, 스크립트 등 자동화된 수단으로 서비스에 접속해서는 안 됩니다" } }) }) });
   assert.equal((await desk.auditById(banned.id)).collect_mode, "manual");
 });

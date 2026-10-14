@@ -162,6 +162,52 @@ async function collect(a) {
   }
 }
 
+// ── 약관 페이지 열어 오기 ─────────────────────────────────────────────
+// 서버가 못 읽는 약관(스크립트로 그리는 사이트)을 진짜 브라우저로 열어, 보이는 글을 그대로 가져온다. 질문은 넣지 않는다.
+const looksLikeTos = (text) => String(text || "").length >= 800 && (/제\s*1\s*조/.test(text) || (String(text).match(/약관/g) || []).length >= 3);
+
+async function renderTos(a) {
+  await beat(`약관 열어 오는 중 — ${a.company}`);
+  const start = a.tos_url || a.service_url;
+  let host = "";
+  try {
+    host = new URL(start).hostname;
+  } catch {
+    /* 주소가 이상하면 아래에서 실패로 남는다 */
+  }
+  try {
+    await launchEdge({ port: PORT, url: "about:blank", headless: !args.show });
+    const b = await pageFor({ port: PORT, url: start, host });
+    await b.navigate(start);
+    let text = await b.evaluate("document.body.innerText");
+    if (!looksLikeTos(text)) {
+      // '이용약관' 링크(또는 버튼)를 한 번 따라간다 — 새 탭으로 열리는 링크는 주소로 이동한다.
+      const href = await b.evaluate(`(() => {
+        const el = [...document.querySelectorAll("a, button")].find((x) => /이용\\s*약관|서비스\\s*약관|terms of (service|use)/i.test(x.innerText || ""));
+        if (!el) return null;
+        if (el.href) return el.href;
+        el.click();
+        return "CLICKED";
+      })()`);
+      if (href && href !== "CLICKED") await b.navigate(href);
+      else if (href === "CLICKED") await sleep(3000);
+      text = await b.evaluate("document.body.innerText");
+    }
+    const url = await b.evaluate("location.href");
+    b.close();
+    if (looksLikeTos(text)) {
+      await run("UPDATE ai_audits SET tos_text = :tx, tos_render = 'done', tos_url = :u WHERE id = :id", { id: a.id, tx: String(text).slice(0, 40_000), u: url });
+      log(`약관 가져옴 — #${a.id} ${a.company} (${String(text).length}자)`);
+    } else {
+      await run("UPDATE ai_audits SET tos_render = 'failed' WHERE id = :id", { id: a.id });
+      log(`약관 못 찾음 — #${a.id} ${a.company}`);
+    }
+  } catch (e) {
+    await run("UPDATE ai_audits SET tos_render = 'failed' WHERE id = :id", { id: a.id });
+    log(`약관 열기 오류 — #${a.id}: ${e.message}`);
+  }
+}
+
 // ── 근무 ─────────────────────────────────────────────────────────────
 log(`현장 요원 시작 — 근무 06:00~19:30(한국 시각). 창은 ${args.show ? "보이게" : "숨겨서"} 엽니다. 끄려면 이 창을 닫으세요.`);
 for (;;) {
@@ -172,6 +218,12 @@ for (;;) {
     continue;
   }
   await beat("대기 — 맡을 답 수집을 기다리는 중");
+  // 약관 열어 오기가 먼저다(짧고, 이게 끝나야 법무팀이 감사 여부를 정한다).
+  const t = await one("SELECT * FROM ai_audits WHERE tos_render = 'queued' AND closed_at IS NULL ORDER BY id ASC LIMIT 1");
+  if (t) {
+    await renderTos(t);
+    continue;
+  }
   const a = await claim();
   if (!a) {
     if (args.once) break;

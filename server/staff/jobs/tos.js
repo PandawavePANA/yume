@@ -26,18 +26,23 @@ export async function waiting(limit = 3) {
   return all(
     `SELECT * FROM ai_audits
       WHERE tos_verdict IS NULL AND category = 'service' AND stage = 'prospect' AND closed_at IS NULL
-        AND (tos_url <> '' OR service_url <> '')
+        AND (tos_url <> '' OR service_url <> '') AND (tos_render IS NULL OR tos_render <> 'queued')
       ORDER BY id ASC LIMIT :limit`,
     { limit },
   );
 }
 
-/** 약관 페이지를 찾는다 — 적어 둔 주소가 있으면 그것, 없으면 서비스 첫 화면의 '약관' 링크. */
+/** 약관 본문처럼 보이는가 — 조항 번호가 있거나 '약관'이 여러 번 나오는 충분히 긴 글. 메인 화면을 약관으로 착각하지 않게. */
+export const looksLikeTos = (text) => String(text || "").length >= 800 && (/제\s*1\s*조/.test(text) || (String(text).match(/약관/g) || []).length >= 3);
+
+const tosLink = (links) => links.find((l) => /이용\s*약관|서비스\s*약관|terms/i.test(l.text) || /terms|agreement|policy\/service|tos/i.test(l.href));
+
+/** 약관 페이지를 찾는다 — 적어 둔 주소, 아니면 서비스 첫 화면. 읽은 글이 약관이 아니면 그 안의 '이용약관' 링크를 한 번 따라간다. */
 async function findTos(audit, readPage) {
-  if (audit.tos_url) return readPage(audit.tos_url);
-  const home = await readPage(audit.service_url, { maxChars: 4000 });
-  const link = home.links.find((l) => /이용\s*약관|서비스\s*약관|terms/i.test(l.text) || /terms|agreement|policy\/service|tos/i.test(l.href));
-  if (!link) throw new Error("첫 화면에서 이용약관 링크를 찾지 못했어요.");
+  const first = await readPage(audit.tos_url || audit.service_url, { maxChars: 30_000 });
+  if (looksLikeTos(first.text)) return first;
+  const link = tosLink(first.links);
+  if (!link) throw new Error("이용약관 본문이나 링크를 찾지 못했어요.");
   return readPage(link.href);
 }
 
@@ -47,32 +52,39 @@ export async function run(ctx) {
   const list = await waiting(ctx.cap(3));
   let done = 0;
   for (const a of list) {
-    const dedupe = `tos:audit:${a.id}`;
+    const dedupe = `tos:audit:${a.id}:${a.tos_render || "web"}`;
     if (await ctx.hasProposal(dedupe)) continue;
-    let page;
-    try {
-      page = await findTos(a, ctx.deps.readPage);
-    } catch (e) {
+    let page = null;
+    let why = "";
+    if (a.tos_render === "done" && a.tos_text) {
+      page = { url: a.tos_url || a.service_url, text: a.tos_text, links: [] };
+    } else {
+      try {
+        page = await findTos(a, ctx.deps.readPage);
+        if (!looksLikeTos(page.text)) {
+          why = `읽은 페이지(${page.url})가 약관 본문이 아니에요`;
+          page = null;
+        }
+      } catch (e) {
+        why = e.message;
+      }
+    }
+    if (!page) {
+      // 서버가 못 읽는 페이지(스크립트로 그리는 사이트)는 대표 PC의 현장 요원이 진짜 브라우저로 열어 온다 — 한 번만.
+      if (a.tos_render !== "failed") {
+        await exec("UPDATE ai_audits SET tos_render = 'queued' WHERE id = :id", { id: a.id });
+        await ctx.log(`${a.company} 약관을 서버에서 못 읽어 현장 요원(PC 브라우저)에게 열어 오게 했어요`, { detail: why, ref: `audit:${a.id}` });
+        continue;
+      }
       await ctx.propose({
         kind: "tos_verdict",
         title: `약관 확인 필요 — ${a.company}`,
-        summary: `약관 페이지를 열지 못했어요: ${e.message}`,
+        summary: `서버와 PC 브라우저 모두 약관 본문을 찾지 못했어요. ${why}`,
         payload: { auditId: Number(a.id), verdict: null, manual: true },
         ref: `audit:${a.id}`,
         dedupe,
       });
-      await ctx.log(`${a.company} 약관 페이지를 찾지 못해 보류로 두었어요`, { level: "warn", ref: `audit:${a.id}` });
-      continue;
-    }
-    if (page.text.length < 300) {
-      await ctx.propose({
-        kind: "tos_verdict",
-        title: `약관 확인 필요 — ${a.company}`,
-        summary: `약관 페이지(${page.url})에 읽을 글이 거의 없어요(화면을 스크립트로 그리는 사이트일 수 있음).`,
-        payload: { auditId: Number(a.id), verdict: null, manual: true, url: page.url },
-        ref: `audit:${a.id}`,
-        dedupe,
-      });
+      await ctx.log(`${a.company} 약관 본문을 끝내 찾지 못해 보류로 두었어요`, { level: "warn", ref: `audit:${a.id}` });
       continue;
     }
     const { json, usd } = await ctx.deps.ai({ system: SYSTEM, user: `서비스: ${a.service_name} (${a.service_url})\n약관 주소: ${page.url}\n\n약관 본문:\n${page.text}`, maxTokens: 1500, label: "staff:tos" });
