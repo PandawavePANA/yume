@@ -11,68 +11,22 @@ import { getSetting, setSetting } from "../auditDesk.js";
 import { gmailConfigured } from "./gmail.js";
 import { engineStopped } from "../upstream.js";
 import { COMPANY } from "../renderPages.js";
+import { SEED } from "./todoSeed.js";
 
-const DOC = "사업기획/아침할일_유메메일도메인인증.md";
 const kstDay = (t = Date.now()) => new Date(t + 9 * 3600_000).toISOString().slice(0, 10);
 const tomorrow = () => kstDay(Date.now() + 86_400_000);
 
-// 처음 한 번 넣어 두는 할 일. key가 같으면 다시 넣지 않는다(대표가 끝낸 일은 다시 생기지 않는다).
-export const SEED = [
-  {
-    key: "outreach_domain",
-    title: "유메 메일 도메인(yume-reamer.com) 인증",
-    steps: "1. resend.com → Domains → Add Domain → yume-reamer.com (Tokyo)\n2. 호스팅어 DNS에 Resend가 보여 주는 3줄 + _dmarc 1줄 추가\n3. Resend에서 Verify가 초록색이 되면 '완료'를 누르세요 — 서버가 유메 주소로 시험 메일을 보내 보고, 성공하면 첫 메일 발송이 바로 열립니다.",
-    link: DOC,
-    check_key: "outreach_domain",
-  },
-  {
-    key: "gmail",
-    title: "대표 메일함(Gmail) 연결 — 앱 비밀번호",
-    steps: "1. reamer@d-reamer.com 2단계 인증 켜기\n2. Gmail 설정 → IMAP 사용\n3. myaccount.google.com/apppasswords 에서 앱 비밀번호(16자리) 만들기\n4. Railway → yume → Variables 에 GMAIL_USER=reamer@d-reamer.com, GMAIL_APP_PASSWORD=16자리 (직접 넣기)\n연결되면 '완료' — 서버가 연결을 확인합니다.",
-    link: DOC,
-    check_key: "gmail",
-  },
-  {
-    key: "anthropic_reload",
-    title: "Anthropic 잔액 충전 · 자동 충전 켜기",
-    steps: "console.anthropic.com → Billing → 충전 + Auto reload 켜기.\n잔액이 바닥나면 AI 직원·검사·이니시스 심사 결제가 함께 멈춥니다. 지금 키는 테스트용이라 새 키를 만들면 Claude에게 알려 주세요(옛 키는 폐기).",
-    link: "https://console.anthropic.com/settings/billing",
-  },
-  {
-    key: "biz_address",
-    title: "홈택스 사업자등록 소재지 정정 (테크노상업로 112, 204호)",
-    steps: "홈택스 → 신청/제출 → 사업자등록 정정 → 사업장 소재지. 무상사용승낙서(어머니 명의) 또는 임대차계약서 첨부.\n정정이 끝나면 Claude에게 '주소 바꿔'라고 하면 사이트 주소를 바꿉니다.",
-    link: "https://www.hometax.go.kr",
-  },
-  {
-    key: "inicis_address",
-    title: "이니시스 가맹점·보증보험 주소 변경",
-    steps: "사업자등록 정정이 끝났으니 이니시스 담당자(조선아)에게 변경된 사업자등록증을 보내 주소 변경을 요청하고, 보증보험 증권 주소도 바꾸세요.",
-    after_key: "biz_address",
-  },
-  {
-    key: "kmong_mvp",
-    title: "크몽 '모두의 창업 시제품·MVP 제작' 서비스 등록",
-    steps: "마켓등록/크몽/09_모두의창업시제품_MVP제작/ 폴더의 이미지와 등록문구.txt를 그대로 올리면 됩니다.",
-  },
-  {
-    key: "b2b_terms",
-    title: "기업 이용 조건 한 번 읽어 보기 (환불·책임 한도·관할)",
-    steps: "제가 쓴 초안입니다. 9조(해지·환불), 10조(책임 한도 3개월분), 12조(대구지법 관할)만 보시고 바꿀 곳이 있으면 Claude에게 알려 주세요.",
-    link: "https://www.yume-reamer.com/b2b/terms",
-  },
-  { key: "modu_result", title: "모두의 창업 발표 확인", steps: "결과를 확인하고 Claude에게 알려 주세요(지원금 일정에 맞춰 계획을 고칩니다).", due_date: "2026-10-15" },
-  { key: "tax_general", title: "일반과세 시작 — 이제 세금계산서를 발급할 수 있어요", steps: "오늘부터 공급분은 홈택스에서 전자세금계산서를 발급합니다(작업 리스트·기업 거래 화면의 '세금계산서 정보 복사' 사용). 그 전 공급분은 현금영수증으로.", due_date: "2026-11-01" },
-  { key: "sojin_loan", title: "업력 90일 — 소진공 신용취약 소상공인 자금 직접대출 신청 가능", steps: "소상공인정책자금 누리집(ols.semas.or.kr)에서 직접대출로 신청. 대리대출은 보증서가 필요해 어렵습니다.", due_date: "2026-12-15", link: "https://ols.semas.or.kr" },
-];
+// 처음 목록과 "어떻게 하나요" 안내는 todoSeed.js. key가 같으면 다시 만들지 않는다(대표가 끝낸 일은 다시 생기지 않는다).
+export { SEED };
 
-/** 처음 보는 할 일만 넣는다. */
+/** 처음 보는 할 일은 넣고, 이미 있는 할 일은 제목·안내·링크만 최신 글로 맞춘다(끝냄·미룸 상태는 그대로). */
 export async function seed() {
   const t = now();
   for (const s of SEED) {
     await run(
       `INSERT INTO owner_todos (key, title, steps, link, due_date, after_key, check_key, created_at)
-       VALUES (:k, :ti, :st, :li, :du, :af, :ck, :t) ON CONFLICT (key) DO NOTHING`,
+       VALUES (:k, :ti, :st, :li, :du, :af, :ck, :t)
+       ON CONFLICT (key) DO UPDATE SET title = EXCLUDED.title, steps = EXCLUDED.steps, link = EXCLUDED.link`,
       { k: s.key, ti: s.title, st: s.steps || "", li: s.link || "", du: s.due_date || null, af: s.after_key || null, ck: s.check_key || null, t },
     );
   }
