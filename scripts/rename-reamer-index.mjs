@@ -37,7 +37,7 @@ const business = {
     addressCountry: "KR",
     addressRegion: "대구광역시",
     addressLocality: "달성군 유가읍",
-    streetAddress: "테크노상업로 112, 204호",
+    streetAddress: "테크노대로5길 80, 212동 1402호",
   },
   areaServed: { "@type": "Country", name: "대한민국" },
   // 실제로 만들어 운영 중인 것들. 같은 주체가 만든 사이트라는 연결을 준다.
