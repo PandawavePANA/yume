@@ -12,6 +12,7 @@ import { gmailConfigured, loadGmailCreds } from "./gmail.js";
 import { engineStopped } from "../upstream.js";
 import { COMPANY } from "../renderPages.js";
 import { SEED } from "./todoSeed.js";
+import { NEW_ADDRESS, setBusinessAddress } from "../businessAddress.js";
 
 const kstDay = (t = Date.now()) => new Date(t + 9 * 3600_000).toISOString().slice(0, 10);
 const tomorrow = () => kstDay(Date.now() + 86_400_000);
@@ -100,6 +101,11 @@ export async function complete(id, deps = {}) {
     if (!r.ok) return { error: r.why };
   }
   await run("UPDATE owner_todos SET status = 'done', done_at = :t WHERE id = :id", { id: t.id, t: now() });
+  // 사업자등록 소재지 정정이 끝났다 — 세 사이트의 주소를 새 주소로 바꾼다(코드 배포 없이, businessAddress.js).
+  if (t.key === "biz_address") {
+    await setBusinessAddress(NEW_ADDRESS);
+    return { ok: true, title: t.title, result: `완료 — 유메·기업용·리머 사이트 하단 주소를 "${NEW_ADDRESS}"로 바꿨어요(5분 안에 반영)` };
+  }
   return { ok: true, title: t.title, result: t.check_key === "outreach_domain" ? "확인 완료 — 유메 주소로 시험 메일을 보냈고, 첫 메일 발송이 열렸습니다" : "완료" };
 }
 

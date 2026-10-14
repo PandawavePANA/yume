@@ -23,11 +23,13 @@ export const CEO_ID = "ceo";
 const ceoLog = (title, opts = {}) => store.log(CEO_ID, title, opts).catch((e) => logError("staff:ceolog", e));
 
 /** 대표 할 일 — 완료(확인이 필요한 일은 서버가 확인)·내일로·추가. */
-export async function completeTodo(id, { deps = null } = {}) {
+// note — 대표가 완료하면서 남긴 메모(예: 모두의 창업 결과, 이용 조건에서 고칠 점). 업무 일지에 함께 남는다.
+export async function completeTodo(id, { deps = null, note = "" } = {}) {
   const r = await todos.complete(id, deps || (await defaultDeps()));
   if (!r.error) {
     await loadOutreach().catch(() => {});
-    if (r.title) await ceoLog(`할 일 완료 — ${r.title}`, { detail: r.result });
+    const memo = String(note || "").trim().slice(0, 2000);
+    if (r.title) await ceoLog(`할 일 완료 — ${r.title}`, { detail: [memo ? `메모: ${memo}` : "", r.result].filter(Boolean).join("\n") });
   }
   return r;
 }

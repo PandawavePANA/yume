@@ -488,3 +488,33 @@ test("답장 대기열: 결재하면 대기열에 넣고(서버는 메일 포트
   assert.equal(back.status, "pending", "실패하면 결재함으로 돌아온다");
   assert.match(back.result, /발송 실패: Invalid login/);
 });
+
+test("할 일 안에서 끝내기: 승낙서 만들기, 소재지 정정 완료 → 사이트 주소 자동 전환, 완료 메모는 업무 일지에", async () => {
+  const todos = await import("../staff/todos.js");
+  const { COMPANY } = await import("../renderPages.js");
+  const before = COMPANY.address;
+  const doc = await fetch(`${base}/api/admin/staff/docs/free-use`, { method: "POST", headers: { ...ADMIN, "Content-Type": "application/x-www-form-urlencoded" }, body: "owner=%ED%99%8D%EA%B8%B8%EC%88%9C&relation=%EB%AA%A8&start=2026-10-13" });
+  assert.equal(doc.status, 200);
+  const html = await doc.text();
+  assert.match(html, /무상사용승낙서/);
+  assert.match(html, /테크노상업로 112, 204호/);
+  assert.match(html, /홍길순/);
+  assert.match(html, /2026년 10월 13일부터/);
+  assert.equal((await fetch(`${base}/api/admin/staff/docs/free-use`, { method: "POST" })).status, 401, "운영자만");
+
+  await todos.seed();
+  const biz = await db.one("SELECT id FROM owner_todos WHERE key = 'biz_address'");
+  await db.run("UPDATE owner_todos SET status = 'open' WHERE id = :id", { id: biz.id });
+  const r = await staff.completeTodo(biz.id, { deps: deps(), note: "정정 처리 완료 문자 받음" });
+  assert.ok(r.ok, r.error);
+  assert.match(COMPANY.address, /테크노상업로 112, 204호/);
+  assert.notEqual(COMPANY.address, before);
+  const pub = await (await fetch(`${base}/api/public/business`)).json();
+  assert.match(pub.address, /테크노상업로 112, 204호/);
+  const logs = await store.recentLogs(10, "ceo");
+  assert.ok(logs.some((l) => /소재지 정정/.test(l.title) && /정정 처리 완료 문자 받음/.test(l.detail || "")), "완료 메모가 일지에");
+  // 되돌려 둔다(다른 시험이 옛 주소를 본다)
+  const { setAddressOverride } = await import("../renderPages.js");
+  await db.run("DELETE FROM settings WHERE key = 'business_address'");
+  setAddressOverride(null);
+});

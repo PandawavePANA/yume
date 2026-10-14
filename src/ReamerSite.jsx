@@ -4,6 +4,7 @@ import "@/components/reamer/site.css";
 import SiteBackdrop from "@/components/reamer/SiteBackdrop";
 import Logo from "@/components/reamer/Logo";
 import { BUSINESS, telHref, COPYRIGHT, businessLine } from "@/businessInfo";
+import BusinessAddress from "@/BusinessAddress";
 import { rememberToken } from "@/components/reamer/threadApi";
 import { NAV, HERO_NOTE, WHY, GUARANTEES, SERVICES, PROCESS, WORK, ALSO, CREDENTIALS, TIMELINE, FAQ, AFTER_SEND } from "@/reamerContent";
 import "@/components/reamer/motion.css";
@@ -938,7 +939,7 @@ const ReamerSite = () => {
                 BUSINESS.mailOrderNo && `통신판매업 신고 ${BUSINESS.mailOrderNo}`,
               ])}
             </span>
-            <span>주소 {BUSINESS.address}</span>
+            <span>주소 <BusinessAddress /></span>
             <span>
               {BUSINESS.tel && (
                 <>

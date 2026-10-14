@@ -5,12 +5,20 @@
 // 실제로 심사에서 "사이트에 명시되어 있지 않음"으로 걸린 게 이 때문이라 등록증 값을
 // 기본값으로 박아 둔다. 프런트엔드 쪽 같은 값은 src/businessInfo.js에 있다.
 // 결제 완료 안내 메일도 같은 값을 써야 해서 내보낸다 — 두 벌로 두면 한쪽만 바뀐다.
+// 사업장 주소는 사업자등록증과 같아야 한다. 등록 정정이 끝나면 대표가 AI 본사 "오늘 할 일"에서 완료를 누르고,
+// 그때 바뀐 주소가 DB 설정(business_address)으로 들어와 여기(서버 화면)와 /api/public/business(세 사이트 하단)에 바로 반영된다.
+let addressOverride = null;
+export const setAddressOverride = (v) => {
+  addressOverride = v ? String(v) : null;
+};
 export const COMPANY = {
   name: process.env.COMPANY_NAME || "리머(REAMER)",
   ceo: process.env.COMPANY_CEO || "정원영",
   email: process.env.COMPANY_EMAIL || "reamer@d-reamer.com",
   regNo: process.env.BUSINESS_REG_NO || "627-03-03900",
-  address: process.env.BUSINESS_ADDRESS || "대구광역시 달성군 유가읍 테크노대로5길 80, 212동 1402호 (호반베르디움 2차)",
+  get address() {
+    return addressOverride || process.env.BUSINESS_ADDRESS || "대구광역시 달성군 유가읍 테크노대로5길 80, 212동 1402호 (호반베르디움 2차)";
+  },
   // 유선번호. 심사가 "유선번호만 가능"으로 못박은 항목이라 휴대폰 번호는 쓸 수 없다.
   tel: process.env.BUSINESS_TEL || "053-557-3415",
   // 간이과세자는 통신판매업 신고 면제 대상일 수 있어, 없으면 표시하지 않는다.

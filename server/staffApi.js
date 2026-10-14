@@ -5,7 +5,7 @@
 //   GET  /api/admin/staff/approvals/:id/preview   첫 메일 미리보기(HTML)
 //   POST /api/admin/staff/approvals/:id/approve   결재(입력: 받는 사람·확인 체크·항목별 결정·후보 선택)
 //   POST /api/admin/staff/approvals/:id/reject    반려(사유)
-import { Router } from "express";
+import express, { Router } from "express";
 import { requireAdmin } from "./adminApi.js";
 import { audit as auditLog } from "./audit.js";
 import { clientIp } from "./security.js";
@@ -14,6 +14,7 @@ import { addCeoLog, addTodo, approve, completeTodo, connectGmail, office, reject
 import { getApproval } from "./staff/store.js";
 import { auditDetail } from "./auditDesk.js";
 import { clientAuditMail } from "./auditClientMail.js";
+import { renderFreeUseConsent } from "./renderFreeUseConsent.js";
 import { base } from "./staff/jobs/sales.js";
 
 export const staffRouter = Router();
@@ -57,7 +58,7 @@ staffRouter.post("/staff/todos", async (req, res) => {
   res.status(201).json(r);
 });
 staffRouter.post("/staff/todos/:id/done", async (req, res) => {
-  const r = await completeTodo(req.params.id);
+  const r = await completeTodo(req.params.id, { note: req.body?.note });
   log(req, "staff.todo.done", `owner_todo:${req.params.id}`, { ok: !r.error });
   if (r.error) return res.status(400).json({ error: r.error });
   res.json(r);
@@ -82,6 +83,14 @@ staffRouter.post("/staff/gmail", async (req, res) => {
   log(req, "staff.gmail.connect", "gmail", { user: String(req.body?.user || "").slice(0, 120), ok: !r.error });
   if (r.error) return res.status(400).json({ error: r.error });
   res.json({ ok: true, user: r.user });
+});
+
+// 무상사용승낙서 — 할 일 "소재지 정정" 안의 칸(소유자 이름 등)을 POST로 받아 인쇄용 화면을 돌려준다(주소창에 개인정보를 싣지 않게).
+// 받은 값은 저장하지 않는다.
+staffRouter.post("/staff/docs/free-use", express.urlencoded({ extended: false, limit: "8kb" }), (req, res) => {
+  const pick = (k, n) => String(req.body?.[k] || "").trim().slice(0, n);
+  res.set("Content-Type", "text/html; charset=utf-8").set("Cache-Control", "no-store").set("X-Robots-Tag", "noindex");
+  res.send(renderFreeUseConsent({ owner: pick("owner", 40), birth: pick("birth", 20), ownerAddr: pick("ownerAddr", 160), relation: pick("relation", 20), start: pick("start", 10) }));
 });
 
 // 대표가 직접 적는 "내가 한 일" — 업무 일지에 대표 이름으로 남는다.
