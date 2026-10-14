@@ -24,8 +24,8 @@ export const PLAN_CHOICES = [
   { key: "audit_regular", label: "AI 감사 — 정기 감사 + 공개 감사 기록·배지" },
   { key: "trial10", label: "실제 문서 10건 무료 검사" },
   { key: "poc", label: "2주 PoC (문서 검사 + 정확도 보고서)" },
-  { key: "metered", label: `종량제 (호출당 ${won(API_RATES.metered.unitKrw)})` },
-  ...API_RATES.tiers.map((t) => ({ key: t.key, label: `${t.label} (월 ${won(t.monthlyKrw)} · ${t.calls.toLocaleString("ko-KR")}회)` })),
+  { key: "metered", label: `종량제 (건당 ${won(API_RATES.metered.unitKrw)})` },
+  ...API_RATES.tiers.map((t) => ({ key: t.key, label: `${t.label} (월 ${won(t.monthlyKrw)} · ${t.calls.toLocaleString("ko-KR")}건)` })),
   { key: "custom", label: "맞춤 견적 (더 큰 물량 · 계약서)" },
   { key: "unsure", label: "아직 모르겠어요 — 추천해 주세요" },
 ];

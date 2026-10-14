@@ -27,6 +27,7 @@ import { usageInfo, withinRate } from "./apiV1.js";
 import { startVerification, MAX_INPUT_CHARS } from "./verifyPipeline.js";
 import { getVerification, newVerificationId } from "./verificationStore.js";
 import { logError } from "./errorLog.js";
+import { apiUnits } from "./apiRates.js";
 
 const router = patchAsync(express.Router());
 
@@ -131,14 +132,20 @@ async function callTool(name, args, key) {
   }
 
   const usage = await usageInfo(key);
-  if (usage.remaining <= 0) {
-    return toolText("이번 달 호출 한도를 모두 사용했습니다. 한도 상향은 reamer@d-reamer.com으로 문의해주세요.", true);
+  const units = apiUnits(text.length);
+  if (usage.remaining < units) {
+    return toolText(
+      usage.remaining > 0
+        ? `이 내용은 ${units}건(1,000자마다 1건)인데 이번 달 남은 건수가 ${usage.remaining}건입니다. 나눠 보내거나 한도 상향을 reamer@d-reamer.com으로 문의해주세요.`
+        : "이번 달 한도를 모두 사용했습니다. 한도 상향은 reamer@d-reamer.com으로 문의해주세요.",
+      true,
+    );
   }
 
   const id = newVerificationId();
   // /v1과 같은 과금 방식 — 받아들이는 순간 행을 먼저 잡는다. 결과를 기다린 뒤에 세면
   // 그 사이에 들어온 요청이 전부 한도 확인을 통과한다.
-  const usageId = await recordApiUsage(key.id, { verificationId: id, endpoint: "POST /mcp verify", statusCode: 202, billable: true });
+  const usageId = await recordApiUsage(key.id, { verificationId: id, endpoint: "POST /mcp verify", statusCode: 202, billable: true, units });
 
   let done;
   try {

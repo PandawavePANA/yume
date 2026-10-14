@@ -84,7 +84,7 @@ router.get("/overview", async (req, res) => {
        (SELECT COALESCE(AVG(from_cache), 0)::float8 FROM verifications WHERE status = 'done' AND created_at >= :week) AS cache_hit_rate_7d,
        (SELECT COALESCE(AVG(elapsed_ms), 0)::float8 FROM verifications WHERE status = 'done' AND from_cache = 0 AND created_at >= :week) AS avg_latency_7d,
        (SELECT COUNT(*) FROM api_keys WHERE status = 'active') AS api_keys_active,
-       (SELECT COUNT(*) FROM api_usage WHERE billable = 1 AND created_at >= :month) AS api_calls_month,
+       (SELECT COALESCE(SUM(units), 0) FROM api_usage WHERE billable = 1 AND created_at >= :month) AS api_calls_month,
        (SELECT COUNT(*) FROM claims) AS claims_total,
        (SELECT COUNT(*) FROM claims WHERE nec_json IS NOT NULL) AS nec_judged,
        (SELECT COUNT(*) FROM claims WHERE nec_grade = 'nonexistent') AS nec_nonexistent`,

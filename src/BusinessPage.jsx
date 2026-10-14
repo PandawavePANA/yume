@@ -16,9 +16,9 @@ import AuditModal from "./components/yume/AuditModal.jsx";
 import InquiryModal from "./components/business/InquiryModal.jsx";
 import QuoteModal, { QUOTE_PRODUCTS } from "./components/business/QuoteModal.jsx";
 import { CONTACT_EMAIL } from "./components/yume/api.js";
-import { YUME_URL } from "./businessConfig.js";
+import { API_ORIGIN, YUME_URL } from "./businessConfig.js";
 import { BUSINESS, telHref, COPYRIGHT, businessLine, COMPLAINT_NOTICE, COMPLAINT_OFFICER } from "./businessInfo.js";
-import { API_RATES } from "../server/apiRates.js";
+import { API_RATES, API_UNIT_CHARS, AUDIT_LEAD, AUDIT_PILOT_SEATS, AUDIT_RATES } from "../server/apiRates.js";
 
 const won = (n) => `${n.toLocaleString("ko-KR")}원`;
 const pct = (v) => `${Number(v).toFixed(1)}%`;
@@ -156,10 +156,12 @@ const AUDIT_FLOW = [
   ["비공개 보고서", "검사 수치(신뢰구간 포함), 대표 사례와 원문 링크, 잘된 점, 한계를 1~2쪽에 담아 귀사에만 드립니다."],
 ];
 
+// 감사 상품 — 2026-10-14부터 정가를 공개하고 사이트에서 바로 신청한다(금액은 서버 요율표 AUDIT_RATES).
 const AUDIT_PRODUCTS = [
-  { k: "무료 AI 점검", sub: "5분 · 셀프", v: "정답이 확정된 질문 8개를 귀사 AI에 넣고 답을 붙여 넣으면 바로 채점합니다. API 키를 넘기지 않아도 됩니다.", cta: "free" },
-  { k: "1회 정밀 감사", sub: "표본 감사 + 보고서 + 개선 회의 1회", v: "가장 신경 쓰이는 오류 유형을 들려 주시면 그 범위로 질문을 설계합니다. 비용은 질문 수와 업종 범위를 듣고 견적으로 드립니다.", cta: "audit", label: "정밀 감사 문의", main: true },
-  { k: "정기 감사 + 감사 기록", sub: "분기마다 재감사", v: "동의하시면 공개 감사 기록 페이지와 홈페이지 배지(90일 유효)를 드리고, YUME 할루시네이션 지수에 이름을 싣습니다. 고객사·투자자에게 보여 줄 수 있는 검사 기록입니다.", cta: "audit_regular", label: "정기 감사 문의" },
+  { k: "무료 AI 점검", sub: "5분 · 셀프", price: "0원", v: "정답이 확정된 질문 8개를 귀사 AI에 넣고 답을 붙여 넣으면 바로 채점합니다. API 키를 넘기지 않아도 됩니다.", cta: "free" },
+  { k: "정밀 감사", sub: "50문항 · 보고서 · 재검사 1회", price: won(AUDIT_RATES.audit.krw), period: " / 1회", v: "고난도 함정·최근 개정·계산 문제로 50문항. 사람이 원문으로 재확인한 오류만 담은 비공개 보고서와 30분 설명, 고친 뒤 재검사 1회.", cta: "audit", label: "바로 신청", main: true },
+  { k: "정기 감사", sub: "분기마다 30문항", price: won(AUDIT_RATES.audit_regular.krw), period: " / 분기", v: `분기마다 30문항 재감사와 법령 개정 알림. 동의하시면 공개 감사 기록·배지를 드립니다. 1년 선납 ${won(AUDIT_RATES.audit_regular_year.krw)}(10% 할인).`, cta: "audit_regular", label: "바로 신청" },
+  { k: "출시 전 패키지", sub: "정밀 감사 + API 스타터 3개월", price: won(AUDIT_RATES.audit_package.krw), period: " / 1식", v: "출시 전에 정밀 감사로 약점을 찾고, 고친 뒤 실제 서비스에서는 API 스타터(월 400건)로 3개월 동안 답변을 거릅니다.", cta: "audit_package", label: "바로 신청" },
 ];
 
 // 업종 순서가 곧 영업 우선순위다. 확인 의무와 담당자·예산이 이미 있는 광고 심의 업종이 먼저.
@@ -223,11 +225,11 @@ const BUY_DOCS = [
 ];
 
 const PRICE_CARDS = [
-  { key: "trial", label: API_RATES.trial.label, price: "0원", period: "", detail: `매달 ${API_RATES.trial.calls}회. 가입하면 바로 키를 받아 응답 형식을 확인할 수 있습니다.`, unit: "계정당 한도 · 키는 여러 개 만들어도 함께 씁니다", cta: "가입하고 키 발급받기", href: `${YUME_URL}/?open=api` },
-  { key: "metered", label: API_RATES.metered.label, price: won(API_RATES.metered.unitKrw), period: " / 회", detail: "월 약정 없이 쓴 만큼 냅니다. 물량을 가늠하기 전에 붙여 보기 좋습니다.", unit: "기본료 없음 · 후불 월 정산", cta: "견적서 받기", plan: "metered" },
+  { key: "trial", label: API_RATES.trial.label, price: "0원", period: "", detail: `매달 ${API_RATES.trial.calls}건. 가입하면 바로 키를 받아 응답 형식을 확인할 수 있습니다.`, unit: "계정당 한도 · 키는 여러 개 만들어도 함께 씁니다", cta: "가입하고 키 발급받기", href: `${YUME_URL}/?open=api` },
+  { key: "metered", label: API_RATES.metered.label, price: won(API_RATES.metered.unitKrw), period: " / 건", detail: "월 약정 없이 쓴 만큼 냅니다. 물량을 가늠하기 전에 붙여 보기 좋습니다.", unit: "기본료 없음 · 후불 월 정산", cta: "견적서 받기", plan: "metered" },
   ...API_RATES.tiers.map((t) => ({
     key: t.key, label: t.label, price: won(t.monthlyKrw), period: " / 월",
-    detail: `매달 ${t.calls.toLocaleString("ko-KR")}회 포함.`,
+    detail: `매달 ${t.calls.toLocaleString("ko-KR")}건 포함.`,
     unit: `건당 ${won(Math.round(t.monthlyKrw / t.calls))} · 종량제보다 ${Math.round((1 - t.monthlyKrw / t.calls / API_RATES.metered.unitKrw) * 100)}% 저렴`,
     cta: "견적서 받기", plan: t.key,
   })),
@@ -311,6 +313,11 @@ export default function BusinessPage() {
   const ask = (plan = "unsure") => () => setInquiry({ plan, note: "" });
   // 견적서 바로 받기 창. 값은 상품 키(starter·growth·metered).
   const [quote, setQuote] = useState(initialQuote);
+  // 파일럿 남은 자리(서버가 셈). 못 읽으면 null — 배너는 보이고, 마지막 확인은 서버가 한다.
+  const [pilot, setPilot] = useState(null);
+  useEffect(() => {
+    fetch(`${API_ORIGIN}/api/b2b/seats`).then((r) => (r.ok ? r.json() : null)).then((d) => d && setPilot(d.pilot)).catch(() => {});
+  }, []);
   const latest = useLatestIndex();
 
   return (
@@ -343,7 +350,7 @@ export default function BusinessPage() {
               무엇을 언제 어떤 원문으로 확인했는지 기록으로 남깁니다. 귀사 AI는 표본으로 감사하고, 같은 방법으로 잰 숫자는 주기마다 공개합니다.
             </p>
             <div className="bz-ctas">
-              <button type="button" className="bz-btn primary" onClick={ask("audit")}>AI 감사 문의</button>
+              <button type="button" className="bz-btn primary" onClick={() => setQuote("audit")}>AI 감사 바로 신청</button>
               <button type="button" className="bz-btn ghost" onClick={() => setShowAudit(true)}>우리 AI 무료 점검</button>
               <a className="bz-btn ghost" href={`${YUME_URL}/?open=docs`}>문서 올려서 검사하기</a>
             </div>
@@ -411,20 +418,31 @@ export default function BusinessPage() {
               </li>
             ))}
           </ol>
-          <div className="bz-grid g3">
+          <div className="bz-grid g4">
             {AUDIT_PRODUCTS.map((p) => (
               <div key={p.k} className={`bz-card${p.main ? " main" : ""}`}>
                 <div className="k">{p.k}</div>
-                <div style={{ fontSize: 13, color: "var(--ink3)" }}>{p.sub}</div>
+                <div className="bz-price">{p.price}<small>{p.period || ""}</small></div>
+                <div style={{ fontSize: 13, color: "var(--ink3)", marginTop: -4 }}>{p.sub}</div>
                 <div className="d" style={{ flex: 1 }}>{p.v}</div>
+                {p.cta !== "free" && <div className="f">부가세 별도 · 입금 확인 후 {AUDIT_LEAD}</div>}
                 <div className="act">
                   {p.cta === "free"
                     ? <button type="button" className="bz-btn ghost sm" onClick={() => setShowAudit(true)}>무료 점검 시작</button>
-                    : <button type="button" className={`bz-btn ${p.main ? "primary" : "ghost"} sm`} onClick={ask(p.cta)}>{p.label}</button>}
+                    : <button type="button" className={`bz-btn ${p.main ? "primary" : "ghost"} sm`} onClick={() => setQuote(p.cta)}>{p.label}</button>}
                 </div>
               </div>
             ))}
           </div>
+          {pilot !== 0 && (
+            <div className="bz-card" style={{ marginTop: 12, flexDirection: "row", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+              <div style={{ display: "grid", gap: 4, flex: "1 1 320px" }}>
+                <div className="t">첫 {AUDIT_PILOT_SEATS}곳 파일럿 — 정밀 감사 {won(AUDIT_RATES.audit_pilot.krw)}{pilot != null ? ` · 남은 자리 ${pilot}` : ""}</div>
+                <div className="d">정밀 감사와 범위가 같고, 조건은 결과를 보고 30분 피드백 통화 하나입니다. 회사 이름 공개는 조건이 아닙니다.</div>
+              </div>
+              <button type="button" className="bz-btn primary sm" onClick={() => setQuote("audit_pilot")}>파일럿으로 신청</button>
+            </div>
+          )}
           <div className="bz-card" style={{ marginTop: 12 }}>
             <div className="t">실제 서비스에서 AI가 틀리는 자리를 묻습니다</div>
             <div className="d">
@@ -499,7 +517,7 @@ Authorization: Bearer <API_KEY>
         </Section>
 
         {/* ── 요금 ── 값은 서버가 실제 한도에 쓰는 표(server/apiRates.js)에서 그대로 읽는다. */}
-        <Section id="pricing" eyebrow="요금" title="쓴 만큼, 또는 약정한 만큼" lede="검증 1건이 호출 1회입니다. 체험은 가입만 하면 매달 무료로 쓸 수 있고, 그 위는 종량제나 월 약정으로 씁니다. 감사는 범위를 듣고 견적을 드립니다. 표시된 금액은 모두 부가세 별도입니다.">
+        <Section id="pricing" eyebrow="요금" title="쓴 만큼, 또는 약정한 만큼" lede={`보낸 글 ${API_UNIT_CHARS.toLocaleString("ko-KR")}자마다 1건으로 셉니다(보통 AI 답변 하나가 1건). 체험은 가입만 하면 매달 무료로 쓸 수 있고, 그 위는 종량제나 월 약정으로 씁니다. 표시된 금액은 모두 부가세 별도입니다.`}>
           <div className="bz-grid g4">
             {PRICE_CARDS.map((c) => (
               <div key={c.key} className={`bz-card${c.key === "growth" ? " main" : ""}`}>
@@ -516,14 +534,14 @@ Authorization: Bearer <API_KEY>
           <div className="bz-grid g2" style={{ marginTop: 12 }}>
             <div className="bz-card">
               <div className="k">AI 감사</div>
-              <div className="t">견적 — 질문 수 · 업종 · 주기에 따라</div>
-              <div className="d">무료 점검과 첫 비공개 감사는 비용이 없습니다. 정밀 감사와 정기 감사는 범위를 듣고 견적을 드립니다.</div>
-              <div className="act"><button type="button" className="bz-btn ghost sm" onClick={ask("audit")}>감사 견적 요청</button></div>
+              <div className="t">정밀 {won(AUDIT_RATES.audit.krw)} · 정기 분기 {won(AUDIT_RATES.audit_regular.krw)} · 패키지 {won(AUDIT_RATES.audit_package.krw)}</div>
+              <div className="d">사이트에서 바로 신청하고, 입금이 확인되면 {AUDIT_LEAD} 안에 비공개 보고서를 드립니다. 무료 점검은 비용이 없습니다.</div>
+              <div className="act"><button type="button" className="bz-btn ghost sm" onClick={() => setQuote("audit")}>감사 신청</button></div>
             </div>
             <div className="bz-card">
-              <div className="k">더 큰 물량 · 계약서</div>
-              <div className="t">맞춤 견적</div>
-              <div className="d">전용 한도, 계약서, 대량 처리가 필요하시면 알려 주세요. 처리하지 못하고 실패한 호출은 세지 않습니다.</div>
+              <div className="k">{API_RATES.enterprise.label} · 계약서</div>
+              <div className="t">월 {won(API_RATES.enterprise.fromKrw)}부터 · 상담</div>
+              <div className="d">전용 한도, 계약서, 대량 처리가 필요하시면 알려 주세요. 처리하지 못하고 실패한 건은 세지 않습니다.</div>
               <div className="act"><button type="button" className="bz-btn ghost sm" onClick={ask("custom")}>맞춤 견적 요청</button></div>
             </div>
           </div>
@@ -618,7 +636,7 @@ Authorization: Bearer <API_KEY>
           </div>
           <div className="bz-ctas" style={{ marginTop: 0 }}>
             <button type="button" className="bz-btn primary" onClick={() => setShowAudit(true)}>무료로 점검받기</button>
-            <button type="button" className="bz-btn light" onClick={ask("audit")}>AI 감사 문의</button>
+            <button type="button" className="bz-btn light" onClick={() => setQuote("audit")}>AI 감사 바로 신청</button>
             <button type="button" className="bz-btn light" onClick={ask("trial10")}>문서 10건 무료 검사</button>
           </div>
         </section>
