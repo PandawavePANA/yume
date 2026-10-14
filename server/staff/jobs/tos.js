@@ -26,7 +26,7 @@ export async function waiting(limit = 3) {
   return all(
     `SELECT * FROM ai_audits
       WHERE tos_verdict IS NULL AND category = 'service' AND stage = 'prospect' AND closed_at IS NULL
-        AND (tos_url <> '' OR service_url <> '') AND (tos_render IS NULL OR tos_render <> 'queued')
+        AND (tos_url <> '' OR service_url <> '') AND (tos_render IS NULL OR tos_render NOT IN ('queued','retry'))
       ORDER BY id ASC LIMIT :limit`,
     { limit },
   );
@@ -69,9 +69,27 @@ export async function run(ctx) {
         why = e.message;
       }
     }
+    if (!page && a.tos_render === "failed") {
+      // PC 브라우저로도 못 찾았으면, 웹 검색으로 공식 약관 주소를 찾아 한 번 더 열어 오게 한다.
+      const found = await ctx.deps.ai({
+        system: "웹 검색으로 한국 웹서비스의 공식 '서비스 이용약관' 페이지 주소를 찾습니다. 그 회사 도메인(또는 회사가 공식으로 쓰는 노션·구글 문서) 주소만. 못 찾으면 빈칸. JSON 하나만: {\"url\":\"\"}",
+        user: `회사: ${a.company}\n서비스: ${a.service_name} (${a.service_url})`,
+        searches: 2,
+        maxTokens: 1500,
+        label: "staff:tos-find",
+      }).catch(() => ({ json: {}, usd: 0 }));
+      const url = String(found.json?.url || "").trim();
+      if (/^https?:\/\//.test(url) && url !== a.tos_url) {
+        await exec("UPDATE ai_audits SET tos_url = :u, tos_render = 'retry' WHERE id = :id", { id: a.id, u: url.slice(0, 400) });
+        await ctx.log(`${a.company} 약관 주소를 검색으로 찾아 현장 요원에게 다시 열어 오게 했어요`, { detail: url, ref: `audit:${a.id}`, costUsd: found.usd });
+        continue;
+      }
+      await exec("UPDATE ai_audits SET tos_render = 'failed2' WHERE id = :id", { id: a.id });
+      a.tos_render = "failed2";
+    }
     if (!page) {
-      // 서버가 못 읽는 페이지(스크립트로 그리는 사이트)는 대표 PC의 현장 요원이 진짜 브라우저로 열어 온다 — 한 번만.
-      if (a.tos_render !== "failed") {
+      // 서버가 못 읽는 페이지(스크립트로 그리는 사이트)는 대표 PC의 현장 요원이 진짜 브라우저로 열어 온다.
+      if (!a.tos_render) {
         await exec("UPDATE ai_audits SET tos_render = 'queued' WHERE id = :id", { id: a.id });
         await ctx.log(`${a.company} 약관을 서버에서 못 읽어 현장 요원(PC 브라우저)에게 열어 오게 했어요`, { detail: why, ref: `audit:${a.id}` });
         continue;

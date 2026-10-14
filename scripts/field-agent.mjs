@@ -199,11 +199,11 @@ async function renderTos(a) {
       await run("UPDATE ai_audits SET tos_text = :tx, tos_render = 'done', tos_url = :u WHERE id = :id", { id: a.id, tx: String(text).slice(0, 40_000), u: url });
       log(`약관 가져옴 — #${a.id} ${a.company} (${String(text).length}자)`);
     } else {
-      await run("UPDATE ai_audits SET tos_render = 'failed' WHERE id = :id", { id: a.id });
+      await run("UPDATE ai_audits SET tos_render = CASE WHEN tos_render = 'retry' THEN 'failed2' ELSE 'failed' END WHERE id = :id", { id: a.id });
       log(`약관 못 찾음 — #${a.id} ${a.company}`);
     }
   } catch (e) {
-    await run("UPDATE ai_audits SET tos_render = 'failed' WHERE id = :id", { id: a.id });
+    await run("UPDATE ai_audits SET tos_render = CASE WHEN tos_render = 'retry' THEN 'failed2' ELSE 'failed' END WHERE id = :id", { id: a.id });
     log(`약관 열기 오류 — #${a.id}: ${e.message}`);
   }
 }
@@ -219,7 +219,7 @@ for (;;) {
   }
   await beat("대기 — 맡을 답 수집을 기다리는 중");
   // 약관 열어 오기가 먼저다(짧고, 이게 끝나야 법무팀이 감사 여부를 정한다).
-  const t = await one("SELECT * FROM ai_audits WHERE tos_render = 'queued' AND closed_at IS NULL ORDER BY id ASC LIMIT 1");
+  const t = await one("SELECT * FROM ai_audits WHERE tos_render IN ('queued','retry') AND closed_at IS NULL ORDER BY id ASC LIMIT 1");
   if (t) {
     await renderTos(t);
     continue;
