@@ -67,6 +67,8 @@ export async function run(ctx) {
   const validity = await getSetting("gmail:uid_validity").catch(() => null);
   const { uidValidity, messages } = await ctx.deps.gmailFetch({ sinceUid: lastUid, uidValidity: validity });
   const me = gmailUser().toLowerCase();
+  // 대표 개인 주소 목록(공개 저장소라 코드에 적지 않고 DB 설정에 둔다 — 쉼표로 구분).
+  const ownerAddrs = String((await getSetting("owner_addresses").catch(() => "")) || "").toLowerCase().split(",").map((s) => s.trim()).filter(Boolean);
   let seen = 0;
   let replies = 0;
   let usd = 0;
@@ -74,11 +76,14 @@ export async function run(ctx) {
   for (const m of messages) {
     maxUid = Math.max(maxUid, Number(m.uid) || 0);
     if (m.from === me) continue;
+    // 대표 본인이 보낸 메일(개인 주소로 시험해 본 답장 등)에는 답장 초안을 만들지 않는다 — 분류만 남긴다.
+    const fromOwner = m.fromName === COMPANY.ceo || ownerAddrs.includes(m.from);
     if (await one("SELECT 1 AS x FROM mail_inbox WHERE message_id = :id", { id: m.messageId })) continue;
     seen += 1;
     const c = await contextOf(m.from);
     let r = { category: "notice", needs_reply: false, urgency: "low", summary: m.subject, draft: "" };
-    if (!isAutomated(m)) {
+    if (fromOwner) r = { ...r, category: "personal", summary: `대표 본인 메일 — ${m.subject}` };
+    else if (!isAutomated(m)) {
       const out = await ctx.deps.ai({
         system: SYSTEM(),
         user: `보낸 사람: ${m.fromName ? `${m.fromName} ` : ""}<${m.from}>\n받은 시각: ${new Date(m.date + 9 * 3600_000).toISOString().slice(0, 16).replace("T", " ")}\n제목: ${m.subject}\n우리 기록: ${contextLine(c)}\n\n본문:\n${m.text.slice(0, 6000)}`,
@@ -98,7 +103,7 @@ export async function run(ctx) {
     if (category === "audit_reply" && c.audit?.sent_at && !c.audit.replied_at) {
       await setStage(c.audit.id, "replied").catch(() => {});
     }
-    if (r.needs_reply && category !== "unsubscribe") {
+    if (r.needs_reply && category !== "unsubscribe" && !fromOwner) {
       approvalId = await ctx.propose({
         kind: "reply_mail",
         title: `답장 — ${m.fromName || m.from}: ${m.subject || "(제목 없음)"}`,
