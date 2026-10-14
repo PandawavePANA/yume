@@ -47,8 +47,9 @@ export const SEED = [
 
 ② IMAP 켜기
   1. Gmail → 오른쪽 위 톱니바퀴 → 모든 설정 보기 → "전달 및 POP/IMAP" 탭
-  2. IMAP 액세스: "IMAP 사용" → 맨 아래 변경사항 저장
-  · IMAP 항목이 없으면: 관리 콘솔 → 앱 → Google Workspace → Gmail → 최종 사용자 액세스 → "POP 및 IMAP 액세스" 사용 → 저장.
+  2. IMAP 액세스 칸에 "IMAP 사용" 선택지가 있으면 켜고 저장.
+     선택지 없이 "Auto-Expunge on/off" 같은 세부 설정만 보이면 이미 켜져 있는 것입니다(구글이 켜기 버튼을 없앴음) — 아무것도 바꾸지 말고 다음 단계로.
+  · IMAP 칸 자체가 없으면: 관리 콘솔 → 앱 → Google Workspace → Gmail → 최종 사용자 액세스 → "POP 및 IMAP 액세스" 사용 → 저장.
 
 ③ 앱 비밀번호 만들기
   1. myaccount.google.com/apppasswords 접속(위 '열기' 버튼)
