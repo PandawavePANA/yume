@@ -51,7 +51,7 @@ staffRouter.post("/staff/approvals/:id/reject", async (req, res) => {
 
 // 대표 할 일(투두) — /staff/:id 보다 먼저 둔다("todos"를 직원 id로 읽지 않게).
 staffRouter.post("/staff/todos", async (req, res) => {
-  const r = await addTodo({ title: req.body?.title, steps: req.body?.steps, due_date: req.body?.due_date, link: req.body?.link });
+  const r = await addTodo({ title: req.body?.title, steps: req.body?.steps, due_date: req.body?.due_date, link: req.body?.link, priority: req.body?.priority });
   log(req, "staff.todo.add", "owner_todo", { title: req.body?.title });
   if (r.error) return res.status(400).json({ error: r.error });
   res.status(201).json(r);

@@ -203,6 +203,9 @@ iframe.preview { width:100%; height:620px; border:1px solid var(--line); border-
 .todo.done .ttitle { text-decoration:line-through; color:var(--ink3); }
 .ttitle { font-weight:750; font-size:15px; line-height:1.45; display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
 .tage { font-size:11px; font-weight:800; color:var(--warn); background:var(--warn-soft); border-radius:6px; padding:0 6px; }
+.tpri { font-size:11px; font-weight:850; border-radius:6px; padding:1px 7px; letter-spacing:.02em; }
+.tpri.p1 { background:var(--seal); color:#fff; } .tpri.p2 { background:var(--todo-soft); color:var(--todo); } .tpri.p3 { background:var(--panel2); color:var(--ink3); border:1px solid var(--line); }
+.tadd select { padding:8px 10px; border-radius:9px; border:1px solid var(--line2); background:var(--panel); font-size:13.5px; }
 .tauto { font-size:11px; font-weight:700; color:var(--todo); background:var(--todo-soft); border-radius:6px; padding:0 6px; }
 .tsteps { margin-top:4px; font-size:13px; color:var(--ink2); }
 .tsteps summary { cursor:pointer; color:var(--todo); font-weight:700; font-size:12.5px; }
@@ -227,7 +230,7 @@ iframe.preview { width:100%; height:620px; border:1px solid var(--line); border-
 .lrow time { font-size:12px; color:var(--ink3); white-space:nowrap; }
 .lrow details { font-size:12.5px; color:var(--ink2); white-space:pre-wrap; }
 /* 대표가 한 일 — 진한 바탕 아바타와 왼쪽 띠로 직원 줄과 구분 */
-.lrow.ceo { background:linear-gradient(90deg, var(--accent-soft), transparent 60%); box-shadow:inset 3px 0 0 var(--ink); }
+.lrow.byceo { background:linear-gradient(90deg, var(--accent-soft), transparent 60%); box-shadow:inset 3px 0 0 var(--ink); }
 .av.ceo-av { width:32px; height:32px; font-size:13px; background:var(--ink); color:var(--panel); box-shadow:none; }
 .ltag { font-size:10.5px; font-weight:800; color:var(--accent); background:var(--accent-soft); border-radius:5px; padding:0 5px; margin-left:4px; }
 .loghead { display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:10px; }
@@ -426,7 +429,7 @@ const SCRIPT = String.raw`
     var rows = logs.map(function (l) {
       var av = l.ceo ? '<span class="av ceo-av">대<i class="dot"></i></span>' : avatar(l.name, teamHue(l.team));
       var who = l.ceo ? esc(l.name) + " · 대표" + (l.manual ? ' <span class="ltag">직접 기록</span>' : "") : esc(l.name) + " · " + esc((S.data.teams[l.team] || {}).label || "");
-      return '<div class="lrow ' + esc(l.level) + (l.ceo ? " ceo" : "") + '">' + av + '<div><div class="who2">' + who + '</div><div class="tt">' + esc(l.title) + "</div>" + (l.detail ? "<details><summary>자세히</summary>" + esc(l.detail) + "</details>" : "") + "</div><time>" + kst(l.created_at) + "</time></div>";
+      return '<div class="lrow ' + esc(l.level) + (l.ceo ? " byceo" : "") + '">' + av + '<div><div class="who2">' + who + '</div><div class="tt">' + esc(l.title) + "</div>" + (l.detail ? "<details><summary>자세히</summary>" + esc(l.detail) + "</details>" : "") + "</div><time>" + kst(l.created_at) + "</time></div>";
     }).join("");
     $("#view").innerHTML = head + (rows ? '<div class="log">' + rows + "</div>" : '<div class="empty"><div class="big">📓</div>아직 기록이 없습니다.</div>');
   }
@@ -437,7 +440,7 @@ const SCRIPT = String.raw`
     var rows = d.todos.map(function (t) {
       return '<li class="todo" data-id="' + t.id + '">' +
         '<button type="button" class="tcheck" data-tdone="' + t.id + '" aria-label="' + esc(t.title) + ' 완료"><span></span></button>' +
-        '<div class="tmain"><div class="ttitle">' + esc(t.title) + (t.age ? '<span class="tage">' + t.age + "일째</span>" : "") + (t.check ? '<span class="tauto">완료 누르면 서버가 확인</span>' : "") + "</div>" +
+        '<div class="tmain"><div class="ttitle"><span class="tpri p' + t.priority + '">' + ({ 1: "중요", 2: "보통", 3: "여유" }[t.priority] || "보통") + "</span>" + esc(t.title) + (t.age ? '<span class="tage">' + (t.age + 1) + "일째 · 어제에서 넘어옴</span>" : "") + (t.check ? '<span class="tauto">완료 누르면 서버가 확인</span>' : "") + "</div>" +
         (t.key === "gmail" ? '<form class="gform" id="gform" autocomplete="off"><input id="g-user" type="email" value="reamer@d-reamer.com" aria-label="메일 주소" /><input id="g-pass" type="password" autocomplete="new-password" placeholder="앱 비밀번호 16자리" aria-label="앱 비밀번호" /><button type="submit" class="btn sm gbtn">연결 시험 후 저장</button></form><div class="hint">Railway에 못 들어갈 때 여기에 직접 넣으세요. 서버가 메일함 접속을 시험하고, 성공하면 암호화해서 저장합니다(화면·기록에 남지 않음).</div>' : "") +
         (t.steps ? '<details class="tsteps"><summary>어떻게 하나요</summary><div>' + esc(t.steps) + "</div></details>" : "") +
         '<div class="tacts">' + (t.link ? (/^https?:/.test(t.link) ? '<a class="btn plain sm" href="' + esc(t.link) + '" target="_blank" rel="noopener">열기 ↗</a>' : '<span class="hint">문서: ' + esc(t.link) + "</span>") : "") +
@@ -445,7 +448,7 @@ const SCRIPT = String.raw`
     }).join("");
     var next = d.todosNext.length ? '<h3 class="tnext-h">곧 할 일</h3><ul class="tnext">' + d.todosNext.map(function (t) { return "<li><b>" + esc(t.due_date.slice(5).replace("-", "/")) + "</b> " + esc(t.title) + "</li>"; }).join("") + "</ul>" : "";
     $("#view").innerHTML = '<section class="todos"><div class="thead2"><div><h2>오늘 할 일</h2><p>계정·DNS·홈택스·충전처럼 대표님 본인만 할 수 있는 일입니다. 직원들의 결재 문서와 따로 모았습니다.</p></div>' +
-      '<form class="tadd" id="tadd"><input id="tadd-title" placeholder="할 일 추가 (예: 세무서 서류 제출)" maxlength="200" /><input id="tadd-date" type="date" aria-label="날짜(선택)" /><button type="submit" class="btn primary sm">추가</button></form></div>' +
+      '<form class="tadd" id="tadd"><input id="tadd-title" placeholder="할 일 추가 (예: 세무서 서류 제출)" maxlength="200" /><select id="tadd-pri" aria-label="중요도"><option value="1">중요</option><option value="2" selected>보통</option><option value="3">여유</option></select><input id="tadd-date" type="date" aria-label="날짜(선택)" /><button type="submit" class="btn primary sm">추가</button></form></div>' +
       (rows ? '<ul class="tlist">' + rows + "</ul>" : '<div class="empty"><div class="big">✅</div>오늘 할 일을 다 끝냈습니다.</div>') + next + "</section>";
   }
 
@@ -532,7 +535,7 @@ const SCRIPT = String.raw`
     if (e.target.id !== "tadd") return;
     e.preventDefault();
     var title = $("#tadd-title").value.trim(); if (!title) return;
-    try { await api("/staff/todos", { title: title, due_date: $("#tadd-date").value || null }); toast("할 일을 추가했어요"); load(true); } catch (err) { toast(err.message); }
+    try { await api("/staff/todos", { title: title, due_date: $("#tadd-date").value || null, priority: Number($("#tadd-pri").value) }); toast("할 일을 추가했어요"); load(true); } catch (err) { toast(err.message); }
   });
   document.addEventListener("change", function (e) {
     var t = e.target; var a = S.data && S.data.approvals.find(function (x) { return x.id === S.sel; });
