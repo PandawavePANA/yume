@@ -8,7 +8,7 @@ import { engineState, engineStopped } from "../upstream.js";
 import { logError } from "../errorLog.js";
 import { USD_KRW } from "../costGuard.js";
 import { isBusinessDay } from "../businessDays.js";
-import { askJson, readPage } from "./ai.js";
+import { askJson, askText, readPage } from "./ai.js";
 import { fetchNew, gmailConfigured, markAnswered, sendReply } from "./gmail.js";
 import * as store from "./store.js";
 import { CEO, KINDS, ROSTER, TEAMS, lineFor } from "./roster.js";
@@ -46,7 +46,7 @@ export function businessHours(t = Date.now()) {
 
 async function defaultDeps() {
   const { confirmPayment } = await import("../b2bApi.js");
-  return { ai: askJson, readPage, sendMail, confirmPayment, gmailFetch: fetchNew, gmailSend: sendReply, gmailMarkAnswered: markAnswered, ...prepDefaults };
+  return { ai: askJson, askText, readPage, sendMail, confirmPayment, gmailFetch: fetchNew, gmailSend: sendReply, gmailMarkAnswered: markAnswered, ...prepDefaults };
 }
 
 function contextFor(id, def, state, deps) {

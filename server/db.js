@@ -1296,6 +1296,11 @@ const MIGRATIONS = [
   ALTER TABLE ai_audits ADD COLUMN tos_render TEXT;
   ALTER TABLE ai_audits ADD COLUMN tos_text TEXT;
   `,
+  // 질문 검수(현장 요원) — 답 수집 전에 기준 AI로 질문을 시험해, 기준 AI도 맞히는 쉬운 문항을 어려운 것으로 바꾼다.
+  `
+  ALTER TABLE ai_audits ADD COLUMN qcheck_at BIGINT;
+  ALTER TABLE ai_audits ADD COLUMN qcheck_note TEXT;
+  `,
 ];
 
 async function migrate() {

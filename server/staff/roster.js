@@ -47,7 +47,7 @@ export const ROSTER = {
   doyun: { name: "도윤", title: "법무 담당", team: "legal", lead: true, duty: "이용약관 검토 — 감사 가능 여부 · 자동 접속 금지 · 나가는 메일 문구", job: tos, schedule: work(20 * MIN), ai: true, defaults: { autonomy: "auto", dailyCap: 3 }, autoOnly: true },
   harin: { name: "하린", title: "감사팀장", team: "audit", lead: true, duty: "질문 세트 준비 · 답 수집 배정 · 답이 오면 채점", job: prep, schedule: work(10 * MIN), ai: true, defaults: { autonomy: "auto", dailyCap: 2 }, autoOnly: true },
   sua: { name: "수아", title: "QA 검수", team: "audit", reportsTo: "harin", duty: "오류 후보를 법령 원문과 다시 대조", job: qa, schedule: work(15 * MIN), ai: true, defaults: { autonomy: "auto" }, autoOnly: true },
-  field: { name: "현장 요원", title: "답 수집(대표 PC)", team: "audit", reportsTo: "harin", duty: "자동 접속 금지가 없는 서비스에 질문을 한 건씩 넣고 답·캡처 저장", job: field, schedule: work(10 * MIN), ai: false, defaults: { autonomy: "auto" }, autoOnly: true },
+  field: { name: "현장 요원", title: "질문 검수 · 답 수집(대표 PC)", team: "audit", reportsTo: "harin", duty: "질문을 기준 AI로 먼저 시험해 쉬운 문항 교체 · 자동 접속 금지가 없는 곳에 질문을 넣고 답·캡처 저장", job: field, schedule: work(10 * MIN), ai: true, defaults: { autonomy: "auto" }, autoOnly: true },
   minjae: { name: "민재", title: "경영지원팀장", team: "ops", lead: true, duty: "입금 확인 요청 · 유료 보고서 발송 · 견적 안부 · 입금 안내", job: ops, schedule: work(30 * MIN), ai: false, defaults: { autonomy: "approve" }, approveOnly: true },
 };
 

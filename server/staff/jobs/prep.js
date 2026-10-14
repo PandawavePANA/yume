@@ -40,11 +40,12 @@ export const needQuestions = (limit) =>
 export const needAnswers = () =>
   all(
     `SELECT a.* FROM ai_audits a
-      WHERE a.tos_verdict = 'ok' AND a.sent_at IS NULL AND a.closed_at IS NULL
+      WHERE a.tos_verdict = 'ok' AND a.sent_at IS NULL AND a.closed_at IS NULL AND a.qcheck_at IS NOT NULL
         AND EXISTS (SELECT 1 FROM ai_audit_items i WHERE i.audit_id = a.id)
         AND NOT EXISTS (SELECT 1 FROM ai_audit_items i WHERE i.audit_id = a.id AND i.answer IS NOT NULL AND i.answer <> '')
       ORDER BY a.id ASC LIMIT 10`,
   );
+// ↑ qcheck_at — 현장 요원의 질문 검수(기준 AI로 쉬운 문항 교체, qreview.js)가 끝난 감사만 답 수집으로 넘어간다.
 
 /** 답은 들어왔는데 아직 채점하지 않은 감사와 그 답 수. */
 export const needChecks = () =>
@@ -80,7 +81,7 @@ export async function run(ctx) {
       }
       continue;
     }
-    const dedupe = `collect:audit:${a.id}`;
+    const dedupe = `collect:audit:${a.id}:${a.qcheck_at}`;
     if (await ctx.hasProposal(dedupe)) continue;
     const qs = await all("SELECT position, question FROM ai_audit_items WHERE audit_id = :id ORDER BY position, id", { id: a.id });
     await ctx.propose({
