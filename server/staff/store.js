@@ -85,6 +85,12 @@ export async function log(staff, title, { detail = null, ref = null, level = "in
   );
 }
 
+/** 같은 경고를 하루에 한 번만 남긴다(15분마다 같은 "보류" 줄이 쌓이면 일지가 읽히지 않는다). */
+export async function logOnce(staff, title, opts = {}) {
+  const dup = await one("SELECT 1 AS x FROM staff_log WHERE staff = :s AND title = :title AND created_at >= :since", { s: staff, title: String(title).slice(0, 200), since: kstDayStart() });
+  if (!dup) await log(staff, title, opts);
+}
+
 export const recentLogs = (limit = 60, staff = null) =>
   staff
     ? all("SELECT * FROM staff_log WHERE staff = :s ORDER BY id DESC LIMIT :limit", { s: staff, limit })
