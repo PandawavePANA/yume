@@ -10,7 +10,7 @@ import { requireAdmin } from "./adminApi.js";
 import { audit as auditLog } from "./audit.js";
 import { clientIp } from "./security.js";
 import { logError } from "./errorLog.js";
-import { addTodo, approve, completeTodo, office, reject, runStaff, snoozeTodo, updateStaff } from "./staff/index.js";
+import { addCeoLog, addTodo, approve, completeTodo, office, reject, runByCeo, snoozeTodo, updateStaff } from "./staff/index.js";
 import { getApproval } from "./staff/store.js";
 import { auditDetail } from "./auditDesk.js";
 import { clientAuditMail } from "./auditClientMail.js";
@@ -71,8 +71,16 @@ staffRouter.post("/staff/todos/:id/snooze", async (req, res) => {
 staffRouter.post("/staff/:id/run", async (req, res) => {
   log(req, "staff.run", `staff:${req.params.id}`);
   // 기다리지 않는다 — 리서치처럼 1~2분 걸리는 일이 있다. 화면은 "근무 중"으로 보였다가 끝나면 바뀐다.
-  runStaff(req.params.id, { manual: true }).catch((e) => logError("staff:run", e));
+  const r = await runByCeo(req.params.id);
+  if (r.error) return res.status(400).json({ error: r.error });
   res.status(202).json({ ok: true });
+});
+
+// 대표가 직접 적는 "내가 한 일" — 업무 일지에 대표 이름으로 남는다.
+staffRouter.post("/staff/log", async (req, res) => {
+  const r = await addCeoLog({ title: req.body?.title, detail: req.body?.detail });
+  if (r.error) return res.status(400).json({ error: r.error });
+  res.status(201).json(r);
 });
 
 staffRouter.post("/staff/:id", async (req, res) => {

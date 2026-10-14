@@ -413,3 +413,27 @@ test("대표 할 일: 결재함과 따로 — 날짜·앞 일 조건대로 보�
   await db.run("DELETE FROM settings WHERE key = 'outreach_from'").catch(() => {});
   await sales.loadOutreach();
 });
+
+test("업무 일지: 대표가 한 일(결재·반려·할 일·직원 설정·직접 기록)도 대표 이름으로 남는다", async () => {
+  const id1 = await store.propose("minjae", { kind: "pay_reminder", title: "입금 안내 — 일지시험", payload: { quoteId: 1, to: "a@b.co", subject: "s", body: "b" }, dedupe: "ceolog:1" });
+  assert.ok((await staff.approve(id1, {}, { deps: deps() })).ok);
+  const id2 = await store.propose("minjae", { kind: "quote_reminder", title: "견적 안부 — 일지시험", payload: { quoteId: 1 }, dedupe: "ceolog:2" });
+  await staff.reject(id2, "보내지 말 것");
+  await staff.updateStaff("seoyeon", { enabled: true });
+  await staff.addTodo({ title: "일지시험 할 일" });
+  const manual = await fetch(`${base}/api/admin/staff/log`, { method: "POST", headers: { ...ADMIN, "Content-Type": "application/json" }, body: JSON.stringify({ title: "로무앤톡 대표와 통화", detail: "다음 주 미팅" }) });
+  assert.equal(manual.status, 201);
+  assert.equal((await fetch(`${base}/api/admin/staff/log`, { method: "POST", headers: { ...ADMIN, "Content-Type": "application/json" }, body: JSON.stringify({ title: " " }) })).status, 400);
+
+  const o = await (await fetch(`${base}/api/admin/staff`, { headers: ADMIN })).json();
+  const mine = o.logs.filter((l) => l.ceo).map((l) => l.title);
+  assert.ok(mine.some((t) => /^결재 승인 — 입금 안내 — 일지시험/.test(t)));
+  assert.ok(mine.some((t) => /^반려 — 견적 안부 — 일지시험/.test(t)));
+  assert.ok(mine.some((t) => /^직원 설정 — 서연: 출근/.test(t)));
+  assert.ok(mine.some((t) => /^할 일 추가 — 일지시험 할 일/.test(t)));
+  const m = o.logs.find((l) => l.title === "로무앤톡 대표와 통화");
+  assert.ok(m.ceo && m.manual, "직접 기록 표시");
+  assert.equal(m.name, "정원영");
+  assert.ok(o.summary.ceoToday >= 2, "대표가 오늘 한 일 수");
+  assert.ok(!o.logs.some((l) => !l.ceo && /결재 승인 — 입금 안내 — 일지시험/.test(l.title)), "대표 기록은 직원 줄로 섞이지 않는다");
+});

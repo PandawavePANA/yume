@@ -17,14 +17,37 @@ import { heartbeat } from "./jobs/field.js";
 import { loadOutreach, outreachFrom } from "./jobs/sales.js";
 import * as todos from "./todos.js";
 
+// 대표가 한 일도 업무 일지에 남는다(staff = "ceo") — 결재·반려·할 일·직원 설정, 그리고 대표가 직접 적은 일.
+export const CEO_ID = "ceo";
+const ceoLog = (title, opts = {}) => store.log(CEO_ID, title, opts).catch((e) => logError("staff:ceolog", e));
+
 /** 대표 할 일 — 완료(확인이 필요한 일은 서버가 확인)·내일로·추가. */
 export async function completeTodo(id, { deps = null } = {}) {
   const r = await todos.complete(id, deps || (await defaultDeps()));
-  if (!r.error) await loadOutreach().catch(() => {});
+  if (!r.error) {
+    await loadOutreach().catch(() => {});
+    if (r.title) await ceoLog(`할 일 완료 — ${r.title}`, { detail: r.result });
+  }
   return r;
 }
-export const snoozeTodo = (id) => todos.snooze(id);
-export const addTodo = (input) => todos.add(input);
+export async function snoozeTodo(id) {
+  const r = await todos.snooze(id);
+  if (!r.error) await ceoLog(`할 일 내일로 — ${r.title}`, { level: "note" });
+  return r;
+}
+export async function addTodo(input) {
+  const r = await todos.add(input);
+  if (!r.error) await ceoLog(`할 일 추가 — ${String(input.title).slice(0, 150)}`, { level: "note" });
+  return r;
+}
+
+/** 대표가 직접 적는 "내가 한 일". */
+export async function addCeoLog({ title, detail = "" }) {
+  const ti = String(title || "").trim();
+  if (!ti) return { error: "한 일을 적어 주세요." };
+  await store.log(CEO_ID, ti.slice(0, 200), { detail: String(detail || "").slice(0, 4000) || null, ref: "manual" });
+  return { ok: true };
+}
 
 const KST = 9 * 3600_000;
 const running = new Set();
@@ -172,6 +195,7 @@ export async function approve(approvalId, input = {}, { deps = null, delegated =
   if (delegated && r.ok) r.result = `전결 · ${r.result}`;
   await store.finish(a.id, r);
   await store.log(a.staff, r.ok ? `${who} 완료 — ${a.title}: ${r.result}` : `${who}는 났지만 실행 실패 — ${a.title}: ${r.result}`, { level: r.ok ? "info" : "warn", ref: a.ref });
+  if (!delegated && r.ok) await ceoLog(`결재 승인 — ${a.title}`, { detail: r.result, ref: a.ref });
   return r.ok ? { ok: true, result: r.result } : { error: r.result };
 }
 
@@ -181,6 +205,7 @@ export async function reject(approvalId, reason = "") {
   if (!(await store.decide(a.id, "rejected", reason || "반려"))) return { error: "이미 처리한 결재예요." };
   if (KINDS[a.kind]?.onReject) await KINDS[a.kind].onReject(a.payload).catch((e) => logError(`staff:reject:${a.kind}`, e));
   await store.log(a.staff, `대표 반려 — ${a.title}${reason ? `: ${reason}` : ""}`, { level: "warn", ref: a.ref });
+  await ceoLog(`반려 — ${a.title}`, { detail: reason || null, ref: a.ref, level: "note" });
   return { ok: true };
 }
 
@@ -229,11 +254,21 @@ export async function office(t = Date.now()) {
     teams: TEAMS,
     staff,
     approvals: approvals.map((a) => ({ ...a, kindLabel: KINDS[a.kind]?.label || a.kind, urgent: !!KINDS[a.kind]?.urgent || a.payload?.urgency === "high", work: !!KINDS[a.kind]?.work })),
-    logs: logs.map((l) => ({ ...l, id: Number(l.id), created_at: Number(l.created_at), name: ROSTER[l.staff]?.name || l.staff, team: ROSTER[l.staff]?.team || "office" })),
+    logs: logs.map((l) => ({
+      ...l,
+      id: Number(l.id),
+      created_at: Number(l.created_at),
+      ceo: l.staff === CEO_ID,
+      manual: l.staff === CEO_ID && l.ref === "manual",
+      name: l.staff === CEO_ID ? CEO.name : ROSTER[l.staff]?.name || l.staff,
+      team: l.staff === CEO_ID ? "ceo" : ROSTER[l.staff]?.team || "office",
+    })),
     summary: {
       pending: approvals.length,
       urgent: approvals.filter((a) => KINDS[a.kind]?.urgent).length,
-      doneToday: Object.values(stats).reduce((n, x) => n + x.done, 0),
+      // 직원들이 처리한 일(대표가 한 일은 따로 센다)
+      doneToday: Object.entries(stats).filter(([k]) => k !== CEO_ID).reduce((n, [, x]) => n + x.done, 0),
+      ceoToday: stats[CEO_ID]?.done || 0,
       costKrw: Math.round(usd * USD_KRW),
       engine: engineState(),
       gmail: gmailConfigured(),
@@ -259,5 +294,16 @@ export async function updateStaff(id, patch) {
   if (!def) return { error: "없는 직원이에요." };
   await store.getState(id, def.defaults);
   if (patch.autonomy !== undefined && (def.autoOnly || def.approveOnly)) return { error: "이 직원은 모드를 바꿀 수 없어요." };
-  return store.setState(id, patch);
+  const r = await store.setState(id, patch);
+  const what = [patch.enabled !== undefined ? (patch.enabled ? "출근" : "퇴근") : null, patch.autonomy ? (patch.autonomy === "auto" ? "자동 처리" : "결재 후 처리") : null, patch.daily_cap !== undefined ? `하루 한도 ${patch.daily_cap}` : null].filter(Boolean).join(" · ");
+  if (!r.error && what) await ceoLog(`직원 설정 — ${def.name}: ${what}`, { level: "note" });
+  return r;
+}
+
+/** 대표가 "지금 일 시키기"를 눌렀다 — 일지에 남기고 시킨다. */
+export async function runByCeo(id) {
+  if (!ROSTER[id]) return { error: "없는 직원이에요." };
+  await ceoLog(`지시 — ${ROSTER[id].name}에게 지금 일 시킴`, { level: "note" });
+  runStaff(id, { manual: true }).catch((e) => logError("staff:run", e));
+  return { ok: true };
 }

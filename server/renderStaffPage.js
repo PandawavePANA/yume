@@ -223,6 +223,19 @@ iframe.preview { width:100%; height:620px; border:1px solid var(--line); border-
 .lrow.warn .tt { color:var(--warn); } .lrow.error .tt { color:var(--bad); }
 .lrow time { font-size:12px; color:var(--ink3); white-space:nowrap; }
 .lrow details { font-size:12.5px; color:var(--ink2); white-space:pre-wrap; }
+/* 대표가 한 일 — 진한 바탕 아바타와 왼쪽 띠로 직원 줄과 구분 */
+.lrow.ceo { background:linear-gradient(90deg, var(--accent-soft), transparent 60%); box-shadow:inset 3px 0 0 var(--ink); }
+.av.ceo-av { width:32px; height:32px; font-size:13px; background:var(--ink); color:var(--panel); box-shadow:none; }
+.ltag { font-size:10.5px; font-weight:800; color:var(--accent); background:var(--accent-soft); border-radius:5px; padding:0 5px; margin-left:4px; }
+.loghead { display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:10px; }
+.ladd { display:flex; gap:6px; flex-wrap:wrap; flex:1 1 420px; }
+.ladd input { padding:9px 11px; border-radius:10px; border:1px solid var(--line2); background:var(--panel); font-size:13.5px; }
+.ladd #ladd-title { flex:1 1 260px; } .ladd #ladd-detail { flex:1 1 160px; }
+.ceo-btn { background:var(--ink); color:var(--panel); }
+.lfs { display:inline-flex; gap:4px; padding:3px; background:var(--panel); border:1px solid var(--line); border-radius:10px; }
+.lf { border:0; background:none; padding:6px 11px; border-radius:8px; font-weight:700; font-size:12.5px; color:var(--ink2); cursor:pointer; }
+.lf[aria-pressed="true"] { background:var(--ink); color:var(--panel); }
+.lrow.note .tt { color:var(--ink2); font-weight:600; }
 .lrow summary { cursor:pointer; color:var(--accent); font-size:12px; }
 
 .toast { position:fixed; left:50%; bottom:24px; transform:translateX(-50%) translateY(20px); background:var(--ink); color:var(--panel); padding:11px 18px; border-radius:12px; font-weight:700; font-size:14px; opacity:0; transition:all .25s; z-index:50; max-width:calc(100vw - 32px); box-shadow:var(--shadow); }
@@ -400,12 +413,19 @@ const SCRIPT = String.raw`
   }
 
   // ── 업무 일지 ──
+  // ── 업무 일지 — 직원들이 한 일 + 대표가 한 일(결재·할 일·지시·직접 적은 일) ──
   function renderLog() {
-    var logs = S.data.logs;
-    $("#view").innerHTML = logs.length ? '<div class="log">' + logs.map(function (l) {
-      var hue = teamHue(l.team);
-      return '<div class="lrow ' + esc(l.level) + '">' + avatar(l.name, hue) + "<div><div class=\"who2\">" + esc(l.name) + " · " + esc((S.data.teams[l.team] || {}).label || "") + '</div><div class="tt">' + esc(l.title) + "</div>" + (l.detail ? "<details><summary>자세히</summary>" + esc(l.detail) + "</details>" : "") + "</div><time>" + kst(l.created_at) + "</time></div>";
-    }).join("") + "</div>" : '<div class="empty"><div class="big">📓</div>아직 기록이 없습니다.</div>';
+    var f = S.logFilter || "all";
+    var logs = S.data.logs.filter(function (l) { return f === "all" || (f === "ceo" ? l.ceo : !l.ceo); });
+    var chip = function (k, label) { return '<button type="button" class="lf" data-lf="' + k + '" aria-pressed="' + String(f === k) + '">' + label + "</button>"; };
+    var head = '<div class="loghead"><form class="ladd" id="ladd"><input id="ladd-title" maxlength="200" placeholder="내가 한 일 적기 (예: 로무앤톡 대표와 통화 — 다음 주 미팅)" /><input id="ladd-detail" maxlength="1000" placeholder="메모(선택)" /><button type="submit" class="btn sm ceo-btn">기록</button></form>' +
+      '<div class="lfs">' + chip("all", "전체") + chip("ceo", "대표 · 오늘 " + (S.data.summary.ceoToday || 0)) + chip("staff", "직원") + "</div></div>";
+    var rows = logs.map(function (l) {
+      var av = l.ceo ? '<span class="av ceo-av">대<i class="dot"></i></span>' : avatar(l.name, teamHue(l.team));
+      var who = l.ceo ? esc(l.name) + " · 대표" + (l.manual ? ' <span class="ltag">직접 기록</span>' : "") : esc(l.name) + " · " + esc((S.data.teams[l.team] || {}).label || "");
+      return '<div class="lrow ' + esc(l.level) + (l.ceo ? " ceo" : "") + '">' + av + '<div><div class="who2">' + who + '</div><div class="tt">' + esc(l.title) + "</div>" + (l.detail ? "<details><summary>자세히</summary>" + esc(l.detail) + "</details>" : "") + "</div><time>" + kst(l.created_at) + "</time></div>";
+    }).join("");
+    $("#view").innerHTML = head + (rows ? '<div class="log">' + rows + "</div>" : '<div class="empty"><div class="big">📓</div>아직 기록이 없습니다.</div>');
   }
 
   // ── 오늘 할 일(대표 투두) — 결재 문서와 다른 체크리스트 모양 ──
@@ -443,6 +463,7 @@ const SCRIPT = String.raw`
     var t = e.target.closest("button, [data-open]");
     if (!t) return;
     if (t.dataset.tab) { S.tab = t.dataset.tab; render(true); return; }
+    if (t.dataset.lf) { S.logFilter = t.dataset.lf; renderLog(); return; }
     if (t.dataset.tdone) {
       var li = t.closest(".todo"), tm = $("#tmsg-" + t.dataset.tdone);
       t.disabled = true; li.classList.add("checking"); if (tm) tm.textContent = "";
@@ -483,6 +504,12 @@ const SCRIPT = String.raw`
     if (t.dataset.run) { var s2 = staffById(t.dataset.run); try { await api("/staff/" + s2.id + "/run", {}); toast(s2.name + "에게 일을 맡겼어요"); setTimeout(load, 1200); } catch (err) { toast(err.message); } return; }
   });
   document.addEventListener("submit", async function (e) {
+    if (e.target.id === "ladd") {
+      e.preventDefault();
+      var lt = $("#ladd-title").value.trim(); if (!lt) return;
+      try { await api("/staff/log", { title: lt, detail: $("#ladd-detail").value.trim() }); toast("업무 일지에 기록했어요"); S.logFilter = S.logFilter || "all"; load(); } catch (err) { toast(err.message); }
+      return;
+    }
     if (e.target.id !== "tadd") return;
     e.preventDefault();
     var title = $("#tadd-title").value.trim(); if (!title) return;
