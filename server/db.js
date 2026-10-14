@@ -1290,6 +1290,12 @@ const MIGRATIONS = [
   ALTER TABLE ai_audits ADD COLUMN collect_note TEXT;
   ALTER TABLE ai_audits ADD COLUMN collect_at BIGINT;
   `,
+  // 약관 페이지를 서버가 못 읽으면(스크립트로 그리는 사이트) 대표 PC의 현장 요원이 진짜 브라우저로 열어 글을 가져온다.
+  // tos_render: queued → done | failed, tos_text: 그 글.
+  `
+  ALTER TABLE ai_audits ADD COLUMN tos_render TEXT;
+  ALTER TABLE ai_audits ADD COLUMN tos_text TEXT;
+  `,
 ];
 
 async function migrate() {
