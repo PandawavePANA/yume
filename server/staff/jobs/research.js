@@ -44,8 +44,30 @@ const SYSTEM = `당신은 B2B 영업 리서처입니다. 웹 검색으로 실제
 - 대기업 계열 대형 서비스보다, 담당자에게 메일이 닿을 만한 스타트업·중소 규모를 우선합니다.
 - JSON 하나만 출력: {"candidates":[{"company":"","service_name":"","service_url":"","contact_email":"","tos_url":"","why":"한 줄: 어떤 AI가 무엇을 답하는지","evidence_url":""}]}`;
 
+// 하루에 새로 올리는 후보 수 상한, 그리고 "뒤가 밀리면 쉰다" 기준.
+// 리서치는 시간마다 돌지만, 약관 검토·답 수집이 쌓여 있으면 후보만 늘어 AI 비용과 결재만 쌓인다.
+const DAILY = () => Number(process.env.STAFF_RESEARCH_DAILY) || 12;
+const BACKLOG = { tos: 8, collect: 6 };
+
+export async function backlog() {
+  const r = await all(
+    `SELECT
+       (SELECT COUNT(*) FROM ai_audits WHERE tos_verdict IS NULL AND stage = 'prospect' AND closed_at IS NULL) AS tos,
+       (SELECT COUNT(*) FROM ai_audits WHERE closed_at IS NULL AND sent_at IS NULL AND tos_verdict = 'ok'
+          AND EXISTS (SELECT 1 FROM ai_audit_items i WHERE i.audit_id = ai_audits.id)
+          AND NOT EXISTS (SELECT 1 FROM ai_audit_items i WHERE i.audit_id = ai_audits.id AND i.answer IS NOT NULL AND i.answer <> '')) AS collect,
+       (SELECT COUNT(*) FROM ai_audits WHERE found_via LIKE '%(기업 발굴)%' AND created_at >= :since) AS today`,
+    { since: (() => { const k = Date.now() + 9 * 3600_000; return k - (k % 86_400_000) - 9 * 3600_000; })() },
+  );
+  return { tos: Number(r[0].tos), collect: Number(r[0].collect), today: Number(r[0].today) };
+}
+
 export async function run(ctx) {
-  const cap = ctx.cap(3);
+  const b = await backlog();
+  if (b.today >= DAILY()) return { note: `오늘 후보 ${b.today}곳 — 하루 한도(${DAILY()})를 채웠어요` };
+  if (b.tos >= BACKLOG.tos) return { note: `약관 검토 대기 ${b.tos}곳 — 밀린 일이 줄면 다시 찾을게요` };
+  if (b.collect >= BACKLOG.collect) return { note: `답 수집 대기 ${b.collect}곳 — 밀린 일이 줄면 다시 찾을게요` };
+  const cap = Math.min(ctx.cap(3), DAILY() - b.today);
   const target = await pickTarget();
   const known = await knownHosts();
   const exclude = [...known].slice(0, 80).join(", ") || "없음";
@@ -87,7 +109,7 @@ export async function run(ctx) {
     title: `감사 후보 ${picked.length}곳 (${target.domain})`,
     summary: picked.map((p) => `${p.company} — ${p.why}`).join("\n"),
     payload: { candidates: picked },
-    dedupe: `prospects:${day}:${target.domain}`,
+    dedupe: `prospects:${day}:${new Date(Date.now() + 9 * 3600_000).getUTCHours()}:${target.domain}`,
   });
   await ctx.log(`${target.domain} 후보 ${picked.length}곳을 찾아 결재를 올렸어요`, { costUsd: usd });
   return { note: `후보 ${picked.length}곳 결재 대기` };

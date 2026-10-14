@@ -1282,6 +1282,14 @@ const MIGRATIONS = [
   CREATE INDEX idx_mail_inbox_time ON mail_inbox(received_at);
   ALTER TABLE mail_inbox ENABLE ROW LEVEL SECURITY;
   `,
+  // 2026-10-14 답 수집 — 약관에 자동 접속 금지가 없으면 대표 PC의 현장 요원(scripts/field-agent.mjs)이 넣는다(collect_mode 'agent'),
+  // 금지면 사람이 넣는다('manual'). collect_status: queued → running → done | login_required | failed.
+  `
+  ALTER TABLE ai_audits ADD COLUMN collect_mode TEXT;
+  ALTER TABLE ai_audits ADD COLUMN collect_status TEXT;
+  ALTER TABLE ai_audits ADD COLUMN collect_note TEXT;
+  ALTER TABLE ai_audits ADD COLUMN collect_at BIGINT;
+  `,
 ];
 
 async function migrate() {

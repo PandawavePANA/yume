@@ -13,6 +13,7 @@ import { fetchNew, gmailConfigured, markAnswered, sendReply } from "./gmail.js";
 import * as store from "./store.js";
 import { CEO, KINDS, ROSTER, TEAMS, lineFor } from "./roster.js";
 import { defaults as prepDefaults } from "./jobs/prep.js";
+import { heartbeat } from "./jobs/field.js";
 
 const KST = 9 * 3600_000;
 const running = new Set();
@@ -26,10 +27,11 @@ const owner = () => process.env.STAFF_CEO_EMAIL || process.env.OPS_ALERT_TO || p
 /** 이번 차례의 기준 시각(그 뒤에 실행된 적이 없으면 일한다). 근무 시간 밖이면 null. */
 export function notBefore(def, t = Date.now()) {
   const k = new Date(t + KST);
-  const hour = k.getUTCHours();
+  const mins = k.getUTCHours() * 60 + k.getUTCMinutes();
   const s = def.schedule || {};
   if (s.weekdays && !isBusinessDay(t)) return null;
-  if (s.hours && (hour < s.hours[0] || hour >= s.hours[1])) return null;
+  // 근무 시간대는 분 단위(예: [360, 1170] = 06:00~19:30).
+  if (s.hours && (mins < s.hours[0] || mins >= s.hours[1])) return null;
   if (s.daily) {
     const at = store.kstDayStart(t) + (s.daily.h * 60 + s.daily.m) * 60_000;
     return t >= at ? at : null;
@@ -166,6 +168,7 @@ export async function reject(approvalId, reason = "") {
   const a = await store.getApproval(approvalId);
   if (!a) return { error: "결재 문서를 찾을 수 없어요." };
   if (!(await store.decide(a.id, "rejected", reason || "반려"))) return { error: "이미 처리한 결재예요." };
+  if (KINDS[a.kind]?.onReject) await KINDS[a.kind].onReject(a.payload).catch((e) => logError(`staff:reject:${a.kind}`, e));
   await store.log(a.staff, `대표 반려 — ${a.title}${reason ? `: ${reason}` : ""}`, { level: "warn", ref: a.ref });
   return { ok: true };
 }
@@ -173,12 +176,15 @@ export async function reject(approvalId, reason = "") {
 // ── 사무실 화면 상태 ──────────────────────────────────────────────────
 export async function office(t = Date.now()) {
   const [stats, pend, approvals, logs] = await Promise.all([store.todayStats(t), store.pendingCounts(), store.listApprovals({ status: "pending" }), store.recentLogs(80)]);
+  const hb = await heartbeat();
   const auditUsd = Number((await one("SELECT COALESCE(SUM(cost_usd), 0) AS usd FROM verifications WHERE source = 'audit' AND created_at >= :s", { s: store.kstDayStart(t) }))?.usd || 0);
   const staff = [];
   for (const [id, def] of Object.entries(ROSTER)) {
     const s = await store.getState(id, def.defaults);
     const nb = notBefore(def, t);
-    const st = !Number(s.enabled) ? "off" : running.has(id) ? "working" : def.ai && engineStopped() ? "engine" : s.last_status === "error" ? "error" : pend[id] ? "waiting" : "idle";
+    let st = !Number(s.enabled) ? "off" : running.has(id) ? "working" : def.ai && engineStopped() ? "engine" : s.last_status === "error" ? "error" : pend[id] ? "waiting" : "idle";
+    // 현장 요원은 대표 PC에서 돈다 — PC의 심장 박동으로 상태를 정한다(질문을 넣는 중이면 근무 중, 끊기면 쉬는 중).
+    if (id === "field" && st !== "off") st = !hb.alive ? "off" : /수집 중/.test(hb.note) ? "working" : st;
     staff.push({
       id,
       name: def.name,
@@ -217,6 +223,7 @@ export async function office(t = Date.now()) {
       costKrw: Math.round(usd * USD_KRW),
       engine: engineState(),
       gmail: gmailConfigured(),
+      fieldAgent: hb.alive,
       outreachReady: Boolean((process.env.MAIL_FROM_OUTREACH || process.env.MAIL_FROM_YUME || "").match(/yume-reamer\.com/i)),
     },
   };
@@ -226,7 +233,8 @@ function nextHint(def, t, nb) {
   const s = def.schedule || {};
   if (s.daily) return `매일 ${String(s.daily.h).padStart(2, "0")}:${String(s.daily.m).padStart(2, "0")}${s.weekdays ? " (평일)" : ""}`;
   const m = Math.round((s.every || 0) / 60_000);
-  return `${m}분마다${s.hours ? ` (${s.hours[0]}~${s.hours[1]}시)` : ""}${nb == null ? " · 지금은 근무 시간 밖" : ""}`;
+  const hm = (x) => `${String(Math.floor(x / 60)).padStart(2, "0")}:${String(x % 60).padStart(2, "0")}`;
+  return `${m}분마다${s.hours ? ` (${hm(s.hours[0])}~${hm(s.hours[1])})` : ""}${nb == null ? " · 지금은 퇴근 시간" : ""}`;
 }
 
 export async function updateStaff(id, patch) {

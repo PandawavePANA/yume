@@ -224,7 +224,8 @@ const SCRIPT = String.raw`
     var eng = s.engine && s.engine.ok ? '<span class="chip"><i></i>검사 엔진 정상</span>' : '<span class="chip bad"><i></i>엔진 멈춤 · 충전 필요</span>';
     var mail = s.outreachReady ? '<span class="chip"><i></i>유메 메일 발송 가능</span>' : '<span class="chip warn"><i></i>유메 메일 인증 전</span>';
     var inbox = s.gmail ? '<span class="chip"><i></i>메일함 연결됨</span>' : '<span class="chip warn"><i></i>메일함 연결 전</span>';
-    $("#chips").innerHTML = eng + mail + inbox;
+    var field = s.fieldAgent ? '<span class="chip"><i></i>현장 요원(PC) 연결</span>' : '<span class="chip warn"><i></i>현장 요원(PC) 꺼짐</span>';
+    $("#chips").innerHTML = eng + mail + inbox + field;
     var working = d.staff.filter(function (x) { return x.status === "working"; }).length;
     var on = d.staff.filter(function (x) { return x.enabled; }).length;
     $("#kpis").innerHTML =
@@ -276,6 +277,10 @@ const SCRIPT = String.raw`
     } else if (a.kind === "tos_verdict") {
       h += p.verdict ? '<div><span class="verdict ' + esc(p.verdict) + '">' + ({ ok: "문제없음", prohibited: "금지", unclear: "애매" }[p.verdict] || "") + "</span>" + (p.url ? ' <a class="hint" href="' + esc(p.url) + '" target="_blank" rel="noopener">약관 원문 열기 ↗</a>' : "") + "</div>" : "";
       h += '<div class="sec"><a class="btn plain sm" href="/admin/audits#' + esc(p.auditId) + '" target="_blank" rel="noopener">감사 데스크에서 보기</a></div>';
+    } else if (a.kind === "collect_issue") {
+      var cmd = "railway run --service yume node scripts/field-agent.mjs --open " + p.auditId;
+      h += '<div class="sec" style="display:flex;gap:8px;flex-wrap:wrap">' + (p.url ? '<a class="btn plain sm" href="' + esc(p.url) + '" target="_blank" rel="noopener">서비스 열기 ↗</a>' : "") + '<button type="button" class="btn ghost sm" data-copytext="' + esc(cmd) + '">가입용 창 여는 명령 복사</button><a class="btn plain sm" href="/admin/audits#' + esc(p.auditId) + '" target="_blank" rel="noopener">감사 데스크</a></div>';
+      h += '<div class="hint">' + (p.status === "login_required" ? "가입·로그인은 현장 요원 전용 창에서 해야 저장됩니다(바탕화면 ‘유메 현장요원 열기’). 반려하면 사람이 질문을 넣는 방식으로 바꿉니다." : "반려하면 사람이 질문을 넣는 방식으로 바꿉니다.") + "</div>";
     } else if (a.kind === "collect_answers") {
       h += '<div class="sec qs"><h4>질문 ' + (p.questions || []).length + '개 <button type="button" class="btn ghost sm" data-copyq>질문 전체 복사</button></h4><ol>' + (p.questions || []).map(function (q) { return "<li>" + esc(q) + "</li>"; }).join("") + "</ol></div>";
       h += '<div class="sec" style="display:flex;gap:8px;flex-wrap:wrap">' + (p.url ? '<a class="btn plain sm" href="' + esc(p.url) + '" target="_blank" rel="noopener">상대 서비스 열기 ↗</a>' : "") + '<a class="btn plain sm" href="/admin/audits#' + esc(p.auditId) + '" target="_blank" rel="noopener">감사 데스크(답 붙여넣기)</a></div>';
@@ -316,7 +321,10 @@ const SCRIPT = String.raw`
       "<dt>문서번호</dt><dd class=\"num\">STF-" + String(a.id).padStart(5, "0") + "</dd><dt>종류</dt><dd>" + esc(a.kindLabel) + "</dd><dt>기안</dt><dd>" + esc(st.teamLabel) + " " + esc(st.name) + " " + esc(st.title) + "</dd><dt>기안일시</dt><dd class=\"num\">" + kst(a.created_at) + "</dd></dl></div>" +
       lineHtml(a, approved) + "</div>" +
       '<div class="dbody"><div class="subject">' + esc(a.title) + '</div><div class="summary">' + esc(a.summary || "") + "</div>" + bodyHtml(a) + (a.result ? '<div class="banner">이전 실행 결과: ' + esc(a.result) + "</div>" : "") + "</div>" +
-      '<div class="dfoot"><span class="msg" id="docmsg"></span><button type="button" class="btn plain" data-reject>반려</button><button type="button" class="btn primary" data-approve>' + (a.work ? "맡겠습니다" : "승인") + "</button></div></article>";
+      '<div class="dfoot"><span class="msg" id="docmsg"></span><button type="button" class="btn plain" data-reject>반려</button><button type="button" class="btn primary" data-approve>' + approveLabel(a) + "</button></div></article>";
+  }
+  function approveLabel(a) {
+    return { collect_issue: "처리했어요", field_offline: "확인", collect_answers: "맡겠습니다" }[a.kind] || (a.work ? "맡겠습니다" : "승인");
   }
   function renderInbox(full) {
     var pane = $("#view");
@@ -384,6 +392,7 @@ const SCRIPT = String.raw`
     if (t.dataset.open) { S.sel = Number(t.dataset.open); renderInbox(false); var dp = $("#docpane"); if (dp) dp.scrollIntoView({ block: "start", behavior: "smooth" }); return; }
     if (t.hasAttribute("data-close")) { S.sel = null; renderInbox(false); return; }
     if (t.dataset.dec) { var a1 = S.data.approvals.find(function (x) { return x.id === S.sel; }); inputOf(a1).decisions[t.dataset.dec] = t.dataset.v; t.parentNode.querySelectorAll("button").forEach(function (b) { b.setAttribute("aria-pressed", String(b === t)); }); return; }
+    if (t.dataset.copytext) { try { await navigator.clipboard.writeText(t.dataset.copytext); toast("복사했어요 — PC의 명령 창(유메 폴더)에 붙여 넣으세요"); } catch (_) { toast("복사하지 못했어요"); } return; }
     if (t.hasAttribute("data-copyq")) { var a2 = S.data.approvals.find(function (x) { return x.id === S.sel; }); try { await navigator.clipboard.writeText((a2.payload.questions || []).map(function (q, i) { return (i + 1) + ". " + q; }).join("\n")); toast("질문을 복사했어요"); } catch (_) { toast("복사하지 못했어요"); } return; }
     if (t.hasAttribute("data-approve") || t.hasAttribute("data-reject")) {
       var a = S.data.approvals.find(function (x) { return x.id === S.sel; });
@@ -403,7 +412,7 @@ const SCRIPT = String.raw`
         var cell = document.querySelector("#docpane td.stamp:last-child"); if (cell) cell.innerHTML = '<div class="seal pop">승인<small>' + esc(S.data.ceo.name) + "</small></div>";
         toast("결재했어요 — " + (r.result || "완료"));
         setTimeout(function () { S.sel = null; delete S.inputs[a.id]; load(true); }, 900);
-      } catch (err) { msg.textContent = err.message; t.disabled = false; t.textContent = a.work ? "맡겠습니다" : "승인"; }
+      } catch (err) { msg.textContent = err.message; t.disabled = false; t.textContent = approveLabel(a); }
       finally { S.busy = false; }
       return;
     }
