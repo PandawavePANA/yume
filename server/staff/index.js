@@ -9,7 +9,7 @@ import { logError } from "../errorLog.js";
 import { USD_KRW } from "../costGuard.js";
 import { isBusinessDay } from "../businessDays.js";
 import { askJson, askText, readPage } from "./ai.js";
-import { fetchNew, gmailConfigured, markAnswered, sendReply } from "./gmail.js";
+import { fetchNew, gmailConfigured, loadGmailCreds, markAnswered, saveGmailCreds, sendReply } from "./gmail.js";
 import * as store from "./store.js";
 import { CEO, KINDS, ROSTER, TEAMS, lineFor } from "./roster.js";
 import { defaults as prepDefaults } from "./jobs/prep.js";
@@ -39,6 +39,20 @@ export async function addTodo(input) {
   const r = await todos.add(input);
   if (!r.error) await ceoLog(`할 일 추가 — ${String(input.title).slice(0, 150)}`, { level: "note" });
   return r;
+}
+
+/**
+ * 대표가 AI 본사에서 직접 넣는 메일함 연결 정보 — 서버가 메일함 접속을 시험하고, 성공하면 봉인해 저장한다.
+ * 할 일 "Gmail 연결"을 닫고, 비서실 서윤이 바로 메일함 정리를 시작한다. 비밀번호는 일지·감사 기록에 남기지 않는다.
+ */
+export async function connectGmail(user, pass, { test = null } = {}) {
+  const r = await saveGmailCreds(user, pass, test ? { test } : {});
+  if (r.error) return r;
+  const t = await one("SELECT id FROM owner_todos WHERE key = 'gmail' AND status = 'open'");
+  if (t) await todos.complete(t.id, {});
+  await ceoLog(`메일함 연결 — ${r.user}`, { detail: "접속 시험 성공 · 비서실 서윤이 메일함 정리를 시작합니다" });
+  if (!test) runStaff("seoyun", { manual: true }).catch((e) => logError("staff:seoyun", e));
+  return { ok: true, user: r.user };
 }
 
 /** 대표가 직접 적는 "내가 한 일". */
@@ -215,6 +229,7 @@ export async function office(t = Date.now()) {
   await todos.seed().catch(() => {});
   const [todoList, todoNext] = await Promise.all([todos.list(), todos.upcoming()]);
   await loadOutreach().catch(() => {});
+  await loadGmailCreds().catch(() => {});
   const hb = await heartbeat();
   const auditUsd = Number((await one("SELECT COALESCE(SUM(cost_usd), 0) AS usd FROM verifications WHERE source = 'audit' AND created_at >= :s", { s: store.kstDayStart(t) }))?.usd || 0);
   const staff = [];

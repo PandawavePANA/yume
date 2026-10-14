@@ -8,18 +8,69 @@
 import { ImapFlow } from "imapflow";
 import nodemailer from "nodemailer";
 import { simpleParser } from "mailparser";
+import { getSetting, setSetting } from "../auditDesk.js";
+import { openToken, sealToken } from "../threads.js";
 
-export const gmailUser = () => String(process.env.GMAIL_USER || "").trim();
-export const gmailConfigured = () => Boolean(gmailUser() && process.env.GMAIL_APP_PASSWORD);
+// 연결 정보는 두 곳 중 하나 — Railway 환경변수(GMAIL_USER·GMAIL_APP_PASSWORD), 또는 대표가 AI 본사 "오늘 할 일"에서
+// 직접 넣은 값(접속 시험에 성공했을 때만, ADMIN_SECRET으로 봉인해 DB에 저장). 2026-10-14 대표가 원격이라 Railway에
+// 못 들어가서 만든 길이다. 봉인한 값은 서버 비밀값이 있어야만 열린다(threads.js sealToken과 같은 방식).
+const SETTING = "gmail:creds";
+let stored = null; // { user, pass }
 
-function imap() {
-  return new ImapFlow({
-    host: "imap.gmail.com",
-    port: 993,
-    secure: true,
-    auth: { user: gmailUser(), pass: String(process.env.GMAIL_APP_PASSWORD).replace(/\s+/g, "") },
-    logger: false,
-  });
+export async function loadGmailCreds() {
+  const sealed = await getSetting(SETTING).catch(() => null);
+  const raw = sealed ? openToken(sealed) : null;
+  try {
+    stored = raw ? JSON.parse(raw) : null;
+  } catch {
+    stored = null;
+  }
+  return Boolean(stored);
+}
+
+const creds = () =>
+  process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD
+    ? { user: String(process.env.GMAIL_USER).trim(), pass: String(process.env.GMAIL_APP_PASSWORD) }
+    : stored;
+
+export const gmailUser = () => String(creds()?.user || "").trim();
+export const gmailConfigured = () => Boolean(creds()?.user && creds()?.pass);
+
+function imapWith({ user, pass }) {
+  return new ImapFlow({ host: "imap.gmail.com", port: 993, secure: true, auth: { user, pass: String(pass).replace(/\s+/g, "") }, logger: false });
+}
+const imap = () => imapWith(creds());
+
+/** 이 계정·앱 비밀번호로 메일함에 실제로 들어가지는지(받은편지함을 열어 보고 바로 나온다). */
+export async function testLogin(user, pass) {
+  const client = imapWith({ user, pass });
+  try {
+    await client.connect();
+    const lock = await client.getMailboxLock("INBOX");
+    lock.release();
+    return { ok: true };
+  } catch (e) {
+    const msg = String(e?.responseText || e?.message || e);
+    return { ok: false, error: /AUTHENTICATIONFAILED|Invalid credentials|Application-specific/i.test(msg) ? "로그인 실패 — 계정 주소나 앱 비밀번호(16자리)를 확인해 주세요." : `메일함에 접속하지 못했어요: ${msg.slice(0, 160)}` };
+  } finally {
+    await client.logout().catch(() => {});
+  }
+}
+
+/** 대표가 넣은 연결 정보 — 시험에 성공해야 봉인해 저장한다. 비밀번호는 어디에도 기록하지 않는다. */
+export async function saveGmailCreds(user, pass, { test = testLogin } = {}) {
+  const u = String(user || "").trim().toLowerCase();
+  const p = String(pass || "").replace(/\s+/g, "");
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(u)) return { error: "메일 주소를 확인해 주세요." };
+  if (!/^[a-zA-Z]{16}$/.test(p)) return { error: "앱 비밀번호는 영문 16자리예요(띄어쓰기는 있어도 됩니다)." };
+  const sealed = sealToken(JSON.stringify({ user: u, pass: p }));
+  if (!sealed) return { error: "서버 비밀값이 없어 안전하게 저장할 수 없어요." };
+  const r = await test(u, p);
+  if (!r.ok) return { error: r.error };
+  await setSetting(SETTING, sealed);
+  stored = { user: u, pass: p };
+  transport = null;
+  return { ok: true, user: u };
 }
 
 const clip = (s, n) => String(s || "").replace(/\r/g, "").slice(0, n);
@@ -91,7 +142,7 @@ function smtp() {
       host: "smtp.gmail.com",
       port: 465,
       secure: true,
-      auth: { user: gmailUser(), pass: String(process.env.GMAIL_APP_PASSWORD).replace(/\s+/g, "") },
+      auth: { user: gmailUser(), pass: String(creds()?.pass || "").replace(/\s+/g, "") },
     });
   }
   return transport;

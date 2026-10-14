@@ -209,6 +209,9 @@ iframe.preview { width:100%; height:620px; border:1px solid var(--line); border-
 .tsteps div { white-space:pre-wrap; margin-top:6px; background:var(--panel2); border-radius:9px; padding:9px 11px; line-height:1.7; }
 .tacts { display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-top:8px; }
 .tmsg { font-size:12.5px; color:var(--bad); margin-top:4px; }
+.gform { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+.gform input { padding:9px 11px; border-radius:10px; border:1px solid var(--line2); background:var(--panel); font-size:14px; flex:1 1 200px; }
+.gbtn { background:var(--todo); color:#fff; }
 .tnext-h { font-size:13px; color:var(--ink3); margin:18px 0 6px; }
 .tnext { list-style:none; margin:0; padding:0; display:grid; gap:4px; font-size:13px; color:var(--ink2); }
 .tnext b { color:var(--todo); font-variant-numeric:tabular-nums; margin-right:6px; }
@@ -435,6 +438,7 @@ const SCRIPT = String.raw`
       return '<li class="todo" data-id="' + t.id + '">' +
         '<button type="button" class="tcheck" data-tdone="' + t.id + '" aria-label="' + esc(t.title) + ' 완료"><span></span></button>' +
         '<div class="tmain"><div class="ttitle">' + esc(t.title) + (t.age ? '<span class="tage">' + t.age + "일째</span>" : "") + (t.check ? '<span class="tauto">완료 누르면 서버가 확인</span>' : "") + "</div>" +
+        (t.key === "gmail" ? '<form class="gform" id="gform" autocomplete="off"><input id="g-user" type="email" value="reamer@d-reamer.com" aria-label="메일 주소" /><input id="g-pass" type="password" autocomplete="new-password" placeholder="앱 비밀번호 16자리" aria-label="앱 비밀번호" /><button type="submit" class="btn sm gbtn">연결 시험 후 저장</button></form><div class="hint">Railway에 못 들어갈 때 여기에 직접 넣으세요. 서버가 메일함 접속을 시험하고, 성공하면 암호화해서 저장합니다(화면·기록에 남지 않음).</div>' : "") +
         (t.steps ? '<details class="tsteps"><summary>어떻게 하나요</summary><div>' + esc(t.steps) + "</div></details>" : "") +
         '<div class="tacts">' + (t.link ? (/^https?:/.test(t.link) ? '<a class="btn plain sm" href="' + esc(t.link) + '" target="_blank" rel="noopener">열기 ↗</a>' : '<span class="hint">문서: ' + esc(t.link) + "</span>") : "") +
         '<button type="button" class="btn plain sm" data-tsnooze="' + t.id + '">내일로</button></div><div class="tmsg" id="tmsg-' + t.id + '"></div></div></li>';
@@ -445,9 +449,16 @@ const SCRIPT = String.raw`
       (rows ? '<ul class="tlist">' + rows + "</ul>" : '<div class="empty"><div class="big">✅</div>오늘 할 일을 다 끝냈습니다.</div>') + next + "</section>";
   }
 
+  // 입력 중(커서가 입력칸에 있거나 칸에 글이 있음)이면 15초 새로 고침이 화면을 다시 그려 지우지 않게 한다.
+  function typing() {
+    var a = document.activeElement;
+    if (a && a.closest && a.closest("#view") && /INPUT|TEXTAREA/.test(a.tagName)) return true;
+    return [].some.call(document.querySelectorAll("#view .gform input[type=password], #view .tadd input, #view .ladd input"), function (x) { return x.value; });
+  }
   function render(full) {
     if (!S.data) return;
     renderTop();
+    if (!full && S.tab !== "inbox" && typing()) return;
     if (S.tab === "inbox") renderInbox(full);
     else if (S.tab === "todo") renderTodos();
     else if (S.tab === "org") renderOrg();
@@ -504,16 +515,24 @@ const SCRIPT = String.raw`
     if (t.dataset.run) { var s2 = staffById(t.dataset.run); try { await api("/staff/" + s2.id + "/run", {}); toast(s2.name + "에게 일을 맡겼어요"); setTimeout(load, 1200); } catch (err) { toast(err.message); } return; }
   });
   document.addEventListener("submit", async function (e) {
+    if (e.target.id === "gform") {
+      e.preventDefault();
+      var gb = e.target.querySelector("button"), gp = $("#g-pass");
+      gb.disabled = true; gb.textContent = "메일함 접속 시험 중…";
+      try { var gr = await api("/staff/gmail", { user: $("#g-user").value.trim(), password: gp.value }); gp.value = ""; toast("메일함 연결됨 — " + gr.user + " · 서윤이 정리를 시작합니다"); load(true); }
+      catch (err) { toast(err.message); gb.disabled = false; gb.textContent = "연결 시험 후 저장"; }
+      return;
+    }
     if (e.target.id === "ladd") {
       e.preventDefault();
       var lt = $("#ladd-title").value.trim(); if (!lt) return;
-      try { await api("/staff/log", { title: lt, detail: $("#ladd-detail").value.trim() }); toast("업무 일지에 기록했어요"); S.logFilter = S.logFilter || "all"; load(); } catch (err) { toast(err.message); }
+      try { await api("/staff/log", { title: lt, detail: $("#ladd-detail").value.trim() }); toast("업무 일지에 기록했어요"); S.logFilter = S.logFilter || "all"; load(true); } catch (err) { toast(err.message); }
       return;
     }
     if (e.target.id !== "tadd") return;
     e.preventDefault();
     var title = $("#tadd-title").value.trim(); if (!title) return;
-    try { await api("/staff/todos", { title: title, due_date: $("#tadd-date").value || null }); toast("할 일을 추가했어요"); load(); } catch (err) { toast(err.message); }
+    try { await api("/staff/todos", { title: title, due_date: $("#tadd-date").value || null }); toast("할 일을 추가했어요"); load(true); } catch (err) { toast(err.message); }
   });
   document.addEventListener("change", function (e) {
     var t = e.target; var a = S.data && S.data.approvals.find(function (x) { return x.id === S.sel; });
