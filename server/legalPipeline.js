@@ -23,6 +23,7 @@ import {
   getAdminRuleArticle,
 } from "./lawApi.js";
 import { groundLegalClaim as defaultGround, verifyLegalClaimViaWeb as defaultWebVerify } from "./claude.js";
+import { withLinkedProvisions } from "./legalLinks.js";
 import {
   checkCaseNumber,
   checkStatute,
@@ -46,11 +47,16 @@ const short = (name, n = 14) => {
 };
 const CASE_IN_TEXT = /(\d{2,4})\s?([가-힣]{1,3})\s?(\d{2,7})/;
 
-export async function resolveLegalClaims(claims, { ground = defaultGround, webVerify = defaultWebVerify, onProgress = () => {}, ledger = null } = {}) {
+export async function resolveLegalClaims(
+  claims,
+  { ground = defaultGround, webVerify = defaultWebVerify, linkProvisions = withLinkedProvisions, onProgress = () => {}, ledger = null } = {},
+) {
   return Promise.all(
     // from_claim_cache가 붙은 주장은 이미 판정이 끝난 것이다. 법제처를 다시 부르지 않는다.
     // 기업 기준 자료로 판정이 끝난 주장(from_reference)도 다시 부르지 않는다 — 그 회사의 사실은 그 자료가 기준이다.
-    claims.map((claim) => (claim.domain === "법률" && !claim.from_claim_cache && !claim.from_reference ? resolveOne(claim, { ground, webVerify, onProgress, ledger }) : claim)),
+    claims.map((claim) =>
+      claim.domain === "법률" && !claim.from_claim_cache && !claim.from_reference ? resolveOne(claim, { ground, webVerify, linkProvisions, onProgress, ledger }) : claim,
+    ),
   );
 }
 
@@ -148,7 +154,12 @@ async function resolveStatute(claim, ref, ctx) {
   const search = await searchStatute(lawName);
   if (!search.ok) return webFallback(claim, ctx);
 
-  if (search.found) return resolveFoundStatute(claim, ident, search, aliasNote, ctx);
+  if (search.found) {
+    // 법제처 약칭이나 옛 이름으로 인용돼 현행 법령으로 풀린 경우, 무엇과 대조했는지 밝힌다.
+    const renamed = !alias && search.versionStatus === "current" && normalizeLawName(search.lawNameOfficial) !== normalizeLawName(lawName);
+    const note = renamed ? `‘${lawName}’은(는) 현행 ‘${search.lawNameOfficial}’을(를) 가리켜 그 법령으로 조회했습니다. ` : aliasNote;
+    return resolveFoundStatute(claim, ident, search, note, ctx);
+  }
 
   if (kind === "admin_rule") return resolveNonNationalRule(claim, ident, lawName, "admin_rule", searchAdminRule, "law.go.kr:admrul", ctx);
 
@@ -270,11 +281,13 @@ async function resolveFoundStatute(claim, ident, search, aliasNote, ctx) {
   }
   ctx.onProgress(`"${short(search.lawNameOfficial)}" ${articleLabel} 조문과 대조 중…`);
   const effectiveDate = article.effectiveDate || search.effectiveDate;
-  const grounded = await ctx.ground(claim.text, article.text, { ledger: ctx.ledger,
+  // 조문이 수치를 시행령에 맡기거나 정의를 다른 조문에서 끌어다 쓰면 그곳까지 받아 함께 대조한다(legalLinks.js).
+  const linked = await ctx.linkProvisions({ lawName: search.lawNameOfficial, article: ident.article, text: article.text, claimText: claim.text });
+  const grounded = await ctx.ground(claim.text, linked.text, { ledger: ctx.ledger,
     label: `법제처 국가법령정보 - ${search.lawNameOfficial}`,
     effectiveDate: formatDate(effectiveDate),
   });
-  const artSource = [{ title: `${search.lawNameOfficial}${article.title ? " - " + article.title : ""}`, url: search.detailUrl }];
+  const artSource = [{ title: `${search.lawNameOfficial}${article.title ? " - " + article.title : ""}`, url: search.detailUrl }, ...linked.sources];
   // 짐작한 조문과 어긋난다는 판정은 믿지 않는다 — 주장이 다른 조문 이야기일 수 있다. 웹으로 내용을 확인한다.
   if (grounded.verdict === "false" && ctx.cited && !ctx.cited.article) {
     const web = await webFallback(claim, ctx);
