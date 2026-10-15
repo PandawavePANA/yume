@@ -129,6 +129,8 @@ function contextFor(id, def, state, deps) {
   };
 }
 
+const JOB_TIMEOUT_MS = Number(process.env.STAFF_JOB_TIMEOUT_MS) || 12 * 60_000;
+
 /** 직원 한 명에게 일을 시킨다. manual이면 근무 시간·차례와 상관없이(꺼져 있어도) 지금 한다. */
 export async function runStaff(id, { manual = false, deps = null } = {}) {
   const def = ROSTER[id];
@@ -153,7 +155,11 @@ export async function runStaff(id, { manual = false, deps = null } = {}) {
   if (manual) await store.claimRun(id, Date.now() + 1);
   try {
     const ctx = contextFor(id, def, state, deps || (await defaultDeps()));
-    const r = (await def.job.run(ctx)) || {};
+    // 일 하나가 끝없이 걸리면(메일 서버·외부 API 무응답) 그 직원은 계속 "일하는 중"이라 다음 차례가 오지 않는다.
+    // 한도를 넘기면 오류로 끝내고 다음 차례에 다시 한다(메일·후보는 저장 단계에서 중복을 거른다).
+    let timer;
+    const limit = new Promise((_, rej) => { timer = setTimeout(() => rej(new Error(`${Math.round(JOB_TIMEOUT_MS / 60_000)}분 넘게 끝나지 않아 멈췄어요 — 다음 차례에 다시 해요`)), JOB_TIMEOUT_MS); });
+    const r = (await Promise.race([def.job.run(ctx), limit]).finally(() => clearTimeout(timer))) || {};
     await store.setState(id, { last_status: "idle", last_note: r.note || "" });
     return { ok: true, note: r.note || "" };
   } catch (e) {

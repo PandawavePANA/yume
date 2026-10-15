@@ -137,7 +137,18 @@ export async function searchStatute(lawName) {
   const fExact = fItems.find((x) => sameName(x["법령명한글"], lawName) && x["현행연혁코드"] === "현행");
   if (fExact) return toResult(fExact, "current");
 
-  const exactAny = [...items, ...fItems].filter((x) => sameName(x["법령명한글"], lawName));
+  // 법제처 공식 약칭으로 인용된 경우. "남녀고용평등법"은 2007년까지 실제 법령명이라 같은 이름의
+  // 연혁 버전(MST 78237)이 정확히 걸리고, 현행 「남녀고용평등과 일ㆍ가정 양립 지원에 관한 법률」은
+  // 약칭으로만 걸린다. 이름만 보면 옛 조문과 대조해 맞는 주장을 틀렸다고 한다(2026-10-13 감사 #3).
+  // 그래서 현행 버전의 약칭이 같으면 그것을 먼저 쓴다.
+  const all = [...items, ...fItems];
+  const abbrevCurrent = all.find((x) => x["현행연혁코드"] === "현행" && x["법령약칭명"] && sameName(x["법령약칭명"], lawName));
+  if (abbrevCurrent) return toResult(abbrevCurrent, "current");
+
+  const exactAny = all.filter((x) => sameName(x["법령명한글"], lawName));
+  // 옛 이름으로만 걸렸어도 법령ID가 같은 현행 버전이 있으면 그것이 이 법령의 지금 모습이다(제명 변경).
+  const successor = all.find((x) => x["현행연혁코드"] === "현행" && x["법령ID"] && exactAny.some((h) => h["법령ID"] === x["법령ID"]));
+  if (successor) return toResult(successor, "current");
   if (exactAny.length > 0) {
     const upcoming = exactAny.find((x) => x["현행연혁코드"] === "시행예정");
     return toResult(upcoming || exactAny[0], upcoming ? "upcoming_only" : "historical_only");
@@ -452,6 +463,39 @@ export async function getStatuteArticle(mst, articleNo, branchNo = null) {
     expired: articleValidity(match).expired,
     maxArticleNo,
   };
+}
+
+// 조문 안의 특정 항·호만 떼어 온다("「근로기준법」 제2조제1항제6호에 따른 평균임금"을 따라갈 때).
+// 조 머리(제목)와 항 본문을 함께 붙여, 떼어 온 호가 어느 조문의 무엇인지 읽히게 한다.
+// 항·호를 찾지 못하면 null — 부르는 쪽이 조문 전체로 대신한다.
+const CIRCLED = (n) => (n >= 1 && n <= 20 ? String.fromCharCode(0x2460 + n - 1) : "");
+function pickProvision(unit, paragraph, item) {
+  const hangs = toArray(unit["항"]);
+  let hang = paragraph ? hangs.find((h) => String(h["항번호"] || "").trim() === CIRCLED(paragraph)) : null;
+  // 항이 하나뿐인 조문은 항 번호 없이 호만 인용하거나(제2조제4호), 항 번호 자체가 비어 있다.
+  if (!hang && hangs.length === 1 && (!paragraph || paragraph === 1)) hang = hangs[0];
+  if (!hang) return null;
+  const head = String(unit["조문내용"] || "").trim();
+  const hangText = String(hang["항내용"] || "").trim();
+  const hos = toArray(hang["호"]);
+  if (!item) return [head, hangText, ...hos.map((h) => String(h["호내용"] || "").trim())].filter(Boolean).join("\n");
+  const ho = hos.find((h) => String(h["호번호"] || "").trim().replace(/\.$/, "") === String(item));
+  return ho ? [head, hangText, String(ho["호내용"] || "").trim()].filter(Boolean).join("\n") : null;
+}
+
+export async function getStatuteProvision(mst, articleNo, branchNo = null, { paragraph = null, item = null } = {}) {
+  const r = await lawBody(mst);
+  if (!r.ok) return r;
+  const arr = toArray(r.data?.["법령"]?.["조문"]?.["조문단위"]).filter((u) => u["조문여부"] === "조문");
+  const normalized = normalizeArticleNo(articleNo);
+  const unit = arr.find(
+    (u) => normalizeArticleNo(u["조문번호"]) === normalized && (Number(u["조문가지번호"]) || 0) === (Number(branchNo) || 0),
+  );
+  if (!unit) return { ok: true, found: false };
+  const narrowed = paragraph || item ? pickProvision(unit, paragraph, item) : null;
+  const text = narrowed || flattenArticleText(unit);
+  if (!text) return { ok: true, found: false };
+  return { ok: true, found: true, text, narrowed: !!narrowed, title: unit["조문제목"] || "", effectiveDate: unit["조문시행일자"] || "" };
 }
 
 function precItem(x) {

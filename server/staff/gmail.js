@@ -37,7 +37,9 @@ export const gmailUser = () => String(creds()?.user || "").trim();
 export const gmailConfigured = () => Boolean(creds()?.user && creds()?.pass);
 
 function imapWith({ user, pass }) {
-  return new ImapFlow({ host: "imap.gmail.com", port: 993, secure: true, auth: { user, pass: String(pass).replace(/\s+/g, "") }, logger: false });
+  return new ImapFlow({ host: "imap.gmail.com", port: 993, secure: true, auth: { user, pass: String(pass).replace(/\s+/g, "") }, logger: false,
+    // 시간 제한이 없으면 연결이 한 번 걸렸을 때 메일 직원이 "일하는 중"에서 영영 못 나온다(2026-10-15).
+    connectionTimeout: 20_000, greetingTimeout: 15_000, socketTimeout: 60_000 });
 }
 const imap = () => imapWith(creds());
 
