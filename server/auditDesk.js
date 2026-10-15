@@ -1144,10 +1144,25 @@ export async function auditByReportToken(token) {
 }
 
 /** 발송 처리 — 체크리스트를 전부 통과해야 한다. 후속 연락일(7일 뒤)을 같이 잡는다. */
-export async function markSent(id, { base = "" } = {}) {
+export async function markSent(id, { base = "", override = false, reason = "" } = {}) {
   let detail = await auditDetail(id, { base });
   if (!detail) return { error: "감사 건을 찾을 수 없어요." };
   if (detail.audit.sent_at) return { error: "이미 발송 처리한 건이에요." };
+  // 대표가 체크리스트를 다 채우지 못한 채(예: 캡처 없이, 대표 메일함으로) 직접 보낸 경우.
+  // 보낸 사실과 후속 연락일은 남겨야 하므로 기록은 하되, 왜 그렇게 보냈는지를 함께 남긴다.
+  if (override) {
+    const why = String(reason || "").trim();
+    if (why.length < 5) return { error: "체크리스트 없이 기록하려면 이유를 한 줄 적어 주세요." };
+    if (!detail.audit.report_token) return { error: "보고서 링크가 없어요. 메일에 넣은 보고서 링크가 있어야 기록할 수 있어요." };
+    const t = now();
+    const manual = JSON.parse(detail.audit.checklist_json || "{}");
+    manual.sent_override = { reason: why.slice(0, 300), at: t, left: detail.checklist.items.filter((c) => !c.ok).map((c) => c.key) };
+    await run(
+      `UPDATE ai_audits SET stage = 'sent', sent_at = :t, followup_due_at = :due, checklist_json = :cj, updated_at = :t WHERE id = :id`,
+      { id: detail.audit.id, t, due: t + FOLLOWUP_DAYS * DAY, cj: JSON.stringify(manual) },
+    );
+    return { ok: true, override: true, followup_due_at: t + FOLLOWUP_DAYS * DAY };
+  }
   // 보고서 링크가 메일에 들어가므로 링크를 먼저 만든다(체크리스트는 링크가 들어간 본문으로 다시 본다).
   if (!detail.audit.report_token) {
     await shareReport(id);

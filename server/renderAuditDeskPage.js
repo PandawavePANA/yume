@@ -642,7 +642,9 @@ export function renderAuditDeskPage() {
         h("button", { class: "ghost", onclick: function () { copy(subj.value + "\\n\\n" + mbody.value); } }, "복사"),
         h("a", { class: "ghost", href: "#", onclick: function (e) { e.preventDefault(); location.href = mailto(); } }, "메일 앱으로 열기"),
         h("span", { class: "sp" }),
-        a.sent_at ? h("span", { class: "pill w", text: "발송 " + kdt(a.sent_at) }) : h("button", { class: "btn", disabled: !cl.passed, onclick: run(async function () { if (!confirm("메일을 실제로 보낸 뒤 누르세요. 발송 처리하면 7일 뒤 후속 연락일이 잡힙니다.")) return; await api("POST", "/api/admin/audits/" + a.id + "/sent"); toast("발송 처리했어요. 후속 연락은 7일 뒤 한 번만."); await refresh(); }) }, "발송 처리"))));
+        a.sent_at ? h("span", { class: "pill w", text: "발송 " + kdt(a.sent_at) }) : h("button", { class: "btn", disabled: !cl.passed, onclick: run(async function () { if (!confirm("메일을 실제로 보낸 뒤 누르세요. 발송 처리하면 7일 뒤 후속 연락일이 잡힙니다.")) return; await api("POST", "/api/admin/audits/" + a.id + "/sent"); toast("발송 처리했어요. 후속 연락은 7일 뒤 한 번만."); await refresh(); }) }, "발송 처리"),
+        // 체크리스트를 다 못 채우고 대표가 직접 보낸 경우 — 보낸 사실과 후속 연락일만은 남긴다.
+        !a.sent_at && !cl.passed && a.report_token ? h("button", { class: "btn ghost", style: "margin-left:6px", onclick: run(async function () { var why = prompt("체크리스트를 다 채우지 못한 채 직접 보냈나요? 이유를 한 줄 적어 주세요(예: 캡처 없이 대표 결정으로 발송).", ""); if (!why) return; await api("POST", "/api/admin/audits/" + a.id + "/sent", { override: true, reason: why }); toast("직접 보낸 것으로 기록했어요. 후속 연락은 7일 뒤 한 번만."); await refresh(); }) }, "직접 보낸 것으로 기록") : null)));
 
     if (a.sent_at) {
       body.appendChild(h("div", { class: "box" }, h("h3", null, "8단계 · 후속 연락 (1주 뒤 한 번만)", a.followed_up_at ? h("span", { class: "pill g", text: "보냄 " + kd(a.followed_up_at) }) : h("span", { class: "pill " + (Number(a.followup_due_at) <= Date.now() ? "w" : ""), text: "예정 " + kd(a.followup_due_at) })),

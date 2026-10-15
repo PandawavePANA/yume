@@ -208,6 +208,13 @@ test("감사 데스크: 약관 → 검사 → 재확인 → 체크리스트 → 
   assert.equal(d.checklist.passed, false);
 
   // 재확인 전에는 발송할 수 없다.
+  // 대표가 직접 보낸 것으로 기록하려면 이유가 있어야 하고, 메일에 넣을 보고서 링크가 먼저 있어야 한다.
+  const noReason = await call("POST", `/api/admin/audits/${id}/sent`, { override: true });
+  assert.equal(noReason.status, 400);
+  assert.match(noReason.json.error, /이유/);
+  const noReport = await call("POST", `/api/admin/audits/${id}/sent`, { override: true, reason: "캡처 없이 대표 결정으로 발송" });
+  assert.equal(noReport.status, 400);
+  assert.match(noReport.json.error, /보고서 링크/);
   const tooSoon = await call("POST", `/api/admin/audits/${id}/sent`);
   assert.equal(tooSoon.status, 400);
 
