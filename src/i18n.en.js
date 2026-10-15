@@ -539,6 +539,8 @@ export default {
     "Purchase requests",
   "크레딧 내역":
     "Credit history",
+  "아직 충전·사용 내역이 없어요. 크레딧을 충전하거나 검사를 하면 여기에 날짜·내용·증감·잔여 크레딧이 한 줄씩 기록돼요.":
+    "No top-ups or usage yet. Each top-up or check adds a row here with the date, description, change and remaining credits.",
   "혹시 이것을 말한 걸까요?":
     "Did it mean this?",
   "아직 확인하지 못한 영역":

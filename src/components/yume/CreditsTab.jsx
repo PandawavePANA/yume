@@ -313,13 +313,19 @@ export default function CreditsTab() {
         </>
       )}
 
-      {data.ledger.length > 0 && (
+      {/* 내역이 없어도 이 칸은 항상 보인다 — 결제 심사 담당자가 새 계정으로 들어와도 차감 페이지를 확인할 수 있어야 한다(2026-10-15 이니시스 회신). */}
+      {(
         <>
-          <div style={{ fontSize: 13, fontWeight: 700, margin: "18px 0 4px" }}>{t("크레딧 내역")}</div>
+          <div id="credit-history" style={{ fontSize: 13, fontWeight: 700, margin: "18px 0 4px" }}>{t("크레딧 내역")}</div>
           <div style={{ fontSize: 11.5, color: "#A99BC9", marginBottom: 6 }}>{t("충전·차감 내역과 거래마다의 잔여 크레딧이에요. 최근 100건까지 보여요.")}</div>
           <div style={{ display: "grid", gridTemplateColumns: "auto 1fr auto auto", columnGap: 10, fontSize: 11, color: "#A99BC9", fontWeight: 600, padding: "6px 0", borderBottom: "1px solid #EDE3FA" }}>
             <span>{t("날짜")}</span><span>{t("내용")}</span><span style={{ textAlign: "right" }}>{t("증감")}</span><span style={{ textAlign: "right" }}>{t("잔여")}</span>
           </div>
+          {data.ledger.length === 0 && (
+            <div style={{ fontSize: 12.5, color: "#A99BC9", padding: "14px 0", borderBottom: "1px solid #F4EEFC", lineHeight: 1.6 }}>
+              {t("아직 충전·사용 내역이 없어요. 크레딧을 충전하거나 검사를 하면 여기에 날짜·내용·증감·잔여 크레딧이 한 줄씩 기록돼요.")}
+            </div>
+          )}
           {data.ledger.map((l) => (
             <div key={l.id} style={{ display: "grid", gridTemplateColumns: "auto 1fr auto auto", columnGap: 10, alignItems: "baseline", fontSize: 12.5, padding: "7px 0", borderBottom: "1px solid #F4EEFC" }}>
               <span style={{ color: "#A99BC9", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{fmtDay(l.created_at)}</span>
