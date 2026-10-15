@@ -15,7 +15,7 @@ export const QUOTE_PRODUCTS = {
   ...Object.fromEntries(API_RATES.tiers.map((t) => [t.key, { label: `${t.label} — 월 ${won(t.monthlyKrw)} · ${t.calls.toLocaleString("ko-KR")}회`, unit: "개월", min: 1, max: 12, step: 1, def: 1, unitKrw: t.monthlyKrw, qtyLabel: "기간(개월)" }])),
   metered: { label: `종량제 — 건당 ${won(API_RATES.metered.unitKrw)} (후불 월 정산)`, unit: "건", min: 100, max: 100000, step: 100, def: 1000, unitKrw: API_RATES.metered.unitKrw, qtyLabel: "예상 월 건수 (1,000자마다 1건)" },
   // AI 감사 — 정가로 바로 신청. 감사할 서비스 정보를 같이 받는다(서버 b2bDeals.readOrder와 같은 칸).
-  ...Object.fromEntries(Object.entries(AUDIT_RATES).map(([k, a]) => [k, { label: `${a.label} — ${won(a.krw)}`, unit: a.unit, min: 1, max: k === "audit_regular" ? 4 : 1, step: 1, def: 1, unitKrw: a.krw, qtyLabel: k === "audit_regular" ? "분기 수" : "수량", audit: true, spec: a.spec }])),
+  ...Object.fromEntries(Object.entries(AUDIT_RATES).map(([k, a]) => [k, { label: `${a.label} — ${won(a.krw)} / ${a.unit}`, unit: a.unit, min: 1, max: k === "audit_regular" ? 4 : 1, step: 1, def: 1, unitKrw: a.krw, qtyLabel: k === "audit_regular" ? "분기 수" : "수량", audit: true, spec: a.spec }])),
 };
 
 const field = { width: "100%", boxSizing: "border-box", padding: "11px 13px", borderRadius: 11, border: `1px solid ${UI.hairline}`, background: "#fff", color: UI.ink, font: "inherit", fontSize: 14.5 };
