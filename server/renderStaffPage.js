@@ -319,13 +319,19 @@ const SCRIPT = String.raw`
         '<span class="t">' + esc(a.title) + "</span></button>";
     }).join("");
   }
-  function inputOf(a) { return S.inputs[a.id] || (S.inputs[a.id] = initInput(a)); }
+  function inputOf(a) {
+    var inp = S.inputs[a.id] || (S.inputs[a.id] = initInput(a));
+    // 서버에서 초안이 바뀌었는데(직원·Claude가 고쳐 둠) 대표가 아직 손대지 않았으면 새 초안으로 바꿔 보여 준다.
+    var d = (a.payload || {}).draft;
+    if (a.kind === "reply_mail" && typeof d === "string" && inp.orig !== d && inp.body === inp.orig) { inp.body = d; inp.orig = d; }
+    return inp;
+  }
   function initInput(a) {
     var p = a.payload || {};
     if (a.kind === "add_prospects") return { pick: (p.candidates || []).map(function (_, i) { return i; }) };
     if (a.kind === "review_findings") { var d = {}; (p.items || []).forEach(function (x) { d[x.id] = x.qa; }); return { decisions: d }; }
     if (a.kind === "send_first") return { to: p.to || "", checks: {} };
-    if (a.kind === "reply_mail") return { to: p.to || "", body: p.draft || "" };
+    if (a.kind === "reply_mail") return { to: p.to || "", body: p.draft || "", orig: p.draft || "" };
     return { to: p.to || "" };
   }
   function bodyHtml(a) {
