@@ -293,9 +293,9 @@ export const SEED = [
     priority: 1,
     steps: `왜: 지금 무궁 주소는 mugung-production.up.railway.app 입니다. 사람들에게 알릴 짧은 주소가 필요합니다. (약 20분)
 
-① 도메인 사기 — 후보: mugung.ai · mugung.kr · mugung.co.kr (기획안 10장)
-  · 유메 도메인을 산 호스팅어(hpanel.hostinger.com) 또는 가비아에서 검색 → 되는 것 중 하나(.kr 또는 .ai) 구매
-  · 여유가 되면 나머지 하나도 같이 사 두면 남이 못 가져갑니다
+① 도메인 사기 — 10-16 확인: mugung.com(판매 장터에 올라가 있음)·moogoong.com·mugung.kr·mugung.co.kr·moogoong.kr은 이미 남의 것
+  · 1순위 mugung.ai(비어 있음, AI 서비스에 맞고 짧음) · 함께 사 둘 것 mugungai.com · mugungai.kr(비어 있음 — 이 주소로 오면 mugung.ai로 넘김)
+  · 유메 도메인을 산 호스팅어(hpanel.hostinger.com) 또는 가비아에서 검색 → 결제 직전 화면에서 가격·기간 확인(.ai는 .com보다 비싸고 보통 2년 단위)
 
 ② Railway에 도메인 붙이기
   1. railway.com → 프로젝트 yume → mugung 서비스 → Settings → Networking → Custom Domain → 산 도메인 입력(예: mugung.kr, www.mugung.kr 둘 다)
