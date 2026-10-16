@@ -20,9 +20,10 @@ const TIMEOUT_MS = 170_000;
 
 // 확인 깊이. 답을 쓴 쪽의 등급에 맞춘다 — 가벼운 답에 비싼 확인을 붙이면 원가가 답 값을 넘는다.
 export const CHECK_LEVELS = {
-  fast: { key: "fast", searches: 2, reviseModel: "claude-haiku-5-5", reviseEffort: "low" }, // 여명: 빠르게(검색 2번)
-  standard: { key: "standard", searches: 4, reviseModel: "claude-sonnet-5-5", reviseEffort: "low" },
-  deep: { key: "deep", searches: 5, reviseModel: "claude-sonnet-5-5", reviseEffort: "medium" },
+  // budgetMs: 확인 한 단계(공식 · 웹)의 시간 한도 — 검색 도구가 오래 끌면(한 번에 150초 실측) 기다리지 않고 그 주장은 확인 안 됨으로 둔다.
+  fast: { key: "fast", searches: 2, reviseModel: "claude-haiku-5-5", reviseEffort: "low", budgetMs: 15_000, reviseMs: 12_000 }, // 여명: 빠르게(검색 2번)
+  standard: { key: "standard", searches: 4, reviseModel: "claude-sonnet-5-5", reviseEffort: "low", budgetMs: 40_000, reviseMs: 25_000 },
+  deep: { key: "deep", searches: 5, reviseModel: "claude-sonnet-5-5", reviseEffort: "medium", budgetMs: 90_000, reviseMs: 45_000 },
 };
 const VERIFIER_MODEL = "claude-sonnet-5-5";
 const EXTRACT_MODEL = "claude-haiku-5-5";
@@ -50,14 +51,14 @@ function parseJsonText(text) {
   return JSON.parse(cleaned.slice(start, end + 1));
 }
 
-async function callModel({ model, system, user, maxTokens = 4000, effort = "low", tools = null, ledger = null, label, fetchImpl = fetch }) {
+async function callModel({ model, system, user, maxTokens = 4000, effort = "low", tools = null, ledger = null, label, fetchImpl = fetch, timeoutMs = TIMEOUT_MS }) {
   const body = { model, max_tokens: maxTokens, system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }], messages: [{ role: "user", content: user }], output_config: { effort } };
   if (tools) body.tools = tools;
   const res = await fetchImpl(ANTHROPIC_API_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-api-key": apiKey(), "anthropic-version": "2023-06-01" },
     body: JSON.stringify(body),
-    signal: AbortSignal.timeout(TIMEOUT_MS),
+    signal: AbortSignal.timeout(timeoutMs),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok || data.type === "error") throw noteUpstreamFailure(classifyUpstream(new Error(data.error?.message || `Claude API 오류 (${res.status})`), res.status));
@@ -114,10 +115,10 @@ const searchTool = (maxUses, allowedDomains = null) => ({
 });
 
 /** 주장 묶음 하나를 웹 검색으로 판정한다. 근거 주소가 이번 검색 결과에 없으면 unverified로 내린다. */
-async function judgeClaims(claims, { maxUses, allowedDomains = null, ledger, label, json }) {
+async function judgeClaims(claims, { maxUses, allowedDomains = null, ledger, label, json, timeoutMs }) {
   const list = claims.map((c, i) => `${i + 1}. ${c.claim} (답변 원문: "${c.quote}")`).join("\n");
   const scope = allowedDomains?.length ? "[찾는 범위] 한국 공식 기관 사이트에서만 찾는다.\n" : "";
-  const ver = await json({ model: VERIFIER_MODEL, system: WEBCHECK_SYSTEM, user: `${todayLine()}${scope}[주장]\n${list}`, maxTokens: 6000, effort: "low", tools: [searchTool(maxUses, allowedDomains)], ledger, label });
+  const ver = await json({ model: VERIFIER_MODEL, system: WEBCHECK_SYSTEM, user: `${todayLine()}${scope}[주장]\n${list}`, maxTokens: 6000, effort: "low", tools: [searchTool(maxUses, allowedDomains)], ledger, label, ...(timeoutMs ? { timeoutMs } : {}) });
   const byI = new Map((ver.json?.results || []).map((r) => [Number(r.i), r]));
   return claims.map((c, k) => {
     const r = byI.get(k + 1) || { verdict: "unverified" };
@@ -246,7 +247,7 @@ export async function checkEverydayFacts(answer, { level = CHECK_LEVELS.fast, le
   const officialTodo = fielded.filter(open);
   const webTodo = claims.filter(open);
   // (주장을 몇 개씩 나눠 동시에 돌려 보기도 했지만 호출마다 검색 결과를 따로 읽어 더 느리고 3배 비쌌다 — 2026-10-16 측정. 한 호출로 둔다.)
-  const judgeAll = (list, opts) => (list.length ? judgeClaims(list, { ...opts, maxUses: level.searches }).catch(() => blank(list)) : []);
+  const judgeAll = (list, opts) => (list.length ? judgeClaims(list, { ...opts, maxUses: level.searches, timeoutMs: level.budgetMs }).catch(() => blank(list)) : []);
   const [first, second] = await Promise.all([
     judgeAll(officialTodo, { allowedDomains: officialDomainsFor([...new Set(officialTodo.map((c) => c.field))]), ledger, label: "check_official", json }),
     judgeAll(webTodo, { ledger, label: "check_web", json }),
@@ -403,6 +404,7 @@ export async function checkAnswer({ question = "", answer, level: levelKey = "fa
       effort: level.reviseEffort,
       ledger,
       label: "check_revise",
+      ...(level.reviseMs ? { timeoutMs: level.reviseMs } : {}),
     }).catch(() => "");
     const cleaned = cleanRevised(revised, text);
     if (cleaned) finalText = cleaned;
