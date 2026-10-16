@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { checkAnswer, checkEverydayFacts, prepareContext, appendCorrections, BLANKET_DISCLAIMER } from "../answerCheck.js";
+import { checkAnswer, checkEverydayFacts, prepareContext, appendCorrections, BLANKET_DISCLAIMER, normalizeAnswerReferences } from "../answerCheck.js";
 import { isOfficialUrl, officialDomainsFor } from "../koreaSources.js";
 
 const article = { id: "A1", law: "고용보험법", no: 50, branch: null, title: "피보험기간", text: "상실한 날부터 3년 이내에", url: "u50", block: "[A1] 고용보험법 제50조\n상실한 날부터 3년 이내에", deleted: false };
@@ -109,4 +109,14 @@ test("답 원문에 없는 문장을 사실로 뽑아 오면 버린다", async (
   const json = async ({ label }) => (label === "check_extract" ? { json: { claims: [{ quote: "답에 없는 말", claim: "x", kind: "other" }] }, urls: new Set() } : assert.fail("뽑힌 사실이 없으면 웹 확인을 부르지 않는다"));
   const r = await checkEverydayFacts("전혀 다른 답변입니다.", { json });
   assert.equal(r.claims.length, 0);
+});
+
+test("사용자 자료를 함께 주면 추출기에 넘기고, 자료는 잘라서 받는다", async () => {
+  let seen = "";
+  const json = async ({ label, user }) => (label === "check_extract" ? ((seen = user), { json: { claims: [] }, urls: new Set() }) : assert.fail());
+  await checkEverydayFacts("월세는 50만 원이에요.", { json, references: [{ title: "계약서", text: "월세 50만 원" }] });
+  assert.match(seen, /\[사용자 자료\]\n<계약서>\n월세 50만 원/);
+  const refs = normalizeAnswerReferences([{ title: "a", text: "x".repeat(70_000) }, { text: "y" }]);
+  assert.equal(refs.length, 1);
+  assert.equal(refs[0].text.length, 60_000);
 });

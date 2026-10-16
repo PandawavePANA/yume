@@ -25,7 +25,7 @@ export const CHECK_LEVELS = {
 };
 const VERIFIER_MODEL = "claude-sonnet-5-5";
 const EXTRACT_MODEL = "claude-haiku-5-5";
-export const MAX_ANSWER_CHARS = 20_000;
+export const MAX_ANSWER_CHARS = 60_000;
 export const MAX_QUESTION_CHARS = 4_000;
 
 function apiKey() {
@@ -87,6 +87,7 @@ const EXTRACT_SYSTEM = `너는 유메의 사실 추출기다. [답변]에서 공
 quote는 답변의 문장을 한 글자도 바꾸지 않고(150자 이내). 중요한 것부터 최대 8개. 사람의 건강·돈에 영향이 큰 것을 먼저.
 field는 그 사실을 공식적으로 확인할 수 있는 분야: law(법령·판례) medical(의료·의약·건강) economy(경제·금융·금리·환율) tax(세금) labor(노동·고용·임금) realestate(부동산·주거) company(기업·공시) welfare(복지·행정·교육·선거·외교) statistics(통계) general(그 밖).
 출력: {"claims":[{"quote":"…","claim":"확인할 사실을 한 문장으로","kind":"legal|number|date|entity|event|quote|source|other","field":"…"}]}
+[사용자 자료]가 함께 주어지면, 답변이 그 자료(사용자가 올린 계약서·문서 등)의 내용을 옮기거나 요약한 부분은 뽑지 않는다 — 사용자가 준 자료 자체는 확인 대상이 아니다. 자료 밖에서 가져온 사실(법·제도·수치·기관 정보 등)만 뽑는다.
 확인할 사실이 없으면 {"claims":[]}.`;
 
 const WEBCHECK_SYSTEM = `너는 유메의 사실 확인자다. 각 [주장]을 web_search로 찾아본 자료로 판정한다. 기억으로 판정하지 않는다. JSON만 출력한다.
@@ -123,8 +124,9 @@ async function judgeClaims(claims, { maxUses, allowedDomains = null, ledger, lab
   });
 }
 
-export async function checkEverydayFacts(answer, { level = CHECK_LEVELS.fast, ledger = null, skipLegal = false, json = callJson } = {}) {
-  const ex = await json({ model: EXTRACT_MODEL, system: EXTRACT_SYSTEM, user: `[답변]\n${answer.slice(0, 8000)}`, maxTokens: 3000, effort: "low", ledger, label: "check_extract" });
+export async function checkEverydayFacts(answer, { level = CHECK_LEVELS.fast, ledger = null, skipLegal = false, references = [], json = callJson } = {}) {
+  const refBlock = references.length ? `[사용자 자료]\n${references.map((r) => `<${r.title}>\n${r.text}`).join("\n\n").slice(0, 15000)}\n\n` : "";
+  const ex = await json({ model: EXTRACT_MODEL, system: EXTRACT_SYSTEM, user: `${refBlock}[답변]\n${answer.slice(0, 8000)}`, maxTokens: 3000, effort: "low", ledger, label: "check_extract" });
   const quoteOk = (q) => String(q || "").replace(/\s+/g, "").length >= 4 && answer.replace(/\s+/g, "").includes(String(q).replace(/\s+/g, ""));
   const claims = (ex.json?.claims || [])
     .filter((c) => quoteOk(c.quote) && !(skipLegal && (c.kind === "legal" || c.field === "law")))
@@ -172,6 +174,22 @@ export function appendCorrections(text, v) {
 
 const articlePublic = (a) => ({ law: a.law, label: `제${a.no}조${a.branch ? `의${a.branch}` : ""}`, title: a.title, url: a.url, deleted: !!a.deleted });
 
+/** 사용자가 대화에 준 자료(올린 파일·서랍 자료). 넘치면 자른다 — 대화형 AI는 큰 문서를 그대로 넘긴다. */
+export function normalizeAnswerReferences(raw) {
+  if (!Array.isArray(raw)) return [];
+  const out = [];
+  let total = 0;
+  for (const [i, r] of raw.slice(0, 10).entries()) {
+    const text = typeof r === "string" ? r : typeof r?.text === "string" ? r.text : "";
+    if (!text.trim()) continue;
+    const room = 60_000 - total;
+    if (room <= 0) break;
+    out.push({ title: String(r?.title || `자료 ${i + 1}`).slice(0, 80), text: text.slice(0, room) });
+    total += Math.min(text.length, room);
+  }
+  return out;
+}
+
 // ── 질문 맥락: 답을 쓰기 전에 현행 조문 ─────────────────────────────
 /**
  * 법령 이야기가 든 질문이면 관련 현행 조문을 모은다. 답을 쓰는 쪽은 block을 시스템 안내에 넣는다.
@@ -196,7 +214,7 @@ export async function prepareContext(question, { ledger = null, deps = {} } = {}
  * 돌려주는 값: { text, changed, verification }
  *   verification: { checked, laws, articles, fixes[], hedged[], supported[], cleared, facts_checked, fact_check_failed, revise_failed }
  */
-export async function checkAnswer({ question = "", answer, level: levelKey = "fast", ledger = null, onStage = () => {}, deps = {} }) {
+export async function checkAnswer({ question = "", answer, level: levelKey = "fast", references = [], ledger = null, onStage = () => {}, deps = {} }) {
   const level = CHECK_LEVELS[levelKey] || CHECK_LEVELS.fast;
   const gather = deps.gatherArticles || gatherArticles;
   const review = deps.reviewStatutes || reviewStatutes;
@@ -225,7 +243,7 @@ export async function checkAnswer({ question = "", answer, level: levelKey = "fa
         return { all, ran: true, errors: decided.filter((d) => d.decision === "error"), cleared: decided.filter((d) => d.decision !== "error").length };
       })()
     : Promise.resolve(null);
-  const factCheck = everyday(text, { level, ledger, skipLegal: legalTalk }).catch(() => ({ claims: [], results: [], failed: true }));
+  const factCheck = everyday(text, { level, ledger, skipLegal: legalTalk, references: normalizeAnswerReferences(references) }).catch(() => ({ claims: [], results: [], failed: true }));
   const [legal, facts] = await Promise.all([legalCheck, factCheck]);
 
   if (legal?.all) {

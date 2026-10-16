@@ -208,8 +208,9 @@ export function openApiSpec(base = "https://www.yume-reamer.com") {
                   required: ["answer"],
                   properties: {
                     question: { type: "string", maxLength: 4000, description: "사용자 질문(선택, 주면 법령 근거를 더 정확히 찾음)" },
-                    answer: { type: "string", maxLength: 20000 },
+                    answer: { type: "string", maxLength: 60000 },
                     level: { enum: ["fast", "standard", "deep"], default: "fast", description: "확인 깊이 — 답을 쓴 모델 등급에 맞춤" },
+                    references: { type: "array", maxItems: 10, items: { type: "object", properties: { title: { type: "string" }, text: { type: "string" } } }, description: "사용자가 대화에 준 자료(올린 파일 등, 합계 60,000자까지). 답이 이 자료를 옮긴 부분은 확인 대상에서 뺌" },
                   },
                 },
               },

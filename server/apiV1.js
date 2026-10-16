@@ -521,7 +521,8 @@ router.post("/context", requireApiKey, engineAvailable, async (req, res) => {
   res.json(ctx);
 });
 
-router.post("/answer-check", requireApiKey, engineAvailable, async (req, res) => {
+// 답(최대 6만 자)과 사용자 자료(최대 6만 자)를 함께 받으므로 전역 256KB 대신 자기 파서를 단다(app.js BIG_BODY).
+router.post("/answer-check", express.json({ limit: "1mb" }), requireApiKey, engineAvailable, async (req, res) => {
   const key = req.apiKey;
   const answer = typeof req.body?.answer === "string" ? req.body.answer.trim() : "";
   const question = typeof req.body?.question === "string" ? req.body.question.trim() : "";
@@ -545,7 +546,7 @@ router.post("/answer-check", requireApiKey, engineAvailable, async (req, res) =>
   const started = Date.now();
   let out;
   try {
-    out = await checkAnswer({ question, answer, level, ledger });
+    out = await checkAnswer({ question, answer, level, references: req.body?.references, ledger });
   } catch (e) {
     // 확인을 끝내지 못한 요청은 과금하지 않는다.
     if (usageId) await finishApiUsage(usageId, { statusCode: 500, cached: false, billable: false });
