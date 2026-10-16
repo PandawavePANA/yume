@@ -136,10 +136,32 @@ const DATA_JUDGE_SYSTEM = `너는 유메의 사실 확인자다. 각 [주장]을
 
 const squash = (s) => String(s || "").replace(/\\[nrt]/g, " ").replace(/[\s"\\]+/g, "");
 
-export async function judgeFromData(claims, data, { ledger = null, json = callJson } = {}) {
+// 0.5차: 답을 쓴 모델이 실제로 연 웹 페이지의 원문 발췌(검색 도구가 준 cited_text). 모델이 쓴 글이 아니라 페이지 글자다.
+const PAGE_JUDGE_SYSTEM = `너는 유메의 사실 확인자다. 각 [주장]을 아래 [페이지 발췌](답을 쓸 때 실제로 연 웹 페이지의 원문 일부)만으로 판정한다. 기억·추측으로 판정하지 않는다. JSON만 출력한다.
+- supported: 발췌가 주장을 뒷받침한다(같은 대상·같은 시점이어야 한다. 다른 해·다른 학교·다른 기관의 내용이면 unverified).
+- contradicted: 발췌가 다르게 말한다. 실제 값을 correct에 적는다.
+- unverified: 발췌에 그 내용이 없거나 판단할 수 없다.
+- quote에는 판정 근거가 된 발췌의 글자를 한 글자도 바꾸지 않고 옮긴다(200자 이내). src에는 그 발췌 번호.
+출력: {"results":[{"i":번호,"verdict":"supported|contradicted|unverified","correct":"","src":번호,"quote":"","note":"40자 이내"}]}`;
+
+/** 답을 쓸 때 연 페이지 발췌(무궁 등 호출하는 쪽이 넘긴다). 주소와 글자가 있는 것만, 넘치면 자른다. */
+export function normalizeSources(raw) {
+  if (!Array.isArray(raw)) return [];
+  const out = [];
+  for (const s of raw.slice(0, 30)) {
+    const url = String(s?.url || "");
+    const text = String(s?.text || s?.cited_text || "").trim();
+    if (!/^https?:\/\//.test(url) || text.length < 10) continue;
+    out.push({ url: url.slice(0, 500), title: String(s?.title || url).slice(0, 120), text: text.slice(0, 2000) });
+  }
+  return out;
+}
+
+export async function judgeFromData(claims, data, { ledger = null, json = callJson, system = DATA_JUDGE_SYSTEM, label = "check_data" } = {}) {
   const list = claims.map((c, i) => `${i + 1}. ${c.claim} (답변 원문: "${c.quote}")`).join("\n");
-  const blocks = data.map((d, i) => `[공식 데이터 ${i + 1}] ${d.source}\n${d.text}`).join("\n\n");
-  const out = await json({ model: VERIFIER_MODEL, system: DATA_JUDGE_SYSTEM, user: `${todayLine()}${blocks}\n\n[주장]\n${list}`, maxTokens: 4000, effort: "low", ledger, label: "check_data" });
+  const head = system === DATA_JUDGE_SYSTEM ? "공식 데이터" : "페이지 발췌";
+  const blocks = data.map((d, i) => `[${head} ${i + 1}] ${d.source}\n${d.text}`).join("\n\n");
+  const out = await json({ model: VERIFIER_MODEL, system, user: `${todayLine()}${blocks}\n\n[주장]\n${list}`, maxTokens: 4000, effort: "low", ledger, label });
   const byI = new Map((out.json?.results || []).map((r) => [Number(r.i), r]));
   return claims.map((c, k) => {
     const r = byI.get(k + 1);
@@ -149,11 +171,11 @@ export async function judgeFromData(claims, data, { ledger = null, json = callJs
     if (verdict !== "unverified" && !(d && squash(r.quote).length >= 4 && squash(d.text).includes(squash(r.quote)))) verdict = "unverified";
     if (verdict === "contradicted" && !String(r.correct || "").trim()) verdict = "unverified";
     if (verdict === "unverified") return { ...c, verdict, correct: "", url: "", official: false, quoteSrc: "", note: "" };
-    return { ...c, verdict, correct: r.correct || "", url: d.url, official: true, via: "data", sourceName: d.source, quoteSrc: r.quote, note: r.note || "" };
+    return { ...c, verdict, correct: r.correct || "", url: d.url, official: d.official ?? true, via: d.via || "data", sourceName: d.source, quoteSrc: r.quote, note: r.note || "" };
   });
 }
 
-export async function checkEverydayFacts(answer, { level = CHECK_LEVELS.fast, ledger = null, skipLegal = false, references = [], json = callJson, koreaData = gatherKoreaData } = {}) {
+export async function checkEverydayFacts(answer, { level = CHECK_LEVELS.fast, ledger = null, skipLegal = false, references = [], sources = [], json = callJson, koreaData = gatherKoreaData } = {}) {
   const refBlock = references.length ? `[사용자 자료]\n${references.map((r) => `<${r.title}>\n${r.text}`).join("\n\n").slice(0, 15000)}\n\n` : "";
   const ex = await json({ model: EXTRACT_MODEL, system: EXTRACT_SYSTEM, user: `${refBlock}[답변]\n${answer.slice(0, 8000)}`, maxTokens: 3000, effort: "low", ledger, label: "check_extract" });
   const quoteOk = (q) => String(q || "").replace(/\s+/g, "").length >= 4 && answer.replace(/\s+/g, "").includes(String(q).replace(/\s+/g, ""));
@@ -175,6 +197,15 @@ export async function checkEverydayFacts(answer, { level = CHECK_LEVELS.fast, le
       for (const r of judged) if (r.verdict !== "unverified") byQuote.set(r.quote, r);
     }
   }
+  // 0.5차: 답을 쓸 때 실제로 연 페이지의 원문 발췌 — 검색 없이 먼저 대조한다(일상 질문을 빠르고 싸게).
+  if (sources.length) {
+    const todo = claims.filter(open);
+    if (todo.length) {
+      const page = sources.map((s) => ({ source: `${s.title} (${s.url})`, url: s.url, text: s.text, official: isOfficialUrl(s.url), via: "page" }));
+      const judged = await judgeFromData(todo, page, { ledger, json, system: PAGE_JUDGE_SYSTEM, label: "check_page" }).catch(() => []);
+      for (const r of judged) if (r.verdict !== "unverified") byQuote.set(r.quote, r);
+    }
+  }
   // 1차: 분야가 있는 주장은 그 분야의 공식 기관 사이트에서만
   const officialTodo = fielded.filter(open);
   if (officialTodo.length) {
@@ -185,7 +216,10 @@ export async function checkEverydayFacts(answer, { level = CHECK_LEVELS.fast, le
   // 2차: 공식 출처에서 결론이 안 난 것과 분야가 없는 것만 웹 전체에서
   const rest = claims.filter(open);
   if (rest.length) {
-    const second = await judgeClaims(rest, { maxUses: level.searches, ledger, label: "check_web", json });
+    // 2차가 실패해도(검색 장애 · 답 형식 오류) 앞에서 확인한 결과는 살린다 — 예전에는 여기서 던져 답 전체가
+    // '사실 확인을 마치지 못했어요'가 됐다(2026-10-16). 못 본 것만 확인 안 됨으로 둔다.
+    const second = await judgeClaims(rest, { maxUses: level.searches, ledger, label: "check_web", json })
+      .catch(() => rest.map((c) => ({ ...c, verdict: "unverified", correct: "", url: "", official: false, quoteSrc: "", note: "" })));
     for (const r of second) byQuote.set(r.quote, r);
   }
   const results = claims.map((c) => byQuote.get(c.quote) || { ...c, verdict: "unverified", correct: "", url: "", official: false, quoteSrc: "", note: "" });
@@ -253,7 +287,7 @@ export async function prepareContext(question, { ledger = null, deps = {} } = {}
  * 돌려주는 값: { text, changed, verification }
  *   verification: { checked, laws, articles, fixes[], hedged[], supported[], cleared, facts_checked, fact_check_failed, revise_failed }
  */
-export async function checkAnswer({ question = "", answer, level: levelKey = "fast", references = [], ledger = null, onStage = () => {}, deps = {} }) {
+export async function checkAnswer({ question = "", answer, level: levelKey = "fast", references = [], sources = [], ledger = null, onStage = () => {}, deps = {} }) {
   const level = CHECK_LEVELS[levelKey] || CHECK_LEVELS.fast;
   const gather = deps.gatherArticles || gatherArticles;
   const review = deps.reviewStatutes || reviewStatutes;
@@ -282,7 +316,7 @@ export async function checkAnswer({ question = "", answer, level: levelKey = "fa
         return { all, ran: true, errors: decided.filter((d) => d.decision === "error"), cleared: decided.filter((d) => d.decision !== "error").length };
       })()
     : Promise.resolve(null);
-  const factCheck = everyday(text, { level, ledger, skipLegal: legalTalk, references: normalizeAnswerReferences(references) }).catch(() => ({ claims: [], results: [], failed: true }));
+  const factCheck = everyday(text, { level, ledger, skipLegal: legalTalk, references: normalizeAnswerReferences(references), sources: normalizeSources(sources) }).catch(() => ({ claims: [], results: [], failed: true }));
   const [legal, facts] = await Promise.all([legalCheck, factCheck]);
 
   if (legal?.all) {

@@ -211,6 +211,7 @@ export function openApiSpec(base = "https://www.yume-reamer.com") {
                     answer: { type: "string", maxLength: 60000 },
                     level: { enum: ["fast", "standard", "deep"], default: "fast", description: "확인 깊이 — 답을 쓴 모델 등급에 맞춤" },
                     references: { type: "array", maxItems: 10, items: { type: "object", properties: { title: { type: "string" }, text: { type: "string" } } }, description: "사용자가 대화에 준 자료(올린 파일 등, 합계 60,000자까지). 답이 이 자료를 옮긴 부분은 확인 대상에서 뺌" },
+                    sources: { type: "array", maxItems: 30, items: { type: "object", properties: { url: { type: "string" }, title: { type: "string" }, text: { type: "string", description: "그 페이지의 원문 발췌(검색 도구가 준 cited_text)" } } }, description: "답을 쓸 때 실제로 연 웹 페이지 발췌. 유메가 검색 전에 먼저 대조함(근거 문장이 발췌에 그대로 있어야 인정)" },
                   },
                 },
               },

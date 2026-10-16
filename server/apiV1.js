@@ -546,7 +546,7 @@ router.post("/answer-check", express.json({ limit: "1mb" }), requireApiKey, engi
   const started = Date.now();
   let out;
   try {
-    out = await checkAnswer({ question, answer, level, references: req.body?.references, ledger });
+    out = await checkAnswer({ question, answer, level, references: req.body?.references, sources: req.body?.sources, ledger });
   } catch (e) {
     // 확인을 끝내지 못한 요청은 과금하지 않는다.
     if (usageId) await finishApiUsage(usageId, { statusCode: 500, cached: false, billable: false });

@@ -120,3 +120,46 @@ test("사용자 자료를 함께 주면 추출기에 넘기고, 자료는 잘라
   assert.equal(refs.length, 1);
   assert.equal(refs[0].text.length, 60_000);
 });
+
+test("일상 사실: 답을 쓸 때 연 페이지 발췌로 먼저 확인하고, 웹 검색은 하지 않는다", async () => {
+  const labels = [];
+  const json = async ({ label }) => {
+    labels.push(label);
+    if (label === "check_extract") return { json: { claims: [{ claim: "2027학년도 전기 원서 접수는 11월 3일부터다", quote: "11월 3일부터", field: "general" }] } };
+    if (label === "check_page") return { json: { results: [{ i: 1, verdict: "supported", src: 1, quote: "원서접수: 2026. 11. 3.(월) ~ 11. 14.(금)" }] } };
+    throw new Error(`부르면 안 되는 단계 ${label}`);
+  };
+  const sources = [{ url: "https://gs.knu.ac.kr/notice/1", title: "경북대 대학원 모집요강", text: "2027학년도 전기 신입생 모집 — 원서접수: 2026. 11. 3.(월) ~ 11. 14.(금) 온라인" }];
+  const r = await checkEverydayFacts("원서 접수는 11월 3일부터예요.", { json, sources, koreaData: async () => [] });
+  assert.equal(r.results[0].verdict, "supported");
+  assert.equal(r.results[0].via, "page");
+  assert.deepEqual(labels, ["check_extract", "check_page"]);
+});
+
+test("일상 사실: 발췌에 없는 근거 문장은 인정하지 않는다(지어낸 근거 방지)", async () => {
+  const json = async ({ label }) => {
+    if (label === "check_extract") return { json: { claims: [{ claim: "접수는 11월 3일부터", quote: "11월 3일부터", field: "general" }] } };
+    if (label === "check_page") return { json: { results: [{ i: 1, verdict: "supported", src: 1, quote: "11월 3일부터 접수" }] } };
+    if (label === "check_web") return { json: { results: [] }, urls: new Set() };
+    throw new Error(label);
+  };
+  const r = await checkEverydayFacts("접수는 11월 3일부터예요.", { json, sources: [{ url: "https://a.ac.kr/x", title: "x", text: "올해 모집 일정은 추후 공지합니다" }], koreaData: async () => [] });
+  assert.equal(r.results[0].verdict, "unverified");
+});
+
+test("일상 사실: 웹 전체 확인(2차)이 실패해도 앞 단계 결과는 살고 전체 실패로 번지지 않는다", async () => {
+  const json = async ({ label }) => {
+    if (label === "check_extract") return { json: { claims: [
+      { claim: "사과 값은 1천원이다", quote: "사과 값은 1천원", field: "general" },
+      { claim: "배 값은 2천원이다", quote: "배 값은 2천원", field: "general" },
+    ] } };
+    if (label === "check_page") return { json: { results: [{ i: 1, verdict: "supported", src: 1, quote: "사과 값은 1천원입니다" }] } };
+    if (label === "check_web") throw new Error("검색 장애");
+    throw new Error(label);
+  };
+  const r = await checkEverydayFacts("사과 값은 1천원이고 배 값은 2천원이에요.", { json, sources: [{ url: "https://x.go.kr/a", title: "a", text: "공지: 사과 값은 1천원입니다. 자세한 것은 문의." }], koreaData: async () => [] });
+  assert.equal(r.failed, undefined);
+  assert.equal(r.results.find((x) => x.quote === "사과 값은 1천원").verdict, "supported");
+  assert.equal(r.results.find((x) => x.quote === "사과 값은 1천원").official, true);
+  assert.equal(r.results.find((x) => x.quote === "배 값은 2천원").verdict, "unverified");
+});
