@@ -190,3 +190,28 @@ test("고쳐 쓴 답에서 모델 혼잣말을 걷어 낸다(<answer> 표시 · 
   assert.equal(cleanRevised("경북대는 4,530명을 뽑아요.\n\nWait — I need to write the corrected answer in Korean. Let me just produce it.\n\n**전형**", draft), "경북대는 4,530명을 뽑아요.\n\n**전형**");
   assert.equal(cleanRevised("Hello world", "Hello world"), "Hello world");
 });
+
+test("인용 원문과 숫자가 그대로 맞으면 모델 없이 바로 확인, 숫자가 다르면 다음 단계로", async () => {
+  const labels = [];
+  const json = async ({ label }) => {
+    labels.push(label);
+    if (label === "check_extract") return { json: { claims: [
+      { claim: "경북대 2027 수시는 4,530명을 뽑는다", quote: "4,530명을 뽑아요", field: "general" },
+      { claim: "원서 접수는 9월 7일부터", quote: "9월 7일부터 받아요", field: "general" },
+    ] } };
+    if (label === "check_page") return { json: { results: [] } };
+    if (label === "check_web") return { json: { results: [] }, urls: new Set() };
+    throw new Error(label);
+  };
+  const sources = [
+    { url: "https://ipsi.knu.ac.kr/a", title: "경북대 입학처", text: "2027학년도 수시모집 인원 4,530명 (전년 대비 증가)", span: "경북대는 2027학년도 수시에서 4,530명을 뽑아요." },
+    { url: "https://ipsi.knu.ac.kr/b", title: "경북대 입학처", text: "원서접수 2026. 9. 8.(월) ~ 9. 12.(금)", span: "원서는 9월 7일부터 받아요." },
+  ];
+  const r = await checkEverydayFacts("경북대는 2027학년도 수시에서 4,530명을 뽑아요. 원서는 9월 7일부터 받아요.", { json, sources, koreaData: async () => [] });
+  const a = r.results.find((x) => x.quote === "4,530명을 뽑아요");
+  const b = r.results.find((x) => x.quote === "9월 7일부터 받아요");
+  assert.equal(a.verdict, "supported");
+  assert.equal(a.via, "cite");
+  assert.equal(b.verdict, "unverified");          // 원문은 9월 8일 — 코드가 확인해 주지 않는다
+  assert.ok(labels.includes("check_page"));       // 남은 것만 다음 단계로
+});

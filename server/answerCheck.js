@@ -139,6 +139,8 @@ const DATA_JUDGE_SYSTEM = `너는 유메의 사실 확인자다. 각 [주장]을
 출력: {"results":[{"i":번호,"verdict":"supported|contradicted|unverified","correct":"","src":번호,"quote":"","note":"40자 이내"}]}`;
 
 const squash = (s) => String(s || "").replace(/\\[nrt]/g, " ").replace(/[\s"\\]+/g, "");
+/** 글 속 숫자들(쉼표 뺀) — '4,530명' → '4530', '2.5%' → '2.5' */
+export const numbersOf = (s) => [...String(s || "").matchAll(/\d[\d,]*(?:\.\d+)?/g)].map((m) => m[0].replace(/,/g, ""));
 
 // 0.5차: 답을 쓴 모델이 실제로 연 웹 페이지의 원문 발췌(검색 도구가 준 cited_text). 모델이 쓴 글이 아니라 페이지 글자다.
 const PAGE_JUDGE_SYSTEM = `너는 유메의 사실 확인자다. 각 [주장]을 아래 [페이지 발췌](답을 쓸 때 실제로 연 웹 페이지의 원문 일부)만으로 판정한다. 기억·추측으로 판정하지 않는다. JSON만 출력한다.
@@ -156,7 +158,7 @@ export function normalizeSources(raw) {
     const url = String(s?.url || "");
     const text = String(s?.text || s?.cited_text || "").trim();
     if (!/^https?:\/\//.test(url) || text.length < 10) continue;
-    out.push({ url: url.slice(0, 500), title: String(s?.title || url).slice(0, 120), text: text.slice(0, 2000) });
+    out.push({ url: url.slice(0, 500), title: String(s?.title || url).slice(0, 120), text: text.slice(0, 2000), span: String(s?.span || "").slice(0, 1000) });
   }
   return out;
 }
@@ -231,6 +233,17 @@ export async function checkEverydayFacts(answer, { level = CHECK_LEVELS.fast, le
       for (const r of judged) if (r.verdict !== "unverified") byQuote.set(r.quote, r);
     }
   }
+  // 0.4차(모델 없이, 즉시): 답 속 그 문장(span)에 붙은 출처 원문(cited_text)에 그 주장의 숫자가 **모두 그대로** 있으면 확인됨.
+  // 숫자가 없는 주장은 여기서 판정하지 않는다(말 바꿔 쓰기를 코드로 판단할 수 없으니 다음 단계로).
+  if (sources.length) {
+    for (const c of claims.filter(open)) {
+      const nums = numbersOf(c.quote);
+      if (!nums.length) continue;
+      const q = squash(c.quote);
+      const hit = sources.find((s) => s.span && (squash(s.span).includes(q) || q.includes(squash(s.span))) && nums.every((n) => numbersOf(s.text).includes(n)));
+      if (hit) byQuote.set(c.quote, { ...c, verdict: "supported", correct: "", url: hit.url, official: isOfficialUrl(hit.url), via: "cite", sourceName: hit.title, quoteSrc: hit.text.slice(0, 200), note: "답 속 인용 원문과 숫자 일치" });
+    }
+  }
   // 0.5차: 답을 쓸 때 실제로 연 페이지의 원문 발췌 — 검색 없이 먼저 대조한다(일상 질문을 빠르고 싸게).
   if (sources.length) {
     const todo = claims.filter(open);
@@ -244,8 +257,11 @@ export async function checkEverydayFacts(answer, { level = CHECK_LEVELS.fast, le
   // 판정은 공식 출처가 결론을 냈으면 그것을, 못 냈으면 웹 전체 결과를 쓴다(예전 순서와 같은 우선순위).
   // 어느 쪽이 실패해도(검색 장애 · 답 형식 오류) 다른 쪽과 앞 단계 결과는 살린다 — 못 본 것만 확인 안 됨.
   const blank = (list) => list.map((c) => ({ ...c, verdict: "unverified", correct: "", url: "", official: false, quoteSrc: "", note: "" }));
-  const officialTodo = fielded.filter(open);
-  const webTodo = claims.filter(open);
+  // 여명(빠르게): 답을 쓸 때 찾아본 출처가 있으면 그 원문으로만 확인하고 다시 검색하지 않는다 — 원문으로 확인 안 된 것은
+  // 단정하지 않게 고쳐 내보낸다(확인된 것만 단정한다는 원칙은 같다). 재검색은 한울 · 황혼이 한다. (2026-10-16 대표 "44초 말이 안 돼")
+  const skipSearch = level.key === "fast" && sources.length > 0;
+  const officialTodo = skipSearch ? [] : fielded.filter(open);
+  const webTodo = skipSearch ? [] : claims.filter(open);
   // (주장을 몇 개씩 나눠 동시에 돌려 보기도 했지만 호출마다 검색 결과를 따로 읽어 더 느리고 3배 비쌌다 — 2026-10-16 측정. 한 호출로 둔다.)
   const judgeAll = (list, opts) => (list.length ? judgeClaims(list, { ...opts, maxUses: level.searches, timeoutMs: level.budgetMs }).catch(() => blank(list)) : []);
   const [first, second] = await Promise.all([
