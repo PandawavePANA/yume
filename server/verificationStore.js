@@ -6,7 +6,7 @@ import { all, now, one, run, tx } from "./db.js";
 // 근거 잠금·근거 없음·방향 판정 이후에도 옛 엔진 판정이 재사용될 수 있었다(2026-10-08 점검).
 // 판정 방식이 바뀌면 올린다 — 결과 캐시 키에 들어가 이전 엔진의 결과를 다시 내보내지 않는다.
 // audit2: 평서문 한 줄을 그대로 주장으로 받고, 원문 조건을 잃은 주장을 되살린다.
-export const ENGINE_VERSION = "2026.10-audit2";
+export const ENGINE_VERSION = "2026.10-statute1";
 const CACHE_TTL_MS = 7 * 24 * 3600 * 1000;
 
 export const newVerificationId = () => crypto.randomBytes(8).toString("hex");

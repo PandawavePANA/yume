@@ -204,7 +204,8 @@ test("#3 옛 이름·약칭 '남녀고용평등법'은 연혁본(MST 78237)이 �
   assert.equal(out.verified_via, "official");
   assert.ok(!calls.some((c) => c.MST === "78237"), "연혁본 본문을 받으면 안 된다");
   assert.match(seen[0], /6개월 이내에서 추가로/);
-  assert.match(out.explanation, /현행 ‘남녀고용평등과 일ㆍ가정 양립 지원에 관한 법률’/);
+  // 약칭 표(LAW_ALIASES)에 있으면 "약칭이라 정식 명칭으로", 없으면 "현행 ○○을 가리켜" — 어느 쪽이든 무엇과 대조했는지 밝힌다.
+  assert.match(out.explanation, /‘남녀고용평등과 일ㆍ가정 양립 지원에 관한 법률’/);
 });
 
 test("가운뎃점 표기(· / ㆍ)가 달라도 현행 법령을 찾는다", async () => {

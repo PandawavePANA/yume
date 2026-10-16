@@ -279,6 +279,16 @@ async function resolveFoundStatute(claim, ident, search, aliasNote, ctx) {
     }
     return necOutcome(claim, nec, ctx, { sources });
   }
+  // 삭제된 조문 — 목록에는 있지만 현행 규정은 없다. "삭제됐다/없다"는 주장은 맞고(claimStance가 뒤집는다),
+  // 그 조문 내용을 지금 규정처럼 말하는 주장은 틀렸다.
+  if (article.deleted) {
+    const src = [{ title: `${search.lawNameOfficial} ${articleLabel}(삭제)`, url: search.detailUrl }];
+    const when = (article.text.match(/<([^>]+)>/) || [])[1];
+    return {
+      ...official(claim, "false", `${aliasNote}"${search.lawNameOfficial}" ${articleLabel}는 삭제된 조문입니다${when ? `(${when.trim()} 삭제)` : ""}. 현행 규정으로 인용할 수 없습니다.`, src, search.effectiveDate),
+      existence: { status: "absent", target: `${search.lawNameOfficial} ${articleLabel}`, label: `${search.lawNameOfficial} ${articleLabel}`, deleted: true, sources: src },
+    };
+  }
   ctx.onProgress(`"${short(search.lawNameOfficial)}" ${articleLabel} 조문과 대조 중…`);
   const effectiveDate = article.effectiveDate || search.effectiveDate;
   // 조문이 수치를 시행령에 맡기거나 정의를 다른 조문에서 끌어다 쓰면 그곳까지 받아 함께 대조한다(legalLinks.js).

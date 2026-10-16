@@ -67,7 +67,9 @@ export function applyStance(claim) {
       verdict: "confirmed",
       verified_via: "nec",
       stance: "denies",
-      explanation: `‘${label}’은(는) 공식 자료 어디에서도 확인되지 않습니다${ex.score != null ? `(부존재 신뢰도 ${ex.score})` : ""}. "없다"는 이 주장은 맞습니다.`,
+      explanation: ex.deleted
+        ? `‘${label}’은(는) 현행 법령에서 삭제된 조문입니다. "삭제됐다·없다"는 이 주장은 맞습니다.`
+        : `‘${label}’은(는) 공식 자료 어디에서도 확인되지 않습니다${ex.score != null ? `(부존재 신뢰도 ${ex.score})` : ""}. "없다"는 이 주장은 맞습니다.`,
       ...(ex.sources?.length ? { sources: ex.sources } : {}),
     };
   }
