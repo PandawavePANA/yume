@@ -294,7 +294,9 @@ export const SEED = [
     steps: `왜: 지금 무궁 주소는 mugung-production.up.railway.app 입니다. 사람들에게 알릴 짧은 주소가 필요합니다. (약 20분)
 
 ① 도메인 사기 — 10-16 확인: mugung.com(판매 장터에 올라가 있음)·moogoong.com·mugung.kr·mugung.co.kr·moogoong.kr은 이미 남의 것
-  · 1순위 mugung.ai(비어 있음, AI 서비스에 맞고 짧음) · 함께 사 둘 것 mugungai.com · mugungai.kr(비어 있음 — 이 주소로 오면 mugung.ai로 넘김)
+  · 1순위 무궁.com(한글 도메인, 비어 있음 — 말로 알리기 쉬움) + 영문 예비 mugungai.com(비어 있음). 여유 있으면 mugung.ai · 무궁.kr · 무궁.한국(모두 비어 있음)
+  · 한글 도메인은 일부 앱·문자에서 xn--of0bu3x.com 처럼 보일 수 있어 영문 주소를 하나 같이 둡니다(둘 다 같은 화면으로 연결)
+  · Railway·카카오에 넣을 때는 한글 대신 xn--of0bu3x.com 으로 넣습니다(Claude가 맞춰 드림)
   · 유메 도메인을 산 호스팅어(hpanel.hostinger.com) 또는 가비아에서 검색 → 결제 직전 화면에서 가격·기간 확인(.ai는 .com보다 비싸고 보통 2년 단위)
 
 ② Railway에 도메인 붙이기
