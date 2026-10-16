@@ -370,6 +370,26 @@ export const SEED = [
 5. 무궁.com에서 Google 버튼으로 로그인되면 '완료' 체크`,
   },
   {
+    key: "instagram_login",
+    title: "[급함·로그인] 인스타그램 로그인 앱 만들기(무궁.com) — 메타 개발자",
+    priority: 1,
+    link: "https://developers.facebook.com/apps",
+    steps: `무궁.com에 '인스타그램으로 계속하기'가 생기게 합니다. (약 30분 + 메타 검수)
+주의: 2024년 12월부터 개인용 인스타그램 로그인(Basic Display)이 없어져서, 지금 방식은 인스타그램 '프로페셔널 계정(비즈니스·크리에이터)'만 로그인됩니다. 개인 계정 사용자는 이메일·카카오·네이버·구글로 가입하면 됩니다.
+
+1. developers.facebook.com → 로그인(대표 페이스북) → 내 앱 → 앱 만들기
+   · 사용 사례: '기타' → 앱 유형 '비즈니스' → 앱 이름: 무궁 · 연락처 이메일: reamer@d-reamer.com
+2. 앱 대시보드 → 제품 추가 → Instagram → 'Instagram 로그인을 통한 API 설정'
+3. '비즈니스 로그인 설정' → 리디렉션 URL(OAuth 리디렉션 URI):
+   https://xn--of0bu3x.com/api/auth/instagram/callback
+4. 같은 화면의 Instagram 앱 ID와 Instagram 앱 시크릿 복사(페이스북 앱 ID와 다름 — Instagram 쪽 값) → Railway mugung 서비스 Variables:
+   INSTAGRAM_CLIENT_ID = Instagram 앱 ID
+   INSTAGRAM_CLIENT_SECRET = Instagram 앱 시크릿
+5. 앱 설정 → 기본 설정: 개인정보처리방침 URL https://xn--of0bu3x.com/privacy · 서비스 약관 https://xn--of0bu3x.com/terms · 사용자 데이터 삭제: 'https://xn--of0bu3x.com/privacy' 안내 URL
+6. 개발 모드에서는 '앱 역할'에 넣은 인스타그램 계정만 로그인됩니다 → 앱 검수 요청(instagram_business_basic) → 승인 후 '라이브'로 전환. 검수 자료(화면 녹화·설명)는 Claude에게 말하면 준비해 드립니다.
+7. 무궁.com에서 인스타그램 버튼으로 로그인되면 '완료' 체크`,
+  },
+  {
     key: "inicis_billing",
     title: "[급함·결제] 이니시스에 무궁.com 판매 추가 확인(사이트·상품·정기결제)",
     priority: 1,
