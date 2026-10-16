@@ -182,3 +182,11 @@ test("확인한 사실은 6시간 기억해 같은 사실은 다시 검색하지
   assert.equal(b.results[0].cached, true);
   assert.equal(webCalls, 1);
 });
+
+test("고쳐 쓴 답에서 모델 혼잣말을 걷어 낸다(<answer> 표시 · 영어 메모 줄)", async () => {
+  const { cleanRevised } = await import("../answerCheck.js");
+  const draft = "경북대는 4,530명을 뽑아요.";
+  assert.equal(cleanRevised("메모\n<answer>경북대는 4,530명을 뽑아요.</answer>\nWait, done.", draft), "경북대는 4,530명을 뽑아요.");
+  assert.equal(cleanRevised("경북대는 4,530명을 뽑아요.\n\nWait — I need to write the corrected answer in Korean. Let me just produce it.\n\n**전형**", draft), "경북대는 4,530명을 뽑아요.\n\n**전형**");
+  assert.equal(cleanRevised("Hello world", "Hello world"), "Hello world");
+});

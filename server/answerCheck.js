@@ -263,7 +263,27 @@ const REVISE_SYSTEM = `너는 유메의 교정자다. [답변]을 [고칠 곳]�
 - "틀림"은 근거에 적힌 실제 값으로 고치고 근거(조문 또는 출처)를 밝힌다.
 - "확인 안 됨"은 단정하지 않게 고친다: 꼭 필요하지 않으면 빼고, 남길 때는 "확인되지 않았어요"처럼 불확실하다고 분명히 쓴다. 새 사실을 지어 넣지 않는다.
 - "확인됨"은 출처로 확인된 사실이다. 답변에 "기억에 의존했다", "확인 자료 없이 답했다", "검색해 본 결과가 아니다"처럼 답 전체를 못 믿게 하는 말이 있으면, 확인된 사실에 대해서는 그 말을 뺀다.
-- 고칠 곳이 아닌 부분은 문장과 형식을 그대로 둔다. 설명이나 머리말 없이 고친 답변 본문만 출력한다.`;
+- 고칠 곳이 아닌 부분은 문장과 형식을 그대로 둔다. 설명이나 머리말 없이 고친 답변 본문만 출력한다.
+- 출력 형식: 고친 답변 본문 전체를 <answer> 와 </answer> 사이에만 쓴다. 그 밖에는 아무것도 쓰지 않는다(생각·메모·영어 설명 금지).`;
+
+/**
+ * 고쳐 쓴 답에서 본문만 꺼낸다. <answer> 표시 안만 쓰고, 표시가 없으면 모델의 혼잣말 줄
+ * ("Wait — I need to…", "Let me…")을 걷어 낸다 — 2026-10-16 무궁 답에 그대로 섞여 나간 사고.
+ */
+export function cleanRevised(raw, original = "") {
+  const s = String(raw || "");
+  const tagged = s.match(/<answer>([\s\S]*?)<\/answer>/i);
+  let body = tagged ? tagged[1] : s.replace(/<\/?answer>/gi, "");
+  const korean = /[가-힣]/.test(original);
+  if (korean) {
+    const META = /^\s*(wait|let me|i need|i'll|i will|i should|okay|ok,|hmm|actually|note:|now,? i|here is|here's)\b/i;
+    body = body
+      .split("\n")
+      .filter((line) => !(META.test(line) && !/[가-힣]/.test(line) && !original.includes(line.trim())))
+      .join("\n");
+  }
+  return body.replace(/\n{3,}/g, "\n\n").trim();
+}
 
 // 답 전체를 못 믿게 만드는 면책 문구 — 확인된 사실이 있으면 고쳐 쓰기 대상이 된다.
 export const BLANKET_DISCLAIMER = /기억에\s*의존|확인\s*자료\s*없이|검색해\s*본\s*결과(?:는|가)\s*아니|제가\s*가진\s*지식에\s*근거한/;
@@ -384,7 +404,8 @@ export async function checkAnswer({ question = "", answer, level: levelKey = "fa
       ledger,
       label: "check_revise",
     }).catch(() => "");
-    if (revised.trim()) finalText = revised.trim();
+    const cleaned = cleanRevised(revised, text);
+    if (cleaned) finalText = cleaned;
     else if (verification.fixes.length || verification.hedged.length) {
       // 고쳐 쓰기가 실패해도 틀린 답을 그대로 돌려주지 않는다 — 바로잡을 곳을 답 아래에 분명히 붙인다.
       verification.revise_failed = true;
