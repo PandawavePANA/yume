@@ -298,26 +298,16 @@ export const SEED = [
   },
   {
     key: "mugung_keys",
-    title: "[급함·무궁] 무궁 서버에 키 두 개 넣기(Anthropic · 유메 API) — 이게 있어야 무궁.com이 답합니다",
+    title: "[급함·무궁] 무궁 서버에 유메 API 키 한 줄 넣기 — 이것만 넣으면 무궁.com이 답합니다",
     priority: 1,
     link: "https://railway.com/project/2ad493c4-75b5-45f2-94fd-c181c2f89ea3",
-    steps: `왜: 무궁(무궁.com)은 Railway에 mugung 서비스로 올라가 있습니다. 답을 쓰는 Anthropic 키와, 답을 확인하는 유메 API 키가 있어야 답합니다. (약 10분)
+    steps: `10-16 Claude가 해 둔 것: Anthropic 키는 유메 키를 가리키게 연결(나중에 무궁 전용으로 바꾸면 됨), 대표님이 채팅에 준 유메 키(yume_live_b7ce45…)의 한도를 무궁용(월 100만 건)으로 올림.
+남은 것 — 키 값은 Claude가 넣지 않습니다(대표 원칙). 1분이면 됩니다.
 
-① 무궁 전용 Anthropic 키 — 유메와 원가가 섞이지 않게 따로
-  1. console.anthropic.com 로그인 → 왼쪽 API Keys → Create Key
-  2. 이름: mugung → 만들기 → 나온 키(sk-ant-로 시작)를 복사(창을 닫으면 다시 못 봅니다)
-
-② 유메 API 키(무궁이 유메를 부를 때 씀)
-  1. www.yume-reamer.com 로그인(reamer@d-reamer.com) → 계정 → API 키 → 새 키 만들기, 이름: 무궁
-  2. 나온 키(yume_live_로 시작)를 복사
-
-③ Railway → 프로젝트 yume → mugung 서비스 → Variables → New Variable
-  · ANTHROPIC_API_KEY = ①의 키
-  · YUME_API_KEY = ②의 키
-  · 저장하면 자동으로 다시 배포됩니다(2~3분).
-
-④ Claude에게 "무궁 키 넣었어" — 새 유메 키의 한도를 무궁용으로 올리고(키 값은 보지 않음), 무궁.com에서 실제로 답이 나오는지 확인합니다.
-⑤ 여기서 '완료' 체크`,
+1. railway.com → 프로젝트 yume → mugung 서비스 → Variables → New Variable
+   이름: YUME_API_KEY   값: 그 유메 키(yume_live_b7ce45로 시작하는 것)
+2. 저장 → 2~3분 뒤 무궁.com에서 아무 질문이나 해 보기. 답이 나오면 '완료' 체크
+3. 나중에(테스트 끝나면) 이 키는 대화에 노출됐으니 유메 계정 → API 키에서 폐기하고 새 키로 바꾸기. Anthropic도 무궁 전용 키를 만들어 ANTHROPIC_API_KEY를 바꾸면 원가가 유메와 나뉩니다.`,
   },
   {
     key: "kakao_login",
@@ -407,6 +397,43 @@ export const SEED = [
 3. 처리 후 등록면허세 고지서가 오면 납부 → 신고증 수령
 4. 신고번호(예: 제2026-대구달성-0000호)를 Claude에게 알려 주세요 — 유메·무궁 사이트 하단에 표시합니다.
 5. 여기서 '완료' 체크`,
+  },
+  {
+    key: "mugung_search",
+    title: "[급함·검색] 무궁.com을 구글·네이버 검색에 등록 — '무궁 - 한국인 맞춤형 AI 서비스'로 나오게",
+    priority: 1,
+    link: "https://searchadvisor.naver.com",
+    steps: `무궁.com은 검색에 나올 준비가 끝났습니다(제목 '무궁 - 한국인 맞춤형 AI 서비스', 설명 '거짓말하지 않는 한국인 맞춤형 AI…', 사이트맵). 검색엔진에 '내 사이트'라고 알려 주는 일만 남았습니다. 등록 뒤 실제로 검색에 뜨기까지는 보통 며칠~몇 주 걸립니다. (약 20분)
+
+① 네이버 서치어드바이저 — searchadvisor.naver.com
+  1. 로그인 → 웹마스터 도구 → 사이트 등록: https://xn--of0bu3x.com
+  2. 소유 확인 방법: 'HTML 태그' → 나온 태그에서 content="…" 안의 값만 복사
+  3. Railway → mugung 서비스 → Variables → NAVER_SITE_VERIFICATION = 그 값 → 저장(2~3분 뒤 반영)
+  4. 서치어드바이저로 돌아가 '소유확인'
+  5. 요청 → 사이트맵 제출: https://xn--of0bu3x.com/sitemap.xml · 요청 → 웹 페이지 수집: https://xn--of0bu3x.com/
+
+② 구글 서치 콘솔 — search.google.com/search-console
+  1. 속성 추가 → 'URL 접두어' → https://xn--of0bu3x.com/
+  2. 확인 방법: 'HTML 태그' → content="…" 값만 복사
+  3. Railway → mugung → Variables → GOOGLE_SITE_VERIFICATION = 그 값 → 저장
+  4. 서치 콘솔에서 '확인' → 왼쪽 Sitemaps → sitemap.xml 제출 → 위 검색창에 https://xn--of0bu3x.com/ → 색인 생성 요청
+
+③ (선택) 다음 검색: register.search.daum.net 에서 사이트 등록
+
+막히면 그 화면을 Claude에게 보여 주세요. 소유 확인 값은 비밀이 아니라 채팅으로 줘도 됩니다 — Claude가 넣어 드립니다.
+④ 여기서 '완료' 체크`,
+  },
+  {
+    key: "lie_reports",
+    title: "무궁 거짓말 신고 검토하는 곳 — 무궁.com/admin",
+    priority: 2,
+    steps: `무궁은 "거짓말하지 않아요"를 약속하고, 거짓말을 찾은 사람에게 넉넉 7일 이용권을 보상합니다(약관 제3조의2).
+신고가 들어오면 여기서 봅니다:
+1. 무궁.com/admin 접속 → 운영 토큰 입력
+   · 토큰: Railway → 프로젝트 yume → mugung 서비스 → Variables → MUGUNG_ADMIN_TOKEN 값(눈 모양을 눌러 복사). 남에게 보내지 마세요.
+2. 질문·답·신고 내용을 보고, 공식 출처로 사실과 다르면 '맞음 · 보상'(신고자에게 넉넉 7일 자동 지급), 아니면 '아님'
+3. 판단이 애매하면 Claude에게 신고 내용을 보여 주세요 — 공식 출처로 같이 확인합니다.
+이 항목은 확인했으면 '완료' 체크(이후 신고 검토는 아침 브리핑에 함께 알려 드리게 할 예정).`,
   },
   {
     key: "mugung_domain",
