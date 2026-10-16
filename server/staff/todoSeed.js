@@ -261,6 +261,128 @@ export const SEED = [
 3. 승인 → 대표 PC의 현장 요원이 1분 안에 대표 주소로 보냅니다. 결재 기록이 "보냄"으로 바뀌면 끝.
 4. 둘 다 보냈으면 여기서 '완료' 체크.`,
   },
+  // ── 2026-10-16 무궁 AI · 유메 한국 공식 데이터 — 대표만 할 수 있는 일 ──
+  {
+    key: "mugung_keys",
+    title: "무궁 서버에 키 두 개 넣기(Anthropic · 유메 API) — 이게 있어야 무궁이 답합니다",
+    priority: 1,
+    link: "https://railway.com/project/2ad493c4-75b5-45f2-94fd-c181c2f89ea3",
+    steps: `왜: 무궁(새 대화형 AI)은 Railway에 mugung 서비스로 올라가 있습니다(https://mugung-production.up.railway.app). 답을 쓰는 Anthropic 키와, 답을 확인하는 유메 API 키가 있어야 답합니다. 키는 채팅에 붙이지 말고 Railway 화면에 직접 넣으세요. (약 10분)
+
+① 무궁 전용 Anthropic 키 만들기 — 유메와 원가가 섞이지 않게 따로
+  1. console.anthropic.com 로그인 → 왼쪽 API Keys → Create Key
+  2. 이름: mugung → 만들기 → 나온 키(sk-ant-로 시작)를 복사(창을 닫으면 다시 못 봅니다)
+
+② 유메 API 키 만들기(무궁이 유메를 부를 때 씀)
+  1. www.yume-reamer.com 로그인(reamer@d-reamer.com) → 계정 → API 키 → 새 키 만들기, 이름: 무궁
+  2. 나온 키(yume_live_로 시작)를 복사
+
+③ Railway에 넣기
+  1. railway.com → 프로젝트 yume → mugung 서비스 → Variables → New Variable
+  2. ANTHROPIC_API_KEY = ①의 키
+  3. YUME_API_KEY = ②의 키
+  4. 저장하면 자동으로 다시 배포됩니다(2~3분).
+
+④ Claude에게 "무궁 키 넣었어"라고 말하기
+  · 새 유메 API 키는 체험 한도(월 몇 건)로 시작합니다. Claude가 그 키의 한도를 무궁용으로 올리고(키 값은 보지 않음), 실제로 답이 나오는지 확인합니다.
+  · 다 됐으면 여기서 '완료' 체크`,
+  },
+  {
+    key: "mugung_domain",
+    title: "무궁 도메인 사서 연결하기",
+    priority: 1,
+    steps: `왜: 지금 무궁 주소는 mugung-production.up.railway.app 입니다. 사람들에게 알릴 짧은 주소가 필요합니다. (약 20분)
+
+① 도메인 사기 — 후보: mugung.ai · mugung.kr · mugung.co.kr (기획안 10장)
+  · 유메 도메인을 산 호스팅어(hpanel.hostinger.com) 또는 가비아에서 검색 → 되는 것 중 하나(.kr 또는 .ai) 구매
+  · 여유가 되면 나머지 하나도 같이 사 두면 남이 못 가져갑니다
+
+② Railway에 도메인 붙이기
+  1. railway.com → 프로젝트 yume → mugung 서비스 → Settings → Networking → Custom Domain → 산 도메인 입력(예: mugung.kr, www.mugung.kr 둘 다)
+  2. Railway가 보여 주는 CNAME(또는 A) 값을 복사
+
+③ 도메인 산 곳 DNS에 넣기
+  · 호스팅어: 도메인 → DNS 레코드 관리 → 레코드 추가 → Railway가 준 종류·이름·값 그대로
+  · 몇 분~1시간 뒤 Railway 화면에 초록 체크가 뜨면 끝(HTTPS는 자동)
+
+④ Claude에게 산 도메인을 알려 주세요 — 화면·검색 등록·공유 링크 주소를 그 도메인으로 바꿉니다.
+⑤ 여기서 '완료' 체크`,
+  },
+  {
+    key: "korea_data_keys",
+    title: "한국 공식 데이터 키 4개 발급 — 유메가 의료·경제·통계·기업을 원자료로 확인하게",
+    priority: 1,
+    steps: `왜: 지금 유메는 의료·경제 같은 사실을 식약처·한국은행 등 공식 사이트에서 '검색'해서 확인합니다. 아래 키가 있으면 검색 없이 기관 데이터베이스에서 값을 직접 꺼내 대조합니다 — 더 정확하고 더 쌉니다. 모두 무료입니다. (전부 합쳐 약 40분, 일부는 승인에 하루~이틀)
+
+① 한국은행 ECOS (금리·환율·물가) — ecos.bok.or.kr/api
+  회원가입 → 인증키 신청 → 바로 발급. 키 이름: ECOS_API_KEY
+
+② KOSIS 국가통계포털 (인구·고용·소득 등 국가 통계) — kosis.kr/openapi
+  회원가입 → 활용신청 → 인증키 발급. 키 이름: KOSIS_API_KEY
+
+③ 공공데이터포털 (식약처 의약품 정보) — data.go.kr
+  1. 회원가입 → 마이페이지 → 개인 API 인증키 확인(Encoding·Decoding 두 개가 보임)
+  2. 검색창에 "의약품개요정보(e약은요)" → 활용신청(목적: 의약품 정보 사실 확인 서비스 개발)
+  3. "의약품 제품 허가정보"도 같은 방법으로 활용신청
+  4. 보통 바로~1일 안에 승인. 키 이름: DATA_GO_KR_KEY (일반 인증키 Decoding 값)
+
+④ DART 전자공시 (기업 정보·재무) — opendart.fss.or.kr
+  회원가입 → 인증키 신청 → 메일 확인 후 발급. 키 이름: DART_API_KEY
+
+⑤ 넣기 — 채팅에 붙이지 마세요
+  · Railway → 프로젝트 yume → yume 서비스 → Variables에 위 이름 그대로 4개
+  · 대표 PC에서도 시험하려면: 바탕화면\\유메\\.env 파일 맨 아래에 같은 이름=값으로 4줄 추가
+  · 넣었으면 Claude에게 "공공데이터 키 넣었어" — 실제 조회가 되는지 확인합니다
+⑥ 여기서 '완료' 체크`,
+  },
+  {
+    key: "inicis_billing",
+    title: "이니시스에 정기결제(월 구독) 승인 절차 문의",
+    priority: 1,
+    steps: `왜: 무궁 요금제(넉넉 9,900원 · 든든 24,900원 · 가득 59,000원)는 매달 자동결제라, 지금 심사 중인 '포인트충전'과 별개로 정기결제(빌링) 승인이 필요합니다.
+
+1. 이니시스 담당자(조선아 님) 메일에 회신하거나 비서실 결재함의 이니시스 메일에 덧붙여 문의:
+   "현재 포인트충전 조건으로 심사 중인 유메(리머)에 월 정기결제(빌링키 발급·자동결제)를 추가하려면 어떤 절차와 서류가 필요한가요? 같은 상점 아이디로 가능한가요?"
+2. 답이 오면 Claude에게 보여 주세요 — 결제 화면·해지·환불 안내(전자상거래법)를 그 조건에 맞춰 붙입니다.
+3. 여기서 '완료' 체크`,
+  },
+  {
+    key: "kakao_login",
+    title: "카카오 로그인용 앱 만들기 (무궁 가입을 카카오로)",
+    priority: 2,
+    link: "https://developers.kakao.com/console/app",
+    steps: `왜: 무궁은 지금 기기별로 대화를 구분합니다. 카카오 로그인이 있으면 휴대폰·PC 어디서나 같은 대화를 보고, 요금제도 계정에 붙습니다. (약 15분)
+
+1. developers.kakao.com → 로그인 → 내 애플리케이션 → 애플리케이션 추가하기
+   · 앱 이름: 무궁 · 회사명: 리머 · 카테고리: 생산성/교육 등
+2. 만든 앱 → 앱 설정 → 플랫폼 → Web 플랫폼 등록: https://mugung-production.up.railway.app (도메인을 사면 그 주소도 추가)
+3. 제품 설정 → 카카오 로그인 → 활성화 ON → Redirect URI 등록:
+   https://mugung-production.up.railway.app/api/auth/kakao/callback (도메인을 사면 그 주소로도 하나 더)
+4. 제품 설정 → 카카오 로그인 → 동의항목: 닉네임(필수) 정도만. 이메일은 비즈 앱 전환이 필요해 나중에.
+5. 앱 설정 → 앱 키 → REST API 키 복사 → Railway mugung 서비스 Variables에 KAKAO_REST_API_KEY 로 넣기
+6. (선택) 보안 → Client Secret 생성·활성화 → KAKAO_CLIENT_SECRET 으로 넣기
+7. 여기서 '완료' 체크 — 넣으면 무궁 화면에 '카카오로 시작하기'가 나타납니다.`,
+  },
+  {
+    key: "law_precedent_api",
+    title: "법제처 Open API에 '판례' 활용 신청이 돼 있는지 확인",
+    priority: 2,
+    link: "https://open.law.go.kr",
+    steps: `왜: 유메가 법령 조문뿐 아니라 판례 번호·요지도 원문으로 대조하게 됩니다.
+1. open.law.go.kr 로그인(유메에 쓰는 OC 아이디) → 마이페이지 → Open API 활용 신청 현황
+2. '판례' 목록·본문 조회가 '승인'인지 확인. 없으면 신청(목적: 판례 인용 사실 확인)
+3. 승인돼 있거나 승인되면 여기서 '완료' 체크(키는 그대로 같은 OC를 씁니다)`,
+  },
+  {
+    key: "mugung_trademark",
+    title: "'무궁' 상표 검색 · 출원 상담",
+    priority: 2,
+    link: "https://www.kipris.or.kr",
+    steps: `1. kipris.or.kr → 상표 검색 → "무궁" 입력 → 9류(소프트웨어)·42류(SaaS)·35류에서 같은·비슷한 이름이 있는지 보기
+2. 결과 화면을 캡처해 Claude에게 — 겹치는 게 있으면 피할 방법(로고 결합 등)을 정리합니다
+3. 출원까지 하려면 특허로(patent.go.kr)에서 직접 하거나 변리사 상담 — 수수료는 류(분류)마다 따로 붙습니다
+4. 여기서 '완료' 체크`,
+  },
   // ── 할 일로 챙겨 둘 것(급하지 않음 — 안 하면 다음 날로 넘어간다) ──
   {
     key: "rotate_gmail_pw",

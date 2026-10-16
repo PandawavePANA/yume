@@ -13,6 +13,8 @@ import { documentInput, documentPayload, getDocumentView, newDocumentId, startDo
 import { FileTextError } from "./fileText.js";
 import { API_UNIT_CHARS, apiUnits } from "./apiRates.js";
 import { getMark, issueMark, markBase, publicMark, revokeMark } from "./trustMarks.js";
+import { checkAnswer, prepareContext, MAX_ANSWER_CHARS, MAX_QUESTION_CHARS } from "./answerCheck.js";
+import { logApiCost, newLedger, recordOpsCost, summarize } from "./apiCost.js";
 
 // 유메 검증 API(/v1) — AI 서비스를 운영하는 기업이 자기 서비스의 답변을 유메로 검증하는
 // 공개 API. 계정의 "API 키" 메뉴에서 발급한 키로 인증한다(키는 해시로만 저장).
@@ -496,6 +498,65 @@ router.post("/marks/:id/revoke", requireApiKey, async (req, res) => {
   if (!m || Number(m.user_id) !== Number(req.apiKey.user_id)) return fail(res, 404, "not_found", "마크를 찾을 수 없습니다.");
   const r = await revokeMark(m.id, { userId: req.apiKey.user_id, reason: req.body?.reason, base: markBase(req) });
   res.json(r.mark);
+});
+
+// ── 답변 확인(대화형 AI용) ──────────────────────────────────────────
+// 대화형 AI가 답을 사용자에게 내보내기 전에 부른다. /verify가 "판정 목록"을 돌려준다면, 여기는
+// "확인을 거친 답 그 자체"를 돌려준다 — 틀린 곳은 근거대로, 확인 안 된 곳은 단정하지 않게 고친 답.
+//   POST /v1/context       { question }                    → 법령 질문이면 현행 조문(답 쓰기 전에 근거로)
+//   POST /v1/answer-check  { question?, answer, level? }   → { text, changed, verification }
+// 과금: context는 받지 않는다(조문 조회). answer-check는 답 1,000자마다 1건.
+router.post("/context", requireApiKey, engineAvailable, async (req, res) => {
+  const key = req.apiKey;
+  const question = typeof req.body?.question === "string" ? req.body.question.trim() : "";
+  if (!question) {
+    await recordApiUsage(key.id, { endpoint: "POST /v1/context", statusCode: 400 });
+    return fail(res, 400, "invalid_request", "question 필드에 질문을 담아 보내주세요.");
+  }
+  const ledger = newLedger();
+  const ctx = await prepareContext(question.slice(0, MAX_QUESTION_CHARS), { ledger });
+  await recordApiUsage(key.id, { endpoint: "POST /v1/context", statusCode: 200 });
+  const cost = summarize(ledger);
+  if (cost) await recordOpsCost("api_context", key.user_id, cost);
+  res.json(ctx);
+});
+
+router.post("/answer-check", requireApiKey, engineAvailable, async (req, res) => {
+  const key = req.apiKey;
+  const answer = typeof req.body?.answer === "string" ? req.body.answer.trim() : "";
+  const question = typeof req.body?.question === "string" ? req.body.question.trim() : "";
+  const level = ["fast", "standard", "deep"].includes(req.body?.level) ? req.body.level : "fast";
+  if (!answer) {
+    await recordApiUsage(key.id, { endpoint: "POST /v1/answer-check", statusCode: 400 });
+    return fail(res, 400, "invalid_request", "answer 필드에 확인할 답을 담아 보내주세요.");
+  }
+  if (answer.length > MAX_ANSWER_CHARS || question.length > MAX_QUESTION_CHARS) {
+    await recordApiUsage(key.id, { endpoint: "POST /v1/answer-check", statusCode: 413 });
+    return fail(res, 413, "text_too_long", `answer는 ${MAX_ANSWER_CHARS.toLocaleString()}자, question은 ${MAX_QUESTION_CHARS.toLocaleString()}자 이하여야 합니다.`);
+  }
+  const units = apiUnits(answer.length);
+  const usage = await usageInfo(key);
+  if (usage.remaining < units) {
+    await recordApiUsage(key.id, { endpoint: "POST /v1/answer-check", statusCode: 429 });
+    return fail(res, 429, "quota_exceeded", `이 요청은 ${units}건인데 이번 달 남은 건수가 ${usage.remaining}건입니다. 한도 올리기: ${UPGRADE_URL}`, { usage, needed: units, upgrade_url: UPGRADE_URL });
+  }
+  const usageId = await recordApiUsage(key.id, { endpoint: "POST /v1/answer-check", statusCode: 200, billable: true, units });
+  const ledger = newLedger();
+  const started = Date.now();
+  let out;
+  try {
+    out = await checkAnswer({ question, answer, level, ledger });
+  } catch (e) {
+    // 확인을 끝내지 못한 요청은 과금하지 않는다.
+    if (usageId) await finishApiUsage(usageId, { statusCode: 500, cached: false, billable: false });
+    return fail(res, 502, "check_failed", "답을 확인하지 못했습니다. 이 요청은 과금되지 않았습니다. 잠시 후 다시 보내주세요.", { detail: String(e.message || e).slice(0, 200) });
+  }
+  const cost = summarize(ledger);
+  if (cost) {
+    logApiCost(`ac${started}`, "api_answer_check", cost);
+    await recordOpsCost("api_answer_check", key.user_id, cost);
+  }
+  res.json({ ...out, level, elapsed_ms: Date.now() - started, billed_units: units, usage: await usageInfo(key) });
 });
 
 router.get("/verify/:id", requireApiKey, async (req, res) => {

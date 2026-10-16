@@ -127,6 +127,21 @@ function articleBlock(id, law, a, extra = "") {
 }
 
 /** 글과 관련된 현행 조문을 모은다. { laws, articles:[{id, law, no, branch, title, text, url, block}] } */
+/** 두 번 모은 조문을 합친다(같은 법령·조문은 하나로, 번호는 A1부터 다시). */
+export function mergeGathered(a, b) {
+  const seen = new Set();
+  const articles = [];
+  for (const x of [...(a?.articles || []), ...(b?.articles || [])]) {
+    const k = `${normalizeLawName(x.law)}-${x.no}-${x.branch || 0}`;
+    if (seen.has(k)) continue;
+    seen.add(k);
+    const id = `A${articles.length + 1}`;
+    articles.push({ ...x, id, block: x.block.replace(/^\[A\d+\]/, `[${id}]`) });
+  }
+  const laws = [...new Map([...(a?.laws || []), ...(b?.laws || [])].map((l) => [normalizeLawName(l.name), l])).values()];
+  return { laws, articles };
+}
+
 export async function gatherArticles(answer, claims = [], { ledger = null, pick = pickArticles } = {}) {
   const wanted = [];
   for (const c of claims) {
@@ -230,10 +245,11 @@ const REVIEW_SYSTEM = `너는 한국 법령 대조 검토자다. 아래 [현행 
 {"issues":[{"answer_quote":"글에서 문제 되는 부분을 한 글자도 바꾸지 않고(150자 이내)","problem":"무엇이 틀렸고 현행 규정은 무엇인지(120자 이내)","kind":"contradiction|outdated|deleted_or_nonexistent|denies_existing|wrong_penalty|wrong_citation","article":"A번호","article_quote":"그 조문에서 근거 문장을 한 글자도 바꾸지 않고(200자 이내)","confidence":"high|medium|low"}]}
 틀린 곳이 없으면 {"issues":[]}.`;
 
-export async function reviewStatutes(text, claims = [], { ledger = null, onProgress = () => {}, pick = pickArticles } = {}) {
+export async function reviewStatutes(text, claims = [], { ledger = null, onProgress = () => {}, pick = pickArticles, gathered = null } = {}) {
   const answer = String(text || "").slice(0, MAX_ANSWER_CHARS);
-  onProgress("관련 현행 법령 조문을 모으는 중…");
-  const { laws, articles } = await gatherArticles(answer, claims, { ledger, pick });
+  // 유메 AI처럼 질문 단계에서 이미 조문을 모았으면 그대로 쓴다(같은 조문을 두 번 받지 않는다).
+  if (!gathered) onProgress("관련 현행 법령 조문을 모으는 중…");
+  const { laws, articles } = gathered || (await gatherArticles(answer, claims, { ledger, pick }));
   if (!articles.length) return { ran: false, laws, articles, issues: [] };
   onProgress(`현행 조문 ${articles.length}개와 글 전체를 대조하는 중…`);
   const r = await callClaudeJson({

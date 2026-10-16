@@ -7,11 +7,16 @@
 // 가장 중요한 건 웹 검색이다. 검색은 건당 과금이고($10/1,000회) 결과가 대화에 그대로
 // 쌓여서 다음 턴의 입력 토큰까지 부풀린다 — 한 번 더 검색하면 두 번 비싸진다.
 
-// 2026년 9월 기준 공개 단가(USD). 값이 바뀌면 여기만 고친다.
+// 공개 단가(USD, 2026-10-06 Anthropic 가격표). 값이 바뀌면 여기만 고친다.
+// (2026-10-16 바로잡음: Sonnet 5는 $2/$10, Opus 5는 $5/$25였다 — 원가를 1.5~3배 높게 셌다.)
 const PRICING = {
-  "claude-sonnet-5": { in: 3 / 1e6, out: 15 / 1e6, cachedIn: 0.3 / 1e6 },
-  "claude-opus-5": { in: 15 / 1e6, out: 75 / 1e6, cachedIn: 1.5 / 1e6 },
+  "claude-sonnet-5": { in: 2 / 1e6, out: 10 / 1e6, cachedIn: 0.2 / 1e6 },
+  "claude-opus-5": { in: 5 / 1e6, out: 25 / 1e6, cachedIn: 0.5 / 1e6 },
   "claude-haiku-4-5-20251001": { in: 1 / 1e6, out: 5 / 1e6, cachedIn: 0.1 / 1e6 },
+  // 유메 AI(대화) 등급 모델
+  "claude-haiku-5-5": { in: 0.1 / 1e6, out: 0.5 / 1e6, cachedIn: 0.01 / 1e6 },
+  "claude-sonnet-5-5": { in: 2 / 1e6, out: 10 / 1e6, cachedIn: 0.2 / 1e6 },
+  "claude-opus-5-5": { in: 4 / 1e6, out: 20 / 1e6, cachedIn: 0.2 / 1e6 },
 };
 const WEB_SEARCH_USD = 10 / 1000;
 const DEFAULT_PRICE = PRICING["claude-sonnet-5"];

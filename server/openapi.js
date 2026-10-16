@@ -172,6 +172,79 @@ export function openApiSpec(base = "https://www.yume-reamer.com") {
           responses: { 200: json(ref("Mark")), ...errors(401, 404) },
         },
       },
+      "/v1/context": {
+        post: {
+          operationId: "context",
+          summary: "답 쓰기 전 근거 — 질문에 관련된 현행 조문(과금 없음)",
+          description: "대화형 AI가 답을 쓰기 전에 부릅니다. 법령 이야기가 든 질문이면 법제처 현행 조문을 모아 block(시스템 안내에 그대로 넣을 글)으로 돌려줍니다. 법령 이야기가 아니면 legal: false.",
+          requestBody: { required: true, content: { "application/json": { schema: { type: "object", required: ["question"], properties: { question: { type: "string", maxLength: 4000 } } } } } },
+          responses: {
+            200: json({
+              type: "object",
+              properties: {
+                legal: { type: "boolean" },
+                laws: { type: "array", items: { type: "object" } },
+                articles: { type: "array", items: { type: "object", properties: { law: { type: "string" }, label: { type: "string" }, title: { type: "string" }, url: { type: "string" }, deleted: { type: "boolean" } } } },
+                block: { type: "string" },
+              },
+            }),
+            ...errors(400, 401),
+          },
+        },
+      },
+      "/v1/answer-check": {
+        post: {
+          operationId: "answerCheck",
+          summary: "답변 확인 — 확인을 거친 답을 돌려받기",
+          description:
+            "AI가 쓴 답을 사용자에게 내보내기 전에 보냅니다. 법령은 현행 조문 전체와 대조하고 반론 검토를 통과한 오류만 남기며, 그 밖의 사실(의료·경제·세금·노동·부동산·기업·통계…)은 분야별 한국 공식 기관 사이트에서 먼저 확인한 뒤 웹 전체로 넓힙니다. " +
+            "틀린 곳은 근거대로, 확인 안 된 곳은 단정하지 않게 고친 답(text)을 돌려줍니다. 답 1,000자마다 1건 과금, 확인을 끝내지 못하면 과금하지 않습니다. 보통 10~60초.",
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["answer"],
+                  properties: {
+                    question: { type: "string", maxLength: 4000, description: "사용자 질문(선택, 주면 법령 근거를 더 정확히 찾음)" },
+                    answer: { type: "string", maxLength: 20000 },
+                    level: { enum: ["fast", "standard", "deep"], default: "fast", description: "확인 깊이 — 답을 쓴 모델 등급에 맞춤" },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            200: json({
+              type: "object",
+              properties: {
+                text: { type: "string", description: "확인을 거친 답" },
+                changed: { type: "boolean" },
+                verification: {
+                  type: "object",
+                  properties: {
+                    checked: { type: "boolean" },
+                    articles: { type: "array", items: { type: "object" }, description: "대조한 현행 조문" },
+                    fixes: { type: "array", items: { type: "object" }, description: "틀린 곳: quote, problem, law·label 또는 url, evidence, official" },
+                    hedged: { type: "array", items: { type: "object" }, description: "확인 안 된 곳 — 단정하지 않게 고침" },
+                    supported: { type: "array", items: { type: "object" }, description: "출처로 확인한 사실: claim, url, evidence, field, official(한국 공식 기관 출처인지)" },
+                    facts_checked: { type: "integer" },
+                    fact_check_failed: { type: "boolean" },
+                    revise_failed: { type: "boolean", description: "고쳐 쓰기 실패 — text 끝에 바로잡을 곳을 붙임" },
+                  },
+                },
+                level: { type: "string" },
+                elapsed_ms: { type: "integer" },
+                billed_units: { type: "integer" },
+                usage: ref("Usage"),
+              },
+            }),
+            ...errors(400, 401, 413, 429),
+            502: json(ref("Error"), "check_failed — 과금되지 않음"),
+          },
+        },
+      },
       "/v1/usage": {
         get: {
           operationId: "getUsage",

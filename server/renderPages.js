@@ -648,6 +648,14 @@ while job["status"] == "pending":
   "references": [ { "title": "상품 설명서", "text": "…" } ], "wait": 60 }
 → { "count": 2, "pending": 0, "results": [ { "ref": "faq-01", "id": "…", "status": "done", "result": { … } }, … ] }</pre>
 
+<h2>POST /v1/answer-check — 대화형 AI의 답을 내보내기 전에</h2>
+<p>챗봇·상담 AI가 쓴 답을 사용자에게 보내기 전에 넣으면, <b>확인을 거친 답 그 자체</b>(<code>text</code>)를 돌려줍니다. 법령은 법제처 현행 조문 전체와 대조하고 반론 검토를 통과한 오류만 고칩니다. 그 밖의 사실(의료·의약, 경제·금융, 세금, 노동, 부동산, 기업, 복지·행정, 통계)은 <b>그 분야의 한국 공식 기관 사이트에서 먼저</b> 확인하고, 결론이 안 나면 웹 전체로 넓힙니다. 틀린 곳은 근거대로, 확인되지 않은 곳은 단정하지 않게 고칩니다. 보통 10~60초, 답 1,000자마다 1건, 확인을 끝내지 못하면 과금하지 않습니다.</p>
+<pre>{ "question": "타이레놀 하루에 얼마까지 먹어도 돼?", "answer": "성인은 하루 최대 6,000mg까지…", "level": "fast" }
+→ { "text": "성인은 하루 최대 4,000mg까지…(근거: …)", "changed": true,
+    "verification": { "fixes": [ { "quote": "…6,000mg…", "problem": "실제로는 …4,000mg", "url": "https://nedrug.mfds.go.kr/…", "official": true, "field": "medical" } ],
+                      "hedged": [], "supported": [ … ], "articles": [ … ] }, "billed_units": 1 }</pre>
+<p><code>level</code>: <code>fast</code>(가벼운 답) · <code>standard</code> · <code>deep</code>(중요한 답) — 답을 쓴 모델 등급에 맞춥니다. 답을 쓰기 <b>전에</b> <code>POST /v1/context { "question" }</code>를 부르면 관련 현행 조문을 <code>block</code>으로 받아 모델 안내에 넣을 수 있습니다(과금 없음).</p>
+
 <h2>POST /v1/documents — 긴 문서·파일</h2>
 <p>1만 자를 넘는 문서나 파일(<b>DOCX·HWPX·PDF·TXT·MD·CSV</b>, 10MB까지)을 그대로 보냅니다. 유메가 문단 경계로 나눠 검사하고, 결과를 <b>원문 전체 기준 위치</b>로 합쳐 돌려줍니다. 틀린 문장을 고친 문장으로 바꾼 <code>corrected_text</code>(고친 본문)도 함께 줍니다.</p>
 <ul>
