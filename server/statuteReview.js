@@ -61,8 +61,11 @@ export function citedInText(text) {
 const PICK_SYSTEM = `너는 한국 법령 검토자다. 주어진 글이 근거로 삼는(또는 삼아야 하는) 한국 법령과 조문을 고른다. JSON만 출력한다.`;
 
 async function pickArticles(answer, ledger) {
+  // 조문 고르기는 후보를 넓게 뽑는 일이라(낱말 겹침 순위가 뒤를 받친다) 깊이 생각하지 않게 한다 —
+  // 기본 깊이로는 이것만 10초가 걸려 법령 질문 답이 늦었다(2026-10-17 측정). 판정(대조 · 반론)은 그대로 깊게.
   const r = await callClaudeJson({
     strong: true,
+    effort: "low",
     maxTokens: 700,
     ledger,
     label: "statute_pick",
@@ -173,12 +176,18 @@ export async function gatherArticles(answer, claims = [], { ledger = null, pick 
   const penaltyTalk = PENALTY_TALK.test(answer);
   const laws = [];
   const picked = [];
-  for (const { name, refs } of [...byLaw.values()].slice(0, MAX_LAWS + 2)) {
-    if (laws.length >= MAX_LAWS) break;
+  const entries = [...byLaw.values()].slice(0, MAX_LAWS + 2);
+  // 법령마다 찾기 · 조문 받기를 동시에 한다(차례로 받으면 법령 4개에 4초 — 2026-10-17 측정). 고르는 순서는 그대로.
+  const fetched = await Promise.all(entries.map(async ({ name }) => {
     const s = await searchStatute(name).catch(() => null);
-    if (!s?.ok || !s.found || s.versionStatus !== "current") continue;
+    if (!s?.ok || !s.found || s.versionStatus !== "current") return null;
     const all = await getStatuteArticlesAll(s.mst).catch(() => null);
-    if (!all?.ok || !all.articles?.length) continue;
+    return all?.ok && all.articles?.length ? { s, all } : null;
+  }));
+  for (const [k, { refs }] of entries.entries()) {
+    if (laws.length >= MAX_LAWS) break;
+    if (!fetched[k]) continue;
+    const { s, all } = fetched[k];
     const law = s.lawNameOfficial;
     laws.push({ name: law, url: s.detailUrl });
     const take = new Map();
@@ -245,7 +254,7 @@ const REVIEW_SYSTEM = `너는 한국 법령 대조 검토자다. 아래 [현행 
 {"issues":[{"answer_quote":"글에서 문제 되는 부분을 한 글자도 바꾸지 않고(150자 이내)","problem":"무엇이 틀렸고 현행 규정은 무엇인지(120자 이내)","kind":"contradiction|outdated|deleted_or_nonexistent|denies_existing|wrong_penalty|wrong_citation","article":"A번호","article_quote":"그 조문에서 근거 문장을 한 글자도 바꾸지 않고(200자 이내)","confidence":"high|medium|low"}]}
 틀린 곳이 없으면 {"issues":[]}.`;
 
-export async function reviewStatutes(text, claims = [], { ledger = null, onProgress = () => {}, pick = pickArticles, gathered = null } = {}) {
+export async function reviewStatutes(text, claims = [], { ledger = null, onProgress = () => {}, pick = pickArticles, gathered = null, effort = null } = {}) {
   const answer = String(text || "").slice(0, MAX_ANSWER_CHARS);
   // 유메 AI처럼 질문 단계에서 이미 조문을 모았으면 그대로 쓴다(같은 조문을 두 번 받지 않는다).
   if (!gathered) onProgress("관련 현행 법령 조문을 모으는 중…");
@@ -254,6 +263,7 @@ export async function reviewStatutes(text, claims = [], { ledger = null, onProgr
   onProgress(`현행 조문 ${articles.length}개와 글 전체를 대조하는 중…`);
   const r = await callClaudeJson({
     strong: true,
+    effort,
     maxTokens: 2500,
     ledger,
     label: "statute_review",
@@ -300,12 +310,13 @@ const DEFENSE_SYSTEM = `너는 두 번째 검토자다. 첫 검토자가 [글]�
 
 출력: {"decisions":[{"id":"후보 번호","decision":"error|ok|unclear","reason":"한두 문장(120자 이내). error면 현행 규정을 적는다","article":"A번호","article_quote":"조문 문장 그대로(200자 이내)"}]}`;
 
-export async function defend(text, articles, candidates, { ledger = null } = {}) {
+export async function defend(text, articles, candidates, { ledger = null, effort = null } = {}) {
   if (!candidates.length) return [];
   const answer = String(text || "").slice(0, MAX_ANSWER_CHARS);
   const list = candidates.map((c) => `- [${c.id}] 글: "${c.answer_quote}"\n  지목 사유: ${c.problem}`).join("\n");
   const r = await callClaudeJson({
     strong: true,
+    effort,
     maxTokens: 2500,
     ledger,
     label: "statute_defense",

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { checkAnswer, checkEverydayFacts, prepareContext, appendCorrections, BLANKET_DISCLAIMER, normalizeAnswerReferences, _clearFactCache } from "../answerCheck.js";
+import { applyEdits, checkAnswer, checkEverydayFacts, prepareContext, appendCorrections, BLANKET_DISCLAIMER, normalizeAnswerReferences, _clearFactCache } from "../answerCheck.js";
 test.beforeEach(() => _clearFactCache());
 import { isOfficialUrl, officialDomainsFor } from "../koreaSources.js";
 
@@ -214,4 +214,26 @@ test("인용 원문과 숫자가 그대로 맞으면 모델 없이 바로 확인
   assert.equal(a.via, "cite");
   assert.equal(b.verdict, "unverified");          // 원문은 9월 8일 — 코드가 확인해 주지 않는다
   assert.ok(labels.includes("check_page"));       // 남은 것만 다음 단계로
+});
+
+test("고칠 문장만 바꾸기 — 그대로 찾아 바꾸고, 못 찾거나 틀린 문장이 남으면 전체 다시 쓰기로", () => {
+  const text = "아이폰 17은 2025년 9월 19일에 나왔어요.\n\n- 가격은 129만 원부터예요.\n- 색상은 5가지예요.";
+  const ok = applyEdits(text, [{ old: "- 색상은 5가지예요.", new: "" }, { old: "129만 원", new: "129만 원(확인되지 않았어요)" }], []);
+  assert.equal(ok, "아이폰 17은 2025년 9월 19일에 나왔어요.\n\n- 가격은 129만 원(확인되지 않았어요)부터예요.");
+  assert.equal(applyEdits(text, [{ old: "없는 문장", new: "x" }], []), null);
+  assert.equal(applyEdits(text, [], []), null);
+  // '틀림' 문장이 그대로 남으면 받지 않는다
+  assert.equal(applyEdits(text, [{ old: "- 색상은 5가지예요.", new: "" }], [{ quote: "2025년 9월 19일에 나왔어요" }]), null);
+});
+
+test("고쳐 쓰기는 먼저 문장만 바꾸고, 바꾸기가 실패하면 전체를 다시 쓴다", async () => {
+  const answer = "최저임금은 시간당 10,320원이에요. 월급으로는 215만 원쯤이에요.";
+  const everyday = async () => ({ claims: [], results: [{ claim: "월 환산", quote: "월급으로는 215만 원쯤이에요", verdict: "unverified" }] });
+  let full = 0;
+  const r1 = await checkAnswer({ answer, deps: { checkEverydayFacts: everyday, revisePatch: async () => [{ old: "월급으로는 215만 원쯤이에요.", new: "" }], revise: async () => { full += 1; return ""; } } });
+  assert.equal(r1.text, "최저임금은 시간당 10,320원이에요.");
+  assert.equal(full, 0);
+  const r2 = await checkAnswer({ answer, deps: { checkEverydayFacts: everyday, revisePatch: async () => [{ old: "없는 글", new: "" }], revise: async () => { full += 1; return "<answer>최저임금은 시간당 10,320원이에요.</answer>"; } } });
+  assert.equal(r2.text, "최저임금은 시간당 10,320원이에요.");
+  assert.equal(full, 1);
 });

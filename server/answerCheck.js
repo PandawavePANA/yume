@@ -21,7 +21,9 @@ const TIMEOUT_MS = 170_000;
 // 확인 깊이. 답을 쓴 쪽의 등급에 맞춘다 — 가벼운 답에 비싼 확인을 붙이면 원가가 답 값을 넘는다.
 export const CHECK_LEVELS = {
   // budgetMs: 확인 한 단계(공식 · 웹)의 시간 한도 — 검색 도구가 오래 끌면(한 번에 150초 실측) 기다리지 않고 그 주장은 확인 안 됨으로 둔다.
-  fast: { key: "fast", searches: 2, reviseModel: "claude-haiku-5-5", reviseEffort: "low", budgetMs: 15_000, reviseMs: 12_000 }, // 여명: 빠르게(검색 2번)
+  // legalEffort: 법령 대조 · 반론 검토의 생각 깊이(null 은 모델 기본). 여명은 medium — 2026-10-17 로무앤톡 11개 비교에서
+  // 기본과 같이 4/4 잡고 오탐 0(기본은 1), 한 건 평균 15.0초 → 9.3초.
+  fast: { key: "fast", searches: 2, reviseModel: "claude-haiku-5-5", reviseEffort: "low", budgetMs: 15_000, reviseMs: 12_000, legalEffort: "medium" }, // 여명: 빠르게(검색 2번)
   standard: { key: "standard", searches: 4, reviseModel: "claude-sonnet-5-5", reviseEffort: "low", budgetMs: 40_000, reviseMs: 25_000 },
   deep: { key: "deep", searches: 5, reviseModel: "claude-sonnet-5-5", reviseEffort: "medium", budgetMs: 90_000, reviseMs: 45_000 },
 };
@@ -86,6 +88,7 @@ async function callText(opts) {
 const EXTRACT_SYSTEM = `너는 유메의 사실 추출기다. [답변]에서 공개 자료로 참·거짓을 확인할 수 있는 사실 주장만 뽑는다. JSON만 출력한다.
 뽑는 것: 수치·통계·금액·날짜·연도, 인물·기관·회사·제품의 사실, 사건, 인용문, 출처(논문·보고서·기사), 제도의 내용, 약·질병·치료의 사실(용량·부작용·금기 포함), 세율·금리·지원금 같은 기준.
 뽑지 않는 것: 의견·조언·추천·감상, 예시·가정, 일반 상식 수준의 정의, 답변 안에서 직접 한 계산 과정, 인사·잡담, 코드.
+또 뽑지 않는 것: 요리법·생활 요령·공부법·운동법 같은 방법 안내와 그 속의 일반적인 팁(재료·순서·시간 포함), 프로그래밍 언어·라이브러리의 널리 알려진 동작과 쓰는 법, 누구나 아는 상식, 오늘 날짜·요일(주어진 오늘 날짜 그대로인 것), 답한 AI가 자기 자신(이름·기능)에 대해 한 말. 단 약 용량·법·돈(세금·금리·지원금)·안전 기준처럼 틀리면 해가 되는 수치는 방법 안내 속에 있어도 뽑는다.
 quote는 답변의 문장을 한 글자도 바꾸지 않고(150자 이내). 중요한 것부터 최대 8개. 사람의 건강·돈에 영향이 큰 것을 먼저.
 field는 그 사실을 공식적으로 확인할 수 있는 분야: law(법령·판례) medical(의료·의약·건강) economy(경제·금융·금리·환율) tax(세금) labor(노동·고용·임금) realestate(부동산·주거) company(기업·공시) welfare(복지·행정·교육·선거·외교) statistics(통계) general(그 밖).
 drug: field가 medical이고 특정 약에 관한 주장이면 그 약의 제품명(예: 타이레놀정500밀리그람이면 "타이레놀") — 아니면 빈 문자열.
@@ -283,6 +286,38 @@ const REVISE_SYSTEM = `너는 유메의 교정자다. [답변]을 [고칠 곳]�
 - 고칠 곳이 아닌 부분은 문장과 형식을 그대로 둔다. 설명이나 머리말 없이 고친 답변 본문만 출력한다.
 - 출력 형식: 고친 답변 본문 전체를 <answer> 와 </answer> 사이에만 쓴다. 그 밖에는 아무것도 쓰지 않는다(생각·메모·영어 설명 금지).`;
 
+// 고칠 문장만 바꾸기 — 출력이 짧아 전체 다시 쓰기보다 몇 배 빠르다.
+const PATCH_SYSTEM = `너는 유메의 교정자다. [답변]에서 [고칠 곳]만 고친다. 답변 전체를 다시 쓰지 않고 바꿀 부분만 JSON으로 낸다.
+- old: 답변에 실제로 있는 글을 한 글자도 바꾸지 않고 그대로 옮긴다(띄어쓰기 · 문장부호 · 마크다운 기호까지). 고칠 문장 하나 또는 그 일부.
+- new: 그 자리에 들어갈 글. 앞뒤 문맥 · 말투 · 형식(목록 기호, 굵게)이 그대로 이어지게 쓴다.
+- "틀림"은 근거의 실제 값으로 고치고 근거(조문 또는 출처 이름)를 짧게 밝힌다.
+- "확인 안 됨"은 단정하지 않게 고친다: 꼭 필요하지 않으면 빼고(new를 빈 글로), 남길 때는 확인되지 않았다고 분명히 쓴다. 새 사실을 지어 넣지 않는다.
+- "확인됨" 사실이 있는데 답변에 "기억에 의존했다"처럼 답 전체를 못 믿게 하는 말이 있으면 그 말을 뺀다.
+- 같은 사실이 답변 여러 곳에 나오면 각각 고친다. 고칠 곳이 아닌 부분은 건드리지 않는다.
+출력(JSON만): {"edits":[{"old":"…","new":"…"}]}`;
+
+async function revisePatch({ model, user, ledger, timeoutMs, json = callJson }) {
+  const r = await json({ model, system: PATCH_SYSTEM, user, maxTokens: 4000, effort: "low", ledger, label: "check_patch", ...(timeoutMs ? { timeoutMs } : {}) });
+  return Array.isArray(r.json?.edits) ? r.json.edits : [];
+}
+
+/**
+ * 바꿀 글(old)을 답에서 그대로 찾아 바꾼다. 하나라도 못 찾거나, 바꾼 뒤에도 '틀림' 문장이 그대로 남으면 null
+ * (그때는 전체 다시 쓰기로 간다 — 틀린 답을 내보내지 않는다).
+ */
+export function applyEdits(text, edits, fixes = []) {
+  if (!Array.isArray(edits) || !edits.length) return null;
+  let out = String(text);
+  for (const e of edits) {
+    const old = String(e?.old ?? "");
+    if (old.trim().length < 2 || !out.includes(old)) return null;
+    out = out.replace(old, () => String(e?.new ?? ""));
+  }
+  if (fixes.some((f) => f.quote && squash(out).includes(squash(f.quote)))) return null;
+  out = out.replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+  return out && out !== String(text).trim() ? out : null;
+}
+
 /**
  * 고쳐 쓴 답에서 본문만 꺼낸다. <answer> 표시 안만 쓰고, 표시가 없으면 모델의 혼잣말 줄
  * ("Wait — I need to…", "Let me…")을 걷어 낸다 — 2026-10-16 무궁 답에 그대로 섞여 나간 사고.
@@ -333,6 +368,21 @@ export function normalizeAnswerReferences(raw) {
 }
 
 // ── 질문 맥락: 답을 쓰기 전에 현행 조문 ─────────────────────────────
+// 같은 질문의 조문 모으기는 10분 기억한다 — 답 쓰기 전(context)과 확인(answer-check)에서 두 번 모으면 법령 질문마다 몇 초씩 더 걸렸다.
+const gatherCache = new Map();
+function gatherQuestion(q, gather, ledger, cacheable = true) {
+  const k = String(q).trim();
+  const hit = cacheable ? gatherCache.get(k) : null;
+  if (hit && Date.now() - hit.at < 600_000) return hit.p;
+  const p = gather(q, [], { ledger }).catch(() => ({ laws: [], articles: [] }));
+  if (cacheable) {
+    gatherCache.set(k, { at: Date.now(), p });
+    p.then((g) => { if (!g.articles?.length) gatherCache.delete(k); });
+    if (gatherCache.size > 300) gatherCache.delete(gatherCache.keys().next().value);
+  }
+  return p;
+}
+
 /**
  * 법령 이야기가 든 질문이면 관련 현행 조문을 모은다. 답을 쓰는 쪽은 block을 시스템 안내에 넣는다.
  * 돌려주는 값: { legal, laws, articles:[{law,label,title,url}], block }
@@ -341,7 +391,7 @@ export async function prepareContext(question, { ledger = null, deps = {} } = {}
   const gather = deps.gatherArticles || gatherArticles;
   const q = String(question || "").slice(0, MAX_QUESTION_CHARS);
   if (!LAW_HINT.test(q)) return { legal: false, laws: [], articles: [], block: "" };
-  const g = await gather(q, [], { ledger }).catch(() => ({ laws: [], articles: [] }));
+  const g = await gatherQuestion(q, gather, ledger, !deps.gatherArticles);
   return {
     legal: true,
     laws: g.laws,
@@ -373,15 +423,15 @@ export async function checkAnswer({ question = "", answer, level: levelKey = "fa
   const legalCheck = legalTalk
     ? (async () => {
         const [fromQ, fromA] = await Promise.all([
-          LAW_HINT.test(q) ? gather(q, [], { ledger }).catch(() => ({ laws: [], articles: [] })) : { laws: [], articles: [] },
+          LAW_HINT.test(q) ? gatherQuestion(q, gather, ledger, !deps.gatherArticles) : { laws: [], articles: [] },
           gather(text, [], { ledger }).catch(() => ({ laws: [], articles: [] })),
         ]);
         const all = mergeGathered(fromQ, fromA);
         if (!all.articles.length) return { all, errors: [] };
-        const r = await review(text, [], { ledger, gathered: all }).catch(() => null);
+        const r = await review(text, [], { ledger, gathered: all, effort: level.legalEffort || null }).catch(() => null);
         if (!r?.issues?.length) return { all, errors: [], ran: !!r?.ran };
         const cands = r.issues.map((it, i) => ({ id: `R${i}`, source: "review", index: -1, answer_quote: it.answer_quote, problem: it.problem, kind: it.kind, locked: true, proof: { law: it.law, label: it.articleLabel, url: it.url, quote: it.article_quote } }));
-        const decided = await defendFn(text, all.articles, cands, { ledger }).catch(() => []);
+        const decided = await defendFn(text, all.articles, cands, { ledger, effort: level.legalEffort || null }).catch(() => []);
         return { all, ran: true, errors: decided.filter((d) => d.decision === "error"), cleared: decided.filter((d) => d.decision !== "error").length };
       })()
     : Promise.resolve(null);
@@ -412,10 +462,17 @@ export async function checkAnswer({ question = "", answer, level: levelKey = "fa
       ...verification.supported.map((s) => `- 확인됨: "${s.quote || s.claim}" (출처: ${s.url})`),
     ].join("\n");
     const articlesBlock = legal?.all?.articles?.length ? `[현행 조문]\n${legal.all.articles.map((a) => a.block).join("\n\n")}\n\n` : "";
-    const revised = await revise({
+    const user = `${todayLine()}${articlesBlock}[답변]\n${text}\n\n[고칠 곳]\n${lines}`;
+    // 먼저 고칠 문장만 바꾼다(답 전체를 다시 쓰면 고칠 곳이 한 줄이어도 답 길이만큼 시간이 걸렸다 — 2026-10-17 실측 2~8초).
+    // 바꿀 글을 답에서 못 찾거나 틀린 문장이 그대로 남으면 예전처럼 전체를 다시 쓴다.
+    const patchFn = deps.revisePatch || (deps.revise ? null : revisePatch);
+    const patched = patchFn
+      ? await patchFn({ model: level.reviseModel, user, ledger, timeoutMs: level.reviseMs }).then((edits) => applyEdits(text, edits, verification.fixes)).catch(() => null)
+      : null;
+    const revised = patched ? `<answer>${patched}</answer>` : await revise({
       model: level.reviseModel,
       system: REVISE_SYSTEM,
-      user: `${todayLine()}${articlesBlock}[답변]\n${text}\n\n[고칠 곳]\n${lines}`,
+      user,
       maxTokens: 12000,
       effort: level.reviseEffort,
       ledger,
