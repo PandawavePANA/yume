@@ -218,6 +218,13 @@ iframe.preview { width:100%; height:620px; border:1px solid var(--line); border-
 .cform input { padding:8px 10px; border-radius:9px; border:1px solid var(--line2); background:var(--panel); font-size:13.5px; flex:1 1 180px; }
 .cform input[name=relation] { flex:0 0 70px; }
 .tframe { width:100%; height:520px; border:1px solid var(--line); border-radius:10px; margin-top:8px; background:#fff; }
+.kform { display:grid; gap:8px; margin-top:10px; padding:12px; border-radius:12px; background:var(--panel); border:1px solid var(--line2); }
+.kform .krow { display:grid; gap:4px; font-size:13px; }
+.kform .klabel { display:flex; gap:8px; align-items:center; color:var(--muted, #666); }
+.kform .kok { font-style:normal; color:#1a7f37; font-weight:600; }
+.kform .kunk { font-style:normal; color:#9a6700; }
+.kform input { padding:9px 11px; border-radius:10px; border:1px solid var(--line2); background:var(--bg, #fff); font-size:14px; font-family:ui-monospace,monospace; }
+.kform button { justify-self:start; }
 .gform { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
 .gform input { padding:9px 11px; border-radius:10px; border:1px solid var(--line2); background:var(--panel); font-size:14px; flex:1 1 200px; }
 .gbtn { background:var(--todo); color:#fff; }
@@ -461,6 +468,19 @@ const SCRIPT = String.raw`
     return "";
   }
 
+  // 키 넣는 칸 — 값은 화면에 다시 보이지 않고(넣었는지만), 서버가 암호화해 저장하거나 무궁에 넘긴다.
+  function keyForm(t) {
+    var fields = (S.data.keyFields || {})[t.key];
+    if (!fields || !fields.length) return "";
+    var st = S.data.keys || {};
+    return '<form class="kform" data-kform="' + t.id + '" autocomplete="off">' + fields.map(function (f) {
+      var on = st[f.name];
+      return '<label class="krow"><span class="klabel">' + esc(f.label) + (on === true ? '<em class="kok">넣음 ✓</em>' : on === null ? '<em class="kunk">확인 중</em>' : "") + '</span>' +
+        '<input type="password" autocomplete="new-password" spellcheck="false" data-kname="' + esc(f.name) + '" placeholder="' + esc(f.ph || (on ? "바꾸려면 새 값 붙여 넣기" : "여기에 붙여 넣기")) + '" /></label>';
+    }).join("") + '<button type="submit" class="btn sm gbtn">암호화해서 저장</button></form>' +
+      '<div class="hint">여기 넣은 값은 서버가 바로 암호화해서 보관하고 화면·기록에는 남지 않아요. 무궁이 쓰는 키는 무궁 서버로 안전하게 넘겨 바로 적용돼요(재배포 필요 없음).</div>';
+  }
+
   // ── 오늘 할 일(대표 투두) — 결재 문서와 다른 체크리스트 모양 ──
   function renderTodos() {
     var d = S.data;
@@ -469,6 +489,7 @@ const SCRIPT = String.raw`
         '<button type="button" class="tcheck" data-tdone="' + t.id + '" aria-label="' + esc(t.title) + ' 완료"><span></span></button>' +
         '<div class="tmain"><div class="ttitle"><span class="tpri p' + t.priority + '">' + ({ 1: "중요", 2: "보통", 3: "여유" }[t.priority] || "보통") + "</span>" + esc(t.title) + (t.age ? '<span class="tage">' + (t.age + 1) + "일째 · 어제에서 넘어옴</span>" : "") + (t.check ? '<span class="tauto">완료 누르면 서버가 확인</span>' : "") + "</div>" +
         ((t.key === "gmail" || t.key === "rotate_gmail_pw") ? '<form class="gform" id="gform" autocomplete="off"><input id="g-user" type="email" value="reamer@d-reamer.com" aria-label="메일 주소" /><input id="g-pass" type="password" autocomplete="new-password" placeholder="앱 비밀번호 16자리" aria-label="앱 비밀번호" /><button type="submit" class="btn sm gbtn">연결 시험 후 저장</button></form><div class="hint">Railway에 못 들어갈 때 여기에 직접 넣으세요. 서버가 메일함 접속을 시험하고, 성공하면 암호화해서 저장합니다(화면·기록에 남지 않음).</div>' : "") +
+        keyForm(t) +
         (t.steps ? '<details class="tsteps"><summary>어떻게 하나요</summary><div>' + esc(t.steps) + "</div></details>" : "") +
         todoExtra(t) +
         '<input class="tnote" id="tnote-' + t.id + '" maxlength="500" placeholder="메모(선택) — 완료할 때 업무 일지에 함께 남아요" />' +
@@ -485,7 +506,7 @@ const SCRIPT = String.raw`
   function typing() {
     var a = document.activeElement;
     if (a && a.closest && a.closest("#view") && /INPUT|TEXTAREA/.test(a.tagName)) return true;
-    return [].some.call(document.querySelectorAll("#view .gform input[type=password], #view .tadd input[type=text], #view #tadd-title, #view .ladd input, #view .tnote, #view .cform input[name=owner], #view .cform input[name=birth], #view .cform input[name=ownerAddr]"), function (x) { return x.value; });
+    return [].some.call(document.querySelectorAll("#view .gform input[type=password], #view .kform input, #view .tadd input[type=text], #view #tadd-title, #view .ladd input, #view .tnote, #view .cform input[name=owner], #view .cform input[name=birth], #view .cform input[name=ownerAddr]"), function (x) { return x.value; });
   }
   function render(full) {
     if (!S.data) return;
@@ -553,6 +574,21 @@ const SCRIPT = String.raw`
       gb.disabled = true; gb.textContent = "메일함 접속 시험 중…";
       try { var gr = await api("/staff/gmail", { user: $("#g-user").value.trim(), password: gp.value }); gp.value = ""; toast("메일함 연결됨 — " + gr.user + " · 서윤이 정리를 시작합니다"); load(true); }
       catch (err) { toast(err.message); gb.disabled = false; gb.textContent = "연결 시험 후 저장"; }
+      return;
+    }
+    if (e.target.dataset && e.target.dataset.kform) {
+      e.preventDefault();
+      var kb = e.target.querySelector("button"), ins = [].slice.call(e.target.querySelectorAll("input[data-kname]")).filter(function (i) { return i.value.trim(); });
+      if (!ins.length) { toast("넣을 값을 붙여 넣어 주세요"); return; }
+      kb.disabled = true; kb.textContent = "저장 중…";
+      var okN = 0, errs = [];
+      for (var ki = 0; ki < ins.length; ki++) {
+        try { await api("/staff/keys", { name: ins[ki].dataset.kname, value: ins[ki].value.trim() }); okN++; ins[ki].value = ""; }
+        catch (err) { errs.push(err.message); }
+      }
+      kb.disabled = false; kb.textContent = "암호화해서 저장";
+      toast(errs.length ? errs[0] : okN + "개 저장했어요 — 바로 적용돼요");
+      if (okN) load(true);
       return;
     }
     if (e.target.id === "ladd") {

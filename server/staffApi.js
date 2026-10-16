@@ -10,7 +10,7 @@ import { requireAdmin } from "./adminApi.js";
 import { audit as auditLog } from "./audit.js";
 import { clientIp } from "./security.js";
 import { logError } from "./errorLog.js";
-import { addCeoLog, addTodo, approve, completeTodo, connectGmail, office, reject, runByCeo, snoozeTodo, updateStaff } from "./staff/index.js";
+import { addCeoLog, addTodo, approve, completeTodo, connectGmail, office, putKey, reject, runByCeo, snoozeTodo, updateStaff } from "./staff/index.js";
 import { getApproval } from "./staff/store.js";
 import { auditDetail } from "./auditDesk.js";
 import { clientAuditMail } from "./auditClientMail.js";
@@ -83,6 +83,14 @@ staffRouter.post("/staff/gmail", async (req, res) => {
   log(req, "staff.gmail.connect", "gmail", { user: String(req.body?.user || "").slice(0, 120), ok: !r.error });
   if (r.error) return res.status(400).json({ error: r.error });
   res.json({ ok: true, user: r.user });
+});
+
+// 키 넣기 — 할 일 안의 키 칸. 값은 봉인 저장하거나 무궁에 넘기고, 감사 기록에는 이름만 남긴다.
+staffRouter.post("/staff/keys", async (req, res) => {
+  const r = await putKey(req.body?.name, req.body?.value);
+  log(req, "staff.keys.put", String(req.body?.name || "").slice(0, 60), { ok: !r.error });
+  if (r.error) return res.status(400).json({ error: r.error });
+  res.json({ ok: true });
 });
 
 // 무상사용승낙서 — 할 일 "소재지 정정" 안의 칸(소유자 이름 등)을 POST로 받아 인쇄용 화면을 돌려준다(주소창에 개인정보를 싣지 않게).

@@ -274,14 +274,11 @@ export const SEED = [
   1. admin.portone.io 로그인 → 왼쪽 '결제 연동' → '연동 정보'(또는 '식별코드 · API Keys')
   2. 'V2 API' 탭 → API Secret '발급'(이름: yume-server) → 나온 값을 복사(다시 볼 수 없으니 바로 ②로)
 
-② Railway에 넣기
-  1. railway.com → 프로젝트 yume → yume 서비스 → Variables → New Variable
-     이름: PORTONE_V2_API_SECRET   값: ①에서 복사한 값
-  2. 같은 프로젝트 → mugung 서비스 → Variables → New Variable
-     이름: PORTONE_V2_API_SECRET   값: \${{yume.PORTONE_V2_API_SECRET}}   ← 이 글자를 그대로(유메 값을 가리키는 표시라 값을 또 붙일 필요 없음)
-  3. 저장하면 두 서비스가 자동으로 다시 배포됩니다.
+② 넣기 — 이 할 일 안의 '포트원 V2 API 시크릿' 칸에 붙여 넣고 '암호화해서 저장'
+  · 저장 전에 서버가 포트원에 실제로 인증되는지 먼저 확인합니다(틀리면 저장 안 됨).
+  · 유메에는 암호화해 보관하고, 무궁에도 안전하게 넘겨 둘 다 바로 적용됩니다. (Railway에 PORTONE_V2_API_SECRET으로 넣어도 됩니다)
 
-③ Claude에게 "포트원 시크릿 넣었어" — 값을 보지 않고 인증만 되는지 확인합니다. 되면 옛 PORTONE_API_SECRET은 지워도 됩니다.
+③ '넣음 ✓'이 뜨면 끝. 옛 PORTONE_API_SECRET은 나중에 지워도 됩니다.
 ④ 여기서 '완료' 체크`,
   },
   {
@@ -302,11 +299,11 @@ export const SEED = [
     priority: 1,
     link: "https://railway.com/project/2ad493c4-75b5-45f2-94fd-c181c2f89ea3",
     steps: `10-16 Claude가 해 둔 것: Anthropic 키는 유메 키를 가리키게 연결(나중에 무궁 전용으로 바꾸면 됨), 대표님이 채팅에 준 유메 키(yume_live_b7ce45…)의 한도를 무궁용(월 100만 건)으로 올림.
-남은 것 — 키 값은 Claude가 넣지 않습니다(대표 원칙). 1분이면 됩니다.
+남은 것 — 1분이면 됩니다. Railway에 못 들어가도 됩니다.
 
-1. railway.com → 프로젝트 yume → mugung 서비스 → Variables → New Variable
-   이름: YUME_API_KEY   값: 그 유메 키(yume_live_b7ce45로 시작하는 것)
-2. 저장 → 2~3분 뒤 무궁.com에서 아무 질문이나 해 보기. 답이 나오면 '완료' 체크
+1. 바로 아래 '유메 API 키' 칸에 그 유메 키(yume_live_로 시작)를 붙여 넣고 '암호화해서 저장'
+   · 서버가 바로 암호화해서 무궁 서버로 넘기고, 재배포 없이 즉시 적용됩니다. 화면·기록엔 값이 남지 않고 '넣음 ✓'만 보입니다.
+2. 무궁.com에서 아무 질문이나 해 보기. 답이 나오면 '완료' 체크
 3. 나중에(테스트 끝나면) 이 키는 대화에 노출됐으니 유메 계정 → API 키에서 폐기하고 새 키로 바꾸기. Anthropic도 무궁 전용 키를 만들어 ANTHROPIC_API_KEY를 바꾸면 원가가 유메와 나뉩니다.`,
   },
   {
@@ -322,7 +319,7 @@ export const SEED = [
 3. 제품 설정 → 카카오 로그인 → 활성화 ON → Redirect URI 등록:
    https://xn--of0bu3x.com/api/auth/kakao/callback
 4. 카카오 로그인 → 동의항목: 닉네임(필수). 이메일은 비즈 앱 전환이 필요해 나중에.
-5. 앱 설정 → 앱 키 → REST API 키 복사 → Railway mugung 서비스 Variables:
+5. 앱 설정 → 앱 키 → REST API 키 복사 → 이 할 일 안의 칸에 붙여 넣고 '암호화해서 저장'(Railway에 넣어도 됨 — 이름은 아래):
    KAKAO_REST_API_KEY = 그 키
 6. (권장) 제품 설정 → 카카오 로그인 → 보안 → Client Secret 코드 생성 · 활성화 → KAKAO_CLIENT_SECRET = 그 코드
 7. 저장 후 2~3분 뒤 무궁.com → 메뉴 → 로그인에 카카오 버튼이 보이면 '완료' 체크`,
@@ -341,7 +338,7 @@ export const SEED = [
      서비스 URL: https://xn--of0bu3x.com
      네이버 로그인 Callback URL: https://xn--of0bu3x.com/api/auth/naver/callback
    · 모바일 웹도 같은 값으로 추가
-2. 등록 → Client ID와 Client Secret 복사 → Railway mugung 서비스 Variables:
+2. 등록 → Client ID와 Client Secret 복사 → 이 할 일 안의 칸에 붙여 넣고 '암호화해서 저장'(Railway에 넣어도 됨 — 이름은 아래):
    NAVER_CLIENT_ID = Client ID
    NAVER_CLIENT_SECRET = Client Secret
 3. 처음에는 '개발 중' 상태라 등록한 관리자(대표 계정)만 로그인됩니다. 내 애플리케이션 → 검수 요청 → 서비스 적용 신청(서비스 소개·화면 캡처 필요 — Claude에게 말하면 문구·캡처를 준비해 드림). 승인되면 누구나 로그인 가능.
@@ -364,7 +361,7 @@ export const SEED = [
    · 게시 상태: '프로덕션으로 푸시'(테스트 상태면 등록한 사람만 로그인됨)
 3. 사용자 인증 정보(클라이언트) → 사용자 인증 정보 만들기 → OAuth 클라이언트 ID → 애플리케이션 유형: 웹 애플리케이션
    · 승인된 리디렉션 URI: https://xn--of0bu3x.com/api/auth/google/callback
-4. 나온 클라이언트 ID·클라이언트 보안 비밀번호 → Railway mugung 서비스 Variables:
+4. 나온 클라이언트 ID·클라이언트 보안 비밀번호 → 이 할 일 안의 칸에 붙여 넣고 '암호화해서 저장'(Railway에 넣어도 됨 — 이름은 아래):
    GOOGLE_CLIENT_ID = 클라이언트 ID
    GOOGLE_CLIENT_SECRET = 클라이언트 보안 비밀번호
 5. 무궁.com에서 Google 버튼으로 로그인되면 '완료' 체크`,
@@ -382,7 +379,7 @@ export const SEED = [
 2. 앱 대시보드 → 제품 추가 → Instagram → 'Instagram 로그인을 통한 API 설정'
 3. '비즈니스 로그인 설정' → 리디렉션 URL(OAuth 리디렉션 URI):
    https://xn--of0bu3x.com/api/auth/instagram/callback
-4. 같은 화면의 Instagram 앱 ID와 Instagram 앱 시크릿 복사(페이스북 앱 ID와 다름 — Instagram 쪽 값) → Railway mugung 서비스 Variables:
+4. 같은 화면의 Instagram 앱 ID와 Instagram 앱 시크릿 복사(페이스북 앱 ID와 다름 — Instagram 쪽 값) → 이 할 일 안의 칸에 붙여 넣고 '암호화해서 저장'(Railway에 넣어도 됨 — 이름은 아래):
    INSTAGRAM_CLIENT_ID = Instagram 앱 ID
    INSTAGRAM_CLIENT_SECRET = Instagram 앱 시크릿
 5. 앱 설정 → 기본 설정: 개인정보처리방침 URL https://xn--of0bu3x.com/privacy · 서비스 약관 https://xn--of0bu3x.com/terms · 사용자 데이터 삭제: 'https://xn--of0bu3x.com/privacy' 안내 URL
@@ -428,14 +425,14 @@ export const SEED = [
 ① 네이버 서치어드바이저 — searchadvisor.naver.com
   1. 로그인 → 웹마스터 도구 → 사이트 등록: https://xn--of0bu3x.com
   2. 소유 확인 방법: 'HTML 태그' → 나온 태그에서 content="…" 안의 값만 복사
-  3. Railway → mugung 서비스 → Variables → NAVER_SITE_VERIFICATION = 그 값 → 저장(2~3분 뒤 반영)
+  3. 이 할 일 안의 '네이버 소유 확인 값' 칸에 그 값만 붙여 넣고 저장(바로 반영)
   4. 서치어드바이저로 돌아가 '소유확인'
   5. 요청 → 사이트맵 제출: https://xn--of0bu3x.com/sitemap.xml · 요청 → 웹 페이지 수집: https://xn--of0bu3x.com/
 
 ② 구글 서치 콘솔 — search.google.com/search-console
   1. 속성 추가 → 'URL 접두어' → https://xn--of0bu3x.com/
   2. 확인 방법: 'HTML 태그' → content="…" 값만 복사
-  3. Railway → mugung → Variables → GOOGLE_SITE_VERIFICATION = 그 값 → 저장
+  3. 이 할 일 안의 '구글 소유 확인 값' 칸에 그 값만 붙여 넣고 저장(바로 반영)
   4. 서치 콘솔에서 '확인' → 왼쪽 Sitemaps → sitemap.xml 제출 → 위 검색창에 https://xn--of0bu3x.com/ → 색인 생성 요청
 
 ③ (선택) 다음 검색: register.search.daum.net 에서 사이트 등록
@@ -485,7 +482,7 @@ export const SEED = [
   회원가입 → 인증키 신청 → 메일 확인 후 발급. 이름: DART_API_KEY
 
 ⑤ 넣기 — 채팅에 붙이지 마세요
-  · Railway → 프로젝트 yume → yume 서비스 → Variables에 위 이름 그대로 4개
+  · 이 할 일 안의 칸 4개에 받은 것만 붙여 넣고 '암호화해서 저장'(받은 것부터 하나씩 넣어도 됨, 바로 적용)
   · 넣었으면 Claude에게 "공공데이터 키 넣었어" — 실제 조회가 되는지 확인합니다
 ⑥ 여기서 '완료' 체크`,
   },
