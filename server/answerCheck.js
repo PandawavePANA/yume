@@ -20,7 +20,7 @@ const TIMEOUT_MS = 170_000;
 
 // 확인 깊이. 답을 쓴 쪽의 등급에 맞춘다 — 가벼운 답에 비싼 확인을 붙이면 원가가 답 값을 넘는다.
 export const CHECK_LEVELS = {
-  fast: { key: "fast", searches: 3, reviseModel: "claude-haiku-5-5", reviseEffort: "low" },
+  fast: { key: "fast", searches: 2, reviseModel: "claude-haiku-5-5", reviseEffort: "low" }, // 여명: 빠르게(검색 2번)
   standard: { key: "standard", searches: 4, reviseModel: "claude-sonnet-5-5", reviseEffort: "low" },
   deep: { key: "deep", searches: 5, reviseModel: "claude-sonnet-5-5", reviseEffort: "medium" },
 };
@@ -102,8 +102,11 @@ const WEBCHECK_SYSTEM = `너는 유메의 사실 확인자다. 각 [주장]을 w
 - url은 이번 검색 결과에 실제로 나온 주소만 쓴다.
 출력: {"results":[{"i":번호,"verdict":"supported|contradicted|unverified","correct":"","url":"","quote":"","note":"40자 이내"}]}`;
 
+// 검색 도구 판 — YUME_CHECK_SEARCH=basic 이면 기본판(20250305: 코드 실행 거르기 없음). 속도 비교용 스위치.
+// 2026-10-16 측정: 기본판이 10초쯤 빠르지만, 국세청 상담센터의 옛 안내(중소기업 취업자 감면 한도 150만 원)를 근거로
+// 맞는 답(2023년부터 200만 원)을 '틀림'으로 고쳤다. 틀린 바로잡기는 유메가 거짓말을 만드는 것이라 기본값은 동적 거르기 판.
 const searchTool = (maxUses, allowedDomains = null) => ({
-  type: "web_search_20260209",
+  type: process.env.YUME_CHECK_SEARCH === "basic" ? "web_search_20250305" : "web_search_20260209",
   name: "web_search",
   max_uses: maxUses,
   user_location: { type: "approximate", country: "KR", timezone: "Asia/Seoul" },
@@ -161,7 +164,9 @@ export async function judgeFromData(claims, data, { ledger = null, json = callJs
   const list = claims.map((c, i) => `${i + 1}. ${c.claim} (답변 원문: "${c.quote}")`).join("\n");
   const head = system === DATA_JUDGE_SYSTEM ? "공식 데이터" : "페이지 발췌";
   const blocks = data.map((d, i) => `[${head} ${i + 1}] ${d.source}\n${d.text}`).join("\n\n");
-  const out = await json({ model: VERIFIER_MODEL, system, user: `${todayLine()}${blocks}\n\n[주장]\n${list}`, maxTokens: 4000, effort: "low", ledger, label });
+  // 주어진 원문 안에서 찾아 맞추는 일이라 빠른 모델로 한다(근거 문장이 원문에 그대로 있는지는 아래 코드가 다시 본다).
+  // Sonnet 으로 하면 발췌 대조 한 번에 14초가 걸렸다(2026-10-16 측정).
+  const out = await json({ model: EXTRACT_MODEL, system, user: `${todayLine()}${blocks}\n\n[주장]\n${list}`, maxTokens: 4000, effort: "low", ledger, label });
   const byI = new Map((out.json?.results || []).map((r) => [Number(r.i), r]));
   return claims.map((c, k) => {
     const r = byI.get(k + 1);
@@ -206,22 +211,20 @@ export async function checkEverydayFacts(answer, { level = CHECK_LEVELS.fast, le
       for (const r of judged) if (r.verdict !== "unverified") byQuote.set(r.quote, r);
     }
   }
-  // 1차: 분야가 있는 주장은 그 분야의 공식 기관 사이트에서만
+  // 1차(공식 기관 사이트만)와 2차(웹 전체)를 동시에 돌린다 — 차례로 돌리면 답 하나에 30초가 넘었다(2026-10-16 대표 "대답이 느려").
+  // 판정은 공식 출처가 결론을 냈으면 그것을, 못 냈으면 웹 전체 결과를 쓴다(예전 순서와 같은 우선순위).
+  // 어느 쪽이 실패해도(검색 장애 · 답 형식 오류) 다른 쪽과 앞 단계 결과는 살린다 — 못 본 것만 확인 안 됨.
+  const blank = (list) => list.map((c) => ({ ...c, verdict: "unverified", correct: "", url: "", official: false, quoteSrc: "", note: "" }));
   const officialTodo = fielded.filter(open);
-  if (officialTodo.length) {
-    const domains = officialDomainsFor([...new Set(officialTodo.map((c) => c.field))]);
-    const first = await judgeClaims(officialTodo, { maxUses: level.searches, allowedDomains: domains, ledger, label: "check_official", json }).catch(() => officialTodo.map((c) => ({ ...c, verdict: "unverified" })));
-    for (const r of first) byQuote.set(r.quote, r);
-  }
-  // 2차: 공식 출처에서 결론이 안 난 것과 분야가 없는 것만 웹 전체에서
-  const rest = claims.filter(open);
-  if (rest.length) {
-    // 2차가 실패해도(검색 장애 · 답 형식 오류) 앞에서 확인한 결과는 살린다 — 예전에는 여기서 던져 답 전체가
-    // '사실 확인을 마치지 못했어요'가 됐다(2026-10-16). 못 본 것만 확인 안 됨으로 둔다.
-    const second = await judgeClaims(rest, { maxUses: level.searches, ledger, label: "check_web", json })
-      .catch(() => rest.map((c) => ({ ...c, verdict: "unverified", correct: "", url: "", official: false, quoteSrc: "", note: "" })));
-    for (const r of second) byQuote.set(r.quote, r);
-  }
+  const webTodo = claims.filter(open);
+  // (주장을 몇 개씩 나눠 동시에 돌려 보기도 했지만 호출마다 검색 결과를 따로 읽어 더 느리고 3배 비쌌다 — 2026-10-16 측정. 한 호출로 둔다.)
+  const judgeAll = (list, opts) => (list.length ? judgeClaims(list, { ...opts, maxUses: level.searches }).catch(() => blank(list)) : []);
+  const [first, second] = await Promise.all([
+    judgeAll(officialTodo, { allowedDomains: officialDomainsFor([...new Set(officialTodo.map((c) => c.field))]), ledger, label: "check_official", json }),
+    judgeAll(webTodo, { ledger, label: "check_web", json }),
+  ]);
+  for (const r of second) if (r.verdict !== "unverified") byQuote.set(r.quote, r);
+  for (const r of first) if (r.verdict !== "unverified" || !byQuote.has(r.quote)) byQuote.set(r.quote, r);
   const results = claims.map((c) => byQuote.get(c.quote) || { ...c, verdict: "unverified", correct: "", url: "", official: false, quoteSrc: "", note: "" });
   return { claims, results };
 }
