@@ -13,6 +13,7 @@ import { record } from "./apiCost.js";
 import { todayLine } from "./claude.js";
 import { LAW_HINT, gatherArticles, mergeGathered, reviewStatutes, defend } from "./statuteReview.js";
 import { FIELD_KEYS, isOfficialUrl, officialDomainsFor } from "./koreaSources.js";
+import { gatherKoreaData } from "./koreaData.js";
 
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 const TIMEOUT_MS = 170_000;
@@ -86,7 +87,8 @@ const EXTRACT_SYSTEM = `너는 유메의 사실 추출기다. [답변]에서 공
 뽑지 않는 것: 의견·조언·추천·감상, 예시·가정, 일반 상식 수준의 정의, 답변 안에서 직접 한 계산 과정, 인사·잡담, 코드.
 quote는 답변의 문장을 한 글자도 바꾸지 않고(150자 이내). 중요한 것부터 최대 8개. 사람의 건강·돈에 영향이 큰 것을 먼저.
 field는 그 사실을 공식적으로 확인할 수 있는 분야: law(법령·판례) medical(의료·의약·건강) economy(경제·금융·금리·환율) tax(세금) labor(노동·고용·임금) realestate(부동산·주거) company(기업·공시) welfare(복지·행정·교육·선거·외교) statistics(통계) general(그 밖).
-출력: {"claims":[{"quote":"…","claim":"확인할 사실을 한 문장으로","kind":"legal|number|date|entity|event|quote|source|other","field":"…"}]}
+drug: field가 medical이고 특정 약에 관한 주장이면 그 약의 제품명(예: 타이레놀정500밀리그람이면 "타이레놀") — 아니면 빈 문자열.
+출력: {"claims":[{"quote":"…","claim":"확인할 사실을 한 문장으로","kind":"legal|number|date|entity|event|quote|source|other","field":"…","drug":""}]}
 [사용자 자료]가 함께 주어지면, 답변이 그 자료(사용자가 올린 계약서·문서 등)의 내용을 옮기거나 요약한 부분은 뽑지 않는다 — 사용자가 준 자료 자체는 확인 대상이 아니다. 자료 밖에서 가져온 사실(법·제도·수치·기관 정보 등)만 뽑는다.
 확인할 사실이 없으면 {"claims":[]}.`;
 
@@ -124,7 +126,34 @@ async function judgeClaims(claims, { maxUses, allowedDomains = null, ledger, lab
   });
 }
 
-export async function checkEverydayFacts(answer, { level = CHECK_LEVELS.fast, ledger = null, skipLegal = false, references = [], json = callJson } = {}) {
+// 0차: 기관 Open API 원자료로 판정(키가 있을 때만 — koreaData.js). 근거 문장이 원자료에 그대로 있어야 인정한다.
+const DATA_JUDGE_SYSTEM = `너는 유메의 사실 확인자다. 각 [주장]을 아래 [공식 데이터](한국 기관 Open API 원자료, JSON)만으로 판정한다. 기억·추측으로 판정하지 않는다. JSON만 출력한다.
+- supported: 공식 데이터가 주장을 뒷받침한다.
+- contradicted: 공식 데이터가 다르게 말한다. 실제 값을 correct에 적는다.
+- unverified: 공식 데이터에 그 내용이 없거나, 시점이 달라 판단할 수 없다.
+- quote에는 판정 근거가 된 공식 데이터의 글자를 한 글자도 바꾸지 않고 옮긴다(값과 그 이름이 함께 보이게, 200자 이내). src에는 그 데이터 번호.
+출력: {"results":[{"i":번호,"verdict":"supported|contradicted|unverified","correct":"","src":번호,"quote":"","note":"40자 이내"}]}`;
+
+const squash = (s) => String(s || "").replace(/\\[nrt]/g, " ").replace(/[\s"\\]+/g, "");
+
+export async function judgeFromData(claims, data, { ledger = null, json = callJson } = {}) {
+  const list = claims.map((c, i) => `${i + 1}. ${c.claim} (답변 원문: "${c.quote}")`).join("\n");
+  const blocks = data.map((d, i) => `[공식 데이터 ${i + 1}] ${d.source}\n${d.text}`).join("\n\n");
+  const out = await json({ model: VERIFIER_MODEL, system: DATA_JUDGE_SYSTEM, user: `${todayLine()}${blocks}\n\n[주장]\n${list}`, maxTokens: 4000, effort: "low", ledger, label: "check_data" });
+  const byI = new Map((out.json?.results || []).map((r) => [Number(r.i), r]));
+  return claims.map((c, k) => {
+    const r = byI.get(k + 1);
+    const d = data[Number(r?.src) - 1];
+    let verdict = r && ["supported", "contradicted"].includes(r.verdict) ? r.verdict : "unverified";
+    // 근거 문장이 그 원자료에 실제로 있어야 한다(지어낸 근거 방지).
+    if (verdict !== "unverified" && !(d && squash(r.quote).length >= 4 && squash(d.text).includes(squash(r.quote)))) verdict = "unverified";
+    if (verdict === "contradicted" && !String(r.correct || "").trim()) verdict = "unverified";
+    if (verdict === "unverified") return { ...c, verdict, correct: "", url: "", official: false, quoteSrc: "", note: "" };
+    return { ...c, verdict, correct: r.correct || "", url: d.url, official: true, via: "data", sourceName: d.source, quoteSrc: r.quote, note: r.note || "" };
+  });
+}
+
+export async function checkEverydayFacts(answer, { level = CHECK_LEVELS.fast, ledger = null, skipLegal = false, references = [], json = callJson, koreaData = gatherKoreaData } = {}) {
   const refBlock = references.length ? `[사용자 자료]\n${references.map((r) => `<${r.title}>\n${r.text}`).join("\n\n").slice(0, 15000)}\n\n` : "";
   const ex = await json({ model: EXTRACT_MODEL, system: EXTRACT_SYSTEM, user: `${refBlock}[답변]\n${answer.slice(0, 8000)}`, maxTokens: 3000, effort: "low", ledger, label: "check_extract" });
   const quoteOk = (q) => String(q || "").replace(/\s+/g, "").length >= 4 && answer.replace(/\s+/g, "").includes(String(q).replace(/\s+/g, ""));
@@ -135,16 +164,26 @@ export async function checkEverydayFacts(answer, { level = CHECK_LEVELS.fast, le
   // 확인할 사실이 없는 답(잡담·글쓰기·번역)은 여기서 끝난다 — 웹 확인 원가가 들지 않는다.
   if (!claims.length) return { claims: [], results: [] };
 
-  // 1차: 분야가 있는 주장은 그 분야의 공식 기관 사이트에서만
   const fielded = claims.filter((c) => c.field !== "general");
   const byQuote = new Map();
+  const open = (c) => (byQuote.get(c.quote)?.verdict || "unverified") === "unverified";
+  // 0차: 기관 Open API 원자료(키가 있을 때)
   if (fielded.length) {
-    const domains = officialDomainsFor([...new Set(fielded.map((c) => c.field))]);
-    const first = await judgeClaims(fielded, { maxUses: level.searches, allowedDomains: domains, ledger, label: "check_official", json }).catch(() => fielded.map((c) => ({ ...c, verdict: "unverified" })));
+    const data = await koreaData(fielded).catch(() => []);
+    if (data.length) {
+      const judged = await judgeFromData(fielded, data, { ledger, json }).catch(() => []);
+      for (const r of judged) if (r.verdict !== "unverified") byQuote.set(r.quote, r);
+    }
+  }
+  // 1차: 분야가 있는 주장은 그 분야의 공식 기관 사이트에서만
+  const officialTodo = fielded.filter(open);
+  if (officialTodo.length) {
+    const domains = officialDomainsFor([...new Set(officialTodo.map((c) => c.field))]);
+    const first = await judgeClaims(officialTodo, { maxUses: level.searches, allowedDomains: domains, ledger, label: "check_official", json }).catch(() => officialTodo.map((c) => ({ ...c, verdict: "unverified" })));
     for (const r of first) byQuote.set(r.quote, r);
   }
   // 2차: 공식 출처에서 결론이 안 난 것과 분야가 없는 것만 웹 전체에서
-  const rest = claims.filter((c) => (byQuote.get(c.quote)?.verdict || "unverified") === "unverified");
+  const rest = claims.filter(open);
   if (rest.length) {
     const second = await judgeClaims(rest, { maxUses: level.searches, ledger, label: "check_web", json });
     for (const r of second) byQuote.set(r.quote, r);
