@@ -180,6 +180,29 @@ export async function judgeFromData(claims, data, { ledger = null, json = callJs
   });
 }
 
+// 확인한 사실을 6시간 기억한다(같은 사실을 다시 검색하지 않게 — 속도와 원가). 결론이 난 것만, 근거 주소와 함께.
+// 서버를 다시 켜면 비워진다. 바뀌는 정보(일정·가격)도 6시간이면 충분히 짧다.
+const FACT_TTL_MS = 6 * 3600 * 1000;
+const factCache = new Map();
+const factKey = (c) => `${c.field || "general"}|${String(c.claim || "").replace(/[\s"'“”‘’.,·]/g, "")}`;
+function cachedFact(c, now = Date.now()) {
+  const e = factCache.get(factKey(c));
+  if (!e) return null;
+  if (now - e.at > FACT_TTL_MS) {
+    factCache.delete(factKey(c));
+    return null;
+  }
+  return { ...e.r, quote: c.quote, claim: c.claim, field: c.field, cached: true };
+}
+function rememberFact(c, r, now = Date.now()) {
+  if (!r || r.verdict === "unverified" || r.cached) return;
+  factCache.set(factKey(c), { at: now, r: { verdict: r.verdict, correct: r.correct || "", url: r.url || "", official: !!r.official, via: r.via, sourceName: r.sourceName, quoteSrc: r.quoteSrc || "", note: r.note || "" } });
+  if (factCache.size > 5000) factCache.delete(factCache.keys().next().value);
+}
+export function _clearFactCache() {
+  factCache.clear();
+}
+
 export async function checkEverydayFacts(answer, { level = CHECK_LEVELS.fast, ledger = null, skipLegal = false, references = [], sources = [], json = callJson, koreaData = gatherKoreaData } = {}) {
   const refBlock = references.length ? `[사용자 자료]\n${references.map((r) => `<${r.title}>\n${r.text}`).join("\n\n").slice(0, 15000)}\n\n` : "";
   const ex = await json({ model: EXTRACT_MODEL, system: EXTRACT_SYSTEM, user: `${refBlock}[답변]\n${answer.slice(0, 8000)}`, maxTokens: 3000, effort: "low", ledger, label: "check_extract" });
@@ -194,6 +217,11 @@ export async function checkEverydayFacts(answer, { level = CHECK_LEVELS.fast, le
   const fielded = claims.filter((c) => c.field !== "general");
   const byQuote = new Map();
   const open = (c) => (byQuote.get(c.quote)?.verdict || "unverified") === "unverified";
+  // 기억해 둔 사실 — 6시간 안에 같은 사실을 확인했으면 그 결과를 쓴다.
+  for (const c of claims) {
+    const hit = cachedFact(c);
+    if (hit) byQuote.set(c.quote, hit);
+  }
   // 0차: 기관 Open API 원자료(키가 있을 때)
   if (fielded.length) {
     const data = await koreaData(fielded).catch(() => []);
@@ -226,6 +254,7 @@ export async function checkEverydayFacts(answer, { level = CHECK_LEVELS.fast, le
   for (const r of second) if (r.verdict !== "unverified") byQuote.set(r.quote, r);
   for (const r of first) if (r.verdict !== "unverified" || !byQuote.has(r.quote)) byQuote.set(r.quote, r);
   const results = claims.map((c) => byQuote.get(c.quote) || { ...c, verdict: "unverified", correct: "", url: "", official: false, quoteSrc: "", note: "" });
+  for (const [k, c] of claims.entries()) rememberFact(c, results[k]);
   return { claims, results };
 }
 

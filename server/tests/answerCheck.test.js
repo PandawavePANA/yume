@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { checkAnswer, checkEverydayFacts, prepareContext, appendCorrections, BLANKET_DISCLAIMER, normalizeAnswerReferences } from "../answerCheck.js";
+import { checkAnswer, checkEverydayFacts, prepareContext, appendCorrections, BLANKET_DISCLAIMER, normalizeAnswerReferences, _clearFactCache } from "../answerCheck.js";
+test.beforeEach(() => _clearFactCache());
 import { isOfficialUrl, officialDomainsFor } from "../koreaSources.js";
 
 const article = { id: "A1", law: "고용보험법", no: 50, branch: null, title: "피보험기간", text: "상실한 날부터 3년 이내에", url: "u50", block: "[A1] 고용보험법 제50조\n상실한 날부터 3년 이내에", deleted: false };
@@ -162,4 +163,22 @@ test("일상 사실: 웹 전체 확인(2차)이 실패해도 앞 단계 결과�
   assert.equal(r.results.find((x) => x.quote === "사과 값은 1천원").verdict, "supported");
   assert.equal(r.results.find((x) => x.quote === "사과 값은 1천원").official, true);
   assert.equal(r.results.find((x) => x.quote === "배 값은 2천원").verdict, "unverified");
+});
+
+test("확인한 사실은 6시간 기억해 같은 사실은 다시 검색하지 않는다", async () => {
+  let webCalls = 0;
+  const json = async ({ label }) => {
+    if (label === "check_extract") return { json: { claims: [{ claim: "KTX 서울-부산은 약 2시간 30분 걸린다", quote: "2시간 30분", field: "general" }] } };
+    if (label === "check_web") {
+      webCalls += 1;
+      return { json: { results: [{ i: 1, verdict: "supported", url: "https://www.letskorail.com/a", quote: "최단 2시간 17분" }] }, urls: new Set(["https://www.letskorail.com/a"]) };
+    }
+    throw new Error(label);
+  };
+  const a = await checkEverydayFacts("KTX로 2시간 30분쯤 걸려요.", { json, koreaData: async () => [] });
+  const b = await checkEverydayFacts("보통 2시간 30분 정도예요.", { json, koreaData: async () => [] });
+  assert.equal(a.results[0].verdict, "supported");
+  assert.equal(b.results[0].verdict, "supported");
+  assert.equal(b.results[0].cached, true);
+  assert.equal(webCalls, 1);
 });
