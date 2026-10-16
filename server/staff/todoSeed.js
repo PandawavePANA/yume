@@ -261,10 +261,32 @@ export const SEED = [
 3. 승인 → 대표 PC의 현장 요원이 1분 안에 대표 주소로 보냅니다. 결재 기록이 "보냄"으로 바뀌면 끝.
 4. 둘 다 보냈으면 여기서 '완료' 체크.`,
   },
-  // ── 2026-10-16 무궁 AI · 유메 한국 공식 데이터 — 대표만 할 수 있는 일 ──
+  // ── 2026-10-16 급함 — 무궁(무궁.com)·결제·로그인·한국 공식 데이터. 대표만 할 수 있는 일을 한곳에 ──
+  // 키·시크릿은 채팅에 붙이지 않고 Railway 화면에 직접 넣는다. 넣은 뒤 Claude에게 말하면 실제로 되는지 확인한다.
+  {
+    key: "portone_v2_secret",
+    title: "[급함·결제] 포트원 V2 시크릿 넣기 — 지금 상태로는 이니시스가 열려도 유메 결제가 안 됩니다",
+    priority: 1,
+    link: "https://admin.portone.io",
+    steps: `왜: 10-16 Claude가 확인해 보니 Railway yume 서비스에 있는 PORTONE_API_SECRET은 포트원 V2에서 인증이 안 됩니다(401). 유메 코드는 PORTONE_V2_API_SECRET이라는 이름의 V2 시크릿을 씁니다. 이게 없으면 이니시스 적용(2~3일 뒤)이 끝나도 결제창이 열리지 않습니다. (약 5분)
+
+① 포트원에서 V2 시크릿 받기
+  1. admin.portone.io 로그인 → 왼쪽 '결제 연동' → '연동 정보'(또는 '식별코드 · API Keys')
+  2. 'V2 API' 탭 → API Secret '발급'(이름: yume-server) → 나온 값을 복사(다시 볼 수 없으니 바로 ②로)
+
+② Railway에 넣기
+  1. railway.com → 프로젝트 yume → yume 서비스 → Variables → New Variable
+     이름: PORTONE_V2_API_SECRET   값: ①에서 복사한 값
+  2. 같은 프로젝트 → mugung 서비스 → Variables → New Variable
+     이름: PORTONE_V2_API_SECRET   값: \${{yume.PORTONE_V2_API_SECRET}}   ← 이 글자를 그대로(유메 값을 가리키는 표시라 값을 또 붙일 필요 없음)
+  3. 저장하면 두 서비스가 자동으로 다시 배포됩니다.
+
+③ Claude에게 "포트원 시크릿 넣었어" — 값을 보지 않고 인증만 되는지 확인합니다. 되면 옛 PORTONE_API_SECRET은 지워도 됩니다.
+④ 여기서 '완료' 체크`,
+  },
   {
     key: "rotate_google_pw_1016",
-    title: "대화에 노출된 구글 계정 비밀번호 바꾸기(호스팅어 로그인용 계정)",
+    title: "[급함·보안] 대화에 노출된 구글 계정 비밀번호 바꾸기(호스팅어 로그인용 계정)",
     priority: 1,
     link: "https://myaccount.google.com/security",
     steps: `10-16 Claude와의 대화에 호스팅어 로그인용 구글 계정의 비밀번호가 그대로 적혔습니다. 대화 기록에 남으므로 바로 바꾸는 게 안전합니다. (약 5분)
@@ -276,106 +298,149 @@ export const SEED = [
   },
   {
     key: "mugung_keys",
-    title: "무궁 서버에 키 두 개 넣기(Anthropic · 유메 API) — 이게 있어야 무궁이 답합니다",
+    title: "[급함·무궁] 무궁 서버에 키 두 개 넣기(Anthropic · 유메 API) — 이게 있어야 무궁.com이 답합니다",
     priority: 1,
     link: "https://railway.com/project/2ad493c4-75b5-45f2-94fd-c181c2f89ea3",
-    steps: `왜: 무궁(새 대화형 AI)은 Railway에 mugung 서비스로 올라가 있습니다(https://mugung-production.up.railway.app). 답을 쓰는 Anthropic 키와, 답을 확인하는 유메 API 키가 있어야 답합니다. 키는 채팅에 붙이지 말고 Railway 화면에 직접 넣으세요. (약 10분)
+    steps: `왜: 무궁(무궁.com)은 Railway에 mugung 서비스로 올라가 있습니다. 답을 쓰는 Anthropic 키와, 답을 확인하는 유메 API 키가 있어야 답합니다. (약 10분)
 
-① 무궁 전용 Anthropic 키 만들기 — 유메와 원가가 섞이지 않게 따로
+① 무궁 전용 Anthropic 키 — 유메와 원가가 섞이지 않게 따로
   1. console.anthropic.com 로그인 → 왼쪽 API Keys → Create Key
   2. 이름: mugung → 만들기 → 나온 키(sk-ant-로 시작)를 복사(창을 닫으면 다시 못 봅니다)
 
-② 유메 API 키 만들기(무궁이 유메를 부를 때 씀)
+② 유메 API 키(무궁이 유메를 부를 때 씀)
   1. www.yume-reamer.com 로그인(reamer@d-reamer.com) → 계정 → API 키 → 새 키 만들기, 이름: 무궁
   2. 나온 키(yume_live_로 시작)를 복사
 
-③ Railway에 넣기
-  1. railway.com → 프로젝트 yume → mugung 서비스 → Variables → New Variable
-  2. ANTHROPIC_API_KEY = ①의 키
-  3. YUME_API_KEY = ②의 키
-  4. 저장하면 자동으로 다시 배포됩니다(2~3분).
+③ Railway → 프로젝트 yume → mugung 서비스 → Variables → New Variable
+  · ANTHROPIC_API_KEY = ①의 키
+  · YUME_API_KEY = ②의 키
+  · 저장하면 자동으로 다시 배포됩니다(2~3분).
 
-④ Claude에게 "무궁 키 넣었어"라고 말하기
-  · 새 유메 API 키는 체험 한도(월 몇 건)로 시작합니다. Claude가 그 키의 한도를 무궁용으로 올리고(키 값은 보지 않음), 실제로 답이 나오는지 확인합니다.
-  · 다 됐으면 여기서 '완료' 체크`,
-  },
-  {
-    key: "mugung_domain",
-    title: "무궁 도메인 사서 연결하기",
-    priority: 1,
-    steps: `왜: 지금 무궁 주소는 mugung-production.up.railway.app 입니다. 사람들에게 알릴 짧은 주소가 필요합니다. (약 20분)
-
-① 도메인 사기 — 10-16 확인: mugung.com(판매 장터에 올라가 있음)·moogoong.com·mugung.kr·mugung.co.kr·moogoong.kr은 이미 남의 것
-  · 1순위 무궁.com(한글 도메인, 비어 있음 — 말로 알리기 쉬움) + 영문 예비 mugungai.com(비어 있음). 여유 있으면 mugung.ai · 무궁.kr · 무궁.한국(모두 비어 있음)
-  · 한글 도메인은 일부 앱·문자에서 xn--of0bu3x.com 처럼 보일 수 있어 영문 주소를 하나 같이 둡니다(둘 다 같은 화면으로 연결)
-  · Railway·카카오에 넣을 때는 한글 대신 xn--of0bu3x.com 으로 넣습니다(Claude가 맞춰 드림)
-  · 유메 도메인을 산 호스팅어(hpanel.hostinger.com) 또는 가비아에서 검색 → 결제 직전 화면에서 가격·기간 확인(.ai는 .com보다 비싸고 보통 2년 단위)
-
-② Railway에 도메인 붙이기
-  1. railway.com → 프로젝트 yume → mugung 서비스 → Settings → Networking → Custom Domain → 산 도메인 입력(예: mugung.kr, www.mugung.kr 둘 다)
-  2. Railway가 보여 주는 CNAME(또는 A) 값을 복사
-
-③ 도메인 산 곳 DNS에 넣기
-  · 호스팅어: 도메인 → DNS 레코드 관리 → 레코드 추가 → Railway가 준 종류·이름·값 그대로
-  · 몇 분~1시간 뒤 Railway 화면에 초록 체크가 뜨면 끝(HTTPS는 자동)
-
-④ Claude에게 산 도메인을 알려 주세요 — 화면·검색 등록·공유 링크 주소를 그 도메인으로 바꿉니다.
+④ Claude에게 "무궁 키 넣었어" — 새 유메 키의 한도를 무궁용으로 올리고(키 값은 보지 않음), 무궁.com에서 실제로 답이 나오는지 확인합니다.
 ⑤ 여기서 '완료' 체크`,
   },
   {
+    key: "kakao_login",
+    title: "[급함·로그인] 카카오 로그인 앱 만들기(무궁.com)",
+    priority: 1,
+    link: "https://developers.kakao.com/console/app",
+    steps: `무궁.com에 '카카오로 계속하기'가 생기게 합니다. 처음 로그인이 곧 가입입니다. (약 15분)
+
+1. developers.kakao.com → 로그인 → 내 애플리케이션 → 애플리케이션 추가하기
+   · 앱 이름: 무궁 · 회사명: 리머 · 카테고리: 생산성
+2. 앱 설정 → 플랫폼 → Web 플랫폼 등록 → 사이트 도메인: https://xn--of0bu3x.com  (무궁.com의 기계 표기 — 한글 대신 이걸 넣습니다)
+3. 제품 설정 → 카카오 로그인 → 활성화 ON → Redirect URI 등록:
+   https://xn--of0bu3x.com/api/auth/kakao/callback
+4. 카카오 로그인 → 동의항목: 닉네임(필수). 이메일은 비즈 앱 전환이 필요해 나중에.
+5. 앱 설정 → 앱 키 → REST API 키 복사 → Railway mugung 서비스 Variables:
+   KAKAO_REST_API_KEY = 그 키
+6. (권장) 제품 설정 → 카카오 로그인 → 보안 → Client Secret 코드 생성 · 활성화 → KAKAO_CLIENT_SECRET = 그 코드
+7. 저장 후 2~3분 뒤 무궁.com → 메뉴 → 로그인에 카카오 버튼이 보이면 '완료' 체크`,
+  },
+  {
+    key: "naver_login",
+    title: "[급함·로그인] 네이버 로그인 앱 만들기(무궁.com)",
+    priority: 1,
+    link: "https://developers.naver.com/apps/#/register",
+    steps: `무궁.com에 '네이버로 계속하기'가 생기게 합니다. (약 15분 + 검수)
+
+1. developers.naver.com → 로그인 → Application → 애플리케이션 등록
+   · 애플리케이션 이름: 무궁
+   · 사용 API: 네이버 로그인 → 제공 정보: 별명(필수), 이메일 주소(선택)
+   · 로그인 오픈 API 서비스 환경: PC 웹 추가
+     서비스 URL: https://xn--of0bu3x.com
+     네이버 로그인 Callback URL: https://xn--of0bu3x.com/api/auth/naver/callback
+   · 모바일 웹도 같은 값으로 추가
+2. 등록 → Client ID와 Client Secret 복사 → Railway mugung 서비스 Variables:
+   NAVER_CLIENT_ID = Client ID
+   NAVER_CLIENT_SECRET = Client Secret
+3. 처음에는 '개발 중' 상태라 등록한 관리자(대표 계정)만 로그인됩니다. 내 애플리케이션 → 검수 요청 → 서비스 적용 신청(서비스 소개·화면 캡처 필요 — Claude에게 말하면 문구·캡처를 준비해 드림). 승인되면 누구나 로그인 가능.
+4. 무궁.com에서 네이버 버튼이 보이고 대표 계정으로 로그인되면 '완료' 체크`,
+  },
+  {
+    key: "google_login",
+    title: "[급함·로그인] 구글 로그인 앱 만들기(무궁.com)",
+    priority: 1,
+    link: "https://console.cloud.google.com/apis/credentials",
+    steps: `무궁.com에 'Google로 계속하기'가 생기게 합니다. (약 20분)
+
+1. console.cloud.google.com → 위쪽 프로젝트 선택 → 새 프로젝트: 무궁
+2. API 및 서비스 → OAuth 동의 화면(Google 인증 플랫폼 → 브랜딩)
+   · 앱 이름: 무궁 · 지원 이메일: reamer@d-reamer.com · 대상: 외부
+   · 앱 홈페이지: https://xn--of0bu3x.com
+   · 개인정보처리방침: https://xn--of0bu3x.com/privacy · 서비스 약관: https://xn--of0bu3x.com/terms
+   · 승인된 도메인: xn--of0bu3x.com
+   · 범위(데이터 액세스): openid, email, profile (민감한 범위 아님 — 심사 없이 바로 됨)
+   · 게시 상태: '프로덕션으로 푸시'(테스트 상태면 등록한 사람만 로그인됨)
+3. 사용자 인증 정보(클라이언트) → 사용자 인증 정보 만들기 → OAuth 클라이언트 ID → 애플리케이션 유형: 웹 애플리케이션
+   · 승인된 리디렉션 URI: https://xn--of0bu3x.com/api/auth/google/callback
+4. 나온 클라이언트 ID·클라이언트 보안 비밀번호 → Railway mugung 서비스 Variables:
+   GOOGLE_CLIENT_ID = 클라이언트 ID
+   GOOGLE_CLIENT_SECRET = 클라이언트 보안 비밀번호
+5. 무궁.com에서 Google 버튼으로 로그인되면 '완료' 체크`,
+  },
+  {
+    key: "inicis_billing",
+    title: "[급함·결제] 이니시스에 무궁.com 판매 추가 확인(사이트·상품·정기결제)",
+    priority: 1,
+    steps: `왜: 이번 이니시스 승인은 유메(yume-reamer.com) '포인트충전' 기준입니다. 무궁.com에서 '30일 이용권'을 팔려면 같은 상점으로 되는지, 사이트를 추가 등록해야 하는지 확인이 필요합니다. 결제 코드는 다 만들어 두었고 꺼져 있습니다(이니시스 OK 전에는 켜지 않음).
+
+1. 이니시스 카카오톡 상담 또는 1588-4954, 혹은 담당자(조선아 님) 메일로 문의:
+   "리머(사업자 627-03-03900) 가맹점입니다. 유메(yume-reamer.com) 포인트충전으로 승인받았습니다.
+    ① 같은 사업자의 새 서비스 '무궁'(https://무궁.com — AI 대화 서비스)에서 같은 상점아이디로 30일 이용권(9,900원·24,900원·59,000원, 신용카드 일시불 단발 결제, 자동결제 없음)을 판매해도 되나요? 사이트 URL 추가 등록이 필요하면 절차를 알려 주세요.
+    ② 나중에 월 정기결제(빌링)를 붙이려면 어떤 신청과 서류가 필요한가요?"
+2. 무궁.com에는 이미 이용약관·개인정보처리방침·환불 정책·사업자 정보·민원 고지가 올라가 있습니다(심사자가 보면 됨).
+3. 답이 오면 Claude에게 보여 주세요. OK면 "무궁 결제 켜"라고 말하면 Claude가 켭니다(MUGUNG_PAYMENTS=on).
+4. 여기서 '완료' 체크`,
+  },
+  {
+    key: "mail_order_registration",
+    title: "[급함·법] 통신판매업 신고 — 일반과세 전환(11/1) 뒤 온라인 판매에 필요",
+    priority: 1,
+    link: "https://www.gov.kr",
+    steps: `왜: 유메 크레딧과 무궁 이용권을 온라인으로 팔려면 통신판매업 신고번호를 사이트에 표시해야 합니다. 간이과세자는 면제될 수 있지만 11월 1일부터 일반과세로 바뀌면 신고 대상입니다.
+
+1. 이니시스 가맹점관리자(PC) 로그인 → '구매안전서비스 이용확인증'(또는 '에스크로/결제대행 확인서') 발급(PDF). 메뉴가 안 보이면 이니시스 상담에 "통신판매업 신고용 구매안전서비스 이용확인증 발급"을 요청
+2. 정부24(gov.kr) → '통신판매업 신고' 검색 → 신청(관할: 대구 달성군청)
+   · 판매 방식: 인터넷 · 취급 품목: 기타(디지털 서비스·이용권) · 인터넷 도메인: yume-reamer.com, xn--of0bu3x.com(무궁.com)
+   · 첨부: ①의 확인증
+3. 처리 후 등록면허세 고지서가 오면 납부 → 신고증 수령
+4. 신고번호(예: 제2026-대구달성-0000호)를 Claude에게 알려 주세요 — 유메·무궁 사이트 하단에 표시합니다.
+5. 여기서 '완료' 체크`,
+  },
+  {
+    key: "mugung_domain",
+    title: "무궁 도메인 연결(무궁.com) — 완료됨, 자동 확인",
+    priority: 2,
+    check_key: "mugung_domain",
+    steps: `10-16 무궁.com 구매·연결 완료(호스팅어 DNS → Railway, HTTPS OK). 서버가 무궁.com이 열리는 것을 확인하면 자동으로 닫힙니다.
+남은 선택: 영문 예비 주소 mugungai.com(비어 있음)을 사 두면 링크가 깨져 보이는 앱에서도 쓸 수 있습니다 — 사면 Claude에게 알려 주세요.`,
+  },
+  {
     key: "korea_data_keys",
-    title: "한국 공식 데이터 키 4개 발급 — 유메가 의료·경제·통계·기업을 원자료로 확인하게",
+    title: "[급함·유메] 한국 공식 데이터 키 4개 발급 — 의료·경제·통계·기업을 원자료로 확인",
     priority: 1,
     steps: `왜: 지금 유메는 의료·경제 같은 사실을 식약처·한국은행 등 공식 사이트에서 '검색'해서 확인합니다. 아래 키가 있으면 검색 없이 기관 데이터베이스에서 값을 직접 꺼내 대조합니다 — 더 정확하고 더 쌉니다. 모두 무료입니다. (전부 합쳐 약 40분, 일부는 승인에 하루~이틀)
 
 ① 한국은행 ECOS (금리·환율·물가) — ecos.bok.or.kr/api
-  회원가입 → 인증키 신청 → 바로 발급. 키 이름: ECOS_API_KEY
+  회원가입 → 인증키 신청 → 바로 발급. 이름: ECOS_API_KEY
 
-② KOSIS 국가통계포털 (인구·고용·소득 등 국가 통계) — kosis.kr/openapi
-  회원가입 → 활용신청 → 인증키 발급. 키 이름: KOSIS_API_KEY
+② KOSIS 국가통계포털 (인구·고용·소득 등) — kosis.kr/openapi
+  회원가입 → 활용신청 → 인증키 발급. 이름: KOSIS_API_KEY
 
 ③ 공공데이터포털 (식약처 의약품 정보) — data.go.kr
   1. 회원가입 → 마이페이지 → 개인 API 인증키 확인(Encoding·Decoding 두 개가 보임)
   2. 검색창에 "의약품개요정보(e약은요)" → 활용신청(목적: 의약품 정보 사실 확인 서비스 개발)
   3. "의약품 제품 허가정보"도 같은 방법으로 활용신청
-  4. 보통 바로~1일 안에 승인. 키 이름: DATA_GO_KR_KEY (일반 인증키 Decoding 값)
+  4. 보통 바로~1일 안에 승인. 이름: DATA_GO_KR_KEY (일반 인증키 Decoding 값)
 
 ④ DART 전자공시 (기업 정보·재무) — opendart.fss.or.kr
-  회원가입 → 인증키 신청 → 메일 확인 후 발급. 키 이름: DART_API_KEY
+  회원가입 → 인증키 신청 → 메일 확인 후 발급. 이름: DART_API_KEY
 
 ⑤ 넣기 — 채팅에 붙이지 마세요
   · Railway → 프로젝트 yume → yume 서비스 → Variables에 위 이름 그대로 4개
-  · 대표 PC에서도 시험하려면: 바탕화면\\유메\\.env 파일 맨 아래에 같은 이름=값으로 4줄 추가
   · 넣었으면 Claude에게 "공공데이터 키 넣었어" — 실제 조회가 되는지 확인합니다
 ⑥ 여기서 '완료' 체크`,
-  },
-  {
-    key: "inicis_billing",
-    title: "이니시스에 정기결제(월 구독) 승인 절차 문의",
-    priority: 1,
-    steps: `왜: 무궁 요금제(넉넉 9,900원 · 든든 24,900원 · 가득 59,000원)는 매달 자동결제라, 지금 심사 중인 '포인트충전'과 별개로 정기결제(빌링) 승인이 필요합니다.
-
-1. 이니시스 담당자(조선아 님) 메일에 회신하거나 비서실 결재함의 이니시스 메일에 덧붙여 문의:
-   "현재 포인트충전 조건으로 심사 중인 유메(리머)에 월 정기결제(빌링키 발급·자동결제)를 추가하려면 어떤 절차와 서류가 필요한가요? 같은 상점 아이디로 가능한가요?"
-2. 답이 오면 Claude에게 보여 주세요 — 결제 화면·해지·환불 안내(전자상거래법)를 그 조건에 맞춰 붙입니다.
-3. 여기서 '완료' 체크`,
-  },
-  {
-    key: "kakao_login",
-    title: "카카오 로그인용 앱 만들기 (무궁 가입을 카카오로)",
-    priority: 2,
-    link: "https://developers.kakao.com/console/app",
-    steps: `왜: 무궁은 지금 기기별로 대화를 구분합니다. 카카오 로그인이 있으면 휴대폰·PC 어디서나 같은 대화를 보고, 요금제도 계정에 붙습니다. (약 15분)
-
-1. developers.kakao.com → 로그인 → 내 애플리케이션 → 애플리케이션 추가하기
-   · 앱 이름: 무궁 · 회사명: 리머 · 카테고리: 생산성/교육 등
-2. 만든 앱 → 앱 설정 → 플랫폼 → Web 플랫폼 등록: https://mugung-production.up.railway.app (도메인을 사면 그 주소도 추가)
-3. 제품 설정 → 카카오 로그인 → 활성화 ON → Redirect URI 등록:
-   https://mugung-production.up.railway.app/api/auth/kakao/callback (도메인을 사면 그 주소로도 하나 더)
-4. 제품 설정 → 카카오 로그인 → 동의항목: 닉네임(필수) 정도만. 이메일은 비즈 앱 전환이 필요해 나중에.
-5. 앱 설정 → 앱 키 → REST API 키 복사 → Railway mugung 서비스 Variables에 KAKAO_REST_API_KEY 로 넣기
-6. (선택) 보안 → Client Secret 생성·활성화 → KAKAO_CLIENT_SECRET 으로 넣기
-7. 여기서 '완료' 체크 — 넣으면 무궁 화면에 '카카오로 시작하기'가 나타납니다.`,
   },
   {
     key: "law_precedent_api",
