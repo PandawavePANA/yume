@@ -263,6 +263,18 @@ export const SEED = [
   },
   // ── 2026-10-16 무궁 AI · 유메 한국 공식 데이터 — 대표만 할 수 있는 일 ──
   {
+    key: "rotate_google_pw_1016",
+    title: "대화에 노출된 구글 계정 비밀번호 바꾸기(호스팅어 로그인용 계정)",
+    priority: 1,
+    link: "https://myaccount.google.com/security",
+    steps: `10-16 Claude와의 대화에 호스팅어 로그인용 구글 계정의 비밀번호가 그대로 적혔습니다. 대화 기록에 남으므로 바로 바꾸는 게 안전합니다. (약 5분)
+
+1. 그 구글 계정으로 myaccount.google.com → 보안 → 비밀번호 → 새 비밀번호(다른 곳에서 쓰지 않은 것)
+2. 같은 화면에서 2단계 인증이 꺼져 있으면 켜기(휴대폰 번호 또는 Google 메시지)
+3. 보안 → "기기 관리"에서 모르는 기기가 있으면 로그아웃
+4. 여기서 '완료' 체크`,
+  },
+  {
     key: "mugung_keys",
     title: "무궁 서버에 키 두 개 넣기(Anthropic · 유메 API) — 이게 있어야 무궁이 답합니다",
     priority: 1,
