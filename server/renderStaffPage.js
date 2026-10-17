@@ -468,7 +468,7 @@ const SCRIPT = String.raw`
     return "";
   }
 
-  // 키 넣는 칸 — 값은 화면에 다시 보이지 않고(넣었는지만), 서버가 암호화해 저장하거나 무궁에 넘긴다.
+  // 키 넣는 칸 — 값은 화면에 다시 보이지 않고(넣었는지만), 서버가 암호화해 저장하거나 미르미에 넘긴다.
   function keyForm(t) {
     var fields = (S.data.keyFields || {})[t.key];
     if (!fields || !fields.length) return "";
@@ -478,7 +478,7 @@ const SCRIPT = String.raw`
       return '<label class="krow"><span class="klabel">' + esc(f.label) + (on === true ? '<em class="kok">넣음 ✓</em>' : on === null ? '<em class="kunk">확인 중</em>' : "") + '</span>' +
         '<input type="password" autocomplete="new-password" spellcheck="false" data-kname="' + esc(f.name) + '" placeholder="' + esc(f.ph || (on ? "바꾸려면 새 값 붙여 넣기" : "여기에 붙여 넣기")) + '" /></label>';
     }).join("") + '<button type="submit" class="btn sm gbtn">암호화해서 저장</button></form>' +
-      '<div class="hint">여기 넣은 값은 서버가 바로 암호화해서 보관하고 화면·기록에는 남지 않아요. 무궁이 쓰는 키는 무궁 서버로 안전하게 넘겨 바로 적용돼요(재배포 필요 없음).</div>';
+      '<div class="hint">여기 넣은 값은 서버가 바로 암호화해서 보관하고 화면·기록에는 남지 않아요. 미르미가 쓰는 키는 미르미 서버로 안전하게 넘겨 바로 적용돼요(재배포 필요 없음).</div>';
   }
 
   // ── 오늘 할 일(대표 투두) — 결재 문서와 다른 체크리스트 모양 ──
@@ -508,14 +508,30 @@ const SCRIPT = String.raw`
     if (a && a.closest && a.closest("#view") && /INPUT|TEXTAREA/.test(a.tagName)) return true;
     return [].some.call(document.querySelectorAll("#view .gform input[type=password], #view .kform input, #view .tadd input[type=text], #view #tadd-title, #view .ladd input, #view .tnote, #view .cform input[name=owner], #view .cform input[name=birth], #view .cform input[name=ownerAddr]"), function (x) { return x.value; });
   }
+  // 펼쳐 둔 안내(어떻게 하나요 등)와 스크롤 위치는 다시 그려도 그대로 둔다 — 15초 새로 고침이 읽던 안내를 접어 버렸다(2026-10-17 대표).
+  function detailsKey(d) {
+    var row = d.closest("[data-id]");
+    var s = d.querySelector("summary");
+    return (row ? row.getAttribute("data-id") : "") + "|" + (s ? s.textContent : "");
+  }
+  function keepOpen(draw) {
+    var open = {};
+    [].forEach.call(document.querySelectorAll("#view details[open]"), function (d) { open[detailsKey(d)] = 1; });
+    var y = window.scrollY;
+    draw();
+    [].forEach.call(document.querySelectorAll("#view details"), function (d) { if (open[detailsKey(d)]) d.open = true; });
+    window.scrollTo(0, y);
+  }
   function render(full) {
     if (!S.data) return;
     renderTop();
     if (!full && S.tab !== "inbox" && typing()) return;
+    // 안내를 펼쳐 읽는 중이면 저절로 새로 그리지 않는다(안의 문서 미리보기가 다시 불러와지지 않게) — 버튼을 누른 뒤에만 다시 그림
+    if (!full && S.tab !== "inbox" && document.querySelector("#view details[open]")) return;
     if (S.tab === "inbox") renderInbox(full);
-    else if (S.tab === "todo") renderTodos();
-    else if (S.tab === "org") renderOrg();
-    else renderLog();
+    else if (S.tab === "todo") keepOpen(renderTodos);
+    else if (S.tab === "org") keepOpen(renderOrg);
+    else keepOpen(renderLog);
   }
   async function load(full) {
     try { S.data = await api("/staff"); render(full); }
@@ -531,11 +547,11 @@ const SCRIPT = String.raw`
     if (t.dataset.tdone) {
       var li = t.closest(".todo"), tm = $("#tmsg-" + t.dataset.tdone);
       t.disabled = true; li.classList.add("checking"); if (tm) tm.textContent = "";
-      var noteEl = $("#tnote-" + t.dataset.tdone); try { var rr = await api("/staff/todos/" + t.dataset.tdone + "/done", { note: noteEl ? noteEl.value : "" }); li.classList.add("done"); toast(rr.result || "완료"); setTimeout(function () { load(); }, 700); }
+      var noteEl = $("#tnote-" + t.dataset.tdone); try { var rr = await api("/staff/todos/" + t.dataset.tdone + "/done", { note: noteEl ? noteEl.value : "" }); li.classList.add("done"); toast(rr.result || "완료"); setTimeout(function () { load(true); }, 700); }
       catch (err) { li.classList.remove("checking"); t.disabled = false; if (tm) tm.textContent = err.message; }
       return;
     }
-    if (t.dataset.tsnooze) { try { await api("/staff/todos/" + t.dataset.tsnooze + "/snooze", {}); toast("내일 다시 올려 둘게요"); load(); } catch (err) { toast(err.message); } return; }
+    if (t.dataset.tsnooze) { try { await api("/staff/todos/" + t.dataset.tsnooze + "/snooze", {}); toast("내일 다시 올려 둘게요"); load(true); } catch (err) { toast(err.message); } return; }
     if (t.dataset.open) { S.sel = Number(t.dataset.open); renderInbox(false); var dp = $("#docpane"); if (dp) dp.scrollIntoView({ block: "start", behavior: "smooth" }); return; }
     if (t.hasAttribute("data-close")) { S.sel = null; renderInbox(false); return; }
     if (t.dataset.dec) { var a1 = S.data.approvals.find(function (x) { return x.id === S.sel; }); inputOf(a1).decisions[t.dataset.dec] = t.dataset.v; t.parentNode.querySelectorAll("button").forEach(function (b) { b.setAttribute("aria-pressed", String(b === t)); }); return; }
