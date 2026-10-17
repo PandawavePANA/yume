@@ -15,6 +15,7 @@ import { API_UNIT_CHARS, apiUnits } from "./apiRates.js";
 import { getMark, issueMark, markBase, publicMark, revokeMark } from "./trustMarks.js";
 import { checkAnswer, prepareContext, MAX_ANSWER_CHARS, MAX_QUESTION_CHARS } from "./answerCheck.js";
 import { logApiCost, newLedger, recordOpsCost, summarize } from "./apiCost.js";
+import { recordReport, recordSignals } from "./learnSignals.js";
 
 // 유메 검증 API(/v1) — AI 서비스를 운영하는 기업이 자기 서비스의 답변을 유메로 검증하는
 // 공개 API. 계정의 "API 키" 메뉴에서 발급한 키로 인증한다(키는 해시로만 저장).
@@ -552,12 +553,30 @@ router.post("/answer-check", express.json({ limit: "1mb" }), requireApiKey, engi
     if (usageId) await finishApiUsage(usageId, { statusCode: 500, cached: false, billable: false });
     return fail(res, 502, "check_failed", "답을 확인하지 못했습니다. 이 요청은 과금되지 않았습니다. 잠시 후 다시 보내주세요.", { detail: String(e.message || e).slice(0, 200) });
   }
+  // 학습 신호 — 보낸 쪽이 learn: true 로 동의했을 때만(미르미: 사용자 설정). 사실 문장만, 개인정보는 거른다.
+  if (req.body?.learn === true) recordSignals(out.verification, { client: `key:${key.id}` }).catch(() => 0);
   const cost = summarize(ledger);
   if (cost) {
     logApiCost(`ac${started}`, "api_answer_check", cost);
     await recordOpsCost("api_answer_check", key.user_id, cost);
   }
   res.json({ ...out, level, elapsed_ms: Date.now() - started, billed_units: units, usage: await usageInfo(key) });
+});
+
+// 학습 신호 — 사용자가 '틀렸어요'로 신고했고 운영자가 맞다고 본 오류(유메가 놓친 것). 과금하지 않는다.
+//   POST /v1/feedback { quote, claim?, correct?, url?, note?, field? }
+router.post("/feedback", express.json({ limit: "64kb" }), requireApiKey, async (req, res) => {
+  const b = req.body || {};
+  const s = (v, n) => String(v || "").slice(0, n);
+  let r;
+  try {
+    r = await recordReport({ quote: s(b.quote, 400), claim: s(b.claim, 400), correct: s(b.correct, 400), url: /^https?:\/\//.test(String(b.url || "")) ? s(b.url, 500) : "", note: s(b.note, 400), field: s(b.field, 20) || "general" }, { client: `key:${req.apiKey.id}` });
+  } catch (e) {
+    await recordApiUsage(req.apiKey.id, { endpoint: "POST /v1/feedback", statusCode: 500 });
+    return fail(res, 500, "feedback_failed", "신고를 남기지 못했습니다. 잠시 후 다시 보내주세요.");
+  }
+  await recordApiUsage(req.apiKey.id, { endpoint: "POST /v1/feedback", statusCode: 200 });
+  res.json(r);
 });
 
 router.get("/verify/:id", requireApiKey, async (req, res) => {

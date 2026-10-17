@@ -192,6 +192,24 @@ export function openApiSpec(base = "https://www.yume-reamer.com") {
           },
         },
       },
+      "/v1/feedback": {
+        post: {
+          operationId: "feedback",
+          summary: "놓친 오류 알리기 — 사용자가 신고했고 확인된 오류",
+          description: "유메가 확인했다고 본 답에서 사용자가 틀린 곳을 찾았고, 운영자가 맞다고 본 경우 보냅니다. 유메가 다시 확인해 배웁니다(사실 문장만, 개인정보로 보이면 남기지 않음). 과금하지 않습니다.",
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { type: "object", required: ["quote"], properties: {
+              quote: { type: "string", maxLength: 400, description: "틀린 문장" },
+              correct: { type: "string", maxLength: 400, description: "바른 내용(알면)" },
+              url: { type: "string", description: "근거 주소(알면)" },
+              note: { type: "string", maxLength: 400 },
+              field: { type: "string", description: "분야(law · medical · tax … 모르면 general)" },
+            } } } },
+          },
+          responses: { 200: { description: "받음", content: { "application/json": { schema: { type: "object", properties: { ok: { type: "boolean" }, skipped: { type: "boolean" }, reason: { type: "string" } } } } } }, ...errors(400, 401) },
+        },
+      },
       "/v1/answer-check": {
         post: {
           operationId: "answerCheck",
@@ -212,6 +230,7 @@ export function openApiSpec(base = "https://www.yume-reamer.com") {
                     level: { enum: ["fast", "standard", "deep"], default: "fast", description: "확인 깊이 — 답을 쓴 모델 등급에 맞춤" },
                     references: { type: "array", maxItems: 10, items: { type: "object", properties: { title: { type: "string" }, text: { type: "string" } } }, description: "사용자가 대화에 준 자료(올린 파일 등, 합계 60,000자까지). 답이 이 자료를 옮긴 부분은 확인 대상에서 뺌" },
                     sources: { type: "array", maxItems: 30, items: { type: "object", properties: { url: { type: "string" }, title: { type: "string" }, text: { type: "string", description: "그 페이지의 원문 발췌(검색 도구가 준 cited_text)" } } }, description: "답을 쓸 때 실제로 연 웹 페이지 발췌. 유메가 검색 전에 먼저 대조함(근거 문장이 발췌에 그대로 있어야 인정)" },
+                    learn: { type: "boolean", default: false, description: "true 면 이 확인에서 '확인 안 됨 · 바로잡음' 사실 문장(개인정보는 거름)을 유메 정확도 개선에 씀 — 사용자 동의를 받은 서비스만 켤 것" },
                   },
                 },
               },

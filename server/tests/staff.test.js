@@ -208,10 +208,10 @@ test("반려·사무실 화면·비서실장 브리핑", async () => {
 
   assert.equal((await fetch(`${base}/api/admin/staff`)).status, 401);
   const o = await (await fetch(`${base}/api/admin/staff`, { headers: ADMIN })).json();
-  assert.equal(o.staff.length, 9);
+  assert.equal(o.staff.length, 10);
   assert.equal(o.staff.find((s) => s.id === "field").status, "off", "PC의 현장 요원이 연결되지 않았으면 쉬는 중");
   assert.equal(o.summary.fieldAgent, false);
-  assert.deepEqual([...new Set(o.staff.map((s) => s.team))].sort(), ["audit", "legal", "office", "ops", "sales"]);
+  assert.deepEqual([...new Set(o.staff.map((s) => s.team))].sort(), ["audit", "engine", "legal", "office", "ops", "sales"]);
   assert.ok(o.summary.pending >= 1);
   const off = await fetch(`${base}/api/admin/staff/seoyeon`, { method: "POST", headers: { ...ADMIN, "Content-Type": "application/json" }, body: JSON.stringify({ enabled: false }) });
   assert.equal(off.status, 200);

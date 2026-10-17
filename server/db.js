@@ -1367,6 +1367,30 @@ const MIGRATIONS = [
   CREATE INDEX idx_verified_facts_exp ON verified_facts(expires_at);
   ALTER TABLE verified_facts ENABLE ROW LEVEL SECURITY;
   `,
+  // 학습 신호(2026-10-18) — 미르미 등 동의한 확인에서 '확인 안 됨 · 바로잡음 · 신고'된 사실 문장(learnSignals.js). 개인정보 · 사용자 정보 없음.
+  `
+  CREATE TABLE engine_signals (
+    key TEXT PRIMARY KEY,
+    kind TEXT NOT NULL,
+    field TEXT NOT NULL DEFAULT 'general',
+    claim TEXT NOT NULL,
+    quote TEXT NOT NULL DEFAULT '',
+    note TEXT NOT NULL DEFAULT '',
+    url TEXT NOT NULL DEFAULT '',
+    client TEXT NOT NULL DEFAULT '',
+    hits INTEGER NOT NULL DEFAULT 1,
+    status TEXT NOT NULL DEFAULT 'open',
+    attempts INTEGER NOT NULL DEFAULT 0,
+    recheck_at BIGINT,
+    recheck_verdict TEXT NOT NULL DEFAULT '',
+    recheck_url TEXT NOT NULL DEFAULT '',
+    recheck_note TEXT NOT NULL DEFAULT '',
+    first_at BIGINT NOT NULL,
+    last_at BIGINT NOT NULL
+  );
+  CREATE INDEX idx_engine_signals_open ON engine_signals(status, kind, hits);
+  ALTER TABLE engine_signals ENABLE ROW LEVEL SECURITY;
+  `,
 ];
 
 async function migrate() {
