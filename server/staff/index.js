@@ -59,7 +59,7 @@ export async function connectGmail(user, pass, { test = null } = {}) {
   return { ok: true, user: r.user };
 }
 
-/** 대표가 할 일 안의 키 칸에 넣은 값 — 봉인해 저장하거나 무궁에 넘긴다. 값은 일지·감사 기록에 남기지 않는다(이름만). */
+/** 대표가 할 일 안의 키 칸에 넣은 값 — 봉인해 저장하거나 미르미에 넘긴다. 값은 일지·감사 기록에 남기지 않는다(이름만). */
 export async function putKey(name, value) {
   const r = await saveKey(name, value);
   if (!r.error) await ceoLog(`키 넣음 — ${r.name}`, { level: "note" });

@@ -3,8 +3,8 @@
 // 대표가 넣은 값은 채팅·기록·화면 어디에도 남기지 않는다. 두 갈래로 간다:
 //   · 유메가 쓰는 키(포트원 V2 시크릿, 공공데이터 키) — 서버 비밀값으로 봉인(AES-256-GCM, threads.js sealToken)해
 //     DB 설정에 두고, 서버가 켜질 때·저장할 때 process.env에 올린다.
-//   · 무궁이 쓰는 키(유메 API 키, 소셜 로그인 키, 검색 소유 확인) — HTTPS로 무궁의 키 보관함(/api/admin/secrets)에
-//     운영 토큰(MUGUNG_ADMIN_TOKEN)을 붙여 넘긴다. 무궁은 자기 암호 키로 다시 봉인해 저장하고 바로 쓴다.
+//   · 미르미가 쓰는 키(유메 API 키, 소셜 로그인 키, 검색 소유 확인) — HTTPS로 미르미의 키 보관함(/api/admin/secrets)에
+//     운영 토큰(MUGUNG_ADMIN_TOKEN)을 붙여 넘긴다. 미르미는 자기 암호 키로 다시 봉인해 저장하고 바로 쓴다.
 // Railway에 같은 이름의 값이 있으면 Railway 값이 우선이라, 여기서는 넣지 않는다.
 import { getSetting, setSetting } from "../auditDesk.js";
 import { openToken, sealToken } from "../threads.js";
@@ -61,10 +61,10 @@ export async function loadYumeKeys() {
   return n;
 }
 
-const mugungBase = () => (process.env.MUGUNG_URL || "https://xn--of0bu3x.com").replace(/\/+$/, "");
+const mugungBase = () => (process.env.MUGUNG_URL || "https://xn--2w2b19bba.com").replace(/\/+$/, "");
 async function mugung(path, body, fetchImpl) {
   const token = process.env.MUGUNG_ADMIN_TOKEN || "";
-  if (!token) throw new Error("무궁 연결 값(MUGUNG_ADMIN_TOKEN)이 유메 서버에 없어요.");
+  if (!token) throw new Error("미르미 연결 값(MUGUNG_ADMIN_TOKEN)이 유메 서버에 없어요.");
   const r = await fetchImpl(`${mugungBase()}${path}`, {
     method: body ? "POST" : "GET",
     headers: { "Content-Type": "application/json", "x-admin-token": token },
@@ -72,7 +72,7 @@ async function mugung(path, body, fetchImpl) {
     signal: AbortSignal.timeout(15_000),
   });
   const d = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(d.error || `무궁 서버 응답 ${r.status}`);
+  if (!r.ok) throw new Error(d.error || `미르미 서버 응답 ${r.status}`);
   return d;
 }
 
@@ -105,14 +105,14 @@ export async function saveKey(name, value, { fetchImpl = fetch } = {}) {
     try {
       await mugung("/api/admin/secrets", { name: f.name, value: v }, fetchImpl);
     } catch (e) {
-      return { error: `무궁에 넘기지 못했어요 — ${e.message}` };
+      return { error: `미르미에 넘기지 못했어요 — ${e.message}` };
     }
   }
   cache = null;
   return { ok: true, name: f.name };
 }
 
-/** 칸별로 넣었는지(값은 내보내지 않는다). 무궁 쪽은 무궁에 물어본다(실패하면 모름). */
+/** 칸별로 넣었는지(값은 내보내지 않는다). 미르미 쪽은 미르미에 물어본다(실패하면 모름). */
 let cache = null;
 export async function keyStatus({ fetchImpl = fetch, fresh = false } = {}) {
   if (!fresh && cache && Date.now() - cache.at < 60_000) return cache.value;

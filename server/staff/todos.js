@@ -44,8 +44,8 @@ async function checkDone(key, deps = {}) {
     return gmailConfigured() ? { ok: true } : { ok: false, why: "아직 메일함이 연결되지 않았어요 — 위 입력칸에 앱 비밀번호를 넣고 '연결'을 누르세요(또는 Railway에 GMAIL_USER·GMAIL_APP_PASSWORD)." };
   }
   if (key === "mugung_domain") {
-    const ok = await fetch("https://xn--of0bu3x.com/api/plans", { signal: AbortSignal.timeout(8000) }).then((r) => r.ok).catch(() => false);
-    return ok ? { ok: true } : { ok: false, why: "무궁.com이 아직 열리지 않아요." };
+    const ok = await fetch("https://xn--2w2b19bba.com/api/plans", { signal: AbortSignal.timeout(8000) }).then((r) => r.ok).catch(() => false);
+    return ok ? { ok: true } : { ok: false, why: "미르미.com이 아직 열리지 않아요." };
   }
   if (key === "engine") return engineStopped() ? { ok: false, why: "검사 엔진이 아직 멈춰 있어요." } : { ok: true };
   if (key === "outreach_domain") {

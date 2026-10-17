@@ -261,7 +261,7 @@ export const SEED = [
 3. 승인 → 대표 PC의 현장 요원이 1분 안에 대표 주소로 보냅니다. 결재 기록이 "보냄"으로 바뀌면 끝.
 4. 둘 다 보냈으면 여기서 '완료' 체크.`,
   },
-  // ── 2026-10-16 급함 — 무궁(무궁.com)·결제·로그인·한국 공식 데이터. 대표만 할 수 있는 일을 한곳에 ──
+  // ── 2026-10-16 급함 — 미르미(미르미.com)·결제·로그인·한국 공식 데이터. 대표만 할 수 있는 일을 한곳에 ──
   // 키·시크릿은 채팅에 붙이지 않고 Railway 화면에 직접 넣는다. 넣은 뒤 Claude에게 말하면 실제로 되는지 확인한다.
   {
     key: "portone_v2_secret",
@@ -276,7 +276,7 @@ export const SEED = [
 
 ② 넣기 — 이 할 일 안의 '포트원 V2 API 시크릿' 칸에 붙여 넣고 '암호화해서 저장'
   · 저장 전에 서버가 포트원에 실제로 인증되는지 먼저 확인합니다(틀리면 저장 안 됨).
-  · 유메에는 암호화해 보관하고, 무궁에도 안전하게 넘겨 둘 다 바로 적용됩니다. (Railway에 PORTONE_V2_API_SECRET으로 넣어도 됩니다)
+  · 유메에는 암호화해 보관하고, 미르미에도 안전하게 넘겨 둘 다 바로 적용됩니다. (Railway에 PORTONE_V2_API_SECRET으로 넣어도 됩니다)
 
 ③ '넣음 ✓'이 뜨면 끝. 옛 PORTONE_API_SECRET은 나중에 지워도 됩니다.
 ④ 여기서 '완료' 체크`,
@@ -295,145 +295,143 @@ export const SEED = [
   },
   {
     key: "mugung_keys",
-    title: "[급함·무궁] 무궁 서버에 유메 API 키 한 줄 넣기 — 이것만 넣으면 무궁.com이 답합니다",
+    title: "[급함·미르미] 미르미 서버에 유메 API 키 한 줄 넣기 — 이것만 넣으면 미르미.com이 답합니다",
     priority: 1,
     link: "https://railway.com/project/2ad493c4-75b5-45f2-94fd-c181c2f89ea3",
-    steps: `10-16 Claude가 해 둔 것: Anthropic 키는 유메 키를 가리키게 연결(나중에 무궁 전용으로 바꾸면 됨), 대표님이 채팅에 준 유메 키(yume_live_b7ce45…)의 한도를 무궁용(월 100만 건)으로 올림.
+    steps: `10-16 Claude가 해 둔 것: Anthropic 키는 유메 키를 가리키게 연결(나중에 미르미 전용으로 바꾸면 됨), 대표님이 채팅에 준 유메 키(yume_live_b7ce45…)의 한도를 미르미용(월 100만 건)으로 올림.
 남은 것 — 1분이면 됩니다. Railway에 못 들어가도 됩니다.
 
 1. 바로 아래 '유메 API 키' 칸에 그 유메 키(yume_live_로 시작)를 붙여 넣고 '암호화해서 저장'
-   · 서버가 바로 암호화해서 무궁 서버로 넘기고, 재배포 없이 즉시 적용됩니다. 화면·기록엔 값이 남지 않고 '넣음 ✓'만 보입니다.
-2. 무궁.com에서 아무 질문이나 해 보기. 답이 나오면 '완료' 체크
-3. 나중에(테스트 끝나면) 이 키는 대화에 노출됐으니 유메 계정 → API 키에서 폐기하고 새 키로 바꾸기. Anthropic도 무궁 전용 키를 만들어 ANTHROPIC_API_KEY를 바꾸면 원가가 유메와 나뉩니다.`,
+   · 서버가 바로 암호화해서 미르미 서버로 넘기고, 재배포 없이 즉시 적용됩니다. 화면·기록엔 값이 남지 않고 '넣음 ✓'만 보입니다.
+2. 미르미.com에서 아무 질문이나 해 보기. 답이 나오면 '완료' 체크
+3. 나중에(테스트 끝나면) 이 키는 대화에 노출됐으니 유메 계정 → API 키에서 폐기하고 새 키로 바꾸기. Anthropic도 미르미 전용 키를 만들어 ANTHROPIC_API_KEY를 바꾸면 원가가 유메와 나뉩니다.`,
   },
   {
     key: "kakao_login",
-    title: "[급함·로그인] 카카오 로그인 앱 만들기(무궁.com)",
+    title: "[급함·로그인] 카카오 로그인 앱 만들기(미르미.com)",
     priority: 1,
     link: "https://developers.kakao.com/console/app",
-    steps: `무궁.com에 '카카오로 계속하기'가 생기게 합니다. 처음 로그인이 곧 가입입니다. (약 15분)
+    steps: `미르미.com에 '카카오로 계속하기'가 생기게 합니다. 처음 로그인이 곧 가입입니다. (약 15분)
 
 1. developers.kakao.com → 로그인 → 내 애플리케이션 → 애플리케이션 추가하기
-   · 앱 이름: 무궁 · 회사명: 리머 · 카테고리: 생산성
-2. 앱 설정 → 플랫폼 → Web 플랫폼 등록 → 사이트 도메인: https://xn--of0bu3x.com  (무궁.com의 기계 표기 — 한글 대신 이걸 넣습니다)
+   · 앱 이름: 미르미 · 회사명: 리머 · 카테고리: 생산성
+2. 앱 설정 → 플랫폼 → Web 플랫폼 등록 → 사이트 도메인: https://xn--2w2b19bba.com  (미르미.com의 기계 표기 — 한글 대신 이걸 넣습니다)
 3. 제품 설정 → 카카오 로그인 → 활성화 ON → Redirect URI 등록:
-   https://xn--of0bu3x.com/api/auth/kakao/callback
+   https://xn--2w2b19bba.com/api/auth/kakao/callback
 4. 카카오 로그인 → 동의항목: 닉네임(필수). 이메일은 비즈 앱 전환이 필요해 나중에.
 5. 앱 설정 → 앱 키 → REST API 키 복사 → 이 할 일 안의 칸에 붙여 넣고 '암호화해서 저장'(Railway에 넣어도 됨 — 이름은 아래):
    KAKAO_REST_API_KEY = 그 키
 6. (권장) 제품 설정 → 카카오 로그인 → 보안 → Client Secret 코드 생성 · 활성화 → KAKAO_CLIENT_SECRET = 그 코드
-7. 저장 후 2~3분 뒤 무궁.com → 메뉴 → 로그인에 카카오 버튼이 보이면 '완료' 체크`,
+7. 저장 후 2~3분 뒤 미르미.com → 메뉴 → 로그인에 카카오 버튼이 보이면 '완료' 체크`,
   },
   {
     key: "naver_login",
-    title: "[급함·로그인] 네이버 로그인 앱 만들기(무궁.com)",
+    title: "[급함·로그인] 네이버 로그인 앱 만들기(미르미.com)",
     priority: 1,
     link: "https://developers.naver.com/apps/#/register",
-    steps: `무궁.com에 '네이버로 계속하기'가 생기게 합니다. (약 15분 + 검수)
+    steps: `미르미.com에 '네이버로 계속하기'가 생기게 합니다. (약 15분 + 검수)
 
 1. developers.naver.com → 로그인 → Application → 애플리케이션 등록
-   · 애플리케이션 이름: 무궁
+   · 애플리케이션 이름: 미르미
    · 사용 API: 네이버 로그인 → 제공 정보: 별명(필수), 이메일 주소(선택)
    · 로그인 오픈 API 서비스 환경: PC 웹 추가
-     서비스 URL: https://xn--of0bu3x.com
-     네이버 로그인 Callback URL: https://xn--of0bu3x.com/api/auth/naver/callback
+     서비스 URL: https://xn--2w2b19bba.com
+     네이버 로그인 Callback URL: https://xn--2w2b19bba.com/api/auth/naver/callback
    · 모바일 웹도 같은 값으로 추가
 2. 등록 → Client ID와 Client Secret 복사 → 이 할 일 안의 칸에 붙여 넣고 '암호화해서 저장'(Railway에 넣어도 됨 — 이름은 아래):
    NAVER_CLIENT_ID = Client ID
    NAVER_CLIENT_SECRET = Client Secret
 3. 처음에는 '개발 중' 상태라 등록한 관리자(대표 계정)만 로그인됩니다. 내 애플리케이션 → 검수 요청 → 서비스 적용 신청(서비스 소개·화면 캡처 필요 — Claude에게 말하면 문구·캡처를 준비해 드림). 승인되면 누구나 로그인 가능.
-4. 무궁.com에서 네이버 버튼이 보이고 대표 계정으로 로그인되면 '완료' 체크`,
+4. 미르미.com에서 네이버 버튼이 보이고 대표 계정으로 로그인되면 '완료' 체크`,
   },
   {
     key: "google_login",
-    title: "[급함·로그인] 구글 로그인 앱 만들기(무궁.com)",
+    title: "[급함·로그인] 구글 로그인 앱 만들기(미르미.com)",
     priority: 1,
     link: "https://console.cloud.google.com/apis/credentials",
-    steps: `무궁.com에 'Google로 계속하기'가 생기게 합니다. (약 20분)
+    steps: `미르미.com에 'Google로 계속하기'가 생기게 합니다. (약 20분)
 
-1. console.cloud.google.com → 위쪽 프로젝트 선택 → 새 프로젝트: 무궁
+1. console.cloud.google.com → 위쪽 프로젝트 선택 → 새 프로젝트: 미르미
 2. API 및 서비스 → OAuth 동의 화면(Google 인증 플랫폼 → 브랜딩)
-   · 앱 이름: 무궁 · 지원 이메일: reamer@d-reamer.com · 대상: 외부
-   · 앱 홈페이지: https://xn--of0bu3x.com
-   · 개인정보처리방침: https://xn--of0bu3x.com/privacy · 서비스 약관: https://xn--of0bu3x.com/terms
-   · 승인된 도메인: xn--of0bu3x.com
+   · 앱 이름: 미르미 · 지원 이메일: reamer@d-reamer.com · 대상: 외부
+   · 앱 홈페이지: https://xn--2w2b19bba.com
+   · 개인정보처리방침: https://xn--2w2b19bba.com/privacy · 서비스 약관: https://xn--2w2b19bba.com/terms
+   · 승인된 도메인: xn--2w2b19bba.com
    · 범위(데이터 액세스): openid, email, profile (민감한 범위 아님 — 심사 없이 바로 됨)
    · 게시 상태: '프로덕션으로 푸시'(테스트 상태면 등록한 사람만 로그인됨)
 3. 사용자 인증 정보(클라이언트) → 사용자 인증 정보 만들기 → OAuth 클라이언트 ID → 애플리케이션 유형: 웹 애플리케이션
-   · 승인된 리디렉션 URI: https://xn--of0bu3x.com/api/auth/google/callback
+   · 승인된 리디렉션 URI: https://xn--2w2b19bba.com/api/auth/google/callback
 4. 나온 클라이언트 ID·클라이언트 보안 비밀번호 → 이 할 일 안의 칸에 붙여 넣고 '암호화해서 저장'(Railway에 넣어도 됨 — 이름은 아래):
    GOOGLE_CLIENT_ID = 클라이언트 ID
    GOOGLE_CLIENT_SECRET = 클라이언트 보안 비밀번호
-5. 무궁.com에서 Google 버튼으로 로그인되면 '완료' 체크`,
+5. 미르미.com에서 Google 버튼으로 로그인되면 '완료' 체크`,
   },
   {
     key: "instagram_login",
-    title: "[급함·로그인] 인스타그램 로그인 앱 만들기(무궁.com) — 메타 개발자",
+    title: "[급함·로그인] 인스타그램 로그인 앱 만들기(미르미.com) — 메타 개발자",
     priority: 1,
     link: "https://developers.facebook.com/apps",
-    steps: `무궁.com에 '인스타그램으로 계속하기'가 생기게 합니다. (약 30분 + 메타 검수)
+    steps: `미르미.com에 '인스타그램으로 계속하기'가 생기게 합니다. (약 30분 + 메타 검수)
 주의: 2024년 12월부터 개인용 인스타그램 로그인(Basic Display)이 없어져서, 지금 방식은 인스타그램 '프로페셔널 계정(비즈니스·크리에이터)'만 로그인됩니다. 개인 계정 사용자는 이메일·카카오·네이버·구글로 가입하면 됩니다.
 
 1. developers.facebook.com → 로그인(대표 페이스북) → 내 앱 → 앱 만들기
-   · 사용 사례: '기타' → 앱 유형 '비즈니스' → 앱 이름: 무궁 · 연락처 이메일: reamer@d-reamer.com
+   · 사용 사례: '기타' → 앱 유형 '비즈니스' → 앱 이름: 미르미 · 연락처 이메일: reamer@d-reamer.com
 2. 앱 대시보드 → 제품 추가 → Instagram → 'Instagram 로그인을 통한 API 설정'
 3. '비즈니스 로그인 설정' → 리디렉션 URL(OAuth 리디렉션 URI):
-   https://xn--of0bu3x.com/api/auth/instagram/callback
+   https://xn--2w2b19bba.com/api/auth/instagram/callback
 4. 같은 화면의 Instagram 앱 ID와 Instagram 앱 시크릿 복사(페이스북 앱 ID와 다름 — Instagram 쪽 값) → 이 할 일 안의 칸에 붙여 넣고 '암호화해서 저장'(Railway에 넣어도 됨 — 이름은 아래):
    INSTAGRAM_CLIENT_ID = Instagram 앱 ID
    INSTAGRAM_CLIENT_SECRET = Instagram 앱 시크릿
-5. 앱 설정 → 기본 설정: 개인정보처리방침 URL https://xn--of0bu3x.com/privacy · 서비스 약관 https://xn--of0bu3x.com/terms · 사용자 데이터 삭제: 'https://xn--of0bu3x.com/privacy' 안내 URL
+5. 앱 설정 → 기본 설정: 개인정보처리방침 URL https://xn--2w2b19bba.com/privacy · 서비스 약관 https://xn--2w2b19bba.com/terms · 사용자 데이터 삭제: 'https://xn--2w2b19bba.com/privacy' 안내 URL
 6. 개발 모드에서는 '앱 역할'에 넣은 인스타그램 계정만 로그인됩니다 → 앱 검수 요청(instagram_business_basic) → 승인 후 '라이브'로 전환. 검수 자료(화면 녹화·설명)는 Claude에게 말하면 준비해 드립니다.
-7. 무궁.com에서 인스타그램 버튼으로 로그인되면 '완료' 체크`,
+7. 미르미.com에서 인스타그램 버튼으로 로그인되면 '완료' 체크`,
   },
   {
     key: "inicis_billing",
-    title: "[급함·결제] 이니시스에 무궁.com 판매 추가 확인(사이트·상품·정기결제)",
+    title: "[급함·결제] 이니시스에 서비스 이름 · 주소 변경 알리기(무궁.com → 미르미.com)",
     priority: 1,
-    steps: `왜: 이번 이니시스 승인은 유메(yume-reamer.com) '포인트충전' 기준입니다. 무궁.com에서 '30일 이용권'을 팔려면 같은 상점으로 되는지, 사이트를 추가 등록해야 하는지 확인이 필요합니다. 결제 코드는 다 만들어 두었고 꺼져 있습니다(이니시스 OK 전에는 켜지 않음).
+    steps: `왜: 이니시스는 '무궁(무궁.com)' 30일 이용권 판매로 확인해 주었습니다. 10-17 이름을 미르미로, 주소를 미르미.com으로 바꿨으니 같은 상점에서 계속 팔아도 되는지 알려야 합니다. 결제는 10-17 켜 두었습니다(신용카드 일시불 단발 결제만 — 이니시스 입점 조건 그대로).
 
-1. 이니시스 카카오톡 상담 또는 1588-4954, 혹은 담당자(조선아 님) 메일로 문의:
-   "리머(사업자 627-03-03900) 가맹점입니다. 유메(yume-reamer.com) 포인트충전으로 승인받았습니다.
-    ① 같은 사업자의 새 서비스 '무궁'(https://무궁.com — AI 대화 서비스)에서 같은 상점아이디로 30일 이용권(9,900원·24,900원·59,000원, 신용카드 일시불 단발 결제, 자동결제 없음)을 판매해도 되나요? 사이트 URL 추가 등록이 필요하면 절차를 알려 주세요.
-    ② 나중에 월 정기결제(빌링)를 붙이려면 어떤 신청과 서류가 필요한가요?"
-2. 무궁.com에는 이미 이용약관·개인정보처리방침·환불 정책·사업자 정보·민원 고지가 올라가 있습니다(심사자가 보면 됨).
-3. 답이 오면 Claude에게 보여 주세요. OK면 "무궁 결제 켜"라고 말하면 Claude가 켭니다(MUGUNG_PAYMENTS=on).
-4. 여기서 '완료' 체크`,
+1. 이니시스 카카오톡 상담 또는 1588-4954, 혹은 담당자(조선아 님) 메일로:
+   "리머(사업자 627-03-03900) 가맹점입니다. 승인받은 AI 대화 서비스 '무궁'(무궁.com)의 이름을 '미르미'로, 주소를 https://미르미.com 으로 바꿨습니다. 상품(30일 이용권 9,900원·24,900원·59,000원, 신용카드 일시불 단발 결제, 자동결제 없음)과 사업자는 그대로입니다. 사이트 URL 변경 등록이 필요하면 절차를 알려 주세요. 나중에 월 정기결제(빌링)를 붙이려면 어떤 신청이 필요한지도 알려 주세요."
+2. 미르미.com 하단에 이용약관·개인정보처리방침·환불 정책·사업자 정보가 그대로 있습니다(심사자가 보면 됨).
+3. 이니시스가 결제를 멈춰 달라고 하면 Claude에게 말해 주세요 — 바로 끕니다(MUGUNG_PAYMENTS).
+4. 답을 받으면 '완료' 체크`,
   },
   {
     key: "mail_order_registration",
     title: "[급함·법] 통신판매업 신고 — 일반과세 전환(11/1) 뒤 온라인 판매에 필요",
     priority: 1,
     link: "https://www.gov.kr",
-    steps: `왜: 유메 크레딧과 무궁 이용권을 온라인으로 팔려면 통신판매업 신고번호를 사이트에 표시해야 합니다. 간이과세자는 면제될 수 있지만 11월 1일부터 일반과세로 바뀌면 신고 대상입니다.
+    steps: `왜: 유메 크레딧과 미르미 이용권을 온라인으로 팔려면 통신판매업 신고번호를 사이트에 표시해야 합니다. 간이과세자는 면제될 수 있지만 11월 1일부터 일반과세로 바뀌면 신고 대상입니다.
 
 1. 이니시스 가맹점관리자(PC) 로그인 → '구매안전서비스 이용확인증'(또는 '에스크로/결제대행 확인서') 발급(PDF). 메뉴가 안 보이면 이니시스 상담에 "통신판매업 신고용 구매안전서비스 이용확인증 발급"을 요청
 2. 정부24(gov.kr) → '통신판매업 신고' 검색 → 신청(관할: 대구 달성군청)
-   · 판매 방식: 인터넷 · 취급 품목: 기타(디지털 서비스·이용권) · 인터넷 도메인: yume-reamer.com, xn--of0bu3x.com(무궁.com)
+   · 판매 방식: 인터넷 · 취급 품목: 기타(디지털 서비스·이용권) · 인터넷 도메인: yume-reamer.com, xn--2w2b19bba.com(미르미.com)
    · 첨부: ①의 확인증
 3. 처리 후 등록면허세 고지서가 오면 납부 → 신고증 수령
-4. 신고번호(예: 제2026-대구달성-0000호)를 Claude에게 알려 주세요 — 유메·무궁 사이트 하단에 표시합니다.
+4. 신고번호(예: 제2026-대구달성-0000호)를 Claude에게 알려 주세요 — 유메·미르미 사이트 하단에 표시합니다.
 5. 여기서 '완료' 체크`,
   },
   {
     key: "mugung_search",
-    title: "[급함·검색] 무궁.com을 구글·네이버 검색에 등록 — '무궁 - 한국인 맞춤형 AI 서비스'로 나오게",
+    title: "[급함·검색] 미르미.com을 구글·네이버 검색에 등록 — '미르미 - 한국인 맞춤형 AI 서비스'로 나오게",
     priority: 1,
     link: "https://searchadvisor.naver.com",
-    steps: `무궁.com은 검색에 나올 준비가 끝났습니다(제목 '무궁 - 한국인 맞춤형 AI 서비스', 설명 '거짓말하지 않는 한국인 맞춤형 AI…', 사이트맵). 검색엔진에 '내 사이트'라고 알려 주는 일만 남았습니다. 등록 뒤 실제로 검색에 뜨기까지는 보통 며칠~몇 주 걸립니다. (약 20분)
+    steps: `미르미.com은 검색에 나올 준비가 끝났습니다(제목 '미르미 - 한국인 맞춤형 AI 서비스', 설명 '거짓말하지 않는 한국인 맞춤형 AI…', 사이트맵). 검색엔진에 '내 사이트'라고 알려 주는 일만 남았습니다. 등록 뒤 실제로 검색에 뜨기까지는 보통 며칠~몇 주 걸립니다. (약 20분)
 
 ① 네이버 서치어드바이저 — searchadvisor.naver.com
-  1. 로그인 → 웹마스터 도구 → 사이트 등록: https://xn--of0bu3x.com
+  1. 로그인 → 웹마스터 도구 → 사이트 등록: https://xn--2w2b19bba.com
   2. 소유 확인 방법: 'HTML 태그' → 나온 태그에서 content="…" 안의 값만 복사
   3. 이 할 일 안의 '네이버 소유 확인 값' 칸에 그 값만 붙여 넣고 저장(바로 반영)
   4. 서치어드바이저로 돌아가 '소유확인'
-  5. 요청 → 사이트맵 제출: https://xn--of0bu3x.com/sitemap.xml · 요청 → 웹 페이지 수집: https://xn--of0bu3x.com/
+  5. 요청 → 사이트맵 제출: https://xn--2w2b19bba.com/sitemap.xml · 요청 → 웹 페이지 수집: https://xn--2w2b19bba.com/
 
 ② 구글 서치 콘솔 — search.google.com/search-console
-  1. 속성 추가 → 'URL 접두어' → https://xn--of0bu3x.com/
+  1. 속성 추가 → 'URL 접두어' → https://xn--2w2b19bba.com/
   2. 확인 방법: 'HTML 태그' → content="…" 값만 복사
   3. 이 할 일 안의 '구글 소유 확인 값' 칸에 그 값만 붙여 넣고 저장(바로 반영)
-  4. 서치 콘솔에서 '확인' → 왼쪽 Sitemaps → sitemap.xml 제출 → 위 검색창에 https://xn--of0bu3x.com/ → 색인 생성 요청
+  4. 서치 콘솔에서 '확인' → 왼쪽 Sitemaps → sitemap.xml 제출 → 위 검색창에 https://xn--2w2b19bba.com/ → 색인 생성 요청
 
 ③ (선택) 다음 검색: register.search.daum.net 에서 사이트 등록
 
@@ -442,11 +440,11 @@ export const SEED = [
   },
   {
     key: "lie_reports",
-    title: "무궁 거짓말 신고 검토하는 곳 — 무궁.com/admin",
+    title: "미르미 거짓말 신고 검토하는 곳 — 미르미.com/admin",
     priority: 2,
-    steps: `무궁은 "거짓말하지 않아요"를 약속하고, 거짓말을 찾은 사람에게 넉넉 7일 이용권을 보상합니다(약관 제3조의2).
+    steps: `미르미는 "거짓말하지 않아요"를 약속하고, 거짓말을 찾은 사람에게 넉넉 7일 이용권을 보상합니다(약관 제3조의2).
 신고가 들어오면 여기서 봅니다:
-1. 무궁.com/admin 접속 → 운영 토큰 입력
+1. 미르미.com/admin 접속 → 운영 토큰 입력
    · 토큰: Railway → 프로젝트 yume → mugung 서비스 → Variables → MUGUNG_ADMIN_TOKEN 값(눈 모양을 눌러 복사). 남에게 보내지 마세요.
 2. 질문·답·신고 내용을 보고, 공식 출처로 사실과 다르면 '맞음 · 보상'(신고자에게 넉넉 7일 자동 지급), 아니면 '아님'
 3. 판단이 애매하면 Claude에게 신고 내용을 보여 주세요 — 공식 출처로 같이 확인합니다.
@@ -454,11 +452,12 @@ export const SEED = [
   },
   {
     key: "mugung_domain",
-    title: "무궁 도메인 연결(무궁.com) — 완료됨, 자동 확인",
+    title: "미르미 도메인 연결(미르미.com) — 완료됨, 자동 확인",
     priority: 2,
     check_key: "mugung_domain",
-    steps: `10-16 무궁.com 구매·연결 완료(호스팅어 DNS → Railway, HTTPS OK). 서버가 무궁.com이 열리는 것을 확인하면 자동으로 닫힙니다.
-남은 선택: 영문 예비 주소 mugungai.com(비어 있음)을 사 두면 링크가 깨져 보이는 앱에서도 쓸 수 있습니다 — 사면 Claude에게 알려 주세요.`,
+    steps: `10-17 미르미.com · www.미르미.com 연결 완료(호스팅어 DNS → Railway, HTTPS). 서버가 미르미.com이 열리는 것을 확인하면 자동으로 닫힙니다.
+무궁.com은 Railway에서 뺐습니다(서비스당 도메인 2개 한도). 기존 링크가 살게 호스팅어에서 무궁.com → https://미르미.com 리디렉션(301)을 걸어 두세요.
+남은 선택: 영문 예비 주소(mirmi.ai 등)를 사 두면 한글 주소가 깨져 보이는 앱에서도 쓸 수 있습니다 — 사면 Claude에게 알려 주세요.`,
   },
   {
     key: "korea_data_keys",
@@ -498,10 +497,10 @@ export const SEED = [
   },
   {
     key: "mugung_trademark",
-    title: "'무궁' 상표 검색 · 출원 상담",
+    title: "'미르미' 상표 검색 · 출원 상담",
     priority: 2,
     link: "https://www.kipris.or.kr",
-    steps: `1. kipris.or.kr → 상표 검색 → "무궁" 입력 → 9류(소프트웨어)·42류(SaaS)·35류에서 같은·비슷한 이름이 있는지 보기
+    steps: `1. kipris.or.kr → 상표 검색 → "미르미" 입력 → 9류(소프트웨어)·42류(SaaS)·35류에서 같은·비슷한 이름이 있는지 보기
 2. 결과 화면을 캡처해 Claude에게 — 겹치는 게 있으면 피할 방법(로고 결합 등)을 정리합니다
 3. 출원까지 하려면 특허로(patent.go.kr)에서 직접 하거나 변리사 상담 — 수수료는 류(분류)마다 따로 붙습니다
 4. 여기서 '완료' 체크`,
