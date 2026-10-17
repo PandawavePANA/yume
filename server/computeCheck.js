@@ -200,8 +200,8 @@ export function computeCheck(text, { now = Date.now() } = {}) {
   const years = checkThisYear(text, now);
   const fixes = [
     ...math.filter((r) => !r.ok).map((r) => ({ type: "math", quote: r.quote, problem: `계산이 틀렸어요 — 바른 값은 ${r.correct}`, hint: "코드로 다시 계산한 값이다. 이 값을 쓰는 뒤 문장의 숫자도 함께 고칠 것", field: "math" })),
-    ...days.filter((r) => !r.ok).map((r) => ({ type: "date", quote: r.quote, problem: r.problem, field: "date" })),
-    ...years.map((r) => ({ type: "date", quote: r.quote, problem: r.problem, field: "date" })),
+    ...days.filter((r) => !r.ok).map((r) => ({ type: "date", quote: r.quote, problem: r.problem, hint: "요일(또는 날짜)만 바로잡고 문장은 지우지 말 것", field: "date" })),
+    ...years.map((r) => ({ type: "date", quote: r.quote, problem: r.problem, hint: "연도만 바로잡고 문장은 지우지 말 것", field: "date" })),
   ];
   return { fixes, checked: math.length + days.length + years.length, mathChecked: math.length, mathWrong: math.filter((r) => !r.ok).length };
 }
