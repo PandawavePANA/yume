@@ -455,6 +455,18 @@ export async function prepareContext(question, { ledger = null, deps = {} } = {}
  * 돌려주는 값: { text, changed, verification }
  *   verification: { checked, laws, articles, fixes[], hedged[], supported[], cleared, facts_checked, fact_check_failed, revise_failed }
  */
+/**
+ * 확인할 사실이 있는 답인가(2026-10-18 대표 "일상적인 간단한 질문도 너무 오래 걸려, 유메가 필요한 정도를 계산해서").
+ * 짧은 답에 숫자 · 날짜 · 이름(기관 · 회사 · 약 · 장소) · 법 · 인용이 하나도 없으면 사실 뽑기(모델 호출)를 건너뛴다 — 인사 · 잡담 · 감상 · 다듬기.
+ * 코드 검산(계산 · 요일)과 법령 대조 여부 판단은 그대로 한다. 애매하면 늘 확인한다(건너뛰는 쪽이 좁다).
+ */
+const FACT_CUES = /\d|[一-龥]|「|“|"|'|[A-Z][a-zA-Z]{2,}|(청|부|처|원|공단|공사|대학교|대학|은행|병원|법원|회사|그룹|협회|재단|위원회|센터|시청|구청|군청|정부|국회|대통령|장관|의원|조선|고려|왕|전쟁|약|복용|성분|부작용|효능|증상|질환|법|규정|제도|세금|보험|연금|지원금|금리|환율|주가|가격|요금|출시|발표|일정|기간|마감|최초|최대|최고|유일|평균|비율|퍼센트|미국|중국|일본|서울|부산|세계|국내|해외)/;
+export function hasCheckableFacts(text) {
+  const t = String(text || "").replace(/```[\s\S]*?```/g, " ");
+  if (t.length > 500) return true;
+  return FACT_CUES.test(t);
+}
+
 export async function checkAnswer({ question = "", answer, level: levelKey = "fast", references = [], sources = [], ledger = null, onStage = () => {}, deps = {} }) {
   const level = CHECK_LEVELS[levelKey] || CHECK_LEVELS.fast;
   const gather = deps.gatherArticles || gatherArticles;
@@ -489,7 +501,10 @@ export async function checkAnswer({ question = "", answer, level: levelKey = "fa
         return { all, ran: true, errors: decided.filter((d) => d.decision === "error"), cleared: decided.filter((d) => d.decision !== "error").length };
       })()
     : Promise.resolve(null);
-  const factCheck = everyday(text, { level, ledger, skipLegal: legalTalk, references: normalizeAnswerReferences(references), sources: normalizeSources(sources) }).catch(() => ({ claims: [], results: [], failed: true }));
+  // 확인할 사실이 없는 짧은 답(인사 · 잡담 · 감상)은 사실 뽑기를 건너뛴다 — 모델 호출 0번, 1초 안쪽
+  const factCheck = (deps.checkEverydayFacts || hasCheckableFacts(text))
+    ? everyday(text, { level, ledger, skipLegal: legalTalk, references: normalizeAnswerReferences(references), sources: normalizeSources(sources) }).catch(() => ({ claims: [], results: [], failed: true }))
+    : Promise.resolve({ claims: [], results: [], skipped: true });
   const caseCheck = (deps.checkCaseCitations || checkCaseCitations)(text).catch(() => []);
   const [legal, facts, cases] = await Promise.all([legalCheck, factCheck, caseCheck]);
   for (const c of cases || []) {
@@ -511,6 +526,7 @@ export async function checkAnswer({ question = "", answer, level: levelKey = "fa
   }
   verification.facts_checked = (facts?.results || []).length;
   verification.store_hits = facts?.storeHits || 0;
+  if (facts?.skipped) verification.light = true; // 확인할 사실이 없는 답
   if (facts?.failed) verification.fact_check_failed = true;
 
   const blanket = verification.supported.length > 0 && BLANKET_DISCLAIMER.test(text);

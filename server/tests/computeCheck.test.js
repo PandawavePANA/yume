@@ -78,3 +78,14 @@ test("계산처럼 보여도 아닌 글은 건드리지 않는다", () => {
   }
   assert.equal(one("100 - 20 = 80점").ok, true);
 });
+
+test("확인할 사실이 없는 짧은 답은 사실 뽑기를 건너뛴다(숫자 · 이름 · 법 · 날짜가 있으면 늘 확인)", async () => {
+  const { hasCheckableFacts } = await import("../answerCheck.js");
+  assert.equal(hasCheckableFacts("안녕하세요! 오늘 기분 좋아 보이시네요. 무엇이든 편하게 물어보세요."), false);
+  assert.equal(hasCheckableFacts("힘든 하루였겠어요. 잠깐 쉬면서 따뜻한 차 한 잔 어떠세요?"), false);
+  assert.equal(hasCheckableFacts("연차는 1년에 15일이에요."), true);
+  assert.equal(hasCheckableFacts("타이레놀의 성분은 아세트아미노펜이에요."), true);
+  assert.equal(hasCheckableFacts("서울은 대한민국의 수도예요."), true);
+  assert.equal(hasCheckableFacts("Apple 이 만든 기기예요."), true);
+  assert.equal(hasCheckableFacts("가".repeat(600)), true);
+});
