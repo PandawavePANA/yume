@@ -518,7 +518,7 @@ export async function checkAnswer({ question = "", answer, level: levelKey = "fa
   if (verification.fixes.length || verification.hedged.length || blanket) {
     onStage(verification.fixes.length ? `틀린 곳 ${verification.fixes.length}개를 근거대로 고치는 중…` : "답을 다듬는 중…");
     const lines = [
-      ...verification.fixes.map((f) => `- 틀림: "${f.quote}" → ${f.problem}${f.law ? ` (근거: ${f.law} ${f.label} “${f.evidence}”)` : f.url ? ` (근거: ${f.url} “${String(f.evidence || "").slice(0, 200)}”)` : ""}`),
+      ...verification.fixes.map((f) => `- 틀림: "${f.quote}" → ${f.problem}${f.hint ? ` (${f.hint})` : ""}${f.law ? ` (근거: ${f.law} ${f.label} “${f.evidence}”)` : f.url ? ` (근거: ${f.url} “${String(f.evidence || "").slice(0, 200)}”)` : ""}`),
       ...verification.hedged.map((h) => `- 확인 안 됨: "${h.quote}"${h.note ? ` (${h.note})` : ""}`),
       ...verification.supported.map((s) => `- 확인됨: "${s.quote || s.claim}" (출처: ${s.url})`),
     ].join("\n");
