@@ -33,7 +33,8 @@ function shutdown(signal) {
     await closeDb();
     process.exit(0);
   });
-  setTimeout(() => process.exit(0), 10_000).unref();
+  // 확인 하나가 30~60초 걸린다 — 쓰는 중인 확인이 끝나게 90초까지 기다린다(미르미 "Load failed", 10-18)
+  setTimeout(() => process.exit(0), 90_000).unref();
 }
 process.on("SIGTERM", () => shutdown("SIGTERM"));
 process.on("SIGINT", () => shutdown("SIGINT"));
