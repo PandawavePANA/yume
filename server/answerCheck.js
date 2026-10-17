@@ -17,6 +17,7 @@ import { gatherKoreaData } from "./koreaData.js";
 import { loadFacts as defaultLoadFacts, saveFacts as defaultSaveFacts, factKey as storeKey } from "./factStore.js";
 import { checkCaseNumber } from "./nec/identifiers.js";
 import { hasOC, searchConstitutional, searchPrecedent } from "./lawApi.js";
+import { computeCheck } from "./computeCheck.js";
 
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 const TIMEOUT_MS = 170_000;
@@ -466,6 +467,11 @@ export async function checkAnswer({ question = "", answer, level: levelKey = "fa
 
   const verification = { checked: true, laws: [], articles: [], fixes: [], hedged: [], supported: [], cleared: 0 };
   const legalTalk = LAW_HINT.test(q) || LAW_HINT.test(text);
+
+  // 검산(코드) — 계산식 · 요일 · 올해. 모델에 묻지 않고 바로 판정한다(0원 · 1ms).
+  const calc = (deps.computeCheck || computeCheck)(text, { now: deps.now ? deps.now() : Date.now() });
+  verification.fixes.push(...calc.fixes);
+  verification.computed = calc.checked;
 
   onStage("유메가 답 속 사실을 확인하는 중…");
   const legalCheck = legalTalk
