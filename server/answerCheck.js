@@ -24,10 +24,10 @@ const TIMEOUT_MS = 170_000;
 
 // 확인 깊이. 답을 쓴 쪽의 등급에 맞춘다 — 가벼운 답에 비싼 확인을 붙이면 원가가 답 값을 넘는다.
 export const CHECK_LEVELS = {
-  // budgetMs: 확인 한 단계(공식 · 웹)의 시간 한도 — 검색 도구가 오래 끌면(한 번에 150초 실측) 기다리지 않고 그 주장은 확인 안 됨으로 둔다.
+  // budgetMs: 확인 한 단계(공식 · 웹)의 시간 한도(여명 10초 — 10-18 실측 웹 확인 한 번이 9~12초라 답이 20초를 넘었다. 넘으면 그 주장만 덜 단정하게) — 검색 도구가 오래 끌면(한 번에 150초 실측) 기다리지 않고 그 주장은 확인 안 됨으로 둔다.
   // legalEffort: 법령 대조 · 반론 검토의 생각 깊이(null 은 모델 기본). 여명은 medium — 2026-10-17 로무앤톡 11개 비교에서
   // 기본과 같이 4/4 잡고 오탐 0(기본은 1), 한 건 평균 15.0초 → 9.3초.
-  fast: { key: "fast", searches: 2, reviseModel: "claude-haiku-5-5", reviseEffort: "low", budgetMs: 15_000, reviseMs: 12_000, legalEffort: "medium" }, // 여명: 빠르게(검색 2번)
+  fast: { key: "fast", searches: 2, reviseModel: "claude-haiku-5-5", reviseEffort: "low", budgetMs: 10_000, reviseMs: 12_000, legalEffort: "medium" }, // 여명: 빠르게(검색 2번)
   standard: { key: "standard", searches: 4, reviseModel: "claude-sonnet-5-5", reviseEffort: "low", budgetMs: 40_000, reviseMs: 25_000 },
   deep: { key: "deep", searches: 5, reviseModel: "claude-sonnet-5-5", reviseEffort: "medium", budgetMs: 90_000, reviseMs: 45_000 },
 };
