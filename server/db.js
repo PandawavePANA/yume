@@ -1345,6 +1345,28 @@ const MIGRATIONS = [
   CREATE INDEX idx_mail_outbox_status ON mail_outbox(status, id);
   ALTER TABLE mail_outbox ENABLE ROW LEVEL SECURITY;
   `,
+  // 확인된 사실 저장소(2026-10-17) — 출처로 확인한 사실을 유효 기간과 함께 남긴다(factStore.js). 쓸수록 확인이 빨라진다.
+  `
+  CREATE TABLE verified_facts (
+    key TEXT PRIMARY KEY,
+    field TEXT NOT NULL DEFAULT 'general',
+    claim TEXT NOT NULL,
+    verdict TEXT NOT NULL,
+    correct TEXT NOT NULL DEFAULT '',
+    url TEXT NOT NULL DEFAULT '',
+    official INTEGER NOT NULL DEFAULT 0,
+    via TEXT NOT NULL DEFAULT '',
+    source_name TEXT NOT NULL DEFAULT '',
+    quote_src TEXT NOT NULL DEFAULT '',
+    note TEXT NOT NULL DEFAULT '',
+    hits INTEGER NOT NULL DEFAULT 0,
+    last_hit_at BIGINT,
+    checked_at BIGINT NOT NULL,
+    expires_at BIGINT NOT NULL
+  );
+  CREATE INDEX idx_verified_facts_exp ON verified_facts(expires_at);
+  ALTER TABLE verified_facts ENABLE ROW LEVEL SECURITY;
+  `,
 ];
 
 async function migrate() {

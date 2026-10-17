@@ -9,6 +9,8 @@
 //
 // 응답의 필드 이름은 기관이 바꿀 수 있어서 코드가 필드를 골라 쓰지 않는다. 받은 원자료를 그대로(잘라서) 판정
 // 모델에 주고, 판정의 근거 문장이 그 원자료에 실제로 있는지 코드가 대조한다(quoteIn) — 없으면 인정하지 않는다.
+import { companyData, DART_FINANCE_HINT, dartEnabled } from "./dart.js";
+
 const TIMEOUT = 12_000;
 const cache = new Map(); // key → { at, value }
 
@@ -75,9 +77,17 @@ export async function gatherKoreaData(claims, { fetchImpl = fetch } = {}) {
   if (claims.some((c) => c.field === "economy" || c.field === "statistics" || ECON.test(c.claim || ""))) jobs.push(ecosKeyStats({ fetchImpl }));
   const drugs = [...new Set(claims.filter((c) => c.field === "medical" && c.drug).map((c) => String(c.drug).trim()))].slice(0, 2);
   for (const d of drugs) jobs.push(drugInfo(d, { fetchImpl }));
+  // 기업 — 금융감독원 전자공시(DART) 기업개황 · 사업보고서 주요 재무(2026-10-17)
+  const companies = new Map();
+  for (const c of claims.filter((x) => x.field === "company" && x.company)) {
+    const n = String(c.company).trim();
+    if (!companies.has(n)) companies.set(n, false);
+    if (DART_FINANCE_HINT.test(c.claim || "")) companies.set(n, true);
+  }
+  for (const [n, fin] of [...companies].slice(0, 2)) jobs.push(companyData(n, { wantFinance: fin, fetchImpl }));
   const got = await Promise.all(jobs.map((j) => j.catch(() => null)));
   return got.filter(Boolean);
 }
 
-export const koreaDataEnabled = () => !!(process.env.ECOS_API_KEY || process.env.DATA_GO_KR_KEY);
+export const koreaDataEnabled = () => !!(process.env.ECOS_API_KEY || process.env.DATA_GO_KR_KEY || dartEnabled());
 export const _clearKoreaDataCache = () => cache.clear();

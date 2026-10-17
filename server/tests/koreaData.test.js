@@ -58,3 +58,33 @@ test("원자료로 결론 난 주장은 공식 사이트·웹 검색을 건너�
   assert.equal(r.results[0].verdict, "contradicted");
   assert.equal(r.results[0].url, "https://ecos.bok.or.kr/");
 });
+
+test("DART: zip 안의 고유번호 표를 풀어 회사 이름으로 찾고, 기업개황 · 재무를 원자료로 준다", async () => {
+  const zlib = await import("node:zlib");
+  const { unzipFirst, parseCorpCodes, companyData, _resetDart } = await import("../dart.js");
+  const xml = "<result><list><corp_code>00126380</corp_code><corp_name>삼성전자</corp_name><stock_code>005930</stock_code></list><list><corp_code>00999999</corp_code><corp_name>삼성전자</corp_name><stock_code> </stock_code></list></result>";
+  // 아주 작은 zip 하나를 만든다(파일 하나, deflate)
+  const data = zlib.deflateRawSync(Buffer.from(xml));
+  const name = Buffer.from("CORPCODE.xml");
+  const local = Buffer.alloc(30); local.writeUInt32LE(0x04034b50, 0); local.writeUInt16LE(8, 8); local.writeUInt32LE(data.length, 18); local.writeUInt32LE(xml.length, 22); local.writeUInt16LE(name.length, 26);
+  const cd = Buffer.alloc(46); cd.writeUInt32LE(0x02014b50, 0); cd.writeUInt16LE(8, 10); cd.writeUInt32LE(data.length, 20); cd.writeUInt32LE(xml.length, 24); cd.writeUInt16LE(name.length, 28); cd.writeUInt32LE(0, 42);
+  const cdOff = local.length + name.length + data.length;
+  const eocd = Buffer.alloc(22); eocd.writeUInt32LE(0x06054b50, 0); eocd.writeUInt32LE(cdOff, 16);
+  const zip = Buffer.concat([local, name, data, cd, name, eocd]);
+  assert.equal(unzipFirst(zip).toString(), xml);
+  assert.equal(parseCorpCodes(xml).get("삼성전자")[0].code, "00126380"); // 상장사가 먼저
+  process.env.DART_API_KEY = "test";
+  _resetDart();
+  const fetchImpl = async (url) => {
+    if (url.includes("corpCode.xml")) return new Response(zip, { status: 200 });
+    if (url.includes("company.json")) return new Response(JSON.stringify({ status: "000", corp_name: "삼성전자", ceo_nm: "대표", est_dt: "19690113" }), { status: 200 });
+    if (url.includes("fnlttSinglAcnt.json")) return new Response(JSON.stringify({ status: "000", list: [{ fs_div: "CFS", fs_nm: "연결재무제표", account_nm: "매출액", thstrm_amount: "300,000,000", frmtrm_amount: "250,000,000" }] }), { status: 200 });
+    return new Response("{}", { status: 404 });
+  };
+  const d = await companyData("(주)삼성전자", { wantFinance: true, fetchImpl, now: new Date("2026-10-17") });
+  assert.match(d.source, /DART/);
+  assert.match(d.text, /19690113/);
+  assert.match(d.text, /매출액/);
+  delete process.env.DART_API_KEY;
+  _resetDart();
+});

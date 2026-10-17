@@ -14,6 +14,9 @@ import { todayLine } from "./claude.js";
 import { LAW_HINT, gatherArticles, mergeGathered, reviewStatutes, defend } from "./statuteReview.js";
 import { FIELD_KEYS, isOfficialUrl, officialDomainsFor } from "./koreaSources.js";
 import { gatherKoreaData } from "./koreaData.js";
+import { loadFacts as defaultLoadFacts, saveFacts as defaultSaveFacts, factKey as storeKey } from "./factStore.js";
+import { checkCaseNumber } from "./nec/identifiers.js";
+import { hasOC, searchConstitutional, searchPrecedent } from "./lawApi.js";
 
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 const TIMEOUT_MS = 170_000;
@@ -92,7 +95,8 @@ const EXTRACT_SYSTEM = `너는 유메의 사실 추출기다. [답변]에서 공
 quote는 답변의 문장을 한 글자도 바꾸지 않고(150자 이내). 중요한 것부터 최대 8개. 사람의 건강·돈에 영향이 큰 것을 먼저.
 field는 그 사실을 공식적으로 확인할 수 있는 분야: law(법령·판례) medical(의료·의약·건강) economy(경제·금융·금리·환율) tax(세금) labor(노동·고용·임금) realestate(부동산·주거) company(기업·공시) welfare(복지·행정·교육·선거·외교) statistics(통계) general(그 밖).
 drug: field가 medical이고 특정 약에 관한 주장이면 그 약의 제품명(예: 타이레놀정500밀리그람이면 "타이레놀") — 아니면 빈 문자열.
-출력: {"claims":[{"quote":"…","claim":"확인할 사실을 한 문장으로","kind":"legal|number|date|entity|event|quote|source|other","field":"…","drug":""}]}
+company: field가 company이면 그 회사의 정식 이름(예: "삼성전자", "카카오") — 아니면 빈 문자열.
+출력: {"claims":[{"quote":"…","claim":"확인할 사실을 한 문장으로","kind":"legal|number|date|entity|event|quote|source|other","field":"…","drug":"","company":""}]}
 [사용자 자료]가 함께 주어지면, 답변이 그 자료(사용자가 올린 계약서·문서 등)의 내용을 옮기거나 요약한 부분은 뽑지 않는다 — 사용자가 준 자료 자체는 확인 대상이 아니다. 자료 밖에서 가져온 사실(법·제도·수치·기관 정보 등)만 뽑는다.
 확인할 사실이 없으면 {"claims":[]}.`;
 
@@ -209,7 +213,7 @@ export function _clearFactCache() {
   factCache.clear();
 }
 
-export async function checkEverydayFacts(answer, { level = CHECK_LEVELS.fast, ledger = null, skipLegal = false, references = [], sources = [], json = callJson, koreaData = gatherKoreaData } = {}) {
+export async function checkEverydayFacts(answer, { level = CHECK_LEVELS.fast, ledger = null, skipLegal = false, references = [], sources = [], json = callJson, koreaData = gatherKoreaData, facts = { load: defaultLoadFacts, save: defaultSaveFacts } } = {}) {
   const refBlock = references.length ? `[사용자 자료]\n${references.map((r) => `<${r.title}>\n${r.text}`).join("\n\n").slice(0, 15000)}\n\n` : "";
   const ex = await json({ model: EXTRACT_MODEL, system: EXTRACT_SYSTEM, user: `${refBlock}[답변]\n${answer.slice(0, 8000)}`, maxTokens: 3000, effort: "low", ledger, label: "check_extract" });
   const quoteOk = (q) => String(q || "").replace(/\s+/g, "").length >= 4 && answer.replace(/\s+/g, "").includes(String(q).replace(/\s+/g, ""));
@@ -227,6 +231,15 @@ export async function checkEverydayFacts(answer, { level = CHECK_LEVELS.fast, le
   for (const c of claims) {
     const hit = cachedFact(c);
     if (hit) byQuote.set(c.quote, hit);
+  }
+  // 확인된 사실 저장소(DB) — 메모리에 없으면 전에 확인해 둔 판정을 꺼낸다(사실마다 유효 기간이 다르다, factStore.js)
+  const notCached = claims.filter(open);
+  if (notCached.length) {
+    const stored = await facts.load(notCached).catch(() => new Map());
+    for (const c of notCached) {
+      const r = stored.get(storeKey(c));
+      if (r) byQuote.set(c.quote, { ...c, ...r, quote: c.quote, claim: c.claim, field: c.field, cached: true, stored: true });
+    }
   }
   // 0차: 기관 Open API 원자료(키가 있을 때)
   if (fielded.length) {
@@ -275,7 +288,42 @@ export async function checkEverydayFacts(answer, { level = CHECK_LEVELS.fast, le
   for (const r of first) if (r.verdict !== "unverified" || !byQuote.has(r.quote)) byQuote.set(r.quote, r);
   const results = claims.map((c) => byQuote.get(c.quote) || { ...c, verdict: "unverified", correct: "", url: "", official: false, quoteSrc: "", note: "" });
   for (const [k, c] of claims.entries()) rememberFact(c, results[k]);
-  return { claims, results };
+  await facts.save(claims.map((c, k) => [c, results[k]])).catch(() => 0);
+  return { claims, results, storeHits: results.filter((r) => r.stored).length };
+}
+
+// ── 판례 · 결정례 사건번호 ─────────────────────────────────────────
+// 답이 사건번호(예: 2019다12345, 2020헌마123)를 적으면 법제처 판례 · 결정례 목록에 정말 있는지 본다 — AI가 가장 많이 지어내는 것 중 하나.
+// 있으면 '확인됨'(사건이 존재함), 없으면 '확인 안 됨'으로 두어 단정하지 않게 고친다(하급심 일부는 목록에 없을 수 있어 '틀림'으로 몰지 않는다).
+const CASE_G = /(\d{2,4})\s?([가-힣]{1,3})\s?(\d{2,7})/g;
+function sentenceAround(text, index, len) {
+  const before = text.slice(0, index);
+  const cut = Math.max(before.lastIndexOf("\n"), before.lastIndexOf(". "), before.lastIndexOf("다."));
+  const start = cut < 0 ? 0 : cut + (before.startsWith("다.", cut) ? 2 : 1);
+  const rest = text.slice(index + len);
+  const m = rest.search(/[.!?\n]/);
+  const end = index + len + (m < 0 ? rest.length : m + 1);
+  return text.slice(start, end).trim().slice(0, 150);
+}
+export async function checkCaseCitations(text, { prec = searchPrecedent, detc = searchConstitutional, enabled = hasOC() } = {}) {
+  if (!enabled) return [];
+  const seen = new Map();
+  for (const m of String(text).matchAll(CASE_G)) {
+    const id = checkCaseNumber(m[0]);
+    if (!id.level || id.F >= 1 || seen.has(id.canonical)) continue;
+    seen.set(id.canonical, { raw: m[0], id, index: m.index });
+    if (seen.size >= 4) break;
+  }
+  const out = [];
+  await Promise.all([...seen.values()].map(async ({ raw, id, index }) => {
+    const r = await (id.level === "constitutional" ? detc : prec)(id.canonical).catch(() => ({ ok: false }));
+    if (!r?.ok) return;
+    const quote = sentenceAround(text, index, raw.length);
+    out.push(r.found
+      ? { found: true, caseNumber: id.canonical, quote, claim: `${id.canonical} 사건이 실제로 있다`, url: r.detailUrl || "", title: [r.court, r.caseName].filter(Boolean).join(" ") }
+      : { found: false, caseNumber: id.canonical, quote, claim: `${id.canonical} 사건이 실제로 있다` });
+  }));
+  return out;
 }
 
 // ── 고쳐 쓰기 ─────────────────────────────────────────────────
@@ -436,7 +484,13 @@ export async function checkAnswer({ question = "", answer, level: levelKey = "fa
       })()
     : Promise.resolve(null);
   const factCheck = everyday(text, { level, ledger, skipLegal: legalTalk, references: normalizeAnswerReferences(references), sources: normalizeSources(sources) }).catch(() => ({ claims: [], results: [], failed: true }));
-  const [legal, facts] = await Promise.all([legalCheck, factCheck]);
+  const caseCheck = (deps.checkCaseCitations || checkCaseCitations)(text).catch(() => []);
+  const [legal, facts, cases] = await Promise.all([legalCheck, factCheck, caseCheck]);
+  for (const c of cases || []) {
+    if (c.found) verification.supported.push({ claim: c.claim, quote: c.quote, url: c.url, evidence: c.title, field: "law", official: true });
+    else verification.hedged.push({ quote: c.quote, claim: c.claim, field: "law", note: `법제처 판례 · 결정례 목록에서 ${c.caseNumber} 사건을 찾지 못함 — 사건번호를 빼거나 확인되지 않았다고 쓸 것` });
+  }
+  if (cases?.length) verification.cases = cases.map((c) => ({ caseNumber: c.caseNumber, found: c.found, url: c.url || "" }));
 
   if (legal?.all) {
     verification.laws = legal.all.laws;
@@ -450,6 +504,7 @@ export async function checkAnswer({ question = "", answer, level: levelKey = "fa
     else verification.hedged.push({ quote: r.quote, claim: r.claim, field: r.field });
   }
   verification.facts_checked = (facts?.results || []).length;
+  verification.store_hits = facts?.storeHits || 0;
   if (facts?.failed) verification.fact_check_failed = true;
 
   const blanket = verification.supported.length > 0 && BLANKET_DISCLAIMER.test(text);
@@ -458,7 +513,7 @@ export async function checkAnswer({ question = "", answer, level: levelKey = "fa
     onStage(verification.fixes.length ? `틀린 곳 ${verification.fixes.length}개를 근거대로 고치는 중…` : "답을 다듬는 중…");
     const lines = [
       ...verification.fixes.map((f) => `- 틀림: "${f.quote}" → ${f.problem}${f.law ? ` (근거: ${f.law} ${f.label} “${f.evidence}”)` : f.url ? ` (근거: ${f.url} “${String(f.evidence || "").slice(0, 200)}”)` : ""}`),
-      ...verification.hedged.map((h) => `- 확인 안 됨: "${h.quote}"`),
+      ...verification.hedged.map((h) => `- 확인 안 됨: "${h.quote}"${h.note ? ` (${h.note})` : ""}`),
       ...verification.supported.map((s) => `- 확인됨: "${s.quote || s.claim}" (출처: ${s.url})`),
     ].join("\n");
     const articlesBlock = legal?.all?.articles?.length ? `[현행 조문]\n${legal.all.articles.map((a) => a.block).join("\n\n")}\n\n` : "";

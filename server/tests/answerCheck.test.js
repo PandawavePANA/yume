@@ -237,3 +237,39 @@ test("고쳐 쓰기는 먼저 문장만 바꾸고, 바꾸기가 실패하면 전
   assert.equal(r2.text, "최저임금은 시간당 10,320원이에요.");
   assert.equal(full, 1);
 });
+
+test("확인된 사실 저장소: 전에 확인한 사실은 검색 없이 꺼내 쓰고, 새로 확인한 것은 남긴다", async () => {
+  const labels = [];
+  const json = async ({ label }) => {
+    labels.push(label);
+    if (label === "check_extract") return { json: { claims: [{ claim: "2026년 최저임금은 시간당 10,320원", quote: "시간당 10,320원", field: "labor" }, { claim: "주휴수당은 주 15시간 이상이면 준다", quote: "주 15시간 이상", field: "labor" }] } };
+    if (label === "check_official") return { json: { results: [{ i: 1, verdict: "supported", url: "https://moel.go.kr/a", quote: "주 15시간" }] }, urls: new Set(["https://moel.go.kr/a"]) };
+    if (label === "check_web") return { json: { results: [] }, urls: new Set() };
+    throw new Error(label);
+  };
+  const saved = [];
+  const facts = {
+    load: async (claims) => new Map(claims.filter((c) => /10,320/.test(c.claim)).map((c) => [`${c.field}|${c.claim.replace(/[\s"'“”‘’.,·]/g, "")}`, { verdict: "supported", url: "https://minimumwage.go.kr", official: true, quoteSrc: "10,320원" }])),
+    save: async (pairs) => { saved.push(...pairs.filter(([, r]) => r.verdict === "supported" && !r.stored)); return saved.length; },
+  };
+  const r = await checkEverydayFacts("2026년 최저임금은 시간당 10,320원이에요. 주 15시간 이상이면 주휴수당이 있어요.", { json, facts, koreaData: async () => [], level: { key: "standard", searches: 2 } });
+  assert.equal(r.storeHits, 1);
+  assert.equal(r.results.find((x) => /10,320/.test(x.quote)).verdict, "supported");
+  assert.equal(saved.length, 1);                 // 새로 확인한 주휴수당만 남긴다
+  assert.match(saved[0][0].claim, /주휴수당/);
+});
+
+test("판례 사건번호: 목록에 없는 사건은 '확인 안 됨'으로 고치게 넘긴다", async () => {
+  let lines = "";
+  const r = await checkAnswer({
+    answer: "해고는 무효예요(대법원 2099다99999 판결).",
+    deps: {
+      checkEverydayFacts: async () => ({ claims: [], results: [] }),
+      checkCaseCitations: async () => [{ found: false, caseNumber: "2099다99999", quote: "해고는 무효예요(대법원 2099다99999 판결).", claim: "2099다99999 사건이 실제로 있다" }],
+      revisePatch: async ({ user }) => { lines = user; return [{ old: "(대법원 2099다99999 판결)", new: "(사건번호는 확인되지 않았어요)" }]; },
+    },
+  });
+  assert.match(lines, /찾지 못함/);
+  assert.equal(r.verification.cases[0].found, false);
+  assert.match(r.text, /확인되지 않았어요/);
+});
