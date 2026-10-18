@@ -102,7 +102,7 @@ const jsonBody = express.json({ limit: "256kb" });
 // 같이 열리므로 이 경로들만 비켜 가게 하고, 각자 자기 파서를 따로 붙인다.
 // 문서 검사(파일 첨부)도 큰 본문을 받는다 — /v1/documents(API)와 /api/documents(웹).
 // 감사 데스크의 답변 캡처도 사진 한 장을 받는다.
-const BIG_BODY = /^\/(api\/(screenshot|thread\/photo|admin\/desk\/\d+\/photo|admin\/audits\/items\/\d+\/file|documents)|v1\/documents)$/;
+const BIG_BODY = /^\/(api\/(screenshot|thread\/photo|admin\/desk\/\d+\/photo|admin\/audits\/items\/\d+\/file|documents)|v1\/documents|v1\/answer-check)$/;
 app.use((req, res, next) => (BIG_BODY.test(req.path) ? next() : jsonBody(req, res, next)));
 
 // 외부 개발자용 공개 API — 자체 CORS·키 인증을 쓰므로 쿠키 세션 미들웨어보다 먼저 붙인다.

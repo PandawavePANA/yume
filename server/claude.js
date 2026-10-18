@@ -90,7 +90,7 @@ export async function probeEngine() {
   }
 }
 
-async function callClaude({ system, messages, tools, max_tokens = 4000, model = MODEL, label = "call", ledger = null }) {
+async function callClaude({ system, messages, tools, max_tokens = 4000, model = MODEL, label = "call", ledger = null, effort = null }) {
   max_tokens = capFor(model, max_tokens);
   const res = await fetch(ANTHROPIC_API_URL, {
     method: "POST",
@@ -99,7 +99,7 @@ async function callClaude({ system, messages, tools, max_tokens = 4000, model = 
       "x-api-key": apiKey(),
       "anthropic-version": "2023-06-01",
     },
-    body: JSON.stringify({ model, max_tokens, system: cachedSystem(system), messages, ...(tools ? { tools } : {}) }),
+    body: JSON.stringify({ model, max_tokens, system: cachedSystem(system), messages, ...(tools ? { tools } : {}), ...(effort ? { output_config: { effort } } : {}) }),
     signal: AbortSignal.timeout(CLAUDE_TIMEOUT_MS),
   });
   const data = await res.json();
@@ -247,12 +247,12 @@ function lastBalancedObject(text) {
 
 // 웹검색 없이 JSON 한 덩어리만 받아오는 단순 호출. 감사(audit) 채점처럼 "주어진 근거로
 // 판단만 하라"는 작업에 쓴다 — 검색을 붙이면 채점자가 배경지식으로 추측하게 된다.
-export async function callClaudeJson({ system, user, maxTokens = 800, ledger = null, label = "json", strong = false }) {
+export async function callClaudeJson({ system, user, maxTokens = 800, ledger = null, label = "json", strong = false, effort = null }) {
   const messages = [{ role: "user", content: user }];
   // 기본은 Haiku — 인용 추출처럼 근거가 이미 주어진 기계적 작업이면 충분하다.
   // 남의 AI에 "지어냈다"는 판정을 내리는 채점처럼 틀리면 안 되는 판단은 strong으로 부른다.
   const model = strong ? MODEL : FAST_MODEL;
-  const raw = await callClaude({ system, messages, max_tokens: maxTokens, model, label, ledger });
+  const raw = await callClaude({ system, messages, max_tokens: maxTokens, model, label, ledger, effort });
   try {
     return extractJson(raw);
   } catch {
@@ -263,6 +263,7 @@ export async function callClaudeJson({ system, user, maxTokens = 800, ledger = n
       model,
       label: `${label}:retry`,
       ledger,
+      effort,
       messages: [
         ...messages,
         { role: "assistant", content: raw.slice(0, 400) },

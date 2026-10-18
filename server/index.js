@@ -5,6 +5,7 @@ import { IS_PROD } from "./security.js";
 import { startEngineWatch } from "./engineWatch.js";
 import { startStaff } from "./staff/index.js";
 import { loadBusinessAddress } from "./businessAddress.js";
+import { loadYumeKeys } from "./staff/keys.js";
 
 // 서버가 재시작되면 진행 중이던 검증은 끝나지 않으므로 오류로 정리한다.
 await markInterruptedJobs();
@@ -15,6 +16,8 @@ startEngineWatch();
 // AI 직원(server/staff/) — 정해진 때에 일하고, 대표에게는 결재만 올린다(/admin/staff).
 // 사업장 주소가 바뀌어 있으면(할 일 "소재지 정정" 완료) 서버 화면에 먼저 반영해 둔다.
 await loadBusinessAddress().catch(() => {});
+// AI 본사 '할 일'에서 대표가 넣은 키(봉인 값) — Railway에 같은 이름이 없을 때만 쓴다.
+await loadYumeKeys().catch(() => {});
 startStaff();
 
 if (IS_PROD && !PERSISTENT_STORAGE) {
@@ -30,7 +33,8 @@ function shutdown(signal) {
     await closeDb();
     process.exit(0);
   });
-  setTimeout(() => process.exit(0), 10_000).unref();
+  // 확인 하나가 30~60초 걸린다 — 쓰는 중인 확인이 끝나게 90초까지 기다린다(미르미 "Load failed", 10-18)
+  setTimeout(() => process.exit(0), 90_000).unref();
 }
 process.on("SIGTERM", () => shutdown("SIGTERM"));
 process.on("SIGINT", () => shutdown("SIGINT"));

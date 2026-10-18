@@ -375,6 +375,14 @@ export function articleValidity(unit, today = new Date()) {
   return { note, expired: validUntil < ymd, validUntil };
 }
 
+// 삭제된 조문도 조문 목록에는 남는다 — 본문이 "제125조 삭제 <2022. 6. 10.>"뿐이다.
+// 이걸 "조문이 있다"로 읽으면 "삭제됐다"는 맞는 말을 거짓이라 하고(2026-10-16 벤치 #14),
+// 삭제된 조문 내용을 현행처럼 말한 답을 놓친다.
+export function isDeletedArticleText(text) {
+  const t = String(text || "").replace(/\s+/g, " ").trim();
+  return /^(제\s*\d+\s*조(의\s*\d+)?(\([^)]*\))?\s*)?삭제(\s*<[^>]*>)?\s*$/.test(t);
+}
+
 function flattenArticleText(unit) {
   const lines = [];
   if (unit["조문내용"]) lines.push(String(unit["조문내용"]).trim());
@@ -435,6 +443,7 @@ export async function getStatuteArticlesAll(mst) {
       text: flattenArticleText(u) || "",
       effectiveDate: u["조문시행일자"] || "",
       expired: articleValidity(u).expired,
+      deleted: isDeletedArticleText(flattenArticleText(u)),
     })),
   };
 }
@@ -461,6 +470,7 @@ export async function getStatuteArticle(mst, articleNo, branchNo = null) {
     title: match["조문제목"] || "",
     effectiveDate: match["조문시행일자"] || "",
     expired: articleValidity(match).expired,
+    deleted: isDeletedArticleText(text),
     maxArticleNo,
   };
 }

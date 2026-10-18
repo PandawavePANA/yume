@@ -193,8 +193,9 @@ auditDeskRouter.delete("/audits/:id/share", async (req, res) => {
   send(res, r);
 });
 auditDeskRouter.post("/audits/:id/sent", async (req, res) => {
-  const r = await markSent(req.params.id, { base: baseOf(req) });
-  if (!r.error) log(req, "audit_desk.sent", req.params.id);
+  const override = req.body?.override === true;
+  const r = await markSent(req.params.id, { base: baseOf(req), override, reason: req.body?.reason });
+  if (!r.error) log(req, override ? "audit_desk.sent_override" : "audit_desk.sent", req.params.id);
   send(res, r);
 });
 auditDeskRouter.post("/audits/:id/public", async (req, res) => {

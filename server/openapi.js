@@ -172,6 +172,100 @@ export function openApiSpec(base = "https://www.yume-reamer.com") {
           responses: { 200: json(ref("Mark")), ...errors(401, 404) },
         },
       },
+      "/v1/context": {
+        post: {
+          operationId: "context",
+          summary: "답 쓰기 전 근거 — 질문에 관련된 현행 조문(과금 없음)",
+          description: "대화형 AI가 답을 쓰기 전에 부릅니다. 법령 이야기가 든 질문이면 법제처 현행 조문을 모아 block(시스템 안내에 그대로 넣을 글)으로 돌려줍니다. 법령 이야기가 아니면 legal: false.",
+          requestBody: { required: true, content: { "application/json": { schema: { type: "object", required: ["question"], properties: { question: { type: "string", maxLength: 4000 } } } } } },
+          responses: {
+            200: json({
+              type: "object",
+              properties: {
+                legal: { type: "boolean" },
+                laws: { type: "array", items: { type: "object" } },
+                articles: { type: "array", items: { type: "object", properties: { law: { type: "string" }, label: { type: "string" }, title: { type: "string" }, url: { type: "string" }, deleted: { type: "boolean" } } } },
+                block: { type: "string" },
+              },
+            }),
+            ...errors(400, 401),
+          },
+        },
+      },
+      "/v1/feedback": {
+        post: {
+          operationId: "feedback",
+          summary: "놓친 오류 알리기 — 사용자가 신고했고 확인된 오류",
+          description: "유메가 확인했다고 본 답에서 사용자가 틀린 곳을 찾았고, 운영자가 맞다고 본 경우 보냅니다. 유메가 다시 확인해 배웁니다(사실 문장만, 개인정보로 보이면 남기지 않음). 과금하지 않습니다.",
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { type: "object", required: ["quote"], properties: {
+              quote: { type: "string", maxLength: 400, description: "틀린 문장" },
+              correct: { type: "string", maxLength: 400, description: "바른 내용(알면)" },
+              url: { type: "string", description: "근거 주소(알면)" },
+              note: { type: "string", maxLength: 400 },
+              field: { type: "string", description: "분야(law · medical · tax … 모르면 general)" },
+            } } } },
+          },
+          responses: { 200: { description: "받음", content: { "application/json": { schema: { type: "object", properties: { ok: { type: "boolean" }, skipped: { type: "boolean" }, reason: { type: "string" } } } } } }, ...errors(400, 401) },
+        },
+      },
+      "/v1/answer-check": {
+        post: {
+          operationId: "answerCheck",
+          summary: "답변 확인 — 확인을 거친 답을 돌려받기",
+          description:
+            "AI가 쓴 답을 사용자에게 내보내기 전에 보냅니다. 법령은 현행 조문 전체와 대조하고 반론 검토를 통과한 오류만 남기며, 그 밖의 사실(의료·경제·세금·노동·부동산·기업·통계…)은 분야별 한국 공식 기관 사이트에서 먼저 확인한 뒤 웹 전체로 넓힙니다. " +
+            "틀린 곳은 근거대로, 확인 안 된 곳은 단정하지 않게 고친 답(text)을 돌려줍니다. 답 1,000자마다 1건 과금, 확인을 끝내지 못하면 과금하지 않습니다. 보통 10~60초.",
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["answer"],
+                  properties: {
+                    question: { type: "string", maxLength: 4000, description: "사용자 질문(선택, 주면 법령 근거를 더 정확히 찾음)" },
+                    answer: { type: "string", maxLength: 60000 },
+                    level: { enum: ["fast", "standard", "deep"], default: "fast", description: "확인 깊이 — 답을 쓴 모델 등급에 맞춤" },
+                    references: { type: "array", maxItems: 10, items: { type: "object", properties: { title: { type: "string" }, text: { type: "string" } } }, description: "사용자가 대화에 준 자료(올린 파일 등, 합계 60,000자까지). 답이 이 자료를 옮긴 부분은 확인 대상에서 뺌" },
+                    sources: { type: "array", maxItems: 30, items: { type: "object", properties: { url: { type: "string" }, title: { type: "string" }, text: { type: "string", description: "그 페이지의 원문 발췌(검색 도구가 준 cited_text)" } } }, description: "답을 쓸 때 실제로 연 웹 페이지 발췌. 유메가 검색 전에 먼저 대조함(근거 문장이 발췌에 그대로 있어야 인정)" },
+                    learn: { type: "boolean", default: false, description: "true 면 이 확인에서 '확인 안 됨 · 바로잡음' 사실 문장(개인정보는 거름)을 유메 정확도 개선에 씀 — 사용자 동의를 받은 서비스만 켤 것" },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            200: json({
+              type: "object",
+              properties: {
+                text: { type: "string", description: "확인을 거친 답" },
+                changed: { type: "boolean" },
+                verification: {
+                  type: "object",
+                  properties: {
+                    checked: { type: "boolean" },
+                    articles: { type: "array", items: { type: "object" }, description: "대조한 현행 조문" },
+                    fixes: { type: "array", items: { type: "object" }, description: "틀린 곳: quote, problem, law·label 또는 url, evidence, official" },
+                    hedged: { type: "array", items: { type: "object" }, description: "확인 안 된 곳 — 단정하지 않게 고침" },
+                    supported: { type: "array", items: { type: "object" }, description: "출처로 확인한 사실: claim, url, evidence, field, official(한국 공식 기관 출처인지)" },
+                    facts_checked: { type: "integer" },
+                    fact_check_failed: { type: "boolean" },
+                    revise_failed: { type: "boolean", description: "고쳐 쓰기 실패 — text 끝에 바로잡을 곳을 붙임" },
+                  },
+                },
+                level: { type: "string" },
+                elapsed_ms: { type: "integer" },
+                billed_units: { type: "integer" },
+                usage: ref("Usage"),
+              },
+            }),
+            ...errors(400, 401, 413, 429),
+            502: json(ref("Error"), "check_failed — 과금되지 않음"),
+          },
+        },
+      },
       "/v1/usage": {
         get: {
           operationId: "getUsage",

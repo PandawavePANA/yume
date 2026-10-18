@@ -31,28 +31,33 @@ export const API_UNIT_CHARS = 1000;
 /** 글자 수 → 과금 건수(1,000자마다 1건, 최소 1). */
 export const apiUnits = (chars) => Math.max(1, Math.ceil((Number(chars) || 0) / API_UNIT_CHARS));
 
+// 2026-10-16 대표 결정 "정가에서 70% 할인, 이윤은 최소로" — 첫 고객을 만드는 게 먼저다.
+// API는 70%를 깎으면 450원으로 원가(1,000자 840원) 아래라 팔수록 손해다. 그래서 API만은
+// 원가를 겨우 넘기는 바닥값으로 내렸다: 종량제 1,000원, 스타터 925원, 그로스 900원(건당 900원이 바닥).
 export const API_RATES = {
   trial: { label: "체험", calls: API_TRIAL_QUOTA, krw: 0 },
-  metered: { label: "종량제", unitKrw: 1500 },
+  metered: { label: "종량제", unitKrw: 1000 },
   tiers: [
-    { key: "starter", label: "스타터", monthlyKrw: 490000, calls: 400 },
-    { key: "growth", label: "그로스", monthlyKrw: 1290000, calls: 1200 },
+    { key: "starter", label: "스타터", monthlyKrw: 370000, calls: 400 },
+    { key: "growth", label: "그로스", monthlyKrw: 1080000, calls: 1200 },
   ],
-  // 상담으로만 판다. 건당 900원 아래로는 받지 않는다(원가 절감 전에는 긴 답변에서 남는 게 없다).
-  enterprise: { label: "엔터프라이즈", fromKrw: 3000000 },
+  // 상담으로만 판다. 건당 900원 아래로는 받지 않는다(원가 840원 — 그 아래는 손해).
+  enterprise: { label: "엔터프라이즈", fromKrw: 1000000 },
 };
 
-// AI 감사 — 사이트에서 바로 사는 상품(2026-10-14 대표 확정). 금액은 공급가액(VAT 별도).
+// AI 감사 — 사이트에서 바로 사는 상품. 금액은 공급가액(VAT 별도).
+// 2026-10-14 정가(정밀 290만·정기 150만·1년 540만·패키지 390만)에서 2026-10-16 대표 결정으로 70% 내렸다.
+// 감사 원가는 AI 호출 수만 원과 대표 재확인 시간이라 이 값에서도 남는다. 패키지는 API 스타터 3개월 원가가 커서 남는 게 가장 적다.
 // 입금 확인 뒤 영업일 기준 1~3일 안에 보고서를 보낸다 — 운영자 작업 리스트(workList.js)의 마감일이 이 값이다.
 export const AUDIT_LEAD = "영업일 기준 1~3일";
 export const AUDIT_LEAD_DAYS = 3;
 export const AUDIT_PILOT_SEATS = 3;
 export const AUDIT_RATES = {
-  audit: { label: "AI 정밀 감사", krw: 2900000, unit: "회", spec: "50문항(고난도 함정·공격형) · 사람 재확인 · 보고서 · 30분 설명 · 고친 뒤 재검사 1회", rounds: 1 },
-  audit_pilot: { label: "AI 정밀 감사 — 파일럿", krw: 1450000, unit: "회", spec: "정밀 감사와 같은 범위 · 첫 3곳 50% · 결과 피드백 통화 30분", rounds: 1 },
-  audit_regular: { label: "AI 정기 감사", krw: 1500000, unit: "분기", spec: "분기마다 30문항 · 법령 개정 추적 알림 · 공개 감사 기록·배지(동의 시)", rounds: 1 },
-  audit_regular_year: { label: "AI 정기 감사 — 1년 선납", krw: 5400000, unit: "년", spec: "4분기 · 정기 감사 4회 값에서 10% 할인", rounds: 4 },
-  audit_package: { label: "출시 전 패키지", krw: 3900000, unit: "식", spec: "정밀 감사 + API 스타터 3개월(월 400건)", rounds: 1 },
+  audit: { label: "AI 정밀 감사", krw: 870000, unit: "회", spec: "50문항(고난도 함정·공격형) · 사람 재확인 · 보고서 · 30분 설명 · 고친 뒤 재검사 1회", rounds: 1 },
+  audit_pilot: { label: "AI 정밀 감사 — 파일럿", krw: 435000, unit: "회", spec: "정밀 감사와 같은 범위 · 첫 3곳 50% · 결과 피드백 통화 30분", rounds: 1 },
+  audit_regular: { label: "AI 정기 감사", krw: 450000, unit: "분기", spec: "분기마다 30문항 · 법령 개정 추적 알림 · 공개 감사 기록·배지(동의 시)", rounds: 1 },
+  audit_regular_year: { label: "AI 정기 감사 — 1년 선납", krw: 1620000, unit: "년", spec: "4분기 · 정기 감사 4회 값에서 10% 할인", rounds: 4 },
+  audit_package: { label: "출시 전 패키지", krw: 1170000, unit: "식", spec: "정밀 감사 + API 스타터 3개월(월 400건)", rounds: 1 },
 };
 // 감사 주문서에서 고르는 업종(감사 데스크의 문항 은행 업종과 같은 이름).
 export const AUDIT_ORDER_DOMAINS = ["법률", "인사", "의료", "금융", "커머스", "제조", "공공", "범용"];

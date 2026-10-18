@@ -14,7 +14,7 @@ export const BUSINESS = {
   nameEn: "REAMER",
   ceo: "정원영",
   regNo: "627-03-03900",
-  address: "대구광역시 달성군 유가읍 테크노대로5길 80, 212동 1402호 (호반베르디움 2차)",
+  address: "대구광역시 달성군 유가읍 테크노상업로 112, 204호",
   email: "reamer@d-reamer.com",
 
   // 유선번호. 결제·본인인증 심사가 "유선번호만 가능"으로 못박은 항목이라 휴대폰 번호는

@@ -10,6 +10,7 @@ import { applyCache, storeAll } from "./claimCache.js";
 import { dropStaleFix, sanitizeClaim } from "./claimGuard.js";
 import { applyStance } from "./claimStance.js";
 import { buildOverallVerdict } from "./overallVerdict.js";
+import { LAW_HINT, applyStatuteReview, reviewStatutes } from "./statuteReview.js";
 import { resolveProductLinks } from "./coupang.js";
 import { logError } from "./errorLog.js";
 import { logApiCost, newLedger, searchesLeft, summarize } from "./apiCost.js";
@@ -75,6 +76,15 @@ async function processVerification({ id, text, source, onProgress = () => {}, on
         : `${extracted.claims.length}개 주장을 찾았습니다. 결과를 정리하는 중…`,
     );
 
+    // 법령 전문 대조(statuteReview.js)는 주장 단위 판정과 따로, 같은 시간에 돈다 — 글 전체를 관련 현행 조문 전체와 읽는다.
+    const legalish = legalCount > 0 || LAW_HINT.test(text);
+    const reviewing = legalish
+      ? reviewStatutes(text, extracted.claims, { ledger, onProgress }).catch((e) => {
+          logError("verify:statute_review", e);
+          return null;
+        })
+      : Promise.resolve(null);
+
     // 전에 판단한 적 있는 주장은 그 판정을 그대로 쓴다. 답변은 달라도 주장은 겹친다.
     let claims = await applyCache(extracted.claims);
     const reused = claims.filter((c) => c.from_claim_cache).length;
@@ -137,6 +147,15 @@ async function processVerification({ id, text, source, onProgress = () => {}, on
       otherIdx.length ? settle(otherIdx, otherIdx.map((i) => claims[i])) : null,
     ]);
     claims = current;
+    // 법령 전문 대조와 합친다: 놓친 오류를 더하고, 법률 '사실과 다름'은 반론 검토를 거친 것만 남긴다.
+    const review = await reviewing;
+    if (review?.ran) {
+      claims = await applyStatuteReview(text, claims, review, { ledger, onProgress }).catch((e) => {
+        logError("verify:statute_merge", e);
+        return claims;
+      });
+      onClaims(claims.map(({ from_claim_cache: _c, ...rest }) => rest));
+    }
     // 이번에 새로 판단한 것만 캐시에 넣는다(확인되지 않음은 저장하지 않는다).
     await storeAll(claims);
     // 내부 표시는 여기서 뗀다. 중간에 떼면 지목 재확인과 저장이 캐시된 주장을 구분하지

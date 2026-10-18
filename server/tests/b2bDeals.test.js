@@ -73,9 +73,9 @@ test("금액: 공개 요율표로 계산하고 부가세는 원 미만 버림", 
   assert.ok(deals.priceSelf("growth", 13).error, "12개월 넘으면 거절");
   assert.ok(deals.priceSelf("metered", 150).error, "100회 단위가 아니면 거절");
   // 2026-10-14부터 감사는 정가로 사이트에서 바로 산다(수량 1 고정, 정기 감사만 분기 수).
-  assert.equal(deals.priceSelf("audit", 1).supply, 2_900_000);
+  assert.equal(deals.priceSelf("audit", 1).supply, 870_000);
   assert.ok(deals.priceSelf("audit", 2).error, "정밀 감사는 1회 단위");
-  assert.equal(deals.priceSelf("audit_regular", 4).supply, 6_000_000);
+  assert.equal(deals.priceSelf("audit_regular", 4).supply, 1_800_000);
   assert.ok(deals.priceSelf("audit_regular", 5).error);
   const d = deals.priceDesk([{ name: "AI 정밀 감사", qty: 1, unitKrw: 1_234_567 }]);
   assert.equal(d.vat, 123_456);
@@ -153,7 +153,7 @@ test("데스크 견적: 운영자가 금액을 정하고 감사 건에 묶인다
   // 품목을 안 넣으면 정가로 낸다(감사는 2026-10-14부터 정가 공개).
   const listPrice = await call("POST", "/api/admin/b2b/quotes", { product: "audit", company: "x", items: [] }, ADMIN);
   assert.equal(listPrice.status, 201);
-  assert.equal(listPrice.json.quote.supply_krw, 2_900_000);
+  assert.equal(listPrice.json.quote.supply_krw, 870_000);
   assert.equal((await call("POST", "/api/admin/b2b/quotes", { product: "poc", company: "x", items: [] }, ADMIN)).status, 400, "정가 없는 상품은 금액이 있어야");
 
   for (const p of ["/b2b/terms", "/b2b/dpa", "/b2b/security"]) {
@@ -210,7 +210,7 @@ test("감사 바로 구매: 주문서 → 감사 신청 → 입금 확인 → �
 
   const q = await call("POST", "/api/b2b/quote", { product: "audit", company: "노무봇", name: "최담당", email: "ops@nomubot.co.kr", order, total: 1 });
   assert.equal(q.status, 201);
-  assert.equal(q.json.total, 3_190_000, "290만원 + 부가세 — 브라우저가 보낸 금액은 무시");
+  assert.equal(q.json.total, 957_000, "87만원 + 부가세 — 브라우저가 보낸 금액은 무시");
   const token = tokenOf(q.json.url);
   const page = await call("GET", `/b2b/quote/${token}`);
   assert.match(page.text, /감사 대상/);
@@ -266,7 +266,7 @@ test("감사 바로 구매: 주문서 → 감사 신청 → 입금 확인 → �
 test("정기 감사 1년 선납: 회차마다 보고서를 보내면 다음 마감이 한 분기 뒤로", async () => {
   const order = { serviceName: "세무봇", serviceUrl: "https://taxbot.example.com", domain: "금융" };
   const { quote } = await deals.createQuote({ product: "audit_regular_year", qty: 1, company: "세무봇", contactName: "김", email: "k@taxbot.co.kr", order });
-  assert.equal(Number(quote.supply_krw), 5_400_000);
+  assert.equal(Number(quote.supply_krw), 1_620_000);
   await deals.requestContract(quote.token, { bizNo: GOOD_BIZ, bizName: "세무봇", ceo: "김", taxEmail: "k@taxbot.co.kr", payMethod: "transfer", agree: true });
   await call("POST", `/api/admin/b2b/quotes/${quote.id}/paid`, {}, ADMIN);
   const r1 = await call("POST", `/api/admin/b2b/quotes/${quote.id}/delivered`, {}, ADMIN);
@@ -284,7 +284,7 @@ test("파일럿은 신청·입금된 3곳까지만", async () => {
   assert.equal((await call("GET", "/api/b2b/seats")).json.pilot, 3);
   for (let i = 0; i < 3; i++) {
     const { quote } = await deals.createQuote({ product: "audit_pilot", qty: 1, company: `파일럿${i}`, contactName: "이", email: `p${i}@x.co.kr`, order });
-    assert.equal(Number(quote.supply_krw), 1_450_000);
+    assert.equal(Number(quote.supply_krw), 435_000);
     const r = await deals.requestContract(quote.token, { bizNo: GOOD_BIZ, bizName: `파일럿${i}`, ceo: "이", taxEmail: `p${i}@x.co.kr`, payMethod: "transfer", agree: true });
     assert.ok(!r.error, r.error);
   }

@@ -13,6 +13,9 @@ import { documentInput, documentPayload, getDocumentView, newDocumentId, startDo
 import { FileTextError } from "./fileText.js";
 import { API_UNIT_CHARS, apiUnits } from "./apiRates.js";
 import { getMark, issueMark, markBase, publicMark, revokeMark } from "./trustMarks.js";
+import { checkAnswer, prepareContext, MAX_ANSWER_CHARS, MAX_QUESTION_CHARS } from "./answerCheck.js";
+import { logApiCost, newLedger, recordOpsCost, summarize } from "./apiCost.js";
+import { recordReport, recordSignals } from "./learnSignals.js";
 
 // 유메 검증 API(/v1) — AI 서비스를 운영하는 기업이 자기 서비스의 답변을 유메로 검증하는
 // 공개 API. 계정의 "API 키" 메뉴에서 발급한 키로 인증한다(키는 해시로만 저장).
@@ -496,6 +499,84 @@ router.post("/marks/:id/revoke", requireApiKey, async (req, res) => {
   if (!m || Number(m.user_id) !== Number(req.apiKey.user_id)) return fail(res, 404, "not_found", "마크를 찾을 수 없습니다.");
   const r = await revokeMark(m.id, { userId: req.apiKey.user_id, reason: req.body?.reason, base: markBase(req) });
   res.json(r.mark);
+});
+
+// ── 답변 확인(대화형 AI용) ──────────────────────────────────────────
+// 대화형 AI가 답을 사용자에게 내보내기 전에 부른다. /verify가 "판정 목록"을 돌려준다면, 여기는
+// "확인을 거친 답 그 자체"를 돌려준다 — 틀린 곳은 근거대로, 확인 안 된 곳은 단정하지 않게 고친 답.
+//   POST /v1/context       { question }                    → 법령 질문이면 현행 조문(답 쓰기 전에 근거로)
+//   POST /v1/answer-check  { question?, answer, level? }   → { text, changed, verification }
+// 과금: context는 받지 않는다(조문 조회). answer-check는 답 1,000자마다 1건.
+router.post("/context", requireApiKey, engineAvailable, async (req, res) => {
+  const key = req.apiKey;
+  const question = typeof req.body?.question === "string" ? req.body.question.trim() : "";
+  if (!question) {
+    await recordApiUsage(key.id, { endpoint: "POST /v1/context", statusCode: 400 });
+    return fail(res, 400, "invalid_request", "question 필드에 질문을 담아 보내주세요.");
+  }
+  const ledger = newLedger();
+  const ctx = await prepareContext(question.slice(0, MAX_QUESTION_CHARS), { ledger });
+  await recordApiUsage(key.id, { endpoint: "POST /v1/context", statusCode: 200 });
+  const cost = summarize(ledger);
+  if (cost) await recordOpsCost("api_context", key.user_id, cost);
+  res.json(ctx);
+});
+
+// 답(최대 6만 자)과 사용자 자료(최대 6만 자)를 함께 받으므로 전역 256KB 대신 자기 파서를 단다(app.js BIG_BODY).
+router.post("/answer-check", express.json({ limit: "1mb" }), requireApiKey, engineAvailable, async (req, res) => {
+  const key = req.apiKey;
+  const answer = typeof req.body?.answer === "string" ? req.body.answer.trim() : "";
+  const question = typeof req.body?.question === "string" ? req.body.question.trim() : "";
+  const level = ["fast", "standard", "deep"].includes(req.body?.level) ? req.body.level : "fast";
+  if (!answer) {
+    await recordApiUsage(key.id, { endpoint: "POST /v1/answer-check", statusCode: 400 });
+    return fail(res, 400, "invalid_request", "answer 필드에 확인할 답을 담아 보내주세요.");
+  }
+  if (answer.length > MAX_ANSWER_CHARS || question.length > MAX_QUESTION_CHARS) {
+    await recordApiUsage(key.id, { endpoint: "POST /v1/answer-check", statusCode: 413 });
+    return fail(res, 413, "text_too_long", `answer는 ${MAX_ANSWER_CHARS.toLocaleString()}자, question은 ${MAX_QUESTION_CHARS.toLocaleString()}자 이하여야 합니다.`);
+  }
+  const units = apiUnits(answer.length);
+  const usage = await usageInfo(key);
+  if (usage.remaining < units) {
+    await recordApiUsage(key.id, { endpoint: "POST /v1/answer-check", statusCode: 429 });
+    return fail(res, 429, "quota_exceeded", `이 요청은 ${units}건인데 이번 달 남은 건수가 ${usage.remaining}건입니다. 한도 올리기: ${UPGRADE_URL}`, { usage, needed: units, upgrade_url: UPGRADE_URL });
+  }
+  const usageId = await recordApiUsage(key.id, { endpoint: "POST /v1/answer-check", statusCode: 200, billable: true, units });
+  const ledger = newLedger();
+  const started = Date.now();
+  let out;
+  try {
+    out = await checkAnswer({ question, answer, level, references: req.body?.references, sources: req.body?.sources, ledger });
+  } catch (e) {
+    // 확인을 끝내지 못한 요청은 과금하지 않는다.
+    if (usageId) await finishApiUsage(usageId, { statusCode: 500, cached: false, billable: false });
+    return fail(res, 502, "check_failed", "답을 확인하지 못했습니다. 이 요청은 과금되지 않았습니다. 잠시 후 다시 보내주세요.", { detail: String(e.message || e).slice(0, 200) });
+  }
+  // 학습 신호 — 보낸 쪽이 learn: true 로 동의했을 때만(미르미: 사용자 설정). 사실 문장만, 개인정보는 거른다.
+  if (req.body?.learn === true) recordSignals(out.verification, { client: `key:${key.id}` }).catch(() => 0);
+  const cost = summarize(ledger);
+  if (cost) {
+    logApiCost(`ac${started}`, "api_answer_check", cost);
+    await recordOpsCost("api_answer_check", key.user_id, cost);
+  }
+  res.json({ ...out, level, elapsed_ms: Date.now() - started, billed_units: units, usage: await usageInfo(key) });
+});
+
+// 학습 신호 — 사용자가 '틀렸어요'로 신고했고 운영자가 맞다고 본 오류(유메가 놓친 것). 과금하지 않는다.
+//   POST /v1/feedback { quote, claim?, correct?, url?, note?, field? }
+router.post("/feedback", express.json({ limit: "64kb" }), requireApiKey, async (req, res) => {
+  const b = req.body || {};
+  const s = (v, n) => String(v || "").slice(0, n);
+  let r;
+  try {
+    r = await recordReport({ quote: s(b.quote, 400), claim: s(b.claim, 400), correct: s(b.correct, 400), url: /^https?:\/\//.test(String(b.url || "")) ? s(b.url, 500) : "", note: s(b.note, 400), field: s(b.field, 20) || "general" }, { client: `key:${req.apiKey.id}` });
+  } catch (e) {
+    await recordApiUsage(req.apiKey.id, { endpoint: "POST /v1/feedback", statusCode: 500 });
+    return fail(res, 500, "feedback_failed", "신고를 남기지 못했습니다. 잠시 후 다시 보내주세요.");
+  }
+  await recordApiUsage(req.apiKey.id, { endpoint: "POST /v1/feedback", statusCode: 200 });
+  res.json(r);
 });
 
 router.get("/verify/:id", requireApiKey, async (req, res) => {

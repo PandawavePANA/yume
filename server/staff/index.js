@@ -10,6 +10,7 @@ import { USD_KRW } from "../costGuard.js";
 import { isBusinessDay } from "../businessDays.js";
 import { askJson, askText, readPage } from "./ai.js";
 import { fetchNew, gmailConfigured, loadGmailCreds, saveGmailCreds } from "./gmail.js";
+import { KEY_FIELDS, keyStatus, saveKey } from "./keys.js";
 import * as outbox from "./outbox.js";
 import * as store from "./store.js";
 import { CEO, KINDS, ROSTER, TEAMS, lineFor } from "./roster.js";
@@ -56,6 +57,13 @@ export async function connectGmail(user, pass, { test = null } = {}) {
   await ceoLog(`메일함 연결 — ${r.user}`, { detail: "접속 시험 성공 · 비서실 서윤이 메일함 정리를 시작합니다" });
   if (!test) runStaff("seoyun", { manual: true }).catch((e) => logError("staff:seoyun", e));
   return { ok: true, user: r.user };
+}
+
+/** 대표가 할 일 안의 키 칸에 넣은 값 — 봉인해 저장하거나 미르미에 넘긴다. 값은 일지·감사 기록에 남기지 않는다(이름만). */
+export async function putKey(name, value) {
+  const r = await saveKey(name, value);
+  if (!r.error) await ceoLog(`키 넣음 — ${r.name}`, { level: "note" });
+  return r;
 }
 
 /** 대표가 직접 적는 "내가 한 일". */
@@ -310,6 +318,8 @@ export async function office(t = Date.now()) {
     },
     todos: todoList,
     todosNext: todoNext,
+    keyFields: KEY_FIELDS,
+    keys: await keyStatus().catch(() => ({})),
   };
 }
 

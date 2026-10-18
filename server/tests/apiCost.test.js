@@ -14,10 +14,12 @@ test("웹 검색은 토큰과 별개로 건당 과금된다", () => {
   assert.equal(Math.round((withSearch - noSearch) * 1000) / 1000, 0.04, "검색 4회 = $0.04");
 });
 
-test("Haiku로 내리면 같은 작업이 3분의 1 값이 된다", () => {
+test("Haiku로 내리면 같은 작업이 싸진다 — 4.5는 Sonnet 5의 절반, 5.5는 20분의 1", () => {
   const sonnet = costOf({ model: "claude-sonnet-5", input: 20000, output: 500 });
   const haiku = costOf({ model: "claude-haiku-4-5-20251001", input: 20000, output: 500 });
-  assert.ok(haiku < sonnet / 2.5, `haiku ${haiku} vs sonnet ${sonnet}`);
+  const haiku55 = costOf({ model: "claude-haiku-5-5", input: 20000, output: 500 });
+  assert.ok(haiku <= sonnet / 2, `haiku ${haiku} vs sonnet ${sonnet}`);
+  assert.ok(haiku55 <= sonnet / 19, `haiku 5.5 ${haiku55} vs sonnet ${sonnet}`);
 });
 
 test("캐시된 입력은 1/10 값으로 계산된다", () => {

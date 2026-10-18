@@ -12,10 +12,10 @@ test("글자 수 → 건수", () => {
   assert.equal(apiUnits(10_000), 10);
 });
 
-test("확정 가격(2026-10-14)", () => {
-  assert.equal(API_RATES.metered.unitKrw, 1500);
-  assert.deepEqual(API_RATES.tiers.map((t) => [t.key, t.monthlyKrw, t.calls]), [["starter", 490000, 400], ["growth", 1290000, 1200]]);
-  assert.equal(AUDIT_RATES.audit.krw, 2_900_000);
+test("확정 가격(2026-10-16, 정가에서 70% 인하·API는 원가 바닥)", () => {
+  assert.equal(API_RATES.metered.unitKrw, 1000);
+  assert.deepEqual(API_RATES.tiers.map((t) => [t.key, t.monthlyKrw, t.calls]), [["starter", 370000, 400], ["growth", 1080000, 1200]]);
+  assert.equal(AUDIT_RATES.audit.krw, 870_000);
   assert.equal(AUDIT_RATES.audit_pilot.krw, AUDIT_RATES.audit.krw / 2);
   assert.equal(AUDIT_RATES.audit_regular_year.krw, Math.round(AUDIT_RATES.audit_regular.krw * 4 * 0.9));
 });

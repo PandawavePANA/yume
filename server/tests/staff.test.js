@@ -208,10 +208,10 @@ test("반려·사무실 화면·비서실장 브리핑", async () => {
 
   assert.equal((await fetch(`${base}/api/admin/staff`)).status, 401);
   const o = await (await fetch(`${base}/api/admin/staff`, { headers: ADMIN })).json();
-  assert.equal(o.staff.length, 9);
+  assert.equal(o.staff.length, 10);
   assert.equal(o.staff.find((s) => s.id === "field").status, "off", "PC의 현장 요원이 연결되지 않았으면 쉬는 중");
   assert.equal(o.summary.fieldAgent, false);
-  assert.deepEqual([...new Set(o.staff.map((s) => s.team))].sort(), ["audit", "legal", "office", "ops", "sales"]);
+  assert.deepEqual([...new Set(o.staff.map((s) => s.team))].sort(), ["audit", "engine", "legal", "office", "ops", "sales"]);
   assert.ok(o.summary.pending >= 1);
   const off = await fetch(`${base}/api/admin/staff/seoyeon`, { method: "POST", headers: { ...ADMIN, "Content-Type": "application/json" }, body: JSON.stringify({ enabled: false }) });
   assert.equal(off.status, 200);
@@ -492,7 +492,6 @@ test("답장 대기열: 결재하면 대기열에 넣고(서버는 메일 포트
 test("할 일 안에서 끝내기: 승낙서 만들기, 소재지 정정 완료 → 사이트 주소 자동 전환, 완료 메모는 업무 일지에", async () => {
   const todos = await import("../staff/todos.js");
   const { COMPANY } = await import("../renderPages.js");
-  const before = COMPANY.address;
   const doc = await fetch(`${base}/api/admin/staff/docs/free-use`, { method: "POST", headers: { ...ADMIN, "Content-Type": "application/x-www-form-urlencoded" }, body: "owner=%ED%99%8D%EA%B8%B8%EC%88%9C&relation=%EB%AA%A8&start=2026-10-13" });
   assert.equal(doc.status, 200);
   const html = await doc.text();
@@ -508,7 +507,6 @@ test("할 일 안에서 끝내기: 승낙서 만들기, 소재지 정정 완료 
   const r = await staff.completeTodo(biz.id, { deps: deps(), note: "정정 처리 완료 문자 받음" });
   assert.ok(r.ok, r.error);
   assert.match(COMPANY.address, /테크노상업로 112, 204호/);
-  assert.notEqual(COMPANY.address, before);
   const pub = await (await fetch(`${base}/api/public/business`)).json();
   assert.match(pub.address, /테크노상업로 112, 204호/);
   const logs = await store.recentLogs(10, "ceo");

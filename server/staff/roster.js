@@ -19,6 +19,7 @@ import * as ops from "./jobs/ops.js";
 import * as secretary from "./jobs/secretary.js";
 import * as inbox from "./jobs/inbox.js";
 import * as field from "./jobs/field.js";
+import * as learn from "./jobs/learn.js";
 import { run as exec } from "../db.js";
 import { lintCopy } from "../auditDesk.js";
 
@@ -34,6 +35,7 @@ export const TEAMS = {
   legal: { label: "법무팀", hue: 200 },
   audit: { label: "감사팀", hue: 158 },
   ops: { label: "경영지원팀", hue: 45 },
+  engine: { label: "엔진팀", hue: 214 },
 };
 
 const work = (every) => ({ every, hours: WORK_HOURS });
@@ -46,6 +48,7 @@ export const ROSTER = {
   seoyeon: { name: "서연", title: "리서처", team: "sales", reportsTo: "jiho", duty: "한국어 AI 상담 서비스를 계속 찾아 감사 후보로(하루 최대 12곳)", job: research, schedule: work(60 * MIN), ai: true, defaults: { autonomy: "auto", dailyCap: 3 }, autoOnly: true },
   doyun: { name: "도윤", title: "법무 담당", team: "legal", lead: true, duty: "이용약관 검토 — 감사 가능 여부 · 자동 접속 금지 · 나가는 메일 문구", job: tos, schedule: work(20 * MIN), ai: true, defaults: { autonomy: "auto", dailyCap: 3 }, autoOnly: true },
   harin: { name: "하린", title: "감사팀장", team: "audit", lead: true, duty: "질문 세트 준비 · 답 수집 배정 · 답이 오면 채점", job: prep, schedule: work(10 * MIN), ai: true, defaults: { autonomy: "auto", dailyCap: 2 }, autoOnly: true },
+  dain: { name: "다인", title: "엔진 학습", team: "engine", lead: true, duty: "미르미에서 모인 '확인 안 됨' · 신고 문장을 매일 아침 더 깊게 다시 확인해 확인된 사실 저장소에 넣는다(사실 문장만, 개인정보 없음)", job: learn, schedule: { daily: { h: 6, m: 20 }, hours: WORK_HOURS }, ai: true, defaults: { autonomy: "auto" }, autoOnly: true },
   sua: { name: "수아", title: "QA 검수", team: "audit", reportsTo: "harin", duty: "오류 후보를 법령 원문과 다시 대조", job: qa, schedule: work(15 * MIN), ai: true, defaults: { autonomy: "auto" }, autoOnly: true },
   field: { name: "현장 요원", title: "질문 검수 · 답 수집(대표 PC)", team: "audit", reportsTo: "harin", duty: "질문을 기준 AI로 먼저 시험해 쉬운 문항 교체 · 자동 접속 금지가 없는 곳에 질문을 넣고 답·캡처 저장", job: field, schedule: work(10 * MIN), ai: true, defaults: { autonomy: "auto" }, autoOnly: true },
   minjae: { name: "민재", title: "경영지원팀장", team: "ops", lead: true, duty: "입금 확인 요청 · 유료 보고서 발송 · 견적 안부 · 입금 안내", job: ops, schedule: work(30 * MIN), ai: false, defaults: { autonomy: "approve" }, approveOnly: true },
