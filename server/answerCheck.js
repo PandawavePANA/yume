@@ -11,6 +11,7 @@
 import { classifyUpstream, noteUpstreamFailure, noteUpstreamSuccess } from "./upstream.js";
 import { record } from "./apiCost.js";
 import { todayLine } from "./claude.js";
+import { confirmByStatute } from "./statuteNumbers.js";
 import { LAW_HINT, gatherArticles, mergeGathered, reviewStatutes, defend } from "./statuteReview.js";
 import { FIELD_KEYS, isOfficialUrl, officialDomainsFor } from "./koreaSources.js";
 import { gatherKoreaData } from "./koreaData.js";
@@ -527,6 +528,16 @@ export async function checkAnswer({ question = "", answer, level: levelKey = "fa
     if (r.verdict === "supported") verification.supported.push({ claim: r.claim, quote: r.quote, url: r.url, evidence: r.quoteSrc, field: r.field, official: r.official });
     else if (r.verdict === "contradicted") verification.fixes.push({ type: "fact", quote: r.quote, problem: `실제로는 ${r.correct}`, url: r.url, evidence: r.quoteSrc, field: r.field, official: r.official });
     else verification.hedged.push({ quote: r.quote, claim: r.claim, field: r.field });
+  }
+  // 법 · 제도 답: 받아 온 현행 조문에 숫자가 그대로 있는 문장은 웹 확인이 늦어도 확인됨(조문 숫자 대조, 2026-10-18)
+  if (legal?.all?.articles?.length && verification.hedged.length) {
+    const fixedQuotes = new Set(verification.fixes.map((f) => f.quote));
+    const { keep, confirmed } = confirmByStatute(verification.hedged, legal.all.articles, fixedQuotes);
+    verification.hedged = keep;
+    for (const { item, article } of confirmed) {
+      verification.supported.push({ claim: item.claim, quote: item.quote, url: article?.url || "", evidence: article ? `${article.law} ${articlePublic(article).label}` : "현행 조문", field: "law", official: true, via: "statute" });
+    }
+    if (confirmed.length) verification.statute_confirmed = confirmed.length;
   }
   verification.facts_checked = (facts?.results || []).length;
   verification.store_hits = facts?.storeHits || 0;
