@@ -15,6 +15,7 @@ import { API_UNIT_CHARS, apiUnits } from "./apiRates.js";
 import { getMark, issueMark, markBase, publicMark, revokeMark } from "./trustMarks.js";
 import { checkAnswer, prepareContext, MAX_ANSWER_CHARS, MAX_QUESTION_CHARS } from "./answerCheck.js";
 import { logApiCost, newLedger, recordOpsCost, summarize } from "./apiCost.js";
+import { searchFacts } from "./factStore.js";
 import { recordReport, recordSignals } from "./learnSignals.js";
 
 // 유메 검증 API(/v1) — AI 서비스를 운영하는 기업이 자기 서비스의 답변을 유메로 검증하는
@@ -515,7 +516,12 @@ router.post("/context", requireApiKey, engineAvailable, async (req, res) => {
     return fail(res, 400, "invalid_request", "question 필드에 질문을 담아 보내주세요.");
   }
   const ledger = newLedger();
-  const ctx = await prepareContext(question.slice(0, MAX_QUESTION_CHARS), { ledger });
+  // facts: true — 질문과 관련해 유메가 이미 확인해 둔 사실도 함께(답 쓰기 전 근거, 저장소 조회라 수십 ms)
+  const [ctx, facts] = await Promise.all([
+    req.body?.legal === false ? { legal: false, laws: [], articles: [], block: "" } : prepareContext(question.slice(0, MAX_QUESTION_CHARS), { ledger }),
+    req.body?.facts ? searchFacts(question) : [],
+  ]);
+  if (req.body?.facts) ctx.facts = facts;
   await recordApiUsage(key.id, { endpoint: "POST /v1/context", statusCode: 200 });
   const cost = summarize(ledger);
   if (cost) await recordOpsCost("api_context", key.user_id, cost);

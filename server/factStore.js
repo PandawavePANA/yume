@@ -64,3 +64,31 @@ export async function factStats(now = Date.now()) {
   const r = await one("SELECT COUNT(*) AS n, COUNT(*) FILTER (WHERE expires_at > :now) AS live, COALESCE(SUM(hits), 0) AS hits, COUNT(*) FILTER (WHERE checked_at > :day) AS today FROM verified_facts", { now, day: now - DAY });
   return { total: Number(r?.n || 0), live: Number(r?.live || 0), hits: Number(r?.hits || 0), today: Number(r?.today || 0) };
 }
+
+// 질문과 관련해 이미 확인해 둔 사실(2026-10-18 미르미 "답 5초") — 답을 쓰기 전에 근거로 넘긴다.
+// 질문의 낱말(두 글자 이상)이 주장에 들어 있는 것 중, 아직 유효하고 확인됨 · 틀림이 정해진 것을 많이 쓰인 순서로.
+const STOP = new Set(["얼마", "얼마야", "얼마예요", "알려줘", "알려", "주세요", "뭐야", "무엇", "어떻게", "언제", "어디", "그리고", "이랑", "있어", "있나요", "인가요", "올해", "지금", "요즘", "정도", "관련", "대해", "대한"]);
+export function factTerms(question) {
+  const words = String(question || "").replace(/[^가-힣a-zA-Z0-9\s]/g, " ").split(/\s+/).map((w) => w.replace(/(은|는|이|가|을|를|에|의|로|으로|와|과|도|만|이랑|랑|까지|부터|에서|한테|이야|야|예요|이에요|인가요|나요|까요|해줘|해요)$/, "")).filter((w) => w.length >= 2 && !STOP.has(w));
+  return [...new Set(words)].slice(0, 6);
+}
+export async function searchFacts(question, { limit = 8, now = Date.now() } = {}) {
+  if (!useDb()) return [];
+  const terms = factTerms(question);
+  if (!terms.length) return [];
+  try {
+    const { all } = await db();
+    const pats = terms.map((t) => `%${t}%`);
+    const rows = await all(
+      `SELECT claim, verdict, correct, url, source_name, quote_src, checked_at FROM verified_facts
+        WHERE expires_at > :now AND verdict IN ('supported', 'contradicted') AND claim ILIKE ANY(:pats)
+        ORDER BY hits DESC, checked_at DESC LIMIT :lim`,
+      { now, pats, lim: limit },
+    );
+    return rows.map((r) => ({ claim: r.claim, verdict: r.verdict, correct: r.correct || "", url: r.url || "", source: r.source_name || "", quote: r.quote_src || "", checkedAt: Number(r.checked_at) || null }));
+  } catch (e) {
+    console.error("[facts] 찾기 실패", e.message);
+    return [];
+  }
+}
+
