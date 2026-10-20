@@ -428,28 +428,46 @@ export const SEED = [
   },
   {
     key: "mugung_search",
-    title: "[급함·검색] 미르미.com을 구글·네이버 검색에 등록 — '미르미 - 한국인 맞춤형 AI 서비스'로 나오게",
+    title: "[급함·검색] 미르미.com 검색 등록 마무리 — 구글 소유 확인 · 새 페이지 제출(네이버는 소유 확인 끝)",
     priority: 1,
-    link: "https://searchadvisor.naver.com",
-    steps: `미르미.com은 검색에 나올 준비가 끝났습니다(제목 '미르미 - 한국인 맞춤형 AI 서비스', 설명 '거짓말하지 않는 한국인 맞춤형 AI…', 사이트맵). 검색엔진에 '내 사이트'라고 알려 주는 일만 남았습니다. 등록 뒤 실제로 검색에 뜨기까지는 보통 며칠~몇 주 걸립니다. (약 20분)
+    link: "https://search.google.com/search-console",
+    steps: `2026-10-20: 검색 로봇이 바로 읽는 페이지를 새로 만들었습니다 — 미르미 소개(/about, '거짓말 안 하는 한국 AI'), 도구 모음(/tools), 도구 41개 페이지(/tools/연차 · 실수령액 · 전세 점검 …), RSS(/rss.xml). 사이트맵에도 다 들어 있고, 새 글은 네이버 · 빙에 자동으로 알립니다(IndexNow). 남은 건 검색엔진 화면에서 대표님이 눌러 주는 것뿐입니다. (약 20분)
 
-① 네이버 서치어드바이저 — searchadvisor.naver.com
-  1. 로그인 → 웹마스터 도구 → 사이트 등록: https://xn--2w2b19bba.com
-  2. 소유 확인 방법: 'HTML 태그' → 나온 태그에서 content="…" 안의 값만 복사
-  3. 이 할 일 안의 '네이버 소유 확인 값' 칸에 그 값만 붙여 넣고 저장(바로 반영)
-  4. 서치어드바이저로 돌아가 '소유확인'
-  5. 요청 → 사이트맵 제출: https://xn--2w2b19bba.com/sitemap.xml · 요청 → 웹 페이지 수집: https://xn--2w2b19bba.com/
-
-② 구글 서치 콘솔 — search.google.com/search-console
+① 구글 서치 콘솔 — search.google.com/search-console (아직 안 됨)
   1. 속성 추가 → 'URL 접두어' → https://xn--2w2b19bba.com/
-  2. 확인 방법: 'HTML 태그' → content="…" 값만 복사
-  3. 이 할 일 안의 '구글 소유 확인 값' 칸에 그 값만 붙여 넣고 저장(바로 반영)
-  4. 서치 콘솔에서 '확인' → 왼쪽 Sitemaps → sitemap.xml 제출 → 위 검색창에 https://xn--2w2b19bba.com/ → 색인 생성 요청
+  2. 확인 방법 'HTML 태그' → content="…" 안의 값만 복사
+  3. 이 할 일 안의 '구글 소유 확인 값' 칸에 붙여 넣고 저장(바로 반영)
+  4. 서치 콘솔에서 '확인' → 왼쪽 Sitemaps → sitemap.xml 제출
+  5. 위 검색창에 https://xn--2w2b19bba.com/about 넣고 '색인 생성 요청' (/tools 도 똑같이)
 
-③ (선택) 다음 검색: register.search.daum.net 에서 사이트 등록
+② 네이버 서치어드바이저 — searchadvisor.naver.com (소유 확인은 끝)
+  1. 사이트 목록에서 미르미.com 선택
+  2. 요청 → 사이트맵 제출: https://xn--2w2b19bba.com/sitemap.xml (이미 냈으면 다시 제출)
+  3. 요청 → RSS 제출: https://xn--2w2b19bba.com/rss.xml
+  4. 요청 → 웹 페이지 수집: https://xn--2w2b19bba.com/about 과 https://xn--2w2b19bba.com/tools
 
-막히면 그 화면을 Claude에게 보여 주세요. 소유 확인 값은 비밀이 아니라 채팅으로 줘도 됩니다 — Claude가 넣어 드립니다.
-④ 여기서 '완료' 체크`,
+③ 빙 웹마스터 — bing.com/webmasters (ChatGPT 검색 · 코파일럿도 빙을 씁니다)
+  1. 마이크로소프트 계정으로 로그인 → 'Google Search Console에서 가져오기'(①을 먼저 끝내면 클릭 몇 번)
+
+④ 다음 검색 — register.search.daum.net/index.daum 에서 사이트 등록(https://xn--2w2b19bba.com)
+
+⑤ 여기서 '완료' 체크. 실제로 검색에 뜨기까지는 며칠~몇 주 걸립니다.`,
+  },
+  {
+    key: "mirmi_seo_links",
+    title: "[미르미·검색] '미르미 AI' 1위를 위한 바깥 링크 — 인스타 · 블로그 · 마켓 프로필에 미르미.com",
+    priority: 2,
+    link: "https://blog.naver.com",
+    steps: `검색 순위는 '다른 곳에서 미르미.com을 얼마나 가리키는가'로 크게 오릅니다. 특히 네이버는 네이버 블로그 · 카페의 언급을 많이 봅니다. 한 번 해 두면 계속 효과가 납니다.
+
+1. 인스타그램 프로필 링크에 https://미르미.com (또는 https://xn--2w2b19bba.com/about) 넣기 — 5분
+2. 네이버 블로그 개설(이미 있으면 그 블로그) → 첫 글 '미르미AI — 거짓말 안 하는 한국 AI를 만들었습니다' (내용은 Claude에게 '블로그 글 써 줘'라고 하면 써 드립니다) — 글 안에 미르미.com 링크 · 제목과 본문에 '미르미 AI' · '한국 AI'를 자연스럽게
+3. 그 뒤 주 1~2회, 인스타 게시물을 블로그 글로도 올리기(같은 날 같은 내용이면 충분)
+4. 크몽 · 숨고 · 리머 홈페이지 프로필/소개에 미르미.com 링크 한 줄
+5. 아는 커뮤니티(직장인 · 자영업 · 육아 카페)에 '실수령액 · 연차 계산 이걸로 해 봤다'처럼 도구 페이지 링크 공유(광고 도배는 금지 — 오히려 떨어집니다)
+6. 플레이스토어 출시되면 앱 소개란에 미르미.com — 브랜드 검색에 큰 도움
+
+하나씩 하고 이 할 일 메모에 적어 주세요. 다 하면 '완료'.`,
   },
   {
     key: "lie_reports",
