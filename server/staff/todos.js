@@ -86,9 +86,20 @@ export async function list(today = kstDay()) {
 
 // age — 오늘이 그 일을 처음 보인 날(날짜가 있는 일은 그날, 아니면 만든 날)부터 며칠째인지. 끝내지 않으면 다음 날에도 그대로 보이고 하루씩 는다.
 const KST_DAY = (t) => Math.floor((Number(t) + 9 * 3600_000) / 86_400_000);
+// 분류(2026-10-20 대표 "할 일 목록 미르미랑 유메나 이런거 분류해서 보여줘") — 키와 제목으로 정한다(대표가 직접 추가한 일도 제목으로).
+export const AREAS = ["미르미", "유메", "Ballast", "보안", "리머 · 공통"];
+export function areaOf(t) {
+  const k = String(t?.key || "");
+  const ti = String(t?.title || "");
+  if (/^rotate_/.test(k) || /\[급함·보안\]|비밀번호 바꾸기/.test(ti)) return "보안";
+  if (/^(mirmi_|mugung_|kakao_login|naver_login|google_login|instagram_login|portone_live_channel|lie_reports|inicis_billing)/.test(k) || /미르미|무궁|앱 출시/.test(ti)) return "미르미";
+  if (/ballast|밸러스트/i.test(ti) || /^ballast/.test(k)) return "Ballast";
+  if (/^(outreach_domain|korea_data_keys|law_precedent_api|portone_v2_secret|b2b_terms|search_console|inicis_review_pw|inicis_guarantee|engine|gmail|biz_address)/.test(k) || /유메|yume|할루시네이션|감사/i.test(ti)) return "유메";
+  return "리머 · 공통";
+}
 const shape = (t) => {
   const start = t.due_date ? Date.parse(`${t.due_date}T00:00:00+09:00`) : Number(t.created_at);
-  return { id: Number(t.id), key: t.key, title: t.title, steps: t.steps, link: t.link, due_date: t.due_date, check: !!t.check_key, priority: Number(t.priority || 2), created_at: Number(t.created_at), age: Math.max(0, KST_DAY(now()) - KST_DAY(start)) };
+  return { id: Number(t.id), key: t.key, area: areaOf(t), title: t.title, steps: t.steps, link: t.link, due_date: t.due_date, check: !!t.check_key, priority: Number(t.priority || 2), created_at: Number(t.created_at), age: Math.max(0, KST_DAY(now()) - KST_DAY(start)) };
 };
 
 /** 다가오는 할 일(날짜가 아직인 것) — 화면 아래 "곧 할 일". */

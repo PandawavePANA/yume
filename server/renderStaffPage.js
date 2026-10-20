@@ -193,6 +193,13 @@ iframe.preview { width:100%; height:620px; border:1px solid var(--line); border-
 .tadd input#tadd-title { min-width:min(260px, 100%); }
 .tadd .btn.primary { background:var(--todo); box-shadow:0 6px 16px color-mix(in srgb, var(--todo) 30%, transparent); }
 .tlist { list-style:none; margin:0; padding:0; display:grid; gap:2px; }
+.tchips { display:flex; flex-wrap:wrap; gap:6px; margin:4px 0 6px; }
+.tchip { border:1px solid var(--line2); background:var(--panel); color:var(--ink2); border-radius:99px; padding:5px 12px; font:inherit; font-size:13px; cursor:pointer; }
+.tchip b { color:var(--todo); margin-left:2px; }
+.tchip.on { background:var(--todo); border-color:var(--todo); color:#fff; }
+.tchip.on b { color:#fff; }
+.tgroup { margin:18px 0 2px; font-size:15px; display:flex; align-items:center; gap:6px; }
+.tgroup span { font-size:12px; color:var(--todo); background:var(--todo-soft); border-radius:99px; padding:1px 8px; }
 .todo { display:grid; grid-template-columns:34px 1fr; gap:10px; padding:12px 6px; border-bottom:1px dashed var(--line2); align-items:start; transition:opacity .3s; }
 .todo:last-child { border-bottom:0; }
 .tcheck { width:26px; height:26px; margin-top:1px; border-radius:50%; border:2px solid var(--todo); background:var(--panel); cursor:pointer; display:grid; place-items:center; padding:0; }
@@ -484,7 +491,12 @@ const SCRIPT = String.raw`
   // ── 오늘 할 일(대표 투두) — 결재 문서와 다른 체크리스트 모양 ──
   function renderTodos() {
     var d = S.data;
-    var rows = d.todos.map(function (t) {
+    // 분류별로 묶어 보여 준다 — 위쪽 칩으로 한 분류만 볼 수 있다
+    var AREAS = ["미르미", "유메", "Ballast", "보안", "리머 · 공통"];
+    var counts = {}; d.todos.forEach(function (t) { counts[t.area || "리머 · 공통"] = (counts[t.area || "리머 · 공통"] || 0) + 1; });
+    var pick = S.todoArea && counts[S.todoArea] ? S.todoArea : "";
+    var chips = '<div class="tchips">' + ['<button type="button" class="tchip' + (pick ? "" : " on") + '" data-tarea="">전체 <b>' + d.todos.length + "</b></button>"].concat(AREAS.filter(function (a) { return counts[a]; }).map(function (a) { return '<button type="button" class="tchip' + (pick === a ? " on" : "") + '" data-tarea="' + esc(a) + '">' + esc(a) + " <b>" + counts[a] + "</b></button>"; })).join("") + "</div>";
+    var one = function (t) {
       return '<li class="todo" data-id="' + t.id + '">' +
         '<button type="button" class="tcheck" data-tdone="' + t.id + '" aria-label="' + esc(t.title) + ' 완료"><span></span></button>' +
         '<div class="tmain"><div class="ttitle"><span class="tpri p' + t.priority + '">' + ({ 1: "중요", 2: "보통", 3: "여유" }[t.priority] || "보통") + "</span>" + esc(t.title) + (t.age ? '<span class="tage">' + (t.age + 1) + "일째 · 어제에서 넘어옴</span>" : "") + (t.check ? '<span class="tauto">완료 누르면 서버가 확인</span>' : "") + "</div>" +
@@ -495,11 +507,15 @@ const SCRIPT = String.raw`
         '<input class="tnote" id="tnote-' + t.id + '" maxlength="500" placeholder="메모(선택) — 완료할 때 업무 일지에 함께 남아요" />' +
         '<div class="tacts">' + (t.link ? (/^https?:/.test(t.link) ? '<a class="btn plain sm" href="' + esc(t.link) + '" target="_blank" rel="noopener">열기 ↗</a>' : '<span class="hint">문서: ' + esc(t.link) + "</span>") : "") +
         '<button type="button" class="btn plain sm" data-tsnooze="' + t.id + '">내일로</button></div><div class="tmsg" id="tmsg-' + t.id + '"></div></div></li>';
+    };
+    var rows = AREAS.filter(function (a) { return counts[a] && (!pick || pick === a); }).map(function (a) {
+      var list = d.todos.filter(function (t) { return (t.area || "리머 · 공통") === a; });
+      return '<h3 class="tgroup">' + esc(a) + " <span>" + list.length + "</span></h3>" + '<ul class="tlist">' + list.map(one).join("") + "</ul>";
     }).join("");
     var next = d.todosNext.length ? '<h3 class="tnext-h">곧 할 일</h3><ul class="tnext">' + d.todosNext.map(function (t) { return "<li><b>" + esc(t.due_date.slice(5).replace("-", "/")) + "</b> " + esc(t.title) + "</li>"; }).join("") + "</ul>" : "";
     $("#view").innerHTML = '<section class="todos"><div class="thead2"><div><h2>오늘 할 일</h2><p>계정·DNS·홈택스·충전처럼 대표님 본인만 할 수 있는 일입니다. 직원들의 결재 문서와 따로 모았습니다.</p></div>' +
       '<form class="tadd" id="tadd"><input id="tadd-title" placeholder="할 일 추가 (예: 세무서 서류 제출)" maxlength="200" /><select id="tadd-pri" aria-label="중요도"><option value="1">중요</option><option value="2" selected>보통</option><option value="3">여유</option></select><input id="tadd-date" type="date" aria-label="날짜(선택)" /><button type="submit" class="btn primary sm">추가</button></form></div>' +
-      (rows ? '<ul class="tlist">' + rows + "</ul>" : '<div class="empty"><div class="big">✅</div>오늘 할 일을 다 끝냈습니다.</div>') + next + "</section>";
+      (rows ? chips + rows : '<div class="empty"><div class="big">✅</div>오늘 할 일을 다 끝냈습니다.</div>') + next + "</section>";
   }
 
   // 입력 중(커서가 입력칸에 있거나 칸에 글이 있음)이면 15초 새로 고침이 화면을 다시 그려 지우지 않게 한다.
@@ -544,6 +560,7 @@ const SCRIPT = String.raw`
     if (!t) return;
     if (t.dataset.tab) { S.tab = t.dataset.tab; render(true); return; }
     if (t.dataset.lf) { S.logFilter = t.dataset.lf; renderLog(); return; }
+    if (t.dataset.tarea !== undefined) { S.todoArea = t.dataset.tarea; renderTodos(); return; }
     if (t.dataset.tdone) {
       var li = t.closest(".todo"), tm = $("#tmsg-" + t.dataset.tdone);
       t.disabled = true; li.classList.add("checking"); if (tm) tm.textContent = "";
