@@ -35,16 +35,26 @@ export const KEY_FIELDS = {
   korea_data_keys: [
     { name: "ECOS_API_KEY", label: "한국은행 ECOS 인증키", target: "yume" },
     { name: "KOSIS_API_KEY", label: "KOSIS 인증키", target: "yume" },
-    { name: "DATA_GO_KR_KEY", label: "공공데이터포털 인증키(Decoding)", target: "yume" },
+    { name: "DATA_GO_KR_KEY", label: "공공데이터포털 인증키(Decoding)", target: "both" },
     { name: "DART_API_KEY", label: "DART 인증키", target: "yume" },
   ],
+  // 10-20 대표 "미르미 관련 내가 할 일 다 추가하고 입력할 게 있으면 할 일에서 다 입력 가능하게"
+  // vaultOnly: 미르미 Railway 에 테스트 값이 이미 있어 '들어 있음'만으로는 끝난 게 아니다 — 보관함에 넣은 값이 있어야 넣음으로 본다.
+  portone_live_channel: [{ name: "PORTONE_CHANNEL_KEY", label: "포트원 실연동 채널 키", target: "mugung", ph: "channel-key-로 시작", vaultOnly: true }],
+  mirmi_openai: [{ name: "OPENAI_API_KEY", label: "OpenAI API 키", target: "mugung", ph: "sk-로 시작" }],
+  mirmi_open_meteo: [{ name: "OPEN_METEO_KEY", label: "Open-Meteo API 키", target: "mugung" }],
+  mirmi_play_console: [{ name: "ANDROID_CERT_SHA256", label: "앱 서명 키 SHA-256 지문", target: "mugung", ph: "AB:CD:… (두 글자씩 콜론, 32칸)" }],
+  // 관리자 홈 비밀번호 — Railway 에 못 들어가도 여기서 바꾼다(10-20 대화에 노출). 저장하면 지금 로그인은 풀리고 새 비밀번호로 다시 들어온다.
+  rotate_admin_pw_1020: [{ name: "ADMIN_PASSWORD", label: "새 관리자 홈 비밀번호(12자 이상)", target: "yume", vaultWins: true, minLen: 12, secret: true }],
 };
 
 const FIELDS = Object.values(KEY_FIELDS).flat();
 const byName = (n) => FIELDS.find((f) => f.name === n);
 const YUME_NAMES = FIELDS.filter((f) => f.target !== "mugung").map((f) => f.name);
-const fromRailway = new Set(YUME_NAMES.filter((n) => process.env[n]));
+// vaultWins: Railway 에 값이 있어도 여기서 넣은 값이 이긴다(대표가 Railway 에 못 들어갈 때 바꿀 수 있게)
+const fromRailway = new Set(YUME_NAMES.filter((n) => process.env[n] && !byName(n)?.vaultWins));
 const settingKey = (n) => `secret:${n}`;
+const vaultLoaded = new Set();
 
 /** 서버가 켜질 때 — 봉인해 둔 유메 키를 환경에 올린다. */
 export async function loadYumeKeys() {
@@ -55,6 +65,7 @@ export async function loadYumeKeys() {
     const v = sealed ? openToken(sealed) : null;
     if (v) {
       process.env[name] = v;
+      vaultLoaded.add(name);
       n += 1;
     }
   }
@@ -90,6 +101,7 @@ export async function saveKey(name, value, { fetchImpl = fetch } = {}) {
   if (v.length < 4) return { error: "값이 너무 짧아요." };
   if (v.length > 4000) return { error: "값이 너무 길어요." };
   if (/\s/.test(v)) return { error: "값에 띄어쓰기·줄바꿈이 섞여 있어요. 앞뒤 공백 없이 그대로 붙여 넣어 주세요." };
+  if (f.minLen && v.length < f.minLen) return { error: `${f.minLen}자 이상으로 넣어 주세요.` };
   if (f.name === "PORTONE_V2_API_SECRET") {
     const bad = await testPortone(v, fetchImpl).catch(() => null);
     if (bad) return { error: bad };
@@ -100,6 +112,7 @@ export async function saveKey(name, value, { fetchImpl = fetch } = {}) {
     if (!sealed) return { error: "서버 비밀값이 없어 암호화할 수 없어요." };
     await setSetting(settingKey(f.name), sealed);
     process.env[f.name] = v;
+    vaultLoaded.add(f.name);
   }
   if (f.target !== "yume") {
     try {
@@ -124,7 +137,8 @@ export async function keyStatus({ fetchImpl = fetch, fresh = false } = {}) {
   }
   const out = {};
   for (const f of FIELDS) {
-    if (f.target === "mugung") out[f.name] = remote ? !!remote[f.name]?.set : null;
+    if (f.target === "mugung") out[f.name] = remote ? (f.vaultOnly ? remote[f.name]?.source === "vault" : !!remote[f.name]?.set) : null;
+    else if (f.vaultWins) out[f.name] = !!vaultLoaded.has(f.name);
     else out[f.name] = !!process.env[f.name];
   }
   cache = { at: Date.now(), value: out };
