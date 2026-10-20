@@ -40,6 +40,12 @@ export const KEY_FIELDS = {
   ],
   // 10-20 대표 "미르미 관련 내가 할 일 다 추가하고 입력할 게 있으면 할 일에서 다 입력 가능하게"
   // vaultOnly: 미르미 Railway 에 테스트 값이 이미 있어 '들어 있음'만으로는 끝난 게 아니다 — 보관함에 넣은 값이 있어야 넣음으로 본다.
+  // 10-21 포트원 등록이 막혀 KG이니시스에 직접 연결 — 이 세 값을 넣으면 미르미 결제가 이니시스 실결제로 바뀐다
+  inicis_direct: [
+    { name: "INICIS_MID", label: "이니시스 상점 아이디(MID)", target: "mugung", ph: "영문 · 숫자 10자", vaultOnly: true },
+    { name: "INICIS_SIGN_KEY", label: "웹결제 Sign Key", target: "mugung", ph: "가맹점 관리자 → 상점정보 → 계약정보 → 부가정보 → 웹결제 Sign Key '조회'", vaultOnly: true, secret: true },
+    { name: "INICIS_MOBILE_HASHKEY", label: "모바일 금액위변조 Hash Key(있으면)", target: "mugung", ph: "같은 화면 '모바일 금액위변조 Hash Key' 조회", vaultOnly: true, secret: true },
+  ],
   portone_live_channel: [{ name: "PORTONE_CHANNEL_KEY", label: "포트원 실연동 채널 키", target: "mugung", ph: "channel-key-로 시작", vaultOnly: true }],
   mirmi_openai: [{ name: "OPENAI_API_KEY", label: "OpenAI API 키", target: "mugung", ph: "sk-로 시작" }],
   mirmi_open_meteo: [{ name: "OPEN_METEO_KEY", label: "Open-Meteo API 키", target: "mugung" }],
