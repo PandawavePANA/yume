@@ -211,7 +211,7 @@ iframe.preview { width:100%; height:620px; border:1px solid var(--line); border-
 .ttitle { font-weight:750; font-size:15px; line-height:1.45; display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
 .tage { font-size:11px; font-weight:800; color:var(--warn); background:var(--warn-soft); border-radius:6px; padding:0 6px; }
 .tpri { font-size:11px; font-weight:850; border-radius:6px; padding:1px 7px; letter-spacing:.02em; }
-.tpri.p1 { background:var(--seal); color:#fff; } .tpri.p2 { background:var(--todo-soft); color:var(--todo); } .tpri.p3 { background:var(--panel2); color:var(--ink3); border:1px solid var(--line); }
+.tpri.p0, .tpri.p1 { background:var(--seal); color:#fff; } .tpri.p2 { background:var(--todo-soft); color:var(--todo); } .tpri.p3 { background:var(--panel2); color:var(--ink3); border:1px solid var(--line); }
 .tadd select { padding:8px 10px; border-radius:9px; border:1px solid var(--line2); background:var(--panel); font-size:13.5px; }
 .tauto { font-size:11px; font-weight:700; color:var(--todo); background:var(--todo-soft); border-radius:6px; padding:0 6px; }
 .tsteps { margin-top:4px; font-size:13px; color:var(--ink2); }
@@ -499,7 +499,7 @@ const SCRIPT = String.raw`
     var one = function (t) {
       return '<li class="todo" data-id="' + t.id + '">' +
         '<button type="button" class="tcheck" data-tdone="' + t.id + '" aria-label="' + esc(t.title) + ' 완료"><span></span></button>' +
-        '<div class="tmain"><div class="ttitle"><span class="tpri p' + t.priority + '">' + ({ 1: "중요", 2: "보통", 3: "여유" }[t.priority] || "보통") + "</span>" + esc(t.title) + (t.age ? '<span class="tage">' + (t.age + 1) + "일째 · 어제에서 넘어옴</span>" : "") + (t.check ? '<span class="tauto">완료 누르면 서버가 확인</span>' : "") + "</div>" +
+        '<div class="tmain"><div class="ttitle"><span class="tpri p' + t.priority + '">' + ({ 0: "맨 먼저", 1: "중요", 2: "보통", 3: "여유" }[t.priority] || "보통") + "</span>" + esc(t.title) + (t.age ? '<span class="tage">' + (t.age + 1) + "일째 · 어제에서 넘어옴</span>" : "") + (t.check ? '<span class="tauto">완료 누르면 서버가 확인</span>' : "") + "</div>" +
         ((t.key === "gmail" || t.key === "rotate_gmail_pw") ? '<form class="gform" id="gform" autocomplete="off"><input id="g-user" type="email" value="reamer@d-reamer.com" aria-label="메일 주소" /><input id="g-pass" type="password" autocomplete="new-password" placeholder="앱 비밀번호 16자리" aria-label="앱 비밀번호" /><button type="submit" class="btn sm gbtn">연결 시험 후 저장</button></form><div class="hint">Railway에 못 들어갈 때 여기에 직접 넣으세요. 서버가 메일함 접속을 시험하고, 성공하면 암호화해서 저장합니다(화면·기록에 남지 않음).</div>' : "") +
         keyForm(t) +
         (t.steps ? '<details class="tsteps"><summary>어떻게 하나요</summary><div>' + esc(t.steps) + "</div></details>" : "") +

@@ -28,7 +28,7 @@ export async function seed() {
       `INSERT INTO owner_todos (key, title, steps, link, due_date, after_key, check_key, priority, created_at)
        VALUES (:k, :ti, :st, :li, :du, :af, :ck, :pr, :t)
        ON CONFLICT (key) DO UPDATE SET title = EXCLUDED.title, steps = EXCLUDED.steps, link = EXCLUDED.link, priority = EXCLUDED.priority`,
-      { k: s.key, ti: s.title, st: s.steps || "", li: s.link || "", du: s.due_date || null, af: s.after_key || null, ck: s.check_key || null, pr: s.priority || 2, t },
+      { k: s.key, ti: s.title, st: s.steps || "", li: s.link || "", du: s.due_date || null, af: s.after_key || null, ck: s.check_key || null, pr: s.priority ?? 2, t },
     );
   }
 }
@@ -100,7 +100,7 @@ export function areaOf(t) {
 }
 const shape = (t) => {
   const start = t.due_date ? Date.parse(`${t.due_date}T00:00:00+09:00`) : Number(t.created_at);
-  return { id: Number(t.id), key: t.key, area: areaOf(t), title: t.title, steps: t.steps, link: t.link, due_date: t.due_date, check: !!t.check_key, priority: Number(t.priority || 2), created_at: Number(t.created_at), age: Math.max(0, KST_DAY(now()) - KST_DAY(start)) };
+  return { id: Number(t.id), key: t.key, area: areaOf(t), title: t.title, steps: t.steps, link: t.link, due_date: t.due_date, check: !!t.check_key, priority: Number(t.priority ?? 2), created_at: Number(t.created_at), age: Math.max(0, KST_DAY(now()) - KST_DAY(start)) };
 };
 
 /** 다가오는 할 일(날짜가 아직인 것) — 화면 아래 "곧 할 일". */
