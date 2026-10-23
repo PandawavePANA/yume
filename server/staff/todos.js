@@ -92,7 +92,7 @@ export function areaOf(t) {
   const k = String(t?.key || "");
   const ti = String(t?.title || "");
   if (/^(railway_access|biz_address|tax_general|sojin_loan|mail_order_registration|inicis_address)$/.test(k)) return "리머 · 공통";
-  if (/^rotate_/.test(k) || /\[급함·보안\]|비밀번호 바꾸기/.test(ti)) return "보안";
+  if (/^rotate_/.test(k) || /·보안\]|비밀번호 바꾸기/.test(ti)) return "보안";
   if (/^(mirmi_|mugung_|kakao_login|naver_login|google_login|instagram_login|portone_live_channel|lie_reports|inicis_billing)/.test(k) || /미르미|무궁|앱 출시/.test(ti)) return "미르미";
   if (/ballast|밸러스트/i.test(ti) || /^ballast/.test(k)) return "Ballast";
   if (/^(outreach_domain|korea_data_keys|law_precedent_api|portone_v2_secret|b2b_terms|search_console|inicis_review_pw|inicis_guarantee|engine|gmail)/.test(k) || /유메|yume|할루시네이션|감사|검증 엔진|특허|파일럿/i.test(ti)) return "유메";

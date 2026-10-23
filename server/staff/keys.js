@@ -51,6 +51,8 @@ export const KEY_FIELDS = {
   mirmi_open_meteo: [{ name: "OPEN_METEO_KEY", label: "Open-Meteo API 키", target: "mugung" }],
   mirmi_play_console: [{ name: "ANDROID_CERT_SHA256", label: "앱 서명 키 SHA-256 지문", target: "mugung", ph: "AB:CD:… (두 글자씩 콜론, 32칸)" }],
   // 관리자 홈 비밀번호 — Railway 에 못 들어가도 여기서 바꾼다(10-20 대화에 노출). 저장하면 지금 로그인은 풀리고 새 비밀번호로 다시 들어온다.
+  // 10-23 Anthropic 키 교체(대표 "레일웨이 노출 때문에, 유메 할 일에 입력칸") — 유메 · 미르미 둘 다, Railway 값보다 우선
+  anthropic_key_1023: [{ name: "ANTHROPIC_API_KEY", label: "새 Anthropic API 키", target: "both", vaultWins: true, secret: true, ph: "sk-ant-api03-로 시작(console.anthropic.com → API Keys)" }],
   rotate_admin_pw_1020: [{ name: "ADMIN_PASSWORD", label: "새 관리자 홈 비밀번호(12자 이상)", target: "yume", vaultWins: true, minLen: 12, secret: true }],
 };
 
@@ -100,6 +102,14 @@ async function testPortone(secret, fetchImpl) {
   return null;
 }
 
+/** Anthropic 키는 저장 전에 실제로 되는지 본다(모델 목록 조회 — 돈이 들지 않는다) */
+async function testAnthropic(key, fetchImpl) {
+  if (!key.startsWith("sk-ant-")) return "Anthropic 키는 sk-ant-로 시작해요.";
+  const r = await fetchImpl("https://api.anthropic.com/v1/models?limit=1", { headers: { "x-api-key": key, "anthropic-version": "2023-06-01" }, signal: AbortSignal.timeout(10_000) });
+  if (r.status === 401 || r.status === 403) return "Anthropic이 이 키를 받아 주지 않았어요. console.anthropic.com → API Keys 에서 만든 sk-ant-api03- 키인지 확인해 주세요(Claude 앱 로그인 토큰은 쓸 수 없어요).";
+  return null;
+}
+
 export async function saveKey(name, value, { fetchImpl = fetch } = {}) {
   const f = byName(String(name || ""));
   if (!f) return { error: "넣을 수 없는 키 이름이에요." };
@@ -108,6 +118,10 @@ export async function saveKey(name, value, { fetchImpl = fetch } = {}) {
   if (v.length > 4000) return { error: "값이 너무 길어요." };
   if (/\s/.test(v)) return { error: "값에 띄어쓰기·줄바꿈이 섞여 있어요. 앞뒤 공백 없이 그대로 붙여 넣어 주세요." };
   if (f.minLen && v.length < f.minLen) return { error: `${f.minLen}자 이상으로 넣어 주세요.` };
+  if (f.name === "ANTHROPIC_API_KEY") {
+    const bad = await testAnthropic(v, fetchImpl).catch(() => null);
+    if (bad) return { error: bad };
+  }
   if (f.name === "PORTONE_V2_API_SECRET") {
     const bad = await testPortone(v, fetchImpl).catch(() => null);
     if (bad) return { error: bad };

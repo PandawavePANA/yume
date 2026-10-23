@@ -4,6 +4,22 @@
 
 export const SEED = [
   {
+    key: "anthropic_key_1023",
+    title: "[맨 먼저·보안] Anthropic API 키 바꾸기 — 아래 칸에 새 키를 넣으면 유메 · 미르미가 바로 새 키로 바뀝니다",
+    priority: 0,
+    link: "https://console.anthropic.com/settings/keys",
+    steps: `왜: Railway에 든 키가 노출됐을 수 있어서(10-23) 새 키로 바꿉니다. 키는 채팅에 붙이지 말고 이 칸에만 넣으세요. (약 5분)
+
+1. console.anthropic.com → API Keys → Create Key(이름 예: reamer-1023) → sk-ant-api03-로 시작하는 키 복사
+   · 10-23에 채팅에 붙인 키(sk-ant-usr-…)는 쓰지 말고 지워 주세요 — 대화에 남았고, 서비스용 키 모양도 아니에요
+2. 아래 '새 Anthropic API 키' 칸에 붙여 넣고 '암호화해서 저장'
+   · 저장 전에 Anthropic에 실제로 되는 키인지 확인합니다(돈 안 듦). 안 되는 키면 저장하지 않고 알려 줍니다
+   · 유메에 바로 적용되고, 미르미로도 넘어가 바로 적용됩니다(재배포 필요 없음, Railway 값보다 우선)
+3. Ballast는 따로인 회사라 Ballast 본사 화면의 키 칸에 같은 새 키를 한 번 더 넣어 주세요
+4. Claude에게 "키 넣었어" — 세 곳이 답하는지 확인합니다
+5. 확인되면 console.anthropic.com에서 옛 키를 Delete → '완료'`,
+  },
+  {
     key: "outreach_domain",
     priority: 1,
     title: "유메 메일 도메인(yume-reamer.com) 인증",
