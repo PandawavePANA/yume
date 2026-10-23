@@ -4,6 +4,17 @@
 
 export const SEED = [
   {
+    key: "openai_credit",
+    title: "[맨 먼저·앱 출시] OpenAI 크레딧 충전 + 자동 충전 — 키는 들어갔는데 잔액이 0이라 그림 만들기가 멈춤",
+    priority: 0,
+    link: "https://platform.openai.com/settings/organization/billing/overview",
+    steps: `10-23 확인: 미르미에 OpenAI 키는 들어갔지만 OpenAI가 'You have no credits remaining'으로 거절합니다. 그동안 미르미는 '이미지 만들기' 메뉴를 숨기고 있어요(돈이 들어오면 30분 안에 저절로 다시 열려요). (5분)
+
+1. platform.openai.com → Settings → Billing → Add credits(처음엔 10~20달러면 충분 — 그림 한 장 약 60원)
+2. 같은 화면에서 Auto recharge 켜기(잔액이 5달러 아래로 내려가면 10달러 충전 등)
+3. Claude에게 "OpenAI 충전했어" — 그림 한 장 만들어 확인하고 닫습니다`,
+  },
+  {
     key: "naver_search_api",
     title: "[맨 먼저·검색] 네이버 '검색' API 추가 — 미르미가 네이버 블로그 · 카페 · 지식iN · 플레이스를 못 읽는 원인",
     priority: 0,
