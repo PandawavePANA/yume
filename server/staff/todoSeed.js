@@ -4,6 +4,41 @@
 
 export const SEED = [
   {
+    key: "naver_search_api",
+    title: "[맨 먼저·검색] 네이버 '검색' API 추가 — 미르미가 네이버 블로그 · 카페 · 지식iN · 플레이스를 못 읽는 원인",
+    priority: 0,
+    link: "https://developers.naver.com/apps/#/list",
+    steps: `10-23 확인: 네이버 키는 맞게 들어가 있는데, 앱에 '검색' API 가 없어서 네이버가 모든 검색을 거절합니다(no_scope). 그래서 "반월당닭강정 리뷰 · 영업시간"처럼 네이버에 다 있는 정보를 미르미가 못 찾았습니다. (약 3분)
+
+1. developers.naver.com → Application → 내 애플리케이션 → 미르미(로그인에 쓰는 그 앱)
+2. API 설정 탭 → 사용 API 에서 '검색' 추가 → 저장(키는 그대로라 다시 넣을 필요 없음)
+3. 같은 화면에서 네이버 로그인 '검수 요청'도 넣기(지금은 개발 중이라 대표님만 로그인돼요 · 심사 며칠)
+4. Claude에게 "네이버 검색 켰어" — 실제로 찾는지 확인하고 닫습니다`,
+  },
+  {
+    key: "kakao_map_on",
+    title: "[맨 먼저·검색] 카카오맵(장소 검색) 켜기 — 키는 맞는데 기능이 꺼져 있음",
+    priority: 0,
+    link: "https://developers.kakao.com/console/app",
+    steps: `10-23 확인: 카카오 REST 키는 맞습니다. 그런데 앱(무궁)에서 '카카오맵' 기능이 꺼져 있어 장소 검색이 모두 거절됩니다(OPEN_MAP_AND_LOCAL disabled). 맛집 · 숙소 · 가게 정보에 쓰입니다. (약 2분)
+
+1. developers.kakao.com → 내 애플리케이션 → 무궁(미르미) 앱
+2. 제품 설정 → 카카오맵 → 활성화 설정 ON
+3. Claude에게 "카카오맵 켰어" — 실제로 찾는지 확인하고 닫습니다
+(로그인 주소 등록은 이미 맞게 돼 있어요 — 로그인 화면이 정상으로 열리는 것까지 확인함)`,
+  },
+  {
+    key: "portone_live_test",
+    title: "[맨 먼저·결제] 미르미 실결제 시험 1건 — 실연동 채널 키는 들어감 ✓",
+    priority: 0,
+    link: "https://admin.portone.io",
+    steps: `채널 키는 들어가 있습니다. 진짜 돈이 들어오는지만 확인하면 끝입니다. (약 15분)
+
+1. 미르미.com 에서 베이직(14,900원)을 대표 카드로 결제 → 이용권이 켜지는지
+2. admin.portone.io → 결제 내역 → 그 건 '결제 취소'로 환불까지 해 보기
+3. 다음 날 아침에도 결제가 자동 취소되지 않았으면(테스트 채널이면 밤에 자동 취소돼요) '완료'`,
+  },
+  {
     key: "anthropic_key_1023",
     title: "[맨 먼저·보안] Anthropic API 키 바꾸기 — 아래 칸에 새 키를 넣으면 유메 · 미르미가 바로 새 키로 바뀝니다",
     priority: 0,
