@@ -131,7 +131,7 @@ export default {
 
   // ── 제보 · 추천 ──
   "제보한 내용을 베리라인이 데이터로 활용하는 데 동의해주세요.":
-    "Please agree that Yume may use your report as research data.",
+    "Please agree that Veriline may use your report as research data.",
   "이미 접수된 인용이에요.": "That citation was already reported.",
   "제보를 찾을 수 없어요.": "That report couldn't be found.",
   "이미 처리된 제보예요.": "That report was already handled.",

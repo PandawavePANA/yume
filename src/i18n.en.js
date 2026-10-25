@@ -38,7 +38,7 @@ export default {
   "AI 할루시네이션 검사": "AI hallucination check",
   "AI가 쓴 글의 근거를 공식 원문과 한 줄씩 대조합니다. AI 답변을 통째로 붙여넣어도 되고, \"이렇다던데 사실이야?\" 한 줄이어도 됩니다.":
     "VERILINE checks what an AI wrote against the official source, line by line. Paste a whole AI answer, or just one line like \"I heard X, is that true?\"",
-  "베리라인으로 확인하기": "Verify with Yume",
+  "베리라인으로 확인하기": "Verify with Veriline",
   "붙여넣기": "Paste",
   "복사한 내용 붙여넣기": "Paste from clipboard",
   "캡처 올리기": "Upload screenshot",
@@ -59,7 +59,7 @@ export default {
   "내용을 분석하는 중…": "Reading the text…",
   "주장마다 원문을 직접 열어 확인해서 1~2분 걸릴 수 있어요": "Each claim is checked against its source, so this can take 1–2 minutes",
   "검증 결과": "Result",
-  "베리라인 검증 결과": "Yume result",
+  "베리라인 검증 결과": "Veriline result",
   "확인됨": "Confirmed",
   "사실과 다름": "False",
   "확인되지 않음": "Unverified",
@@ -141,11 +141,11 @@ export default {
   "아직 검증 기록이 없어요. 첫 답변을 붙여넣어 보세요.": "No checks yet. Paste an answer to start.",
 
   // ── 베리라인 도우미 ────────────────────────────────────────────────
-  "AI에게 물어보기": "Ask Yume",
-  "베리라인에게 질문하기": "Ask Yume",
+  "AI에게 물어보기": "Ask Veriline",
+  "베리라인에게 질문하기": "Ask Veriline",
   "궁금한 점을 물어보세요": "Ask anything",
   "안녕하세요! 베리라인에 대한 질문이든 그냥 편한 대화든, 뭐든 물어보세요 :)":
-    "Hi! Ask me about Yume, or just chat — whatever you like :)",
+    "Hi! Ask me about Veriline, or just chat — whatever you like :)",
 
   // ── 세 단계 ────────────────────────────────────────────────────
   "세 단계로, 확실하게.": "Three steps. No guessing.",
@@ -159,7 +159,7 @@ export default {
     "Confirmed, false or unverified — with the evidence and sources behind each call.",
 
   // ── 왜 베리라인인가 ────────────────────────────────────────────────
-  "왜 베리라인인가": "WHY YUME",
+  "왜 베리라인인가": "WHY VERILINE",
   "AI는 확신에 찬 목소리로,": "AI speaks with total confidence,",
   "틀린 말을 합니다.": "and gets things wrong.",
   "확인된 사실": "verified facts",
@@ -169,7 +169,7 @@ export default {
   "공식 원천 데이터와 직접 대조하는 구조": "comparing claims against primary sources",
   "할루시네이션의 원인": "WHY IT HAPPENS",
   "AI는 왜 틀릴까요,": "Why AI gets it wrong,",
-  "베리라인은 원인부터 봅니다.": "and where Yume looks first.",
+  "베리라인은 원인부터 봅니다.": "and where Veriline looks first.",
   "알던 걸 잊고 지어내는": "forgets what it knew and starts inventing",
   "확인하고": "Check it,",
   "붙여넣기 한 번이면 충분해요. 가입하지 않아도 바로 써볼 수 있어요.":
@@ -216,10 +216,10 @@ export default {
   "월 기본 지급": "Monthly free credits",
   "충전 결제 취소": "Top-up cancelled",
   "친구 추천 보상": "Referral reward",
-  "사용 · 베리라인 할루시네이션 검사": "Used · Yume hallucination check",
+  "사용 · 베리라인 할루시네이션 검사": "Used · Veriline hallucination check",
   "환급 · 검증 실패": "Returned · check failed",
   "소멸 · 유효기간 1년 만료": "Expired · 1-year limit",
-  "운영자 지급": "Granted by Yume",
+  "운영자 지급": "Granted by Veriline",
   "유사 개체 혼동": "Lookalike confusion",
   "이름이나 맥락이 비슷한 두 개념이 서로 섞입니다.": "Two concepts with similar names or contexts get merged.",
   "유사도가 아니라 원문 일치 여부로 최종 판정": "Decides on an exact source match, not on similarity",
@@ -264,12 +264,12 @@ export default {
   "⚙ 설정 · 비즈니스": "⚙ Settings & business",
   "비즈니스 · API": "Business & API",
   "베리라인의 검증 엔진을 API·데이터·엔터프라이즈 솔루션으로 제공합니다":
-    "Yume's verification engine, available as an API, as data, and as enterprise solutions",
+    "Veriline's verification engine, available as an API, as data, and as enterprise solutions",
   "무료 · 가입 불필요": "Free · no account needed",
   "우리 회사 AI, 거짓말을 할까?": "Is your company's AI making things up?",
   "무료로 점검하기 →": "Run a free audit →",
   "개발자 · 데이터 · 파트너십": "Developers · data · partnerships",
-  "베리라인 검증 API": "Yume Verification API",
+  "베리라인 검증 API": "Veriline Verification API",
   "AI 기능이 있는 서비스에 할루시네이션 검사를 API로 붙일 수 있습니다. 주장별 판정·근거와 부존재 신뢰도를 그대로 받아 쓰세요. 호출량 기반 종량제.":
     "Add a hallucination check to any product with AI in it. You get a verdict, the evidence and a non-existence confidence score for every claim. Pay per call.",
   "가입하고 키 받기": "Sign up for a key",
@@ -310,7 +310,7 @@ export default {
   "휴대폰 본인확인을 마치면 채팅에 참여할 수 있어요.": "Finish phone verification to join the chat.",
 
   // ── 로그인 · 가입 ──────────────────────────────────────────────
-  "베리라인 시작하기": "Get started with Yume",
+  "베리라인 시작하기": "Get started with Veriline",
   "비밀번호 재설정": "Reset your password",
   "검증 기록이 계정에 저장되고, 어느 기기에서든 이어볼 수 있어요.":
     "Your checks are saved to your account and follow you across devices.",
@@ -440,7 +440,7 @@ export default {
   "이 결과를 두고 드리는 제안":
     "What we'd suggest from this",
   "이번 점검에서는 베리라인을 권하지 않습니다.":
-    "On these results, we wouldn't pitch you Yume.",
+    "On these results, we wouldn't pitch you Veriline.",
   "다시 점검하기":
     "Run it again",
   "AI가 한 말":
@@ -476,13 +476,13 @@ export default {
   "제공받는 자":
     "Recipient",
   "베리라인과 데이터 이용 계약을 맺은 AI 개발 기업·연구기관":
-    "AI companies and research institutions under a data agreement with Yume",
+    "AI companies and research institutions under a data agreement with Veriline",
   "AI 답변의 사실 오류(할루시네이션) 연구와 정확도 개선":
     "Research into AI factual errors (hallucination) and accuracy improvement",
   "항목":
     "Items",
   "베리라인이 추출한 주장 문장·판정·근거(원문·이메일·IP 제외, 이름·연락처 등은 가림)":
-    "The claims Yume extracted, the verdicts and the evidence — excluding your original text, email and IP, with names and contact details masked",
+    "The claims Veriline extracted, the verdicts and the evidence — excluding your original text, email and IP, with names and contact details masked",
   "제공받는 자와의 계약 기간":
     "For the term of the agreement with the recipient",
   "제보 접수했어요":
@@ -496,7 +496,7 @@ export default {
   "대화 공유 링크":
     "Link to the conversation",
   "제보한 인용과 판정 내용을 베리라인이 할루시네이션 데이터로 활용하는 데 동의합니다.":
-    "I agree that Yume may use this citation and verdict as hallucination research data.",
+    "I agree that Veriline may use this citation and verdict as hallucination research data.",
   "← 돌아가기":
     "← Back",
   "결제":
@@ -581,7 +581,7 @@ export default {
   "그럴듯한 답변 한 단락,":
     "One plausible paragraph,",
   "베리라인이 읽으면 이렇게 됩니다.":
-    "read by Yume.",
+    "read by Veriline.",
   "예시 답변":
     "Sample answer",
   "주장 {n}개":
@@ -676,13 +676,13 @@ export default {
   "오늘 {n}회 남음":
     "{n} left today",
   "법률, 의료, 금융, 역사, 과학 — 어떤 주제든 괜찮아요. AI 답변 속 사실 주장을 베리라인이 하나하나 확인합니다.":
-    "Law, medicine, finance, history, science — any subject. Yume checks every factual claim in the answer, one by one.",
+    "Law, medicine, finance, history, science — any subject. Veriline checks every factual claim in the answer, one by one.",
 
   // ── 문장 가운데 강조가 있는 것 ─────────────────────────────────
   "하면 검증 기록이 계정에 저장돼요.":
     " to save your checks to an account.",
   "법률 주장은 법제처 국가법령정보와 직접 대조하고, 인용된 판례·법령·논문이 공식 자료에 없으면 부존재 신뢰도로 판정합니다. 판정은 참고 정보이며 전문가의 자문을 대신하지 않습니다.":
-    "Legal claims are compared directly against Korea’s National Law Information Center. When a cited case, statute or paper is missing from official sources, Yume reports how confident it is that the source does not exist. Results are for reference and do not replace professional advice.",
+    "Legal claims are compared directly against Korea’s National Law Information Center. When a cited case, statute or paper is missing from official sources, Veriline reports how confident it is that the source does not exist. Results are for reference and do not replace professional advice.",
   "대화가 꼬였나요? 문맥 되살리기":
     "Conversation drifting? Rebuild the context",
   "대화가 길어지면 AI는 앞서 정한 것을 잊고 지어내기 시작합니다. 주고받은 내용을 붙여넣으면, 다시 붙여넣을 {x}를 만들어 드려요.":
@@ -702,11 +702,11 @@ export default {
   "법제처 국가법령정보에서 실제 조문을 대조해, 짐작이 아니라 확인된 사실만 보여드립니다.":
     "Matched against the actual article text in the National Law Information Center — verified, not inferred.",
   "베리라인은 창업자가 실제로 겪은 법정 분쟁에서 시작됐습니다. AI가 알려준 정보를 그대로 믿었다가 피해를 입은 경험이, \"확인된 사실\"만 전달하는 서비스를 만들게 했습니다.":
-    "Yume started with a lawsuit its founder lived through. Trusting what an AI said turned out to be costly — and that is why this service passes on only what it has verified.",
+    "Veriline started with a lawsuit its founder lived through. Trusting what an AI said turned out to be costly — and that is why this service passes on only what it has verified.",
   "다른 AI에게 \"맞는 것 같아?\"라고 다시 묻는 건 검증이 아닙니다. 베리라인은 판정마다 원문 근거를 요구합니다 — 법률은 법제처 조문을 직접 받아 오고, 그 밖의 주장은 출처 페이지를 직접 열어 그 문장이 실제로 있는지 확인합니다. 근거를 대지 못한 판정은 \"확인되지 않음\"으로 내립니다.":
-    "Asking another AI \"does this look right?\" is not checking. Yume demands source evidence for every verdict: statutes are pulled straight from Korea's official law database, and for everything else the source page is opened to confirm the sentence is really there. A verdict that can't show its evidence is downgraded to \"unverified\".",
+    "Asking another AI \"does this look right?\" is not checking. Veriline demands source evidence for every verdict: statutes are pulled straight from Korea's official law database, and for everything else the source page is opened to confirm the sentence is really there. A verdict that can't show its evidence is downgraded to \"unverified\".",
   "할루시네이션은 우연이 아니라, AI가 답을 만드는 방식 자체에서 반복되는 구조적 현상입니다. 베리라인은 이 원인 다섯 가지를 각각 뜯어보고, 원인마다 다른 검증 로직을 붙였습니다.":
-    "Hallucination is not bad luck. It falls out of how these models produce text. Yume separates five causes and runs different logic against each one.",
+    "Hallucination is not bad luck. It falls out of how these models produce text. Veriline separates five causes and runs different logic against each one.",
   "AI 답변, {x} 믿으세요.":
     "{x} the answer. Then trust it.",
   "확인하고":
@@ -829,13 +829,13 @@ export default {
   "자신 있게 말해서,": "It sounds certain,",
   "틀린 줄도 모릅니다.": "so nobody checks.",
   "아래 넷은 베리라인이 매번 통과시키는 실제 회귀 테스트 사례입니다. 숫자 하나, 연도 하나가 바뀐 말은 눈으로 걸러지지 않습니다.":
-    "These four are real regression cases Yume clears on every run. One digit or one year out of place is not something the eye catches.",
-  "베리라인이 하는 일": "What Yume does",
+    "These four are real regression cases Veriline clears on every run. One digit or one year out of place is not something the eye catches.",
+  "베리라인이 하는 일": "What Veriline does",
   "흩어진 말을": "Scattered claims,",
   "확인된 사실로.": "checked into fact.",
   "사실": "FACT",
   "붙여넣은 답변을 문장이 아니라 주장 단위로 쪼갠 뒤, 하나씩 원천에 맞춰 보고 다시 모읍니다.":
-    "Yume splits what you paste into individual claims rather than sentences, checks each one against its source, and puts the answer back together.",
+    "Veriline splits what you paste into individual claims rather than sentences, checks each one against its source, and puts the answer back together.",
   "확인하는 범위": "What it covers",
   "법률만 보는 게": "Law is not",
   "아닙니다.": "all it reads.",
@@ -845,7 +845,7 @@ export default {
   "법률은 검색하지 않고,": "Statutes are not searched,",
   "원문을 받아 옵니다.": "they are fetched.",
   "법률 주장은 웹 검색 대신 법제처 국가법령정보 공동활용 API로 조문 원문을 직접 받아 대조합니다. 오늘 시행 중인 버전만 조회하므로 개정 전 내용을 현행으로 착각하지 않습니다. 인용된 판례·조문이 공식 자료에 없으면 부존재 신뢰도와 함께 표시합니다.":
-    "Legal claims are matched against statute text pulled straight from the Korean Ministry of Government Legislation open API rather than from a web search. Only the version in force today is read, so a repealed clause is never passed off as current. When a cited case or article is absent from the official record, Yume says so and shows how confident it is that the thing does not exist.",
+    "Legal claims are matched against statute text pulled straight from the Korean Ministry of Government Legislation open API rather than from a web search. Only the version in force today is read, so a repealed clause is never passed off as current. When a cited case or article is absent from the official record, Veriline says so and shows how confident it is that the thing does not exist.",
   "건강 · 영양": "Health & nutrition",
   "약 용량": "Drug dosage",
   "통계 · 수치": "Statistics",
@@ -982,7 +982,7 @@ export default {
   "검증서": "Certificate",
   "이 마크를 철회할까요? 붙여 둔 곳에는 철회됨으로 보여요.": "Revoke this mark? Wherever it's placed, it will show as \"Revoked\".",
   "철회": "Revoke",
-  // 감사·지수 (AuditModal, IndexBand, YumeDashboard)
+  // 감사·지수 (AuditModal, IndexBand, VerilineDashboard)
   "채점 결과 중 업종·질문 유형·결과(정상/실패)만 익명으로 모아 VERILINE 할루시네이션 지수 통계에 씁니다. 점검 대상 이름과 답변 원문은 넣지 않습니다.": "Only the industry, question type and outcome (pass/fail) are kept, anonymously, for the VERILINE Hallucination Index. The name you enter and the answer text are not stored there.",
   "지수 보기": "View the index",
   "VERILINE 할루시네이션 지수": "VERILINE Hallucination Index",

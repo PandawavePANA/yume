@@ -213,9 +213,15 @@ if (STAGE === "generate") {
 // ── 1단계만: 조문 후보를 파일로(모델 호출 없음) ──
 if (STAGE === "candidates") {
   const file = path.join(OUT, "candidates.jsonl");
-  fs.writeFileSync(file, "");
-  let n = 0;
-  for (const [field, laws] of Object.entries(FIELDS)) {
+  // --append: 기존 후보를 지키며 덧붙인다(이미 뽑은 조문은 건너뜀). --laws "법1,법2"로 그 분야(--field)에 법령을 더 넣을 수 있다.
+  const APPEND = !!args.append;
+  const old = APPEND ? [...readCandidates().values()] : [];
+  const seenArt = new Set(old.filter((c) => !c.nonexistent).map((c) => `${c.law}|${c.article}`));
+  const seenFake = new Set(old.filter((c) => c.nonexistent).map((c) => c.law));
+  if (!APPEND) fs.writeFileSync(file, "");
+  let n = old.reduce((m, c) => Math.max(m, Number(String(c.cid).slice(1)) || 0), 0);
+  const fieldsToRun = args.laws ? { [ONLY]: String(args.laws).split(",").map((s) => s.trim()).filter(Boolean) } : FIELDS;
+  for (const [field, laws] of Object.entries(fieldsToRun)) {
     if (ONLY && field !== ONLY) continue;
     for (const law of laws) {
       const s = await searchStatute(law).catch(() => null);
@@ -223,7 +229,7 @@ if (STAGE === "candidates") {
       const all = await getStatuteArticlesAll(s.mst).catch(() => null);
       if (!all?.ok) continue;
       const official = s.lawNameOfficial;
-      const cands = candidatesOf(official, all.articles).slice(0, Number(args.take || 12));
+      const cands = candidatesOf(official, all.articles).filter((c) => !seenArt.has(`${official}|${label(c.a)}`)).slice(0, Number(args.take || 12));
       for (const c of cands) {
         n += 1;
         write(file, { cid: `C${String(n).padStart(4, "0")}`, field, law: official, article: label(c.a), no: c.a.no, branch: c.a.branch || 0, title: c.a.title, effective: c.a.effectiveDate || s.effectiveDate, amend_year: amendYear(c.a.text), url: lawUrl(official, c.a), text: c.a.text });
@@ -231,7 +237,7 @@ if (STAGE === "candidates") {
       const nums = all.articles.filter((x) => !x.branch).map((x) => x.no);
       const last = Math.max(...nums);
       const lastArt = all.articles.find((x) => x.no === last && !x.branch);
-      write(file, { cid: `X${String(n).padStart(4, "0")}`, field, law: official, nonexistent: true, last_no: last, last_title: lastArt?.title || "", url: s.detailUrl });
+      if (!seenFake.has(official)) write(file, { cid: `X${String(n).padStart(4, "0")}`, field, law: official, nonexistent: true, last_no: last, last_title: lastArt?.title || "", url: s.detailUrl });
       console.log(`  ${field} ${official}: ${cands.length}`);
     }
   }

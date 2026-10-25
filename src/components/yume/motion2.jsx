@@ -254,7 +254,7 @@ export function SealRing({ size = 118, label = "법제처 공식 대조 · OFFIC
 }
 
 // ── 잉크로 차오르는 워드마크 ──────────────────────────────────────────────────
-export function InkWordmark({ text = "YUME" }) {
+export function InkWordmark({ text = "VERILINE" }) {
   const reduce = useReducedMotion();
   const ref = useRef(null);
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start end", "end end"] });
@@ -265,7 +265,7 @@ export function InkWordmark({ text = "YUME" }) {
     <div ref={ref} aria-hidden style={{ overflow: "hidden", lineHeight: 0.82, userSelect: "none", pointerEvents: "none" }}>
       <motion.div style={{
         y: reduce ? 0 : y,
-        fontSize: "clamp(92px, 24vw, 300px)", fontWeight: 900, letterSpacing: "-0.06em", textAlign: "center",
+        fontSize: "clamp(56px, 13vw, 190px)", fontWeight: 900, letterSpacing: "-0.05em", textAlign: "center",
         color: "transparent", WebkitTextStroke: "1.5px rgba(47, 107, 255,0.32)",
         backgroundImage: reduce ? `linear-gradient(90deg, ${PURPLE}, #5B8CFF)` : bg,
         WebkitBackgroundClip: "text", backgroundClip: "text",

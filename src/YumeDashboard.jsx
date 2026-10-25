@@ -2145,7 +2145,7 @@ export default function YumeDashboard() {
 
       </>)}
 
-      {/* 끝까지 내려오면 큰 YUME가 잉크로 차오른다. */}
+      {/* 끝까지 내려오면 큰 VERILINE이 잉크로 차오른다(2026-10-26: 기존 유메가 베리라인 B2C). */}
       <div style={{ marginTop: "clamp(72px, 12vw, 160px)" }}>
         <InkWordmark />
       </div>
