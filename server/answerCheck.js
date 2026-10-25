@@ -353,7 +353,25 @@ const PATCH_SYSTEM = `너는 베리라인의 교정자다. [답변]에서 [고�
 - 같은 사실이 답변 여러 곳에 나오면 각각 고친다. 고칠 곳이 아닌 부분은 건드리지 않는다.
 출력(JSON만): {"edits":[{"old":"…","new":"…"}]}`;
 
-// 첫 대답 점검 — "36주 이후가 맞죠?"에 "네, 맞습니다"로 시작한 답은 숫자를 32주로 고쳐도 첫 대답이 틀린 확인을 남긴다
+// 없는 조문 — 글(또는 질문)이 든 조문 번호가 그 법령에 없을 때(statuteReview.gatherArticles의 missing). 모델 판정 없이 법제처 조문 목록으로 정한다.
+// 답이 이미 "그런 조문은 없다"고 했으면 건드리지 않는다. 답이 번호를 다시 적지 않았으면 첫 문장을 고칠 곳으로 둔다.
+const NEGATES = /없(?:습니다|어요|다|는|음)|존재하지\s*않|찾을\s*수\s*없|확인되지\s*않|확인할\s*수\s*없/;
+export function missingArticleFix(answer, m) {
+  const label = `제${m.no}조${m.branch ? `의${m.branch}` : ""}`;
+  const re = new RegExp(`제\\s*${m.no}\\s*조${m.branch ? `\\s*의\\s*${m.branch}` : "(?!\\s*의\\s*\\d)"}`);
+  const sentences = String(answer || "").split(/(?<=[.!?。])\s+|\n+/).filter((s) => s.trim());
+  const hit = sentences.find((s) => re.test(s));
+  if (hit ? NEGATES.test(hit) : NEGATES.test(String(answer).slice(0, 300))) return null;
+  const quote = (hit || openingSentence(answer)).trim().slice(0, 200);
+  if (!quote) return null;
+  return {
+    type: "legal", error_kind: "nonexistent", quote, law: m.law, label: `제${m.lastNo}조`, url: m.url,
+    problem: `${m.law}에는 ${label}가 없습니다 — 본칙의 마지막 조문은 제${m.lastNo}조${m.lastTitle ? `(${m.lastTitle})` : ""}입니다. 없는 조문의 내용을 지어내지 말 것`,
+    evidence: `법제처 현행 조문 목록: 마지막 조문 제${m.lastNo}조${m.lastTitle ? `(${m.lastTitle})` : ""}`,
+  };
+}
+
+// 첫 대답 점검 —"36주 이후가 맞죠?"에 "네, 맞습니다"로 시작한 답은 숫자를 32주로 고쳐도 첫 대답이 틀린 확인을 남긴다
 // (2026-10-26 비교 시험: 베리라인이 값은 고치고도 "네, 맞습니다"를 남겨 오답 처리, 같은 문항을 Opus 검증기는 맞힘).
 // 고쳐 쓰는 쪽은 질문을 보지 못했으므로, 확인을 구하는 질문 + 긍정으로 여는 답 + 틀린 곳이 있으면 그 첫 문장을 점검 대상으로 넘긴다.
 // 틀림으로 세지는 않는다 — 틀린 곳이 답변이 덧붙인 내용뿐이면 첫 대답은 맞는 확인이다.
@@ -519,10 +537,10 @@ export async function checkAnswer({ question = "", answer, level: levelKey = "fa
         ]);
         const all = mergeGathered(fromQ, fromA);
         if (!all.articles.length) return { all, errors: [] };
-        const r = await review(text, [], { ledger, gathered: all, effort: level.legalEffort || null }).catch(() => null);
+        const r = await review(text, [], { ledger, gathered: all, effort: level.legalEffort || null, question: q }).catch(() => null);
         if (!r?.issues?.length) return { all, errors: [], ran: !!r?.ran };
         const cands = r.issues.map((it, i) => ({ id: `R${i}`, source: "review", index: -1, answer_quote: it.answer_quote, problem: it.problem, kind: it.kind, locked: true, proof: { law: it.law, label: it.articleLabel, url: it.url, quote: it.article_quote } }));
-        const decided = await defendFn(text, all.articles, cands, { ledger, effort: level.legalEffort || null }).catch(() => []);
+        const decided = await defendFn(text, all.articles, cands, { ledger, effort: level.legalEffort || null, question: q }).catch(() => []);
         const errors = decided.filter((d) => d.decision === "error");
         // 베리라인 엔진: 확정된 틀림이 옛 법 그대로인지 법제처 연혁으로 거슬러 본다(모델 호출 없음 · 법제처 API만).
         // "틀렸다"에서 그치지 않고 "2025.2.23 개정 전 내용"까지 밝히면, 고쳐 쓴 답과 보고서가 왜 틀렸는지를 말할 수 있다.
@@ -552,6 +570,10 @@ export async function checkAnswer({ question = "", answer, level: levelKey = "fa
     verification.laws = legal.all.laws;
     verification.articles = legal.all.articles.slice(0, 10).map(articlePublic);
     verification.cleared += legal.cleared || 0;
+    for (const m of legal.all.missing || []) {
+      const f = missingArticleFix(text, m);
+      if (f) verification.fixes.push(f);
+    }
     for (const e of legal.errors || []) verification.fixes.push({ type: "legal", quote: e.answer_quote, problem: `${e.reason || e.problem}${e.amendment ? ` (${e.amendment.note})` : ""}`, law: e.proof?.law, label: e.proof?.label, url: e.proof?.url, evidence: e.proof?.quote, ...(e.amendment ? { amendment: e.amendment, error_kind: "outdated" } : {}) });
   }
   for (const r of facts?.results || []) {

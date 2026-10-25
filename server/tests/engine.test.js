@@ -102,3 +102,19 @@ test("같은 꼬리에 다른 값 — '2회에 한정하여' vs 현행 '3회에 
   assert.deepEqual(s[0]?.articleValues, ["3회"]);
   assert.deepEqual(matchesOld("육아휴직은 2회에 한정하여 나누어 사용할 수 있습니다.", OLD19, NEW19), { by: "number", value: "2회" });
 });
+
+test("법령 대조 켜기: 낱말 목록에 없어도 법 이름 · 조문 번호 모양이면 켜고, 일상 글은 켜지 않는다(2026-10-26)", async () => {
+  const { LAW_HINT } = await import("../statuteReview.js");
+  for (const s of ["남녀고용평등법상 명단 공표 대상이 2회 연속 미달이죠?", "세무조사 사전통지는 15일 전입니다(제81조의7).", "근로자퇴직급여 보장법 상 푸른씨앗", "할부거래법에 따라 처벌", "법인세 중간예납세액이 50만원"]) assert.ok(LAW_HINT.test(s), s);
+  for (const s of ["김치찌개 끓이는 방법 알려줘", "파이썬 문법이 헷갈려요", "다이어트 비법 공유", "이 요리법은 3인분이에요"]) assert.ok(!LAW_HINT.test(s), s);
+});
+
+test("수치 대조: 처벌 문장은 의무 조문이 아니라 벌칙 조문과 비교한다(2026-10-26 할부거래법 사례)", async () => {
+  const { numericAudit } = await import("../engine/quantities.js");
+  const articles = [
+    { id: "A1", law: "할부거래에 관한 법률", no: 27, title: "소비자피해보상보험계약등", text: "선불식 할부거래업자는 소비자피해보상보험계약등을 체결하여야 한다. 계약 기간은 1년 이상으로 한다." },
+    { id: "A2", law: "할부거래에 관한 법률", no: 50, title: "벌칙", text: "다음 각 호의 어느 하나에 해당하는 자는 1년 이하의 징역 또는 3천만원 이하의 벌금에 처한다. 소비자피해보상보험계약등을 체결하면서 선수금 자료를 거짓으로 제출한 자" },
+  ];
+  const s = numericAudit("제27조의 소비자피해보상보험계약등을 체결하면서 선수금 자료를 거짓으로 제출하면 3년 이하의 징역 또는 3천만원 이하의 벌금에 처해집니다.", articles);
+  assert.ok(s.some((x) => x.article === "A2" && x.claim === "3년"), JSON.stringify(s));
+});

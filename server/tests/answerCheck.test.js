@@ -285,3 +285,14 @@ test("첫 대답 점검: 확인을 구한 질문에 '네, 맞습니다'로 시�
   assert.equal(premiseCheck(q, "네, 맞습니다.", []), null); // 틀린 곳이 없으면 건드리지 않음
   assert.equal(openingSentence("거의 맞지만 두 가지는 정정이 필요합니다.\n\n- 공개 요건"), "거의 맞지만 두 가지는 정정이 필요합니다.");
 });
+
+test("없는 조문: 답이 법령에 없는 조문 번호의 내용을 지어내면 고칠 곳으로, 이미 없다고 했으면 건드리지 않는다(2026-10-26 비교 시험)", async () => {
+  const { missingArticleFix } = await import("../answerCheck.js");
+  const m = { law: "마약류 관리에 관한 법률", no: 70, branch: null, lastNo: 69, lastTitle: "과태료", url: "https://www.law.go.kr" };
+  const f = missingArticleFix("마약류 관리에 관한 법률 제70조는 과태료를 정합니다. 위반하면 500만 원 이하입니다.", m);
+  assert.equal(f.quote, "마약류 관리에 관한 법률 제70조는 과태료를 정합니다.");
+  assert.match(f.problem, /제70조가 없습니다 — 본칙의 마지막 조문은 제69조\(과태료\)/);
+  assert.equal(missingArticleFix("마약류 관리에 관한 법률에는 제70조가 없습니다. 마지막은 제69조입니다.", m), null);
+  assert.equal(missingArticleFix("해당 조문은 존재하지 않습니다.", m), null);
+  assert.equal(missingArticleFix("제70조의2는 별도 규정입니다.", m)?.quote, "제70조의2는 별도 규정입니다."); // 번호를 다시 적지 않은 답 → 첫 문장
+});

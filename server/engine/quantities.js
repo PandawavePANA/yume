@@ -99,10 +99,14 @@ const STOP = new Set(["경우", "때문", "정도", "이상", "이하", "이내"
 const tokens = (s) => new Set((String(s || "").match(/[가-힣]{2,}/g) || []).map((w) => w.replace(/(은|는|이|가|을|를|에|에서|의|로|으로|와|과|도|만|까지|부터|이나|나|입니다|합니다|됩니다|하면|되면|해야|하여)$/, "")).filter((w) => w.length >= 2 && !STOP.has(w)));
 
 /** 문장에 가장 가까운 조문(공유 낱말 수) — 2개 이상 겹쳐야 짝으로 본다. */
-function nearestArticle(sentence, articles) {
+// 처벌 문장(징역 · 벌금 · 과태료)은 의무 조문이 아니라 벌칙 · 과태료 조문과 비교한다 — 2026-10-26 비교 시험에서
+// "제27조의 보험계약 … 3년 이하의 징역"을 의무 조문 제27조와 비교해 벌칙 조문(제50조, 1년 이하)의 불일치를 놓쳤다.
+const PENALTY_TITLE = /벌칙|과태료|양벌/;
+function nearestArticle(sentence, articles, { penalty = false } = {}) {
   const t = tokens(sentence);
   let best = null;
-  for (const a of articles) {
+  const pool = penalty ? articles.filter((a) => PENALTY_TITLE.test(a.title || "") || PENALTY_TITLE.test(String(a.text || "").slice(0, 40))) : [];
+  for (const a of pool.length ? pool : articles) {
     const at = tokens(`${a.title || ""} ${a.text || ""}`);
     let n = 0;
     for (const w of t) if (at.has(w)) n += 1;
@@ -123,7 +127,7 @@ export function numericAudit(answer, articles, { max = 6 } = {}) {
     const qs = extractQuantities(sentence);
     const sk = sanctionKinds(sentence);
     if (!qs.length && !sk.length) continue;
-    const art = nearestArticle(sentence, articles);
+    const art = nearestArticle(sentence, articles, { penalty: sk.length > 0 });
     if (!art) continue;
     const aq = extractQuantities(art.text);
     for (const q of qs) {

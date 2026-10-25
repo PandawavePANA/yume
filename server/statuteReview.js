@@ -26,7 +26,9 @@ const ARTICLE_CLIP = 1800;
 const LEXICAL_PER_LAW = 4;
 
 // 글에 법령 이야기가 있는지(주장 추출이 '법률'로 분류하지 못해도) — 이게 없으면 이 단계는 돌지 않는다.
-export const LAW_HINT = /(법|법률|시행령|시행규칙)\s*제?\s*\d+\s*조|「[^」]{2,40}」|과태료|벌금|징역|퇴직금|연차|해고|육아휴직|출산휴가|구직급여|최저임금|근로계약|임금체불|산재|고용보험|청약철회|임대차|보증금|세액공제|소득공제|연말정산|종합소득세|양도소득세|양도세|취득세|재산세|종합부동산세|종부세|상속세|증여세|부가가치세|공제율|세율|월세액|근로장려금|자녀장려금|실업급여|주휴수당|기초연금|국민연금|건강보험료|가산세|원천징수|간이과세|면세사업자|의료법|약사법|의료기관|진료기록|처방전|비급여|본인부담|요양급여|의약품|응급의료|감염병|의료인|면허\s*취소|자격정지/;
+// 2026-10-26 비교 시험: "남녀고용평등법상 명단 공표", "국세기본법상 … (제81조의7)", "푸른씨앗 퇴직연금"이 이 낱말 목록에 안 걸려
+// 법령 대조가 아예 돌지 않았다(놓친 9건 중 3건). 낱말 목록보다 모양으로 잡는다 — 법 이름 + 상/에 따라/제N조, 이름 꼬리가 법인 법령명, 조문 번호만 있어도.
+export const LAW_HINT = /(법|법률|시행령|시행규칙)\s*제?\s*\d+\s*조|\(\s*제\s*\d+\s*조|제\s*\d+\s*조(?:의\s*\d+)?\s*(?:제\s*\d+\s*항|에\s*따라|에\s*따르면|에\s*의하면|위반)|[가-힣]{2,}(?:법|법률)(?:상|에\s*(?:따라|따르면|의하면|서)|\s*제\s*\d|\s*시행령|\s*시행규칙|\s*위반)|[가-힣]{1,}\s?(?:기본|특별|보호|관리|보장|진흥|촉진|처벌|규제|평등|안전|위생|복지|징수|특례|보험)법|「[^」]{2,40}」|퇴직연금|세무조사|법인세|지방소득세|중간예납|분할납부|손금|익금|과세표준|납부기한|신고기한|세무서장|기부금|명단\s*공(?:표|개)|반의사불벌|공소|이행강제금|영업정지|허가\s*취소|과태료|벌금|징역|퇴직금|연차|해고|육아휴직|출산휴가|구직급여|최저임금|근로계약|임금체불|산재|고용보험|청약철회|임대차|보증금|세액공제|소득공제|연말정산|종합소득세|양도소득세|양도세|취득세|재산세|종합부동산세|종부세|상속세|증여세|부가가치세|공제율|세율|월세액|근로장려금|자녀장려금|실업급여|주휴수당|기초연금|국민연금|건강보험료|가산세|원천징수|간이과세|면세사업자|의료법|약사법|의료기관|진료기록|처방전|비급여|본인부담|요양급여|의약품|응급의료|감염병|의료인|면허\s*취소|자격정지/;
 
 const squash = (s) => String(s || "").replace(/[\s"'“”‘’「」『』《》〈〉()[\]·ㆍ,.:;…~\-—–]/g, "");
 
@@ -144,7 +146,8 @@ export function mergeGathered(a, b) {
     articles.push({ ...x, id, block: x.block.replace(/^\[A\d+\]/, `[${id}]`) });
   }
   const laws = [...new Map([...(a?.laws || []), ...(b?.laws || [])].map((l) => [normalizeLawName(l.name), l])).values()];
-  return { laws, articles };
+  const missing = [...new Map([...(a?.missing || []), ...(b?.missing || [])].map((m) => [`${normalizeLawName(m.law)}-${m.no}-${m.branch || 0}`, m])).values()];
+  return { laws, articles, missing };
 }
 
 export async function gatherArticles(answer, claims = [], { ledger = null, pick = pickArticles } = {}) {
@@ -171,8 +174,11 @@ export async function gatherArticles(answer, claims = [], { ledger = null, pick 
     const name = resolveLawAlias(w.law) || w.law;
     const key = normalizeLawName(name);
     if (!byLaw.has(key)) byLaw.set(key, { name, refs: [] });
-    if (w.no) byLaw.get(key).refs.push({ no: w.no, branch: w.branch });
+    if (w.no) byLaw.get(key).refs.push({ no: w.no, branch: w.branch, from: w.from });
   }
+  // 글에 적힌 조문 번호가 그 법령에 아예 없으면(마지막 조문보다 크거나, 없는 가지조문) 따로 모은다 — 2026-10-26 비교 시험에서
+  // "마약류 관리에 관한 법률 제70조(과태료)"를 지어낸 답을 그냥 넘겼다(본칙 마지막은 제69조). 조문이 없으니 대조할 본문도 없어 검토자가 볼 수 없었다.
+  const missing = [];
 
   const terms = lexicalTerms(answer);
   const penaltyTalk = PENALTY_TALK.test(answer);
@@ -195,9 +201,14 @@ export async function gatherArticles(answer, claims = [], { ledger = null, pick 
     const take = new Map();
     const keyOf = (a) => `${a.no}-${a.branch || 0}`;
     // ① 인용·추정된 조문(삭제된 것도 그대로 — 삭제 사실이 판정 근거다)
+    const lastNo = all.articles.reduce((m, x) => (x.branch ? m : Math.max(m, x.no)), 0);
     for (const r of refs) {
       const a = all.articles.find((x) => x.no === r.no && (x.branch || 0) === (r.branch || 0));
       if (a) take.set(keyOf(a), { a, why: "cited" });
+      else if (r.from === "text" && lastNo && (r.no > lastNo || (r.branch && all.articles.some((x) => x.no === r.no)))) {
+        const last = all.articles.find((x) => x.no === lastNo && !x.branch);
+        if (!missing.some((m) => m.law === law && m.no === r.no && (m.branch || 0) === (r.branch || 0))) missing.push({ law, no: r.no, branch: r.branch || null, lastNo, lastTitle: last?.title || "", url: s.detailUrl });
+      }
     }
     // ② 벌칙·과태료 — 처벌 이야기가 있으면, 인용된 조문을 위반 대상으로 적은 벌칙 조문
     if (penaltyTalk) {
@@ -230,7 +241,7 @@ export async function gatherArticles(answer, claims = [], { ledger = null, pick 
     used += block.length;
     articles.push({ id, law: p.law, no: p.a.no, branch: p.a.branch || null, title: p.a.title, text: `${p.a.text}\n${extra}`, deleted: !!p.a.deleted, url: articleUrl(p.law, p.a), why: p.why, block });
   }
-  return { laws, articles };
+  return { laws, articles, missing };
 }
 
 // ── 3. 글 전체 대조 ─────────────────────────────────────────────
@@ -246,6 +257,7 @@ const REVIEW_SYSTEM = `너는 한국 법령 대조 검토자다. 아래 [현행 
 - 내용은 맞는데 조문 번호만 틀리면 kind를 wrong_citation으로 적는다.
 - 회사가 법보다 유리하게 정하는 자체 제도는 그 자체로 위법이 아니다. 다만 법정 제도를 없다고 하거나 법정 기준을 다르게 말하면 틀린 것이다.
 - 상담 권유·면책 문구·예시 문장은 대상이 아니다.
+- [질문]이 주어지면 질문자의 전제("2회 연속 맞죠?", "과태료죠?")를 [현행 조문]과 비교한다. 전제가 조문과 다른데 글이 "네, 맞습니다"처럼 그 전제를 확인해 주거나 전제의 틀린 값을 그대로 받아 쓰면, 그 문장을 issues에 넣는다(answer_quote는 글의 문장 그대로).
 
 법령 문언 읽기 관례
 - "N회에 한정하여 나누어 사용할 수 있다"는 N번 나눌 수 있다는 뜻이라 최대 N+1번에 걸쳐 쓴다(예: 육아휴직 3회 분할 = 총 4번 사용, 2024년 정부 발표 "분할 4번까지"). 글이 "총 N+1회"라고 해도 틀린 것이 아니다.
@@ -256,7 +268,7 @@ const REVIEW_SYSTEM = `너는 한국 법령 대조 검토자다. 아래 [현행 
 {"issues":[{"answer_quote":"글에서 문제 되는 부분을 한 글자도 바꾸지 않고(150자 이내)","problem":"무엇이 틀렸고 현행 규정은 무엇인지(120자 이내)","kind":"contradiction|outdated|deleted_or_nonexistent|denies_existing|wrong_penalty|wrong_citation","article":"A번호","article_quote":"그 조문에서 근거 문장을 한 글자도 바꾸지 않고(200자 이내)","confidence":"high|medium|low"}]}
 틀린 곳이 없으면 {"issues":[]}.`;
 
-export async function reviewStatutes(text, claims = [], { ledger = null, onProgress = () => {}, pick = pickArticles, gathered = null, effort = null } = {}) {
+export async function reviewStatutes(text, claims = [], { ledger = null, onProgress = () => {}, pick = pickArticles, gathered = null, effort = null, question = "" } = {}) {
   const answer = String(text || "").slice(0, MAX_ANSWER_CHARS);
   // 베리라인 AI처럼 질문 단계에서 이미 조문을 모았으면 그대로 쓴다(같은 조문을 두 번 받지 않는다).
   if (!gathered) onProgress("관련 현행 법령 조문을 모으는 중…");
@@ -273,7 +285,7 @@ export async function reviewStatutes(text, claims = [], { ledger = null, onProgr
     ledger,
     label: "statute_review",
     system: REVIEW_SYSTEM,
-    user: `${todayLine()}[현행 조문]\n${articles.map((a) => a.block).join("\n\n")}\n\n[글]\n${answer}${hint ? `\n\n${hint}` : ""}`,
+    user: `${todayLine()}[현행 조문]\n${articles.map((a) => a.block).join("\n\n")}\n\n${questionBlock(question)}[글]\n${answer}${hint ? `\n\n${hint}` : ""}`,
   });
   const issues = lockIssues(r?.issues || [], answer, articles);
   return { ran: true, laws, articles, issues, signals };
@@ -315,7 +327,11 @@ const DEFENSE_SYSTEM = `너는 두 번째 검토자다. 첫 검토자가 [글]�
 
 출력: {"decisions":[{"id":"후보 번호","decision":"error|ok|unclear","reason":"한두 문장(120자 이내). error면 현행 규정을 적는다","article":"A번호","article_quote":"조문 문장 그대로(200자 이내)"}]}`;
 
-export async function defend(text, articles, candidates, { ledger = null, effort = null } = {}) {
+// 2026-10-26 비교 시험: 질문자가 틀린 전제를 깔고 물었는데 답이 "네, 맞습니다"로 받아 주면, 답만 보는 검토자는 틀린 곳을 찾지 못했다.
+// 질문을 함께 보여 주되 판정 대상은 여전히 글이다(질문 문장은 issues에 넣지 않는다).
+const questionBlock = (q) => (String(q || "").trim() ? `[질문(판정 대상 아님 — 질문자의 전제를 조문과 비교하는 데만 쓴다)]\n${String(q).slice(0, 2000)}\n\n` : "");
+
+export async function defend(text, articles, candidates, { ledger = null, effort = null, question = "" } = {}) {
   if (!candidates.length) return [];
   const answer = String(text || "").slice(0, MAX_ANSWER_CHARS);
   const list = candidates.map((c) => `- [${c.id}] 글: "${c.answer_quote}"\n  지목 사유: ${c.problem}`).join("\n");
@@ -326,7 +342,7 @@ export async function defend(text, articles, candidates, { ledger = null, effort
     ledger,
     label: "statute_defense",
     system: DEFENSE_SYSTEM,
-    user: `${todayLine()}[현행 조문]\n${articles.map((a) => a.block).join("\n\n")}\n\n[글]\n${answer}\n\n[지목된 곳]\n${list}`,
+    user: `${todayLine()}[현행 조문]\n${articles.map((a) => a.block).join("\n\n")}\n\n${questionBlock(question)}[글]\n${answer}\n\n[지목된 곳]\n${list}`,
   });
   const byId = new Map((r?.decisions || []).map((d) => [String(d.id).replace(/[[\]]/g, "").trim(), d]));
   return candidates.map((c) => {
