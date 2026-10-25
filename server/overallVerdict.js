@@ -22,7 +22,7 @@ export function buildOverallVerdict(claims) {
   // '확인되지 않음'은 중립이 아니다. 그리고 두 가지가 섞여 있다(verifyPipeline withUncertainReason).
   //   근거 없음 — 공개 기록에 있어야 할 내용인데 뒷받침하는 근거가 없다. 말한 쪽이 근거 없이 단정했다.
   //   공개 기록 밖 — 비공개·유료·개인 경험처럼 원래 공개 자료로 확인할 수 없다.
-  // 앞의 것은 분명하게 "근거 없음"이라고 말한다. 같은 말로 뭉개면 유메가 못 찾은 것처럼 들린다.
+  // 앞의 것은 분명하게 "근거 없음"이라고 말한다. 같은 말로 뭉개면 베리라인이 못 찾은 것처럼 들린다.
   const noEvidence = uncertainClaims.filter((c) => (c.uncertain_reason || "no_evidence") === "no_evidence");
   const notPublic = uncertainClaims.length - noEvidence.length;
   if (falseClaims.length === 0) {

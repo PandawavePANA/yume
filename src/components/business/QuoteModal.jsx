@@ -7,7 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import { API_ORIGIN } from "../../businessConfig.js";
 import { API_RATES, AUDIT_LEAD, AUDIT_ORDER_DOMAINS, AUDIT_RATES } from "../../../server/apiRates.js";
 
-const UI = { ink: "#1D1A24", ink2: "#5E5870", ink3: "#9A93AC", accent: "#6B4FA8", hairline: "rgba(60, 40, 110, 0.12)", soft: "#F6F2FC" };
+const UI = { ink: "#0F1522", ink2: "#4A5468", ink3: "#8A93A6", accent: "#2F6BFF", hairline: "rgba(30, 45, 90, 0.12)", soft: "#F5F7FA" };
 const won = (n) => `${Math.round(n).toLocaleString("ko-KR")}원`;
 
 const tier = (k) => API_RATES.tiers.find((t) => t.key === k);
@@ -81,8 +81,8 @@ export default function QuoteModal({ product = "growth", onClose }) {
   };
 
   return (
-    <div role="dialog" aria-modal="true" aria-label={isAudit ? "AI 감사 신청" : "견적서 바로 받기"} onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(24, 16, 44, 0.32)", zIndex: 80, overflowY: "auto", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "6vh 16px" }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: "min(540px, 100%)", background: "#fff", borderRadius: 22, padding: "26px 24px 22px", boxShadow: "0 30px 80px rgba(40, 20, 90, 0.22)" }}>
+    <div role="dialog" aria-modal="true" aria-label={isAudit ? "AI 감사 신청" : "견적서 바로 받기"} onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(10, 14, 23, 0.32)", zIndex: 80, overflowY: "auto", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "6vh 16px" }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: "min(540px, 100%)", background: "#fff", borderRadius: 22, padding: "26px 24px 22px", boxShadow: "0 30px 80px rgba(20, 35, 80, 0.22)" }}>
         {state === "done" && done ? (
           <div style={{ display: "grid", gap: 12 }}>
             <div style={{ fontSize: 20, fontWeight: 700, color: UI.ink, letterSpacing: "-0.02em" }}>{isAudit ? "주문서가 나왔습니다 — 한 단계 남았습니다" : "견적서가 나왔습니다"}</div>

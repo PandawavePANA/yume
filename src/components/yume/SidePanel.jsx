@@ -42,7 +42,7 @@ export default function SidePanel({ tab, onTab, onClose, loggedIn, onNeedLogin }
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             transition={{ duration: 0.25 }}
             onClick={onClose}
-            style={{ position: "fixed", inset: 0, zIndex: 47, background: "rgba(24,16,44,0.18)", backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)" }}
+            style={{ position: "fixed", inset: 0, zIndex: 47, background: "rgba(10, 14, 23,0.18)", backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)" }}
           />
 
           <motion.aside
@@ -58,7 +58,7 @@ export default function SidePanel({ tab, onTab, onClose, loggedIn, onNeedLogin }
               display: "flex", flexDirection: "column",
               background: "rgba(250,248,254,0.94)",
               backdropFilter: "saturate(140%) blur(18px)", WebkitBackdropFilter: "saturate(140%) blur(18px)",
-              borderLeft: "1px solid rgba(20,17,24,0.10)",
+              borderLeft: "1px solid rgba(15, 21, 34,0.10)",
               boxShadow: "-12px 0 48px rgba(60,35,120,0.18)",
               paddingTop: "var(--yume-safe-top)", paddingBottom: "var(--yume-safe-bottom)",
             }}
@@ -66,7 +66,7 @@ export default function SidePanel({ tab, onTab, onClose, loggedIn, onNeedLogin }
             {/* 탭. 어느 쪽을 보고 있든 다른 쪽이 한 번에 보여야 한 자리에 둔 값을 한다. */}
             <div style={{
               display: "flex", alignItems: "center", gap: 6, padding: "10px 10px 10px 12px",
-              borderBottom: "1px solid rgba(20,17,24,0.10)",
+              borderBottom: "1px solid rgba(15, 21, 34,0.10)",
             }}>
               <div style={{ flex: 1, display: "flex", gap: 3, padding: 3, borderRadius: 11, background: "rgba(118,118,128,0.10)" }}>
                 {TABS.map((x) => {
@@ -79,8 +79,8 @@ export default function SidePanel({ tab, onTab, onClose, loggedIn, onNeedLogin }
                       style={{
                         flex: 1, padding: "7px 0", border: "none", borderRadius: 9, cursor: "pointer",
                         background: on ? "#fff" : "transparent",
-                        boxShadow: on ? "0 2px 6px rgba(20,17,24,0.08)" : "none",
-                        color: on ? "#141118" : "#6F6A7C",
+                        boxShadow: on ? "0 2px 6px rgba(15, 21, 34,0.08)" : "none",
+                        color: on ? "#0F1522" : "#6F6A7C",
                         fontSize: 13, fontWeight: on ? 750 : 600, fontFamily: "inherit",
                         letterSpacing: "-0.01em", transition: "background 0.18s ease, color 0.18s ease",
                       }}
@@ -95,7 +95,7 @@ export default function SidePanel({ tab, onTab, onClose, loggedIn, onNeedLogin }
                 aria-label={t("닫기")}
                 style={{
                   width: 28, height: 28, flex: "none", borderRadius: 999, border: "none",
-                  background: "rgba(118,118,128,0.10)", color: "#54505E", fontSize: 14, cursor: "pointer",
+                  background: "rgba(118,118,128,0.10)", color: "#4A5468", fontSize: 14, cursor: "pointer",
                 }}
               >
                 ✕

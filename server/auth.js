@@ -259,9 +259,9 @@ router.post("/auth/forgot", limitMiddleware(resetLimiter, (req) => `reset:${clie
     await sendMail({
       brand: "YUME",
       to: user.email,
-      subject: "[유메] 비밀번호 재설정 안내",
-      text: `안녕하세요, 유메입니다.\n\n아래 링크에서 1시간 안에 새 비밀번호를 설정해주세요.\n${link}\n\n본인이 요청하지 않았다면 이 메일을 무시하셔도 됩니다.`,
-      html: `<p>안녕하세요, 유메입니다.</p><p>아래 버튼을 눌러 1시간 안에 새 비밀번호를 설정해주세요.</p><p><a href="${link}" style="display:inline-block;padding:10px 18px;border-radius:10px;background:#6B4FA8;color:#fff;text-decoration:none;font-weight:600">비밀번호 재설정</a></p><p style="color:#888;font-size:12px">본인이 요청하지 않았다면 이 메일을 무시하셔도 됩니다.</p>`,
+      subject: "[베리라인] 비밀번호 재설정 안내",
+      text: `안녕하세요, 베리라인입니다.\n\n아래 링크에서 1시간 안에 새 비밀번호를 설정해주세요.\n${link}\n\n본인이 요청하지 않았다면 이 메일을 무시하셔도 됩니다.`,
+      html: `<p>안녕하세요, 베리라인입니다.</p><p>아래 버튼을 눌러 1시간 안에 새 비밀번호를 설정해주세요.</p><p><a href="${link}" style="display:inline-block;padding:10px 18px;border-radius:10px;background:#2F6BFF;color:#fff;text-decoration:none;font-weight:600">비밀번호 재설정</a></p><p style="color:#888;font-size:12px">본인이 요청하지 않았다면 이 메일을 무시하셔도 됩니다.</p>`,
     });
   } catch (e) {
     logError("auth:forgot", e);

@@ -33,14 +33,14 @@ const bankAccount = () => String(process.env.B2B_BANK_ACCOUNT || "").trim();
 const productLabel = (key) => SELF_PRODUCTS[key]?.label || DESK_PRODUCTS[key] || key;
 
 export const SHEET_CSS = `
-:root { --ink:#1d1a24; --ink2:#4f4960; --ink3:#857e98; --line:#e2dcec; --soft:#f6f3fb; --accent:#6b4fa8; --ok:#2f7d5b; --fail:#c2410c; --ground:#eeeaf4; }
+:root { --ink:#0F1522; --ink2:#4f4960; --ink3:#857e98; --line:#e2dcec; --soft:#f6f3fb; --accent:#2F6BFF; --ok:#2f7d5b; --fail:#c2410c; --ground:#eeeaf4; }
 * { box-sizing:border-box; }
 body { margin:0; background:var(--ground); color:var(--ink); font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR','Pretendard Variable','Malgun Gothic',sans-serif; word-break:keep-all; }
 .bar { max-width:820px; margin:0 auto; padding:18px 16px 0; display:flex; gap:8px; justify-content:space-between; align-items:center; flex-wrap:wrap; }
 .bar a { color:var(--accent); text-decoration:none; font-weight:700; font-size:14px; }
 .btn { display:inline-flex; align-items:center; gap:6px; padding:10px 16px; border-radius:999px; border:0; background:var(--accent); color:#fff; font:inherit; font-size:14px; font-weight:650; cursor:pointer; text-decoration:none; }
-.btn.ghost { background:rgba(107,79,168,.1); color:var(--accent); }
-.sheet { max-width:820px; margin:14px auto 0; background:#fff; padding:clamp(22px,5vw,48px); border-radius:6px; box-shadow:0 10px 40px rgba(40,20,90,.08); }
+.btn.ghost { background:rgba(47, 107, 255,.1); color:var(--accent); }
+.sheet { max-width:820px; margin:14px auto 0; background:#fff; padding:clamp(22px,5vw,48px); border-radius:6px; box-shadow:0 10px 40px rgba(20, 35, 80,.08); }
 .head { display:flex; justify-content:space-between; gap:16px; align-items:flex-end; border-bottom:2.5px solid var(--ink); padding-bottom:12px; flex-wrap:wrap; }
 .head h1 { margin:0; font-size:28px; letter-spacing:.32em; font-weight:800; }
 .head .no { text-align:right; font-size:12.5px; color:var(--ink2); line-height:1.7; font-variant-numeric:tabular-nums; }
@@ -94,7 +94,7 @@ function sheetPage(title, body, script = "") {
   return `<!doctype html>
 <html lang="ko"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta name="robots" content="noindex, nofollow" />
-<title>${esc(title)} · 유메</title><style>${SHEET_CSS}</style></head>
+<title>${esc(title)} · 베리라인</title><style>${SHEET_CSS}</style></head>
 <body>${body}${script}</body></html>`;
 }
 
@@ -150,14 +150,14 @@ export function renderQuotePage(q) {
     <ol>
       ${isAudit
         ? `<li>결제: 계좌이체(전자세금계산서 발급) 또는 법인카드. 입금(카드 결제) 확인 후 <b>${esc(AUDIT_LEAD)}</b> 안에 비공개 감사 보고서를 보냅니다. 로그인이 필요한 서비스는 테스트 계정을 받은 날부터 셉니다.</li>
-      <li>감사는 일반 사용자로서 서비스에 질문을 넣고, 유메가 원문과 대조한 뒤 사람이 공식 원문으로 재확인한 오류만 보고서에 담습니다. 자동으로 대량 질의하지 않습니다.</li>
+      <li>감사는 일반 사용자로서 서비스에 질문을 넣고, 베리라인이 원문과 대조한 뒤 사람이 공식 원문으로 재확인한 오류만 보고서에 담습니다. 자동으로 대량 질의하지 않습니다.</li>
       <li>착수 전에 취소하면 전액 환불합니다. 보고서는 귀사에만 드리며, 회사 이름은 서면 동의가 있을 때만 공개합니다.</li>`
         : isMetered
         ? `<li>종량제는 후불입니다. 수량은 예상 월 호출 수이며, 매달 말일까지의 실제 사용량 × 단가로 정산해 다음 달 10일까지 전자세금계산서를 발급합니다. 예상 물량을 월 상한으로 설정하고, 늘릴 때는 알려 주시면 됩니다.</li>`
         : `<li>결제: 계좌이체(전자세금계산서 발급) 또는 법인카드. 월 약정은 매달 선결제이며, 쓰지 않은 호출은 다음 달로 넘어가지 않습니다.</li>`}
       ${isAudit ? "" : `<li>보낸 글 ${API_UNIT_CHARS.toLocaleString("ko-KR")}자마다 1건으로 셉니다. 처리하지 못하고 실패한 건은 세지 않고, 같은 요청을 다시 보내도 멱등 키로 두 번 과금되지 않습니다.</li>`}
-      <li>서비스 조건은 <b>유메 기업 서비스 이용 조건</b>(${esc(TERMS_VERSION)})과 <b>데이터 처리 부속서</b>를 따르며, 귀사 계약서 양식으로 진행할 수도 있습니다.</li>
-      <li>유메의 판정은 검증 시점의 공개 원문으로 확인한 기록이며, 서비스 품질 보증이나 법률·의료·금융 자문이 아닙니다.</li>
+      <li>서비스 조건은 <b>베리라인 기업 서비스 이용 조건</b>(${esc(TERMS_VERSION)})과 <b>데이터 처리 부속서</b>를 따르며, 귀사 계약서 양식으로 진행할 수도 있습니다.</li>
+      <li>베리라인의 판정은 검증 시점의 공개 원문으로 확인한 기록이며, 서비스 품질 보증이나 법률·의료·금융 자문이 아닙니다.</li>
     </ol>
   </div>
   <div class="stamp">${businessLine()}<br/>${esc(COMPLAINT_NOTICE)} ${esc(complaintOfficer())}</div>
@@ -165,7 +165,7 @@ export function renderQuotePage(q) {
 
   let tail = "";
   if (q.status === "cancelled") {
-    tail = `<section class="state warn"><h2>취소된 견적입니다</h2>새 견적이 필요하시면 <a href="/business#pricing">기업용 페이지</a>에서 다시 받거나 ${esc(COMPANY.email)}로 알려 주세요.</section>`;
+    tail = `<section class="state warn"><h2>취소된 견적입니다</h2>새 견적이 필요하시면 <a href="/#pricing">기업용 페이지</a>에서 다시 받거나 ${esc(COMPANY.email)}로 알려 주세요.</section>`;
   } else if (q.status === "paid" && isAudit) {
     const done = Number(q.rounds_done || 0);
     tail = `<section class="state ok"><h2>${done ? "감사 보고서를 보냈습니다" : "감사를 진행하고 있습니다"}</h2>
@@ -188,7 +188,7 @@ export function renderQuotePage(q) {
       ${isAudit ? `<br/>입금이 확인되면 <b>${esc(AUDIT_LEAD)}</b> 안에 감사 보고서를 보내 드립니다.` : ""}
       <div class="noprint" style="margin-top:8px;font-size:12.5px;color:#857e98">이 주소를 즐겨찾기해 두시면 진행 상태를 언제든 확인할 수 있습니다.</div></section>`;
   } else if (expired) {
-    tail = `<section class="state warn"><h2>유효기간이 지난 견적입니다</h2>같은 조건으로 <a href="/business#pricing">새 견적</a>을 받아 주세요.</section>`;
+    tail = `<section class="state warn"><h2>유효기간이 지난 견적입니다</h2>같은 조건으로 <a href="/#pricing">새 견적</a>을 받아 주세요.</section>`;
   } else {
     tail = `
 <form class="req" id="req" novalidate>
@@ -209,7 +209,7 @@ export function renderQuotePage(q) {
   <div class="radio" role="radiogroup" aria-label="결제 방법">
     ${Object.entries(PAY_METHODS).map(([k, v], i) => `<label><input type="radio" name="payMethod" value="${k}" ${i === 0 ? "checked" : ""} /> <span>${esc(v)}${k === "transfer" && isMetered ? " — 매달 사용량으로 청구" : ""}</span></label>`).join("")}
   </div>
-  <label class="agree"><input type="checkbox" id="agree" /> <span><a href="/b2b/terms" target="_blank" rel="noopener">유메 기업 서비스 이용 조건</a>과 <a href="/b2b/dpa" target="_blank" rel="noopener">데이터 처리 부속서</a>(${esc(TERMS_VERSION)})를 읽었고 동의합니다. 귀사 계약서로 진행하시려면 신청 후 메일로 보내 주세요.</span></label>
+  <label class="agree"><input type="checkbox" id="agree" /> <span><a href="/b2b/terms" target="_blank" rel="noopener">베리라인 기업 서비스 이용 조건</a>과 <a href="/b2b/dpa" target="_blank" rel="noopener">데이터 처리 부속서</a>(${esc(TERMS_VERSION)})를 읽었고 동의합니다. 귀사 계약서로 진행하시려면 신청 후 메일로 보내 주세요.</span></label>
   <div><button class="btn" type="submit" id="send">${isAudit ? "감사 신청하기" : "계약 신청하기"}</button></div>
   <div class="msg" id="msg" role="status"></div>
 </form>`;
@@ -237,7 +237,7 @@ export function renderQuotePage(q) {
 })();
 </script>` : "";
 
-  const bar = `<div class="bar"><a href="/business">← 유메 기업용</a><span style="display:flex;gap:8px"><button class="btn ghost" type="button" onclick="window.print()">인쇄 · PDF 저장</button><span class="btn ghost" style="cursor:default">${esc(STATUS_LABEL[q.status] || q.status)}${expired ? " · 기간 만료" : ""}</span></span></div>`;
+  const bar = `<div class="bar"><a href="/">← 베리라인 기업용</a><span style="display:flex;gap:8px"><button class="btn ghost" type="button" onclick="window.print()">인쇄 · PDF 저장</button><span class="btn ghost" style="cursor:default">${esc(STATUS_LABEL[q.status] || q.status)}${expired ? " · 기간 만료" : ""}</span></span></div>`;
   return sheetPage(`견적서 ${no}`, bar + sheet + tail, script);
 }
 
@@ -249,18 +249,18 @@ export function renderB2bTerms() {
   const t = API_RATES.tiers.map((x) => `${esc(x.label)} 월 ${won(x.monthlyKrw)}(${x.calls.toLocaleString("ko-KR")}건)`).join(", ");
   const a = Object.values(AUDIT_RATES).map((x) => `${esc(x.label)} ${won(x.krw)}`).join(", ");
   return layout("기업 서비스 이용 조건", `
-<h1>유메 기업 서비스 이용 조건</h1>
+<h1>베리라인 기업 서비스 이용 조건</h1>
 <p class="muted">기업 고객이 견적서로 계약하는 서비스(검증 API 약정·종량제, 문서 검사, AI 감사, PoC)에 적용되는 표준 조건입니다.</p>
 
 <h2>제1조 (적용 순서)</h2>
-<p>개별 견적서·주문서에 적힌 내용이 이 조건보다 먼저이고, 이 조건에 없는 내용은 <a href="/terms">유메 이용약관</a>을 따릅니다. 귀사 계약서로 계약한 경우에는 그 계약서가 먼저입니다.</p>
+<p>개별 견적서·주문서에 적힌 내용이 이 조건보다 먼저이고, 이 조건에 없는 내용은 <a href="/terms">베리라인 이용약관</a>을 따릅니다. 귀사 계약서로 계약한 경우에는 그 계약서가 먼저입니다.</p>
 
 <h2>제2조 (서비스)</h2>
 <ol>
 <li><b>검증 API·문서 검사</b>: 글 속 사실 주장을 떼어 내 공식 원문(법제처 국가법령정보 공동활용 API, DOI 레지스트리 등)과 공개 출처에 대조하고, 주장별 판정·근거·출처·원문 속 위치를 돌려줍니다.</li>
-<li><b>AI 감사</b>: 귀사 AI 서비스를 일반 사용자로서 질문해 답변을 수집하고, 유메가 원문과 대조한 뒤 사람이 공식 원문으로 재확인한 오류만 담은 비공개 보고서를 드립니다. 자동으로 대량 질의하지 않습니다.</li>
-<li>유메의 판정과 보고서는 검증 시점에 공개된 원문으로 확인한 <b>기록</b>입니다. 서비스 품질이나 앞으로의 답변을 보증하지 않으며, 법률·의료·금융 자문이 아닙니다. 최종 판단과 규제 준수 책임은 귀사에 있습니다.</li>
-<li>유메는 주장 추출·검색어 작성·고친 문장 제안에 생성형 AI(Anthropic Claude)를 씁니다. 판정은 원문과 출처 문장으로만 단정하고, 근거를 대지 못한 판정은 '확인되지 않음'으로 둡니다.</li>
+<li><b>AI 감사</b>: 귀사 AI 서비스를 일반 사용자로서 질문해 답변을 수집하고, 베리라인이 원문과 대조한 뒤 사람이 공식 원문으로 재확인한 오류만 담은 비공개 보고서를 드립니다. 자동으로 대량 질의하지 않습니다.</li>
+<li>베리라인의 판정과 보고서는 검증 시점에 공개된 원문으로 확인한 <b>기록</b>입니다. 서비스 품질이나 앞으로의 답변을 보증하지 않으며, 법률·의료·금융 자문이 아닙니다. 최종 판단과 규제 준수 책임은 귀사에 있습니다.</li>
+<li>베리라인은 주장 추출·검색어 작성·고친 문장 제안에 생성형 AI(Anthropic Claude)를 씁니다. 판정은 원문과 출처 문장으로만 단정하고, 근거를 대지 못한 판정은 '확인되지 않음'으로 둡니다.</li>
 </ol>
 
 <h2>제3조 (계약의 성립)</h2>
@@ -281,12 +281,12 @@ export function renderB2bTerms() {
 <ol>
 <li>감사 보고서는 입금(카드 결제) 확인 후 ${esc(AUDIT_LEAD)} 안에 보냅니다. 로그인이 필요한 서비스는 귀사가 테스트 계정을 보내 주신 날부터 셉니다. 정기 감사는 첫 보고서 뒤 분기마다 한 번씩 같은 방식으로 감사합니다.</li>
 <li>감사 보고서는 귀사에만 비공개 링크로 드리고, 귀사가 요청하면 링크를 회수합니다.</li>
-<li>귀사의 이름은 서면으로 동의한 경우에만 공개 감사 기록·배지·YUME 할루시네이션 지수에 싣습니다. 지수에는 그 밖에 업종 단위 익명 숫자로만 들어갑니다.</li>
+<li>귀사의 이름은 서면으로 동의한 경우에만 공개 감사 기록·배지·VERILINE 할루시네이션 지수에 싣습니다. 지수에는 그 밖에 업종 단위 익명 숫자로만 들어갑니다.</li>
 <li>감사 결과는 질문한 기간의 표본 검사 기록입니다. 결과가 나쁘다고 빼거나, 좋게 내 달라는 대가를 받지 않습니다.</li>
 </ol>
 
 <h2>제7조 (데이터)</h2>
-<p>귀사가 보낸 텍스트·파일·기준 자료의 처리는 <a href="/b2b/dpa">데이터 처리 부속서</a>를 따릅니다. 유메는 귀사 데이터를 데이터셋으로 제공하거나 판매하지 않습니다(별도 서면 계약으로 허용한 경우 제외).</p>
+<p>귀사가 보낸 텍스트·파일·기준 자료의 처리는 <a href="/b2b/dpa">데이터 처리 부속서</a>를 따릅니다. 베리라인은 귀사 데이터를 데이터셋으로 제공하거나 판매하지 않습니다(별도 서면 계약으로 허용한 경우 제외).</p>
 
 <h2>제8조 (장애)</h2>
 <p>서비스 장애를 알게 되면 계약 담당자 이메일로 알리고, 장애로 처리되지 못한 호출은 과금하지 않습니다. 수치로 정한 서비스 수준(SLA)이 필요하시면 별도로 협의합니다.</p>
@@ -313,7 +313,7 @@ export function renderB2bDpa() {
   const region = esc(process.env.DB_REGION_LABEL || "프로젝트 설정 지역의 데이터센터");
   return layout("데이터 처리 부속서", `
 <h1>데이터 처리 부속서</h1>
-<p class="muted">귀사가 유메에 보내는 텍스트·파일에 개인정보가 들어 있을 때, 귀사는 개인정보처리자(위탁자)이고 리머는 그 처리를 맡은 수탁자입니다. 이 부속서는 「개인정보 보호법」 제26조의 위탁 문서로 쓸 수 있도록 만든 표준본입니다.</p>
+<p class="muted">귀사가 베리라인에 보내는 텍스트·파일에 개인정보가 들어 있을 때, 귀사는 개인정보처리자(위탁자)이고 리머는 그 처리를 맡은 수탁자입니다. 이 부속서는 「개인정보 보호법」 제26조의 위탁 문서로 쓸 수 있도록 만든 표준본입니다.</p>
 
 <h2>1. 처리 목적과 범위</h2>
 <table>
@@ -408,7 +408,7 @@ ${docFoot}`);
 export function renderDealsAdminPage() {
   return `<!doctype html>
 <html lang="ko"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
-<meta name="robots" content="noindex, nofollow" /><title>기업 거래 · 유메 관리자</title>
+<meta name="robots" content="noindex, nofollow" /><title>기업 거래 · 베리라인 관리자</title>
 <style>${SHEET_CSS}
 .wrap { max-width:1100px; margin:0 auto; padding:20px 16px 60px; }
 .top { display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; }
@@ -468,7 +468,7 @@ details summary { cursor:pointer; font-size:13px; color:var(--accent); font-weig
     if (t.dataset.paid) {
       if (!confirm('입금(계약)을 확인 처리할까요? API 상품이면 고객 키에 월 한도가 걸립니다.')) return;
       try { var r = await api('/quotes/' + t.dataset.paid + '/paid', {}); var a = r.applied;
-        alert(a ? (a.key ? ('한도 ' + a.quota.toLocaleString('ko-KR') + '회를 ' + a.email + '의 키(' + a.key + '…)에 걸었습니다.') : (a.email ? (a.email + ' 계정에 활성 키가 없습니다. 고객이 키를 만든 뒤 관리자 화면에서 한도를 ' + a.quota.toLocaleString('ko-KR') + '회로 올려 주세요.') : ('같은 이메일의 유메 계정이 없습니다. 고객이 가입·키 발급 후 관리자 화면에서 한도를 ' + a.quota.toLocaleString('ko-KR') + '회로 올려 주세요.'))) : '확인 처리했습니다.');
+        alert(a ? (a.key ? ('한도 ' + a.quota.toLocaleString('ko-KR') + '회를 ' + a.email + '의 키(' + a.key + '…)에 걸었습니다.') : (a.email ? (a.email + ' 계정에 활성 키가 없습니다. 고객이 키를 만든 뒤 관리자 화면에서 한도를 ' + a.quota.toLocaleString('ko-KR') + '회로 올려 주세요.') : ('같은 이메일의 베리라인 계정이 없습니다. 고객이 가입·키 발급 후 관리자 화면에서 한도를 ' + a.quota.toLocaleString('ko-KR') + '회로 올려 주세요.'))) : '확인 처리했습니다.');
         load(); } catch (err) { alert(err.message); }
     }
     if (t.dataset.cancel) { if (!confirm('이 견적을 취소할까요?')) return; try { await api('/quotes/' + t.dataset.cancel + '/cancel', {}); load(); } catch (err) { alert(err.message); } }

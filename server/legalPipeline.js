@@ -445,7 +445,7 @@ async function resolveCase(claim, ref, ctx) {
 }
 
 // 판례 부존재 판정에는 사람이 한 번 더 확인할 길을 붙인다. 법제처 DB는 공개 판례만 싣고,
-// 법원 판결서 인터넷열람은 더 넓지만 공개 API가 없어 유메가 직접 조회하지 못한다.
+// 법원 판결서 인터넷열람은 더 넓지만 공개 API가 없어 베리라인이 직접 조회하지 못한다.
 // 공개 범위(형사 2013년·민사 등 2015년 이후 확정분)도 함께 적어 둔다 — 오래된 사건은 거기에도 없을 수 있다.
 function recheckTip(nec) {
   if (nec?.identifier?.type !== "case" || nec.formatError?.skippedSearch) return "";

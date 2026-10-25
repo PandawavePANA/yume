@@ -6,11 +6,11 @@ export function renderFunnelPage() {
 <html lang="ko"><head><meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta name="robots" content="noindex, nofollow" />
-<title>유입 · 유메 운영</title>
+<title>유입 · 베리라인 운영</title>
 <style>
   *{box-sizing:border-box}
-  :root{--ink:#141118;--ink2:#54505E;--ink3:#8B8694;--line:#E6E2EC;--accent:#5B3FA0;--good:#1F8A57;--warn:#9A6A12;--bad:#B8321F}
-  body{margin:0;background:#FBFAF8;color:var(--ink);font:14px/1.6 -apple-system,"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",sans-serif;word-break:keep-all}
+  :root{--ink:#0F1522;--ink2:#4A5468;--ink3:#8A93A6;--line:#E6E2EC;--accent:#2F6BFF;--good:#1F8A57;--warn:#9A6A12;--bad:#B8321F}
+  body{margin:0;background:#F5F7FA;color:var(--ink);font:14px/1.6 -apple-system,"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",sans-serif;word-break:keep-all}
   main{max-width:1080px;margin:0 auto;padding:22px 16px 60px}
   .bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:18px}
   .bar h1{font-size:18px;margin:0 auto 0 0;letter-spacing:-.02em}
@@ -27,7 +27,7 @@ export function renderFunnelPage() {
   table{width:100%;border-collapse:collapse;min-width:640px}
   th,td{padding:9px 12px;border-bottom:1px solid var(--line);text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
   th:first-child,td:first-child{text-align:left}
-  th{font-size:11.5px;color:var(--ink3);font-weight:600;background:#FBFAFD}
+  th{font-size:11.5px;color:var(--ink3);font-weight:600;background:#F7F9FC}
   tr:last-child td{border-bottom:0}
   .pct{color:var(--ink3);font-size:11.5px;margin-left:4px}
   .note{font-size:12px;color:var(--ink3);margin-top:8px}
@@ -39,7 +39,7 @@ export function renderFunnelPage() {
 </style></head><body><main>
 <div class="bar">
   <h1>유입 · 광고 성과</h1>
-  <a class="ghost" href="/admin">유메 운영</a>
+  <a class="ghost" href="/admin">베리라인 운영</a>
   <a class="ghost" href="/admin/desk">의뢰 데스크</a>
   <button class="ghost" data-days="7">7일</button>
   <button class="ghost on" data-days="14">14일</button>

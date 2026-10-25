@@ -163,6 +163,35 @@ export async function searchStatute(lawName) {
   return { ok: true, found: false, candidates, searchedOk: fallback.ok };
 }
 
+// 베리라인 엔진 개정 추적(2026-10-25) — 같은 법령의 버전 목록(현행 · 연혁 · 시행예정)을 시행일 늦은 순으로.
+// AI가 틀린 답이 "옛 법" 그대로인지 가리려면 바로 전 버전들의 조문이 필요하다(server/engine/amendmentTrace.js).
+export async function listStatuteVersions(lawName) {
+  const r = await callLawApi("lawSearch.do", { target: "eflaw", query: lawName, display: EFLAW_DISPLAY });
+  if (!r.ok) return [];
+  const items = toArray(r.data?.LawSearch?.law);
+  const current = items.find((x) => sameName(x["법령명한글"], lawName) && x["현행연혁코드"] === "현행")
+    || items.find((x) => x["현행연혁코드"] === "현행" && x["법령약칭명"] && sameName(x["법령약칭명"], lawName));
+  const lawId = current?.["법령ID"];
+  return items
+    .filter((x) => (lawId ? x["법령ID"] === lawId : sameName(x["법령명한글"], lawName)))
+    .map((x) => ({ mst: String(x["법령일련번호"] || ""), status: x["현행연혁코드"] || "", effective: String(x["시행일자"] || ""), name: x["법령명한글"] }))
+    .filter((v) => v.mst && /^\d{8}$/.test(v.effective))
+    .sort((a, b) => b.effective.localeCompare(a.effective));
+}
+
+/** 특정 버전(MST + 그 버전의 시행일)의 조문 하나. 개정 전 문언을 받을 때 쓴다. */
+export async function getStatuteArticleAt(mst, efYd, articleNo, branchNo = null) {
+  const r = await callLawApi("lawService.do", { target: "eflaw", MST: mst, efYd });
+  if (!r.ok) return r;
+  const arr = toArray(r.data?.["법령"]?.["조문"]?.["조문단위"]).filter((u) => u["조문여부"] === "조문");
+  const normalized = normalizeArticleNo(articleNo);
+  const sameNo = arr.filter((u) => normalizeArticleNo(u["조문번호"]) === normalized);
+  const match = branchNo ? sameNo.find((u) => Number(u["조문가지번호"]) === branchNo) : sameNo.find((u) => !u["조문가지번호"] || Number(u["조문가지번호"]) === 0) || sameNo[0];
+  if (!match) return { ok: true, found: false };
+  const text = flattenArticleText(match);
+  return text ? { ok: true, found: true, text, title: match["조문제목"] || "" } : { ok: true, found: false };
+}
+
 // 법령명이 통째로 틀린 경우 부분 일치로도 안 걸리므로, 어간(‘…법’ 떼기)으로 한 번 더 찾는다.
 export async function searchLawCandidatesByStem(lawName) {
   const stem = String(lawName).replace(/\s+/g, " ").trim().replace(/(에 관한 )?(법률|법|시행령|시행규칙)$/, "").trim();

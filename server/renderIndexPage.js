@@ -1,4 +1,4 @@
-// YUME 할루시네이션 지수 공개 페이지 — /hallucination-index, /hallucination-index/:slug
+// VERILINE 할루시네이션 지수 공개 페이지 — /hallucination-index, /hallucination-index/:slug
 //
 // 이 페이지는 인용되기 위해 있다. 기자·심사위원·구매 담당자가 숫자 하나를 옮겨 적을 때
 // 그 숫자가 무엇을 뜻하는지(표본·구간·방법·한계)가 같은 화면에 같이 있어야 한다.
@@ -24,18 +24,18 @@ const FONTS = `<link rel="preconnect" href="https://fonts.googleapis.com" /><lin
 const STYLE = `
 :root {
   --paper:#F7F4FB; --sheet:#FFFFFF; --ink:#1A1626; --ink2:#4A4458; --ink3:#857D96; --line:rgba(46,24,96,.12); --line2:rgba(46,24,96,.22);
-  --accent:#6B4FA8; --accent-soft:rgba(107,79,168,.10); --fail:#C2410C; --partial:#D99A2B; --safe:#2F7D5B; --band:rgba(194,65,12,.16);
+  --accent:#2F6BFF; --accent-soft:rgba(47, 107, 255,.10); --fail:#C2410C; --partial:#D99A2B; --safe:#2F7D5B; --band:rgba(194,65,12,.16);
   /* 제목·큰 숫자(--display)와 본문(--sans) 모두 Noto Sans KR(2026-10-12 대표 결정). */
   --display:'Noto Sans KR',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;
   --sans:'Noto Sans KR',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;
   --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
-  --paper:#121019; --sheet:#1A1724; --ink:#EEEAF6; --ink2:#C4BDD6; --ink3:#8F87A3; --line:rgba(220,210,255,.12); --line2:rgba(220,210,255,.22);
+  --paper:#121019; --sheet:#1A1724; --ink:#EEF2FA; --ink2:#C4BDD6; --ink3:#8F87A3; --line:rgba(220,210,255,.12); --line2:rgba(220,210,255,.22);
   --accent:#B39BF0; --accent-soft:rgba(179,155,240,.12); --fail:#F08A5D; --partial:#E8B65A; --safe:#6CC59A; --band:rgba(240,138,93,.2);
 } }
 :root[data-theme="dark"] {
-  --paper:#121019; --sheet:#1A1724; --ink:#EEEAF6; --ink2:#C4BDD6; --ink3:#8F87A3; --line:rgba(220,210,255,.12); --line2:rgba(220,210,255,.22);
+  --paper:#121019; --sheet:#1A1724; --ink:#EEF2FA; --ink2:#C4BDD6; --ink3:#8F87A3; --line:rgba(220,210,255,.12); --line2:rgba(220,210,255,.22);
   --accent:#B39BF0; --accent-soft:rgba(179,155,240,.12); --fail:#F08A5D; --partial:#E8B65A; --safe:#6CC59A; --band:rgba(240,138,93,.2);
 }
 * { box-sizing:border-box; }
@@ -127,7 +127,7 @@ export function page({ title, description, path, body, base = "", head = "", sty
 <meta name="description" content="${esc(description)}" />
 <meta property="og:type" content="${ogType}" /><meta property="og:image" content="https://www.yume-reamer.com/og-yume.png" /><meta property="og:title" content="${esc(title)}" />
 <meta property="og:description" content="${esc(description)}" /><meta property="og:url" content="${esc(url)}" />
-<meta property="og:site_name" content="유메 · AI 할루시네이션 검사" /><meta name="twitter:card" content="summary" />
+<meta property="og:site_name" content="베리라인 · AI 할루시네이션 검사" /><meta name="twitter:card" content="summary" />
 <link rel="canonical" href="${esc(url)}" />
 ${FONTS}
 <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large" />
@@ -135,12 +135,12 @@ ${head}
 <style>${STYLE}${style}</style></head>
 <body><div class="wrap">
 <header class="top">
-  <a class="brand" href="/">YUME</a>
-  <nav aria-label="지수 메뉴"><a href="/hallucination">할루시네이션이란</a><a href="${BASE_PATH}">할루시네이션 지수</a><a href="${BASE_PATH}#method">방법</a><a href="${BASE_PATH}#archive">지난 호</a><a href="/business">AI 감사 받기</a></nav>
+  <a class="brand" href="/">VERILINE</a>
+  <nav aria-label="지수 메뉴"><a href="/hallucination">할루시네이션이란</a><a href="${BASE_PATH}">할루시네이션 지수</a><a href="${BASE_PATH}#method">방법</a><a href="${BASE_PATH}#archive">지난 호</a><a href="/">AI 감사 받기</a></nav>
 </header>
 ${body}
 <footer class="foot">
-  유메(YUME)는 AI가 쓴 글의 근거를 공식 원문과 대조하는 AI 할루시네이션 검사 서비스입니다. 검사 과정에 생성형 AI를 사용하며, 지수와 판정은 공개 원문과 대조한 검사 결과이지 특정 서비스의 품질 보증이나 법률 자문이 아닙니다.<br />
+  베리라인(YUME)는 AI가 쓴 글의 근거를 공식 원문과 대조하는 AI 할루시네이션 검사 서비스입니다. 검사 과정에 생성형 AI를 사용하며, 지수와 판정은 공개 원문과 대조한 검사 결과이지 특정 서비스의 품질 보증이나 법률 자문이 아닙니다.<br />
   ${businessLine()}<br />${esc(COMPLAINT_NOTICE)} ${esc(complaintOfficer())}<br />
   <a href="/terms">이용약관</a> · <a href="/privacy">개인정보처리방침</a> · <a href="/docs/api">API 문서</a>
 </footer>
@@ -194,13 +194,13 @@ function barRows(cells, { showMeaning = false } = {}) {
 const METHOD = [
   ["무엇을 재는가", "AI 서비스가, 공식 원문으로 정답이 먼저 확정된 질문에 근거 없이 지어낸 답을 내는 비율입니다. '모른다'고 답하거나 틀린 전제를 바로잡은 답은 정상으로 셉니다."],
   ["질문", "법제처 국가법령정보·판례 데이터베이스와 학술 레지스트리(DOI)로 정답을 확정한 기준 문항입니다. 존재하지 않는 조문·판례를 묻는 문항, 틀린 수치가 든 자료로 고객 안내문을 쓰게 하는 문항, 최근 개정된 현행 기준을 묻는 문항 등이 섞여 있습니다."],
-  ["답변 수집", "유메 감사는 운영자가 대상 서비스를 일반 사용자로서 손으로 써서 답변을 받습니다(자동 대량 질의를 하지 않습니다). 기업 자가 점검은 기업이 자기 AI에 질문을 넣고 받은 답을 유메에 붙여넣은 것입니다."],
+  ["답변 수집", "베리라인 감사는 운영자가 대상 서비스를 일반 사용자로서 손으로 써서 답변을 받습니다(자동 대량 질의를 하지 않습니다). 기업 자가 점검은 기업이 자기 AI에 질문을 넣고 받은 답을 베리라인에 붙여넣은 것입니다."],
   ["채점", "정답을 아는 채점자가 두 번 따로 채점해 같을 때만 받아들이고, 갈리면 한 번 더 채점해 다수결로 정합니다. 채점 근거로 든 문장이 실제 답변에 없으면 그 채점은 버립니다. 출처를 요구한 문항은 답변이 댄 조문·사건번호·DOI를 공식 데이터베이스에 다시 조회합니다."],
-  ["사람의 재확인", "유메 감사에서 오류로 지목된 항목은 운영자가 공식 원문을 직접 열어 확인한 것만 오류로 셉니다. 애매한 항목은 빼고, 유메가 잘못 지목한 것은 정상으로 돌립니다."],
+  ["사람의 재확인", "베리라인 감사에서 오류로 지목된 항목은 운영자가 공식 원문을 직접 열어 확인한 것만 오류로 셉니다. 애매한 항목은 빼고, 베리라인이 잘못 지목한 것은 정상으로 돌립니다."],
   ["점수", "할루시네이션 1, 부분 실패 0.5, 정상 0으로 세고 문항별 가중치를 반영해 평균합니다. 채점할 수 없었던 답은 분모에서 뺍니다. 95% 신뢰구간은 Wilson 방법으로 냅니다."],
   ["공개 기준", `칸 하나의 표본이 ${MIN_CELL}건 미만이면 비율을 싣지 않습니다. 대표 숫자는 표본이 ${MIN_HEADLINE}건 미만이면 '예비'로 표시합니다.`],
   ["회사명", "개별 회사·서비스 이름은 그 회사가 공개에 동의한 경우에만 싣습니다. 사례는 익명이며 답변 속 이름은 ○○로 가립니다."],
-  ["독립성", "지수의 숫자는 돈으로 바꿀 수 없습니다. 유메의 유료 고객도 같은 방법으로 세고, 결과가 나쁘다는 이유로 빼지 않습니다."],
+  ["독립성", "지수의 숫자는 돈으로 바꿀 수 없습니다. 베리라인의 유료 고객도 같은 방법으로 세고, 결과가 나쁘다는 이유로 빼지 않습니다."],
   ["한계", "표본은 무작위 추출이 아닙니다(감사 대상과 자가 점검에 참여한 기업). 그래서 이 숫자는 국내 AI 서비스 전체의 오류율 추정치가 아니라, 같은 방법으로 잰 기간별 비교 지표입니다. 질문은 법령·판례처럼 공식 원문이 있는 분야에 치우쳐 있습니다. 결과는 답변을 받은 시점의 것입니다."],
 ];
 
@@ -219,11 +219,11 @@ function headlineBlock(h, { compact = false, data = null } = {}) {
   <div class="big" style="font-size:clamp(40px,7vw,72px)">다음 호부터</div>
   <p class="what">재확인을 마친 감사 표본이 공개 기준을 넘으면 대표 숫자를 싣습니다. 표본 없이 숫자를 내지 않습니다. 이번 호는 방법과 기준선을 공개합니다.</p>
 </div>
-<div><div class="kicker">기준선 · 유메 검사 현황</div>
+<div><div class="kicker">기준선 · 베리라인 검사 현황</div>
 <dl class="stats" style="margin-top:10px"><div><dt>검사한 글</dt><dd>${num(e.texts)}</dd></div><div><dt>대조한 사실 주장</dt><dd>${num(e.claims)}</dd></div><div><dt>원문과 다름</dt><dd>${num(e.false)}</dd></div><div><dt>감사한 서비스</dt><dd>${num(data?.audits?.services)}</dd></div></dl>
 <div class="scale"><div class="cap">집계 숫자만 싣습니다. 의심스러워 넣은 글이 많아 선택 편향이 있으므로 AI 전체의 오류율이나 비교 지표가 아닙니다.</div></div></div>`;
   }
-  const src = h.source === "audits" ? "출처: 유메 감사, 사람 재확인 완료" : "출처: 기업 자가 점검";
+  const src = h.source === "audits" ? "출처: 베리라인 감사, 사람 재확인 완료" : "출처: 기업 자가 점검";
   return `<div>
   <div class="kicker">${h.source === "audits" ? "AI 서비스 할루시네이션율" : "자가 점검 할루시네이션율"} ${h.provisional ? `<span class="pill warn">예비 · 표본 ${num(h.n)}건</span>` : ""}</div>
   <div class="big">${Number(h.rate).toFixed(1)}<small>%</small></div>
@@ -242,12 +242,12 @@ export function renderIndexIssue(issue, { base = "" } = {}) {
   const path = `${BASE_PATH}/${issue.slug}`;
   const description = h && h.rate !== null
     ? `${issue.title} — 공식 원문으로 정답이 확정된 질문 ${num(h.n)}건에서 AI 할루시네이션율 ${pct(h.rate)} (95% 신뢰구간 ${pct(h.low)}~${pct(h.high)}).`
-    : `${issue.title} — 유메가 같은 방법으로 반복해 재는 AI 할루시네이션 공개 지표.`;
+    : `${issue.title} — 베리라인이 같은 방법으로 반복해 재는 AI 할루시네이션 공개 지표.`;
   const body = `
 <div class="mast">
-  <div class="kicker">YUME 할루시네이션 지수 · ${esc(periodText(issue.period_start, issue.period_end))}</div>
+  <div class="kicker">VERILINE 할루시네이션 지수 · ${esc(periodText(issue.period_start, issue.period_end))}</div>
   <h1>${esc(issue.title)}</h1>
-  <p class="sub">유메가 같은 방법으로 반복해 재는 AI 할루시네이션 공개 지표입니다. 숫자마다 표본과 신뢰구간을 함께 싣습니다.</p>
+  <p class="sub">베리라인이 같은 방법으로 반복해 재는 AI 할루시네이션 공개 지표입니다. 숫자마다 표본과 신뢰구간을 함께 싣습니다.</p>
 </div>
 <dl class="meta">
   <div><dt>발행</dt><dd>${esc(kDate(issue.published_at))}${Number(issue.revision) ? ` · 정정 ${Number(issue.revision)}회` : ""}</dd></div>
@@ -260,7 +260,7 @@ export function renderIndexIssue(issue, { base = "" } = {}) {
 ${issue.commentary ? `<section><h2>이번 호에서 볼 것</h2><div class="commentary">${esc(issue.commentary)}</div></section>` : ""}
 
 <section><h2>어떤 질문에서 무너지는가</h2>
-<p class="lede">실패 유형별 할루시네이션율입니다(유메 감사). 같은 AI라도 유형에 따라 크게 다릅니다.</p>
+<p class="lede">실패 유형별 할루시네이션율입니다(베리라인 감사). 같은 AI라도 유형에 따라 크게 다릅니다.</p>
 ${barRows(a.byType, { showMeaning: true })}</section>
 
 <section><h2>업종별</h2><p class="lede">감사 대상 서비스의 업종 기준입니다.</p>${barRows(a.byDomain)}
@@ -286,10 +286,10 @@ ${a.named?.length ? `<section><h2>공개에 동의한 서비스</h2><p class="le
 ${a.named.map((n) => `<tr><td>${n.public_id ? `<a href="/a/${esc(n.public_id)}">${esc(n.service)}</a>` : esc(n.service)}<div class="muted">${esc(n.company)}</div></td><td>${esc(n.domain)}</td><td class="n">${num(n.n)}</td><td class="n">${pct(n.rate)}</td><td class="n">${pct(n.low)}~${pct(n.high)}</td></tr>`).join("")}
 </tbody></table></div></section>` : ""}
 
-<section><h2>기업 자가 점검</h2><p class="lede">기업이 무료 점검으로 자기 AI에 질문을 넣고 받은 답을 유메가 채점한 결과입니다. 어느 회사의 어떤 AI인지는 남기지 않습니다.</p>
+<section><h2>기업 자가 점검</h2><p class="lede">기업이 무료 점검으로 자기 AI에 질문을 넣고 받은 답을 베리라인이 채점한 결과입니다. 어느 회사의 어떤 AI인지는 남기지 않습니다.</p>
 ${s.overall?.n ? `<dl class="stats"><div><dt>채점한 답변</dt><dd>${num(s.overall.n)}</dd></div><div><dt>할루시네이션율</dt><dd>${pct(s.overall.rate)}</dd></div><div><dt>95% 구간</dt><dd style="font-size:19px">${pct(s.overall.low)}~${pct(s.overall.high)}</dd></div></dl>${barRows(s.byType)}` : `<p class="muted">이 기간의 자가 점검 표본이 없습니다.</p>`}</section>
 
-<section><h2>유메 검사 현황</h2><p class="lede">이 기간 유메에 검사를 맡긴 글(대부분 AI 답변)에서 나온 사실 주장의 판정입니다. 의심스러워서 넣은 글이 많아 AI 답변 전체의 오류율보다 높게 나올 수 있습니다.</p>
+<section><h2>베리라인 검사 현황</h2><p class="lede">이 기간 베리라인에 검사를 맡긴 글(대부분 AI 답변)에서 나온 사실 주장의 판정입니다. 의심스러워서 넣은 글이 많아 AI 답변 전체의 오류율보다 높게 나올 수 있습니다.</p>
 <dl class="stats"><div><dt>검사한 글</dt><dd>${num(e.texts)}</dd></div><div><dt>사실 주장</dt><dd>${num(e.claims)}</dd></div><div><dt>사실과 다름</dt><dd>${pct(e.falseRate)}</dd></div><div><dt>확인되지 않음</dt><dd>${pct(e.uncertainRate)}</dd></div></dl></section>
 
 ${methodSection()}
@@ -299,12 +299,12 @@ ${methodSection()}
 <div class="hash">SHA-256 ${esc(issue.sha256 || "")}</div>
 <div class="btns"><a class="btn" href="${path}.json">원자료 JSON</a><a class="btn" href="${path}.csv">표 CSV</a><a class="btn" href="javascript:window.print()">인쇄·PDF</a></div>
 ${corrections.length ? `<div class="tbl"><table><thead><tr><th>정정일</th><th>사유</th><th>이전 지문</th></tr></thead><tbody>${corrections.map((c) => `<tr><td style="white-space:nowrap">${esc(kShort(c.at))}</td><td>${esc(c.note)}</td><td style="font-family:var(--mono);font-size:11.5px;word-break:break-all">${esc(c.prev_sha256 || "")}</td></tr>`).join("")}</tbody></table></div>` : ""}
-<p class="muted" style="margin-top:14px">인용: 유메, 「${esc(issue.title)}」, ${esc(kDate(issue.published_at))}, ${esc(`${base || ""}${path}`)}</p>
+<p class="muted" style="margin-top:14px">인용: 베리라인, 「${esc(issue.title)}」, ${esc(kDate(issue.published_at))}, ${esc(`${base || ""}${path}`)}</p>
 </section>
 
-<section class="noprint" style="border-bottom:0"><h2>귀사 AI도 같은 방법으로</h2><p class="lede">유메 감사는 귀사 AI 서비스를 같은 질문 체계로 표본 검사하고, 사람이 원문으로 재확인한 결과를 비공개 보고서로 드립니다. 공개 여부는 귀사가 정합니다.</p>
-<div class="btns"><a class="btn primary" href="/business">AI 감사 문의</a><a class="btn" href="${BASE_PATH}">지난 호 보기</a></div></section>`;
-  return page({ title: `${issue.title} · YUME 할루시네이션 지수`, description, path, body, base });
+<section class="noprint" style="border-bottom:0"><h2>귀사 AI도 같은 방법으로</h2><p class="lede">베리라인 감사는 귀사 AI 서비스를 같은 질문 체계로 표본 검사하고, 사람이 원문으로 재확인한 결과를 비공개 보고서로 드립니다. 공개 여부는 귀사가 정합니다.</p>
+<div class="btns"><a class="btn primary" href="/">AI 감사 문의</a><a class="btn" href="${BASE_PATH}">지난 호 보기</a></div></section>`;
+  return page({ title: `${issue.title} · VERILINE 할루시네이션 지수`, description, path, body, base });
 }
 
 export function renderIndexHome(issues, latest, { base = "", next = "" } = {}) {
@@ -326,8 +326,8 @@ export function renderIndexHome(issues, latest, { base = "", next = "" } = {}) {
     : `<p class="muted" style="margin-top:14px">아직 발행한 호가 없습니다.</p>`;
   const body = `
 <div class="mast">
-  <div class="kicker">YUME Hallucination Index</div>
-  <h1>YUME 할루시네이션 지수</h1>
+  <div class="kicker">VERILINE Hallucination Index</div>
+  <h1>VERILINE 할루시네이션 지수</h1>
   <p class="sub">AI가 근거 없이 지어내는 비율을, 공식 원문으로 정답을 확정한 질문으로 같은 방법을 써서 반복해 잽니다. 숫자마다 표본·신뢰구간·방법·한계를 같이 공개하고, 발행한 숫자는 고칠 수 없게 지문을 붙입니다.</p>
 </div>
 ${latest
@@ -335,7 +335,7 @@ ${latest
 <div class="hero">${headlineBlock(h, { data: d })}</div>
 <div class="btns"><a class="btn primary" href="${BASE_PATH}/${esc(latest.slug)}">이번 호 전체 보기</a></div>`
     : `<div class="hero"><div><div class="kicker">창간 준비 중</div><div class="big" style="font-size:clamp(44px,8vw,80px)">곧 첫 호</div>
-<p class="what">첫 호는 유메 감사와 기업 자가 점검이 공개 기준(칸당 ${MIN_CELL}건)을 넘으면 발행합니다. ${next ? `발행 예정: ${esc(next)}.` : ""} 아래에 무엇을 어떻게 재는지 미리 공개합니다.</p></div>
+<p class="what">첫 호는 베리라인 감사와 기업 자가 점검이 공개 기준(칸당 ${MIN_CELL}건)을 넘으면 발행합니다. ${next ? `발행 예정: ${esc(next)}.` : ""} 아래에 무엇을 어떻게 재는지 미리 공개합니다.</p></div>
 <div><dl class="stats" style="margin-top:0"><div><dt>정답 확정</dt><dd style="font-size:18px">법제처 원문</dd></div><div><dt>채점</dt><dd style="font-size:18px">독립 2회 일치</dd></div><div><dt>오류 확정</dt><dd style="font-size:18px">사람 재확인</dd></div><div><dt>불확실성</dt><dd style="font-size:18px">95% 구간</dd></div></dl></div></div>`}
 
 <section><h2>무엇을 보여 주는가</h2>
@@ -346,16 +346,16 @@ ${latest
 </div></section>
 
 <section id="archive"><h2>지난 호</h2><p class="lede">정기호 — 측정 숫자를 싣고 발행 순간 고정합니다.</p>${archive}</section>
-<section id="special"><h2>특별호</h2><p class="lede">측정 없이 쓰는 해설입니다. 할루시네이션이 무엇이고 유메가 어떻게 재는지.</p>
+<section id="special"><h2>특별호</h2><p class="lede">측정 없이 쓰는 해설입니다. 할루시네이션이 무엇이고 베리라인이 어떻게 재는지.</p>
 <div class="archive">${SPECIAL_ISSUES.map((x) => `<a href="${BASE_PATH}/${esc(x.slug)}"><span class="d muted">특별호 ${x.no}</span><span class="t">${esc(x.title.replace(/^특별호 \d+ · /, ""))}</span><span class="v" style="font-weight:500;font-size:13px;color:var(--ink3)">글 ${x.articles.length}편</span></a>`).join("")}</div>
 <p class="muted" style="margin-top:12px">처음이라면 <a href="/hallucination">AI 할루시네이션 총정리</a>부터 — 뜻·원인·유형·체크 방법을 한 곳에 모았습니다.</p></section>
 ${methodSection()}
-<section class="noprint" style="border-bottom:0"><h2>지수에 참여하기</h2><p class="lede">AI 서비스를 운영하는 회사라면 무료 점검으로 자기 AI를 먼저 재 볼 수 있고, 유메 감사로 사람이 재확인한 보고서를 받을 수 있습니다. 회사 이름은 동의하신 경우에만 싣습니다.</p>
-<div class="btns"><a class="btn primary" href="/business">AI 감사 문의</a><a class="btn" href="/business#audit">무료 점검</a></div></section>`;
+<section class="noprint" style="border-bottom:0"><h2>지수에 참여하기</h2><p class="lede">AI 서비스를 운영하는 회사라면 무료 점검으로 자기 AI를 먼저 재 볼 수 있고, 베리라인 감사로 사람이 재확인한 보고서를 받을 수 있습니다. 회사 이름은 동의하신 경우에만 싣습니다.</p>
+<div class="btns"><a class="btn primary" href="/">AI 감사 문의</a><a class="btn" href="/#product">무료 점검</a></div></section>`;
   const description = h && h.rate !== null
-    ? `최신 호 AI 할루시네이션율 ${pct(h.rate)} (95% 신뢰구간 ${pct(h.low)}~${pct(h.high)}, 표본 ${num(h.n)}건). 유메가 같은 방법으로 반복해 재는 공개 지표.`
+    ? `최신 호 AI 할루시네이션율 ${pct(h.rate)} (95% 신뢰구간 ${pct(h.low)}~${pct(h.high)}, 표본 ${num(h.n)}건). 베리라인이 같은 방법으로 반복해 재는 공개 지표.`
     : "AI가 근거 없이 지어내는 비율을 공식 원문으로 정답을 확정한 질문으로 반복해 재는 공개 지표. 표본·신뢰구간·방법·한계를 함께 공개합니다.";
-  return page({ title: "YUME 할루시네이션 지수", description, path: BASE_PATH, body, base });
+  return page({ title: "VERILINE 할루시네이션 지수", description, path: BASE_PATH, body, base });
 }
 
 export { BASE_PATH as INDEX_PATH };

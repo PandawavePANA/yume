@@ -45,7 +45,7 @@ export async function run(ctx) {
       ref: `quote:${q.id}`,
       dedupe,
     });
-    await ctx.notify(`[유메 결재] ${metered ? "계약 확인" : "입금 확인"} — ${b.bizName || q.company} ${won(q.total_krw)}`, `${productLabel(q)} 신청이 왔습니다. 확인 후 결재해 주세요.\n${base()}/admin/staff`);
+    await ctx.notify(`[베리라인 결재] ${metered ? "계약 확인" : "입금 확인"} — ${b.bizName || q.company} ${won(q.total_krw)}`, `${productLabel(q)} 신청이 왔습니다. 확인 후 결재해 주세요.\n${base()}/admin/staff`);
     await ctx.log(`${b.bizName || q.company} ${metered ? "계약" : "입금"} 확인 결재를 올렸어요`, { ref: `quote:${q.id}` });
     notes.push(`${q.company} 입금 확인 요청`);
   }
@@ -78,7 +78,7 @@ export async function run(ctx) {
       ref: `quote:${q.id}`,
       dedupe,
     });
-    await ctx.notify(`[유메 결재] 보고서 발송 — ${b.bizName || q.company}`, `유료 감사 보고서가 준비됐습니다. 결재하면 고객에게 나갑니다.\n${base()}/admin/staff`);
+    await ctx.notify(`[베리라인 결재] 보고서 발송 — ${b.bizName || q.company}`, `유료 감사 보고서가 준비됐습니다. 결재하면 고객에게 나갑니다.\n${base()}/admin/staff`);
     await ctx.log(`${q.company} 보고서 발송 결재를 올렸어요`, { ref: `quote:${q.id}` });
     notes.push(`${q.company} 보고서 발송 기안`);
   }
@@ -113,8 +113,8 @@ async function sendOrPropose(ctx, { kind, q, mail, column, title, dedupe }) {
 export function quoteReminder(q) {
   return {
     to: q.email,
-    subject: `[유메] 견적서 ${quoteNumber(q)} 관련해 궁금한 점이 있으신가요`,
-    body: `${q.company} ${q.contact_name ? `${q.contact_name}님` : "담당자님"}, 유메 ${COMPANY.ceo}입니다.\n\n며칠 전 받아 가신 견적서(${productLabel(q)})와 관련해 궁금하신 점이 있으면 이 메일에 답장 주세요. 범위나 일정 조정도 함께 이야기할 수 있습니다.\n\n견적서: ${quoteUrl(q)}\n\n감사합니다.\n${COMPANY.ceo} 드림`,
+    subject: `[베리라인] 견적서 ${quoteNumber(q)} 관련해 궁금한 점이 있으신가요`,
+    body: `${q.company} ${q.contact_name ? `${q.contact_name}님` : "담당자님"}, 베리라인 ${COMPANY.ceo}입니다.\n\n며칠 전 받아 가신 견적서(${productLabel(q)})와 관련해 궁금하신 점이 있으면 이 메일에 답장 주세요. 범위나 일정 조정도 함께 이야기할 수 있습니다.\n\n견적서: ${quoteUrl(q)}\n\n감사합니다.\n${COMPANY.ceo} 드림`,
   };
 }
 
@@ -122,8 +122,8 @@ export function payReminder(q) {
   const b = parseBilling(q) || {};
   return {
     to: b.taxEmail || q.email,
-    subject: `[유메] 입금 계좌 안내 — 견적 ${quoteNumber(q)}`,
-    body: `${b.bizName || q.company} 담당자님, 유메 ${COMPANY.ceo}입니다.\n\n신청해 주신 ${productLabel(q)}(합계 ${won(q.total_krw)})의 입금 계좌를 다시 안내드립니다.\n입금 계좌: ${bank() || "(별도 안내)"}\n입금자명: ${quoteNumber(q)} 또는 회사명\n\n입금이 확인되면 전자세금계산서를 발급하고${isAuditProduct(q.product) ? " 영업일 기준 1~3일 안에 감사 보고서를 보내" : " 바로 이용을 시작하실 수 있게 해"} 드립니다. 이미 입금하셨다면 이 메일은 넘기셔도 됩니다.\n\n진행 상태: ${quoteUrl(q)}\n\n${COMPANY.ceo} 드림`,
+    subject: `[베리라인] 입금 계좌 안내 — 견적 ${quoteNumber(q)}`,
+    body: `${b.bizName || q.company} 담당자님, 베리라인 ${COMPANY.ceo}입니다.\n\n신청해 주신 ${productLabel(q)}(합계 ${won(q.total_krw)})의 입금 계좌를 다시 안내드립니다.\n입금 계좌: ${bank() || "(별도 안내)"}\n입금자명: ${quoteNumber(q)} 또는 회사명\n\n입금이 확인되면 전자세금계산서를 발급하고${isAuditProduct(q.product) ? " 영업일 기준 1~3일 안에 감사 보고서를 보내" : " 바로 이용을 시작하실 수 있게 해"} 드립니다. 이미 입금하셨다면 이 메일은 넘기셔도 됩니다.\n\n진행 상태: ${quoteUrl(q)}\n\n${COMPANY.ceo} 드림`,
   };
 }
 
@@ -156,8 +156,8 @@ export async function deliverReport(payload, input = {}, deps = {}) {
   const to = String(input.to || payload.to || "").trim();
   if (!to) return { ok: false, result: "받는 사람이 없어요." };
   const b = parseBilling(q) || {};
-  const body = `${b.bizName || q.company} 담당자님, 유메 ${COMPANY.ceo}입니다.\n\n의뢰하신 ${productLabel(q)} 보고서를 보내 드립니다.\n\n감사 보고서: ${d.reportUrl}\n\n답변 ${d.results.answered}개를 법령 원문과 대조했고, 사람이 공식 원문으로 다시 확인한 결과만 담았습니다. 보고서는 귀사에만 드리는 비공개 링크이며, 회수를 원하시면 알려 주세요.\n궁금하신 점은 이 메일에 답장 주시면 원문과 함께 설명드리겠습니다.\n\n감사합니다.\n${COMPANY.ceo} 드림`;
-  await deps.sendMail({ brand: "YUME", to, replyTo: COMPANY.email, subject: `[유메] 감사 보고서 — ${quoteNumber(q)}`, text: body, html: htmlOf(body) });
+  const body = `${b.bizName || q.company} 담당자님, 베리라인 ${COMPANY.ceo}입니다.\n\n의뢰하신 ${productLabel(q)} 보고서를 보내 드립니다.\n\n감사 보고서: ${d.reportUrl}\n\n답변 ${d.results.answered}개를 법령 원문과 대조했고, 사람이 공식 원문으로 다시 확인한 결과만 담았습니다. 보고서는 귀사에만 드리는 비공개 링크이며, 회수를 원하시면 알려 주세요.\n궁금하신 점은 이 메일에 답장 주시면 원문과 함께 설명드리겠습니다.\n\n감사합니다.\n${COMPANY.ceo} 드림`;
+  await deps.sendMail({ brand: "YUME", to, replyTo: COMPANY.email, subject: `[베리라인] 감사 보고서 — ${quoteNumber(q)}`, text: body, html: htmlOf(body) });
   const m = await markDelivered(q.id);
   return m.error ? { ok: false, result: `보냈지만 전달 처리 실패: ${m.error}` } : { ok: true, result: `${to}로 보고서 보냄${m.finished ? "" : " · 다음 회차는 한 분기 뒤"}` };
 }

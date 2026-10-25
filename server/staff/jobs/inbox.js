@@ -14,7 +14,7 @@ import { sync as syncTodos } from "../todos.js";
 
 const won = (n) => `${Number(n).toLocaleString("ko-KR")}원`;
 const FACTS = () => [
-  `회사: ${COMPANY.name} (대표 ${COMPANY.ceo}), 서비스: 유메 — AI 답변을 법령 원문과 대조하는 할루시네이션 검사·감사.`,
+  `회사: ${COMPANY.name} (대표 ${COMPANY.ceo}), 서비스: 베리라인 — AI 답변을 법령 원문과 대조하는 할루시네이션 검사·감사.`,
   `감사(VAT 별도): ${Object.values(AUDIT_RATES).map((a) => `${a.label} ${won(a.krw)}`).join(", ")}. 입금 확인 후 ${AUDIT_LEAD} 안에 보고서.`,
   `API(VAT 별도, 1,000자마다 1건): 종량제 건당 ${won(API_RATES.metered.unitKrw)}, ${API_RATES.tiers.map((t) => `${t.label} 월 ${won(t.monthlyKrw)}(${t.calls}건)`).join(", ")}, 엔터프라이즈 상담.`,
   "구매: business.yume-reamer.com 에서 견적서를 바로 받고 신청. 결제는 계좌이체(전자세금계산서) 또는 법인카드.",
@@ -125,7 +125,7 @@ export async function run(ctx) {
         dedupe: `reply:${m.messageId}`,
       });
       replies += 1;
-      if (r.urgency === "high") await ctx.notify(`[유메 결재] 급한 답장 — ${m.fromName || m.from}`, `${r.summary || m.subject}\n${(process.env.PUBLIC_BASE_URL || "https://www.yume-reamer.com").replace(/\/+$/, "")}/admin/staff`);
+      if (r.urgency === "high") await ctx.notify(`[베리라인 결재] 급한 답장 — ${m.fromName || m.from}`, `${r.summary || m.subject}\n${(process.env.PUBLIC_BASE_URL || "https://www.yume-reamer.com").replace(/\/+$/, "")}/admin/staff`);
     }
     await exec(
       `INSERT INTO mail_inbox (message_id, uid, from_addr, from_name, subject, received_at, category, needs_reply, summary, ref, approval_id, created_at)

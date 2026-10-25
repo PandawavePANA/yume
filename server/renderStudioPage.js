@@ -216,7 +216,7 @@ export function renderStudioPage() {
     <span class="sp"></span>
     <a class="ghost" href="/admin/desk" id="deskLink">의뢰 데스크</a>
     <a class="ghost" href="/admin/funnel">유입</a>
-    <a class="ghost" href="/admin">유메 운영</a>
+    <a class="ghost" href="/admin">베리라인 운영</a>
     <a class="ghost" href="/admin/p/ballast">밸러스트</a>
     <a class="ghost" href="/admin/p/aipick">아이픽</a>
     <a class="ghost" href="/admin/p/proba">프로바</a>
@@ -311,7 +311,7 @@ export function renderStudioPage() {
 
     var tiles =
       asset("var(--violet)", "외주", won(s.revenueOutsourcing), s.done + "건 완료") +
-      asset("var(--blue)", "유메", won(s.revenueYume), s.yumeOrders + "건");
+      asset("var(--blue)", "베리라인", won(s.revenueYume), s.yumeOrders + "건");
 
     // 제품마다 한 칸씩. 연결 안 한 것과 연결이 깨진 것을 0원으로 뭉개지 않는다 —
     // 0원은 "안 팔렸다"는 뜻인데, 사실은 "물어보지 않았다"거나 "못 물어봤다"이다.

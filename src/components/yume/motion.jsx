@@ -1,6 +1,6 @@
-// 유메의 움직임 — "문서를 검토하는 손"을 한 벌의 언어로 만든다.
+// 베리라인의 움직임 — "문서를 검토하는 손"을 한 벌의 언어로 만든다.
 //
-// 흔한 등장 효과(아래에서 떠오르기, 블러 걷히기)는 어느 서비스에나 있다. 유메가 하는 일은
+// 흔한 등장 효과(아래에서 떠오르기, 블러 걷히기)는 어느 서비스에나 있다. 베리라인이 하는 일은
 // 종이 위의 문장을 읽고, 밑줄을 긋고, 틀린 곳에 빨간 줄을 긋고, 맞는 곳에 형광펜을 칠하고,
 // 마지막에 도장을 찍는 일이다. 움직임도 거기서만 가져온다.
 //
@@ -25,8 +25,8 @@ import {
 } from "framer-motion";
 
 export const EASE = [0.22, 1, 0.36, 1];
-const INK = "#141118";
-const PURPLE = "#5B3FA0";
+const INK = "#0F1522";
+const PURPLE = "#2F6BFF";
 const RED = "#B8321F";
 const GREEN = "#1F8A57";
 
@@ -61,10 +61,10 @@ export function ScrollAtmosphere() {
     scrollYProgress,
     [0, 0.18, 0.34, 0.62, 0.86, 1],
     [
-      "rgba(91,63,160,0.13)",
+      "rgba(47, 107, 255,0.13)",
       "rgba(196,84,52,0.11)",
       "rgba(196,84,52,0.10)",
-      "rgba(91,63,160,0.12)",
+      "rgba(47, 107, 255,0.12)",
       "rgba(31,138,87,0.11)",
       "rgba(31,138,87,0.13)",
     ],
@@ -81,7 +81,7 @@ export function ScrollAtmosphere() {
         style={{
           position: "absolute", inset: "-68px -40px",
           y: reduce ? 0 : lineY, skewY: reduce ? 0 : skew,
-          backgroundImage: "repeating-linear-gradient(to bottom, transparent 0 33px, rgba(20,17,24,0.045) 33px 34px)",
+          backgroundImage: "repeating-linear-gradient(to bottom, transparent 0 33px, rgba(15, 21, 34,0.045) 33px 34px)",
           maskImage: "linear-gradient(to bottom, transparent, #000 18%, #000 82%, transparent)",
           WebkitMaskImage: "linear-gradient(to bottom, transparent, #000 18%, #000 82%, transparent)",
         }}
@@ -105,12 +105,12 @@ export function ScrollRail({ top = 0 }) {
     <div aria-hidden style={{ position: "fixed", left: 0, right: 0, top, height: 2, zIndex: 46, pointerEvents: "none" }}>
       <motion.div style={{
         height: "100%", transformOrigin: "0 50%", scaleX: x,
-        background: `linear-gradient(90deg, ${PURPLE}, #8A6BD4 60%, ${GREEN})`,
+        background: `linear-gradient(90deg, ${PURPLE}, #5B8CFF 60%, ${GREEN})`,
       }} />
       <motion.svg width="18" height="18" viewBox="0 0 18 18" initial={false}
         animate={done ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.6 }}
         transition={{ duration: 0.35, ease: EASE }}
-        style={{ position: "absolute", right: 10, top: 6, background: "#fff", borderRadius: 99, boxShadow: "0 2px 8px rgba(20,17,24,0.12)" }}>
+        style={{ position: "absolute", right: 10, top: 6, background: "#fff", borderRadius: 99, boxShadow: "0 2px 8px rgba(15, 21, 34,0.12)" }}>
         <motion.path d="M4.5 9.4 7.6 12.3 13.6 5.8" fill="none" stroke={GREEN} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
           initial={false} animate={{ pathLength: done ? 1 : 0 }} transition={{ duration: 0.45, ease: EASE, delay: 0.1 }} />
       </motion.svg>
@@ -184,7 +184,7 @@ export function InkStamp({ children, color = RED, rotate = -6, delay = 0.15, sty
 
 // ── 형광펜 ───────────────────────────────────────────────────────────────
 // 화면에 들어오면 왼쪽부터 칠해진다. 여러 줄이어도 한 번에 이어서 칠해진다(배경 한 장).
-export function Marker({ children, color = "rgba(138,107,212,0.28)", delay = 0.2 }) {
+export function Marker({ children, color = "rgba(91, 140, 255,0.28)", delay = 0.2 }) {
   const reduce = useReducedMotion();
   return (
     <motion.span
@@ -262,12 +262,12 @@ export function DocumentScan({ found = 0, width = 320 }) {
   return (
     <div aria-hidden style={{
       position: "relative", width, maxWidth: "82vw", padding: "16px 18px 16px 30px", borderRadius: 14,
-      background: "#fff", border: "1px solid rgba(20,17,24,0.10)", overflow: "hidden",
-      boxShadow: "0 1px 2px rgba(20,17,24,0.05), 0 12px 30px rgba(91,63,160,0.08)",
+      background: "#fff", border: "1px solid rgba(15, 21, 34,0.10)", overflow: "hidden",
+      boxShadow: "0 1px 2px rgba(15, 21, 34,0.05), 0 12px 30px rgba(47, 107, 255,0.08)",
     }}>
       <div style={{ position: "absolute", top: 0, bottom: 0, left: 18, width: 1, background: "rgba(184,50,31,0.25)" }} />
       {rows.map((w, i) => (
-        <div key={i} style={{ position: "relative", height: 8, margin: i ? "11px 0 0" : 0, width: `${w * 100}%`, borderRadius: 4, background: "rgba(20,17,24,0.07)" }}>
+        <div key={i} style={{ position: "relative", height: 8, margin: i ? "11px 0 0" : 0, width: `${w * 100}%`, borderRadius: 4, background: "rgba(15, 21, 34,0.07)" }}>
           <motion.span
             initial={{ scale: 0, opacity: 0 }}
             animate={i < found ? { scale: 1, opacity: 1 } : { scale: 0, opacity: 0 }}
@@ -281,7 +281,7 @@ export function DocumentScan({ found = 0, width = 320 }) {
           transition={{ duration: 1.8, ease: "easeInOut", repeat: Infinity, repeatType: "mirror" }}
           style={{
             position: "absolute", left: 0, right: 0, height: 44, pointerEvents: "none",
-            background: "linear-gradient(to bottom, transparent, rgba(138,107,212,0.20) 45%, rgba(138,107,212,0.55) 50%, rgba(138,107,212,0.20) 55%, transparent)",
+            background: "linear-gradient(to bottom, transparent, rgba(91, 140, 255,0.20) 45%, rgba(91, 140, 255,0.55) 50%, rgba(91, 140, 255,0.20) 55%, transparent)",
           }} />
       )}
     </div>
@@ -291,7 +291,7 @@ export function DocumentScan({ found = 0, width = 320 }) {
 // ── 대표 장면: 스크롤로 재생하는 팩트체크 ─────────────────────────────────────
 //
 // 이 섹션은 화면에 붙어 있고(sticky), 그 사이 스크롤한 거리가 곧 재생 위치다. 내리면 검토가
-// 진행되고 올리면 되감긴다 — 설명을 읽는 대신 유메가 일하는 걸 손으로 돌려 본다.
+// 진행되고 올리면 되감긴다 — 설명을 읽는 대신 베리라인이 일하는 걸 손으로 돌려 본다.
 //
 // 예시 답변은 실제 판정 방식을 그대로 재현한다. 맞는 조문(민법 제750조)은 초록 형광펜, 틀린
 // 기한은 빨간 줄과 고친 내용(민법 제766조), 실재하지 않는 사건번호는 글자가 흩어진다.
@@ -312,7 +312,7 @@ function Claim({ p, range, kind, children, t }) {
   const badLayers = useMotionTemplate`linear-gradient(${RED}, ${RED}) 0 58% / ${w}% 2px no-repeat, linear-gradient(${PURPLE}, ${PURPLE}) 0 100% / ${detect}% 1.5px no-repeat`;
   const plainLayers = useMotionTemplate`linear-gradient(${PURPLE}, ${PURPLE}) 0 100% / ${detect}% 1.5px no-repeat`;
   const layers = kind === "ok" ? okLayers : kind === "bad" ? badLayers : plainLayers;
-  const color = useTransform(p, [a, b], [INK, kind === "bad" ? "rgba(20,17,24,0.45)" : INK]);
+  const color = useTransform(p, [a, b], [INK, kind === "bad" ? "rgba(15, 21, 34,0.45)" : INK]);
   const blur = useTransform(p, [a, b], [0, kind === "gone" ? 2.2 : 0]);
   const spacing = useTransform(p, [a, b], [0, kind === "gone" ? 0.14 : 0]);
   const opacity = useTransform(p, [a, b], [1, kind === "gone" ? 0.38 : 1]);
@@ -376,19 +376,19 @@ export function FactCheckScene({ t = (s) => s, compact = false }) {
     }}>
       {/* 왼쪽: 지금 어느 단계인지 */}
       <div style={{ display: "grid", gap: compact ? 10 : 14 }}>
-        <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: "0.12em", color: "#7D5FC4" }}>{t("스크롤로 돌려 보는 검증")}</div>
+        <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: "0.12em", color: "#4A7DFF" }}>{t("스크롤로 돌려 보는 검증")}</div>
         <h2 style={{ fontSize: compact ? "clamp(24px, 6.4vw, 30px)" : "clamp(28px, 3.6vw, 42px)", fontWeight: 750, letterSpacing: "-0.035em", lineHeight: 1.18, margin: 0, color: INK, textWrap: "balance" }}>
-          {t("그럴듯한 답변 한 단락,")}<br />{t("유메가 읽으면 이렇게 됩니다.")}
+          {t("그럴듯한 답변 한 단락,")}<br />{t("베리라인이 읽으면 이렇게 됩니다.")}
         </h2>
         <ol style={{ listStyle: "none", margin: compact ? "4px 0 0" : "10px 0 0", padding: 0, display: "grid", gap: compact ? 6 : 10 }}>
           {SCENE_BEATS.map((b, i) => (
             <li key={b.label} style={{ display: "flex", gap: 12, alignItems: "baseline" }}>
-              <motion.span animate={{ color: beat >= i ? PURPLE : "rgba(20,17,24,0.28)", scale: beat === i ? 1.08 : 1 }} transition={{ duration: 0.3, ease: EASE }}
+              <motion.span animate={{ color: beat >= i ? PURPLE : "rgba(15, 21, 34,0.28)", scale: beat === i ? 1.08 : 1 }} transition={{ duration: 0.3, ease: EASE }}
                 style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 13, fontWeight: 700, minWidth: 22, display: "inline-block" }}>
                 {String(i + 1).padStart(2, "0")}
               </motion.span>
               <motion.span animate={{ opacity: beat >= i ? 1 : 0.4 }} transition={{ duration: 0.3 }} style={{ fontSize: compact ? 14 : 15.5, color: INK, lineHeight: 1.5 }}>
-                <b style={{ fontWeight: 700 }}>{t(b.label)}</b> <span style={{ color: "#54505E" }}>{t(b.desc)}</span>
+                <b style={{ fontWeight: 700 }}>{t(b.label)}</b> <span style={{ color: "#4A5468" }}>{t(b.desc)}</span>
               </motion.span>
             </li>
           ))}
@@ -399,20 +399,20 @@ export function FactCheckScene({ t = (s) => s, compact = false }) {
       <motion.div style={{ y: cardY, opacity: cardOpacity, position: "relative" }}>
         <motion.div style={{
           position: "relative", background: "#fff", borderRadius: 18, overflow: "hidden",
-          border: "1px solid rgba(20,17,24,0.10)", boxShadow: "0 1px 2px rgba(20,17,24,0.05), 0 24px 60px rgba(40,24,90,0.10)",
+          border: "1px solid rgba(15, 21, 34,0.10)", boxShadow: "0 1px 2px rgba(15, 21, 34,0.05), 0 24px 60px rgba(20, 35, 80,0.10)",
           padding: compact ? "18px 18px 40px 30px" : "24px 26px 26px 40px",
         }}>
           <motion.div aria-hidden style={{ position: "absolute", inset: 0, background: warm, pointerEvents: "none" }} />
           {/* 괘선 + 여백선 — 검토 용지 */}
           <div aria-hidden style={{
             position: "absolute", inset: 0, pointerEvents: "none",
-            backgroundImage: "repeating-linear-gradient(to bottom, transparent 0 29px, rgba(20,17,24,0.05) 29px 30px)",
+            backgroundImage: "repeating-linear-gradient(to bottom, transparent 0 29px, rgba(15, 21, 34,0.05) 29px 30px)",
           }} />
           <div aria-hidden style={{ position: "absolute", top: 0, bottom: 0, left: compact ? 18 : 24, width: 1, background: "rgba(184,50,31,0.28)" }} />
 
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, position: "relative" }}>
             <span style={{ fontSize: 11.5, fontWeight: 700, color: "#fff", background: INK, borderRadius: 6, padding: "2px 8px" }}>AI</span>
-            <span style={{ fontSize: 12.5, color: "#8B8694" }}>{t("예시 답변")}</span>
+            <span style={{ fontSize: 12.5, color: "#8A93A6" }}>{t("예시 답변")}</span>
             <span style={{ marginLeft: "auto", fontFamily: "ui-monospace, Menlo, monospace", fontSize: 12, color: PURPLE }}>
               {t("주장 {n}개", { n: foundN })}
             </span>
@@ -437,7 +437,7 @@ export function FactCheckScene({ t = (s) => s, compact = false }) {
           {/* 훑는 빛 */}
           <motion.div aria-hidden style={{
             position: "absolute", left: 0, right: 0, height: 64, top: beamTop, opacity: beamOpacity, pointerEvents: "none",
-            background: "linear-gradient(to bottom, transparent, rgba(138,107,212,0.16) 40%, rgba(138,107,212,0.5) 50%, rgba(138,107,212,0.16) 60%, transparent)",
+            background: "linear-gradient(to bottom, transparent, rgba(91, 140, 255,0.16) 40%, rgba(91, 140, 255,0.5) 50%, rgba(91, 140, 255,0.16) 60%, transparent)",
           }} />
         </motion.div>
 
@@ -486,10 +486,10 @@ export function ScrollLine({ progress, vertical = false, color = PURPLE }) {
     <div aria-hidden style={{
       position: "absolute", pointerEvents: "none",
       ...(vertical ? { left: 22, top: 30, bottom: 30, width: 2 } : { left: "8%", right: "8%", top: 44, height: 2 }),
-      background: "rgba(20,17,24,0.06)", borderRadius: 2,
+      background: "rgba(15, 21, 34,0.06)", borderRadius: 2,
     }}>
       <motion.div style={{
-        position: "absolute", inset: 0, borderRadius: 2, background: `linear-gradient(${vertical ? "180deg" : "90deg"}, ${color}, #8A6BD4)`,
+        position: "absolute", inset: 0, borderRadius: 2, background: `linear-gradient(${vertical ? "180deg" : "90deg"}, ${color}, #5B8CFF)`,
         transformOrigin: vertical ? "50% 0" : "0 50%", ...(vertical ? { scaleY: scale } : { scaleX: scale }),
       }} />
     </div>

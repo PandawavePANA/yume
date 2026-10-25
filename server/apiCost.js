@@ -13,7 +13,7 @@ const PRICING = {
   "claude-sonnet-5": { in: 2 / 1e6, out: 10 / 1e6, cachedIn: 0.2 / 1e6 },
   "claude-opus-5": { in: 5 / 1e6, out: 25 / 1e6, cachedIn: 0.5 / 1e6 },
   "claude-haiku-4-5-20251001": { in: 1 / 1e6, out: 5 / 1e6, cachedIn: 0.1 / 1e6 },
-  // 유메 AI(대화) 등급 모델
+  // 베리라인 AI(대화) 등급 모델
   "claude-haiku-5-5": { in: 0.1 / 1e6, out: 0.5 / 1e6, cachedIn: 0.01 / 1e6 },
   "claude-sonnet-5-5": { in: 2 / 1e6, out: 10 / 1e6, cachedIn: 0.2 / 1e6 },
   "claude-opus-5-5": { in: 4 / 1e6, out: 20 / 1e6, cachedIn: 0.2 / 1e6 },

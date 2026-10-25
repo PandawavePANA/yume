@@ -514,7 +514,7 @@ test("닉네임 규칙 — 길이·문자·사칭", () => {
   assert.ok(contribution.nicknameProblem("ㅇ"), "2자 미만");
   assert.ok(contribution.nicknameProblem("가".repeat(17)), "17자 초과");
   assert.ok(contribution.nicknameProblem("hello world"), "공백 불가");
-  assert.ok(contribution.nicknameProblem("유메운영자"), "사칭 소지");
+  assert.ok(contribution.nicknameProblem("베리라인운영자"), "사칭 소지");
   assert.ok(contribution.nicknameProblem("YUME_admin"), "사칭 소지");
   assert.equal(contribution.nicknameProblem("달빛탐정"), null);
   assert.equal(contribution.nicknameProblem("moon_light-2"), null);

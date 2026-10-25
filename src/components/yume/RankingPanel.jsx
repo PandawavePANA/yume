@@ -16,11 +16,11 @@ import { t, useLang } from "../../i18n.js";
 const MEDAL = ["🥇", "🥈", "🥉"];
 
 const UI = {
-  ink: "#1D1A24",
-  ink2: "#5E5870",
-  ink3: "#9A93AC",
-  accent: "#6B4FA8",
-  hairline: "rgba(60, 40, 110, 0.10)",
+  ink: "#0F1522",
+  ink2: "#4A5468",
+  ink3: "#8A93A6",
+  accent: "#2F6BFF",
+  hairline: "rgba(30, 45, 90, 0.10)",
 };
 
 const REASON = {
@@ -71,7 +71,7 @@ export default function RankingPanel({ active, loggedIn, onNeedLogin }) {
       {/* 어떤 행동이 몇 점인지. 점수를 올리려면 무엇을 해야 하는지가 여기서 정해진다. */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
         {[["검증", data.scoring.verify], ["초대", data.scoring.referral], ["발견", data.scoring.finding], ["제보", data.scoring.report], ["판정 정정", data.scoring.correction]].filter(([, pts]) => pts != null).map(([label, pts]) => (
-          <div key={label} style={{ padding: "8px 10px", borderRadius: 10, background: "#FBF8FF", border: `1px solid ${UI.hairline}`, display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+          <div key={label} style={{ padding: "8px 10px", borderRadius: 10, background: "#F5F8FF", border: `1px solid ${UI.hairline}`, display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
             <span style={{ fontSize: 11.5, color: UI.ink3 }}>{t(label)}</span>
             <b style={{ fontSize: 13.5, color: UI.accent, fontVariantNumeric: "tabular-nums" }}>{pts.toLocaleString()}</b>
           </div>
@@ -79,12 +79,12 @@ export default function RankingPanel({ active, loggedIn, onNeedLogin }) {
       </div>
 
       {/* 내 점수 — 남의 순위보다 내 숫자가 먼저 궁금하다. */}
-      <div style={{ marginTop: 10, padding: "13px 14px", borderRadius: 13, background: "linear-gradient(135deg,#F3EBFF,#EDE4FC)" }}>
-        <div style={{ fontSize: 11, color: "#6E6389", fontWeight: 700 }}>{t("내 공헌도")}</div>
-        <div style={{ fontSize: 25, fontWeight: 800, color: "#4E3391", letterSpacing: "-0.02em", fontVariantNumeric: "tabular-nums", lineHeight: 1.25 }}>
+      <div style={{ marginTop: 10, padding: "13px 14px", borderRadius: 13, background: "linear-gradient(135deg,#EAF0FF,#EDE4FC)" }}>
+        <div style={{ fontSize: 11, color: "#4F5A72", fontWeight: 700 }}>{t("내 공헌도")}</div>
+        <div style={{ fontSize: 25, fontWeight: 800, color: "#1F54E0", letterSpacing: "-0.02em", fontVariantNumeric: "tabular-nums", lineHeight: 1.25 }}>
           {data.points.toLocaleString()}
         </div>
-        <div style={{ fontSize: 11.5, color: "#6E6389", lineHeight: 1.5 }}>
+        <div style={{ fontSize: 11.5, color: "#4F5A72", lineHeight: 1.5 }}>
           {data.rank ? `${data.name} · ${t("전체 {n}위", { n: data.rank })}` : t("아직 점수가 없어요 — 검증을 한 번 해보세요")}
         </div>
       </div>
@@ -103,7 +103,7 @@ export default function RankingPanel({ active, loggedIn, onNeedLogin }) {
             "몇 명만 더 오면 상이 올라간다"는 사람을 데려올 이유가 되고,
             데려온 사람이 또 순위를 다툰다. 남은 수를 숨기면 그 고리가 끊긴다. */}
         {data.nextTier && (
-          <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid rgba(20,17,24,0.08)" }}>
+          <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid rgba(15, 21, 34,0.08)" }}>
             <div style={{ fontSize: 11.5, color: "#8A5A14", fontWeight: 700, marginBottom: 6, lineHeight: 1.5 }}>
               {t("{n}명 더 모이면 상이 올라갑니다", { n: data.nextTier.remaining.toLocaleString() })}
             </div>
@@ -132,7 +132,7 @@ export default function RankingPanel({ active, loggedIn, onNeedLogin }) {
           return (
             <div key={r.userId} style={{
               display: "flex", alignItems: "center", gap: 8, padding: "7px 8px", borderRadius: 9,
-              background: mine ? "rgba(139,111,216,0.10)" : "transparent",
+              background: mine ? "rgba(91, 140, 255,0.10)" : "transparent",
               borderBottom: `1px solid ${UI.hairline}`,
             }}>
               <span style={{ width: 22, flex: "none", fontSize: r.rank <= 3 ? 14 : 11.5, fontWeight: 700, color: UI.ink3, textAlign: "center", fontVariantNumeric: "tabular-nums" }}>

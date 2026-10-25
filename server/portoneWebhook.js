@@ -40,7 +40,7 @@ router.post("/portone/webhook", express.raw({ type: "*/*", limit: "256kb" }), as
     const paymentId = event?.data?.paymentId;
     if (!paymentId) return res.json({ ok: true, ignored: type });
 
-    // 결제는 두 갈래다 — 유메 크레딧/요금제와, 리머 사이트에서 보낸 견적.
+    // 결제는 두 갈래다 — 베리라인 크레딧/요금제와, 리머 사이트에서 보낸 견적.
     // 주문번호가 어느 쪽 표에 있는지로 갈린다.
     const order = await getOrder(String(paymentId));
     if (!order) {

@@ -76,13 +76,13 @@ function makeZip(files) {
 
 test("워드(DOCX) 본문 — 문단은 줄바꿈, 표 안 글자와 엔티티까지", async () => {
   const xml = `<w:document><w:body>
-    <w:p><w:r><w:t>리머는 2026년</w:t></w:r><w:r><w:t xml:space="preserve"> 유메를 출시했습니다.</w:t></w:r></w:p>
+    <w:p><w:r><w:t>리머는 2026년</w:t></w:r><w:r><w:t xml:space="preserve"> 베리라인을 출시했습니다.</w:t></w:r></w:p>
     <w:tbl><w:tr><w:tc><w:p><w:r><w:t>요금 &amp; 한도</w:t></w:r></w:p></w:tc></w:tr></w:tbl>
     <w:p><w:r><w:t>끝</w:t><w:tab/><w:t>문단</w:t></w:r></w:p>
   </w:body></w:document>`;
   const buf = makeZip([["[Content_Types].xml", "<Types/>", false], ["word/document.xml", xml, true]]);
   const text = await extractFileText({ name: "보도자료.docx", buffer: buf });
-  assert.equal(text, "리머는 2026년 유메를 출시했습니다.\n요금 & 한도\n끝\t문단");
+  assert.equal(text, "리머는 2026년 베리라인을 출시했습니다.\n요금 & 한도\n끝\t문단");
 });
 
 test("한글(HWPX) 본문 — 구역 순서대로", async () => {
@@ -104,7 +104,7 @@ test("옛 한글(HWP)·손상된 파일·빈 파일은 이유를 알려주고 �
 });
 
 test("텍스트 파일 — UTF-8과 EUC-KR(국내 기관 파일) 둘 다 읽는다", async () => {
-  assert.equal(await extractFileText({ name: "a.txt", buffer: Buffer.from("﻿안녕하세요\r\n유메", "utf8") }), "안녕하세요\n유메");
+  assert.equal(await extractFileText({ name: "a.txt", buffer: Buffer.from("﻿안녕하세요\r\n베리라인", "utf8") }), "안녕하세요\n베리라인");
   const euckr = Buffer.from([0xbe, 0xc8, 0xb3, 0xe7]); // "안녕"
   assert.equal(await extractFileText({ name: "b.txt", buffer: euckr }), "안녕");
 });

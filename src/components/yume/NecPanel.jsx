@@ -9,7 +9,7 @@ function Meter({ label, value, hint, invert = false }) {
   const pct = Math.round((value || 0) * 100);
   return (
     <div style={{ marginBottom: 10 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5, color: "#6E6389", marginBottom: 4 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5, color: "#4F5A72", marginBottom: 4 }}>
         <span>{label}</span>
         <span style={{ fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{(value || 0).toFixed(2)}</span>
       </div>
@@ -18,10 +18,10 @@ function Meter({ label, value, hint, invert = false }) {
           initial={{ width: 0 }}
           animate={{ width: `${pct}%` }}
           transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-          style={{ height: "100%", background: invert ? "linear-gradient(90deg,#F3C98B,#D9822B)" : "#5B3FA0" }}
+          style={{ height: "100%", background: invert ? "linear-gradient(90deg,#F3C98B,#D9822B)" : "#2F6BFF" }}
         />
       </div>
-      {hint && <div style={{ fontSize: 11, color: "#A99BC9", marginTop: 3, lineHeight: 1.5 }}>{hint}</div>}
+      {hint && <div style={{ fontSize: 11, color: "#9AA6BF", marginTop: 3, lineHeight: 1.5 }}>{hint}</div>}
     </div>
   );
 }
@@ -43,7 +43,7 @@ export default function NecPanel({ nec }) {
   const similar = nec.proximity?.similar || [];
 
   return (
-    <div style={{ marginTop: 10, borderRadius: 10, border: `1px solid ${sure ? "#EEC3B9" : "rgba(20,17,24,0.12)"}`, background: sure ? "#FFFBFA" : "#FCFBFE" }}>
+    <div style={{ marginTop: 10, borderRadius: 10, border: `1px solid ${sure ? "#EEC3B9" : "rgba(15, 21, 34,0.12)"}`, background: sure ? "#FFFBFA" : "#FCFBFE" }}>
       <button
         onClick={() => setOpen((o) => !o)}
         style={{
@@ -54,16 +54,16 @@ export default function NecPanel({ nec }) {
         <span style={{
           flexShrink: 0, fontSize: 17, fontWeight: 700, fontVariantNumeric: "tabular-nums",
           fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace', letterSpacing: "-0.02em",
-          color: sure ? "#A32B1A" : "#5B3FA0",
+          color: sure ? "#A32B1A" : "#2F6BFF",
         }}>{Number(nec.score).toFixed(2)}</span>
         <span style={{ flex: 1, minWidth: 0 }}>
-          <span style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#141118" }}>
+          <span style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#0F1522" }}>
             {t("부존재 신뢰도")} · {gradeText(nec)}
           </span>
-          <span style={{ display: "block", fontSize: 11.5, color: "#8B8694", lineHeight: 1.5 }}>
-            <span style={{ whiteSpace: "nowrap", fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace', fontSize: "0.95em", color: "#54505E" }}>{nec.identifier?.value || nec.identifier?.canonical}</span> — {nec.identifier?.searchSpace}
+          <span style={{ display: "block", fontSize: 11.5, color: "#8A93A6", lineHeight: 1.5 }}>
+            <span style={{ whiteSpace: "nowrap", fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace', fontSize: "0.95em", color: "#4A5468" }}>{nec.identifier?.value || nec.identifier?.canonical}</span> — {nec.identifier?.searchSpace}
             {/* 좁은 폰에서 식별자가 쪼개지지 않게, 펼치기 안내는 별도 칸이 아니라 설명 끝에 붙인다 */}
-            <span style={{ color: "#9C8FC2", whiteSpace: "nowrap", marginLeft: 8 }}>{open ? "접기 ▴" : "근거 보기 ▾"}</span>
+            <span style={{ color: "#8A97B3", whiteSpace: "nowrap", marginLeft: 8 }}>{open ? "접기 ▴" : "근거 보기 ▾"}</span>
           </span>
         </span>
       </button>
@@ -92,30 +92,30 @@ export default function NecPanel({ nec }) {
               <Meter label="유사항목 근접도 P" value={nec.proximity?.value} hint={similar.length ? null : "가까운 실재 항목이 없어요"} />
               {similar.length > 0 && (
                 <div style={{ margin: "4px 0 10px" }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: "#141118", marginBottom: 4 }}>{t("혹시 이것을 말한 걸까요?")}</div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#0F1522", marginBottom: 4 }}>{t("혹시 이것을 말한 걸까요?")}</div>
                   {similar.map((s, i) => (
                     <div key={i} style={{ fontSize: 12, marginBottom: 3 }}>
                       {safeUrl(s.url) ? (
-                        <a href={safeUrl(s.url)} target="_blank" rel="noreferrer" style={{ color: "#6B4FA8", fontWeight: 600 }}>{s.value}</a>
+                        <a href={safeUrl(s.url)} target="_blank" rel="noreferrer" style={{ color: "#2F6BFF", fontWeight: 600 }}>{s.value}</a>
                       ) : (
                         <span style={{ fontWeight: 600 }}>{s.value}</span>
                       )}
-                      {s.title && <span style={{ color: "#8577A8" }}> {s.title}</span>}
-                      <span style={{ color: "#B6A9D6" }}> · 유사도 {Number(s.similarity).toFixed(2)}</span>
+                      {s.title && <span style={{ color: "#7B87A1" }}> {s.title}</span>}
+                      <span style={{ color: "#AEB9D1" }}> · 유사도 {Number(s.similarity).toFixed(2)}</span>
                     </div>
                   ))}
                 </div>
               )}
-              <div style={{ fontSize: 11.5, color: "#8577A8", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", margin: "6px 0 4px" }}>
+              <div style={{ fontSize: 11.5, color: "#7B87A1", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", margin: "6px 0 4px" }}>
                 NEC = {nec.weights.w1}·C + {nec.weights.w2}·F + {nec.weights.w3}·(1 − P) {sure ? "≥" : "<"} {nec.threshold}
               </div>
               {nec.uncovered?.length > 0 && (
                 <div style={{ marginTop: 10 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: "#141118", marginBottom: 4 }}>{t("아직 확인하지 못한 영역")}</div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#0F1522", marginBottom: 4 }}>{t("아직 확인하지 못한 영역")}</div>
                   {nec.uncovered.map((u, i) => (
                     <div key={i} style={{ fontSize: 12, marginBottom: 6 }}>
                       <div>{u.area}</div>
-                      <div style={{ color: "#6B4FA8" }}>→ {u.howToCheck}</div>
+                      <div style={{ color: "#2F6BFF" }}>→ {u.howToCheck}</div>
                     </div>
                   ))}
                 </div>

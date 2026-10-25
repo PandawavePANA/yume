@@ -2,10 +2,10 @@
 // 별개의 정적 서버 렌더링 페이지. React 클라이언트 라우팅을 새로 붙이는 대신
 // (SPA에는 아직 라우터가 없다) 이 결과 하나만 보여주는 용도로 가볍게 만들었다.
 //
-// 진짜 유메 사이트의 검증 카드(맥 창 점 3개 헤더, 스피너, 판정 배지 색상 등)와
+// 진짜 베리라인 사이트의 검증 카드(맥 창 점 3개 헤더, 스피너, 판정 배지 색상 등)와
 // 최대한 똑같이 보이도록 YumeDashboard.jsx에 있는 색상표(VERDICT/VBG/VBORDER/
 // OVERALL_TONE)와 마크업 구조를 그대로 옮겨왔다 — 카카오로 받은 사람이 "어? 이거
-// 딴 페이지네" 싶지 않게, 진짜 유메 결과 화면을 보고 있다는 느낌을 주기 위해서다.
+// 딴 페이지네" 싶지 않게, 진짜 베리라인 결과 화면을 보고 있다는 느낌을 주기 위해서다.
 //
 // status가 "pending"이면 검증이 아직 끝나지 않은 것 — 카카오 스킬이 5초 안에
 // 응답해야 해서, 검증이 끝나기 전에 이 링크부터 먼저 보낸다. 그래서 이 페이지는
@@ -55,9 +55,9 @@ function safeUrl(u) {
 function bar(label, value, hint) {
   const pct = Math.round((value || 0) * 100);
   return `<div style="margin-bottom:8px;">
-    <div style="display:flex;justify-content:space-between;font-size:11.5px;color:#6E6389;margin-bottom:3px;"><span>${esc(label)}</span><span style="font-variant-numeric:tabular-nums;font-weight:700;">${(value || 0).toFixed(2)}</span></div>
-    <div style="height:6px;border-radius:999px;background:#EFE6FA;overflow:hidden;"><div style="width:${pct}%;height:100%;background:linear-gradient(90deg,#B49AEE,#6B4FA8);"></div></div>
-    ${hint ? `<div style="font-size:11px;color:#A99BC9;margin-top:3px;">${esc(hint)}</div>` : ""}
+    <div style="display:flex;justify-content:space-between;font-size:11.5px;color:#4F5A72;margin-bottom:3px;"><span>${esc(label)}</span><span style="font-variant-numeric:tabular-nums;font-weight:700;">${(value || 0).toFixed(2)}</span></div>
+    <div style="height:6px;border-radius:999px;background:#EFE6FA;overflow:hidden;"><div style="width:${pct}%;height:100%;background:linear-gradient(90deg,#B49AEE,#2F6BFF);"></div></div>
+    ${hint ? `<div style="font-size:11px;color:#9AA6BF;margin-top:3px;">${esc(hint)}</div>` : ""}
   </div>`;
 }
 
@@ -66,15 +66,15 @@ export function necPanelHtml(nec) {
   if (!nec) return "";
   const sure = nec.grade === "nonexistent";
   const similar = (nec.proximity?.similar || [])
-    .map((s) => `<li style="margin-bottom:3px;"><a href="${esc(safeUrl(s.url))}" style="color:#6B4FA8;">${esc(s.value)}</a>${s.title ? ` <span style="color:#9C8FC2;">${esc(s.title)}</span>` : ""} <span style="color:#B6A9D6;">(유사도 ${Number(s.similarity).toFixed(2)})</span></li>`)
+    .map((s) => `<li style="margin-bottom:3px;"><a href="${esc(safeUrl(s.url))}" style="color:#2F6BFF;">${esc(s.value)}</a>${s.title ? ` <span style="color:#8A97B3;">${esc(s.title)}</span>` : ""} <span style="color:#AEB9D1;">(유사도 ${Number(s.similarity).toFixed(2)})</span></li>`)
     .join("");
   const uncovered = (nec.uncovered || [])
-    .map((u) => `<li style="margin-bottom:4px;"><b style="color:#4C5266;">${esc(u.area)}</b><br/><span style="color:#8577A8;">→ ${esc(u.howToCheck)}</span></li>`)
+    .map((u) => `<li style="margin-bottom:4px;"><b style="color:#4C5266;">${esc(u.area)}</b><br/><span style="color:#7B87A1;">→ ${esc(u.howToCheck)}</span></li>`)
     .join("");
   const failing = (nec.formatError?.checks || []).filter((c) => c.score > 0).map((c) => `${c.name}: ${c.note}`).join(" / ");
   return `<details style="margin-top:10px;border:1px solid #E3D9F2;border-radius:12px;background:#FCFAFF;">
-    <summary style="cursor:pointer;padding:10px 12px;font-size:12.5px;font-weight:700;color:#5B3FA0;">
-      부존재 신뢰도 ${Number(nec.score).toFixed(2)} · ${esc(necGradeText(nec))} <span style="font-weight:500;color:#A99BC9;">(기준 ${nec.threshold}) — 판정 근거 보기</span>
+    <summary style="cursor:pointer;padding:10px 12px;font-size:12.5px;font-weight:700;color:#2F6BFF;">
+      부존재 신뢰도 ${Number(nec.score).toFixed(2)} · ${esc(necGradeText(nec))} <span style="font-weight:500;color:#9AA6BF;">(기준 ${nec.threshold}) — 판정 근거 보기</span>
     </summary>
     <div style="padding:4px 14px 14px;font-size:12.5px;color:#4C5266;line-height:1.6;">
       <div style="margin-bottom:8px;">${esc(nec.summary || "")}</div>
@@ -83,7 +83,7 @@ export function necPanelHtml(nec) {
       ${bar("형식오류 지수 F", nec.formatError?.value, failing || "형식 오류 없음")}
       ${bar("유사항목 근접도 P", nec.proximity?.value, similar ? "" : "가까운 실재 항목 없음")}
       ${similar ? `<div style="font-size:12px;margin:6px 0 8px;"><b>혹시 이것인가요?</b><ul style="margin:4px 0 0 16px;padding:0;">${similar}</ul></div>` : ""}
-      <div style="font-size:11.5px;color:#8577A8;margin:6px 0;">NEC = ${nec.weights.w1}·C + ${nec.weights.w2}·F + ${nec.weights.w3}·(1 − P) ${sure ? "≥" : "<"} ${nec.threshold}</div>
+      <div style="font-size:11.5px;color:#7B87A1;margin:6px 0;">NEC = ${nec.weights.w1}·C + ${nec.weights.w2}·F + ${nec.weights.w3}·(1 − P) ${sure ? "≥" : "<"} ${nec.threshold}</div>
       ${uncovered ? `<div style="margin-top:8px;"><b>아직 확인하지 못한 영역</b><ul style="margin:4px 0 0 16px;padding:0;">${uncovered}</ul></div>` : ""}
     </div>
   </details>`;
@@ -111,18 +111,18 @@ const BASE_STYLE = `
   body {
     margin: 0; font-family: -apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI','Noto Sans KR',sans-serif;
     background: radial-gradient(ellipse 80% 60% at 50% -10%, #D3B8F5 0%, #E3CDF7 40%, #F1E3FA 75%, #F8F0FC 100%);
-    color: #241F33; min-height: 100vh;
+    color: #121827; min-height: 100vh;
   }
   .wrap { max-width: 640px; margin: 0 auto; padding: 40px 18px 60px; }
-  .card { background: #fff; border-radius: 20px; border: 1px solid #D9BFF0; box-shadow: 0 1px 2px rgba(107,79,168,0.08), 0 16px 44px rgba(107,79,168,0.22); overflow: hidden; }
+  .card { background: #fff; border-radius: 20px; border: 1px solid #D9BFF0; box-shadow: 0 1px 2px rgba(47, 107, 255,0.08), 0 16px 44px rgba(47, 107, 255,0.22); overflow: hidden; }
   .card-header { display: flex; align-items: center; gap: 8px; padding: 14px 20px; border-bottom: 1px solid #E3CEF5; }
   .dot { width: 9px; height: 9px; border-radius: 999px; display: inline-block; }
-  .card-title { margin-left: 10px; font-size: 12.5px; color: #A99BC9; font-weight: 500; }
+  .card-title { margin-left: 10px; font-size: 12.5px; color: #9AA6BF; font-weight: 500; }
   .card-body { padding: 24px; }
   .input-box { background: #F1E6FB; border: 1px solid #DEC8F2; border-radius: 12px; padding: 16px; margin-bottom: 16px; font-size: 14.5px; color: #33363F; line-height: 1.75; white-space: pre-wrap; }
   .section-label { font-size: 12px; font-weight: 700; color: #8B7FD8; letter-spacing: 0.03em; margin: 24px 0 12px; }
-  .footer { text-align: center; font-size: 12px; color: #A99BC9; margin-top: 20px; }
-  a.cta { display: block; text-align: center; margin-top: 20px; background: linear-gradient(90deg,#B49AEE,#6B4FA8); color: #fff; text-decoration: none; font-weight: 600; font-size: 14.5px; padding: 13px 0; border-radius: 12px; }
+  .footer { text-align: center; font-size: 12px; color: #9AA6BF; margin-top: 20px; }
+  a.cta { display: block; text-align: center; margin-top: 20px; background: linear-gradient(90deg,#B49AEE,#2F6BFF); color: #fff; text-decoration: none; font-weight: 600; font-size: 14.5px; padding: 13px 0; border-radius: 12px; }
   @keyframes yume-spin { to { transform: rotate(360deg); } }
 `;
 
@@ -146,7 +146,7 @@ function resultNotice(claims) {
     d.has("법률") && "이 결과는 인용된 법령·판례가 실재하고 원문과 맞는지 확인한 정보이며, 법률 자문이 아닙니다. 개별 사안은 변호사와 상담하세요.",
     d.has("의료") && "의료 정보는 진단이나 처방이 아닙니다. 치료와 복약은 의사·약사와 상담하세요.",
     d.has("금융") && "금융 정보는 투자 권유나 자문이 아닙니다. 상품 가입 전에는 약관과 설명서를 직접 확인하세요.",
-    "유메는 주장 추출과 고친 문장 작성에 생성형 AI를 사용합니다. 판정은 출처 원문과 대조한 결과이며, '확인되지 않음'은 거짓이라는 뜻이 아니라 근거를 찾지 못했다는 뜻입니다. 중요한 결정은 출처 링크로 직접 확인하세요.",
+    "베리라인은 주장 추출과 고친 문장 작성에 생성형 AI를 사용합니다. 판정은 출처 원문과 대조한 결과이며, '확인되지 않음'은 거짓이라는 뜻이 아니라 근거를 찾지 못했다는 뜻입니다. 중요한 결정은 출처 링크로 직접 확인하세요.",
   ].filter(Boolean).join(" ");
 }
 
@@ -156,7 +156,7 @@ function page({ head = "", cardBody, footer = "" }) {
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<title>유메 검증 결과</title>
+<title>베리라인 검증 결과</title>
 <!-- 결과 페이지에는 이용자가 붙여넣은 원문이 보이므로, 링크가 공개된 곳에 공유돼도 검색엔진에 올라가지 않게 한다. -->
 <meta name="robots" content="noindex, nofollow" />
 ${head}
@@ -168,7 +168,7 @@ ${head}
       ${cardHeader()}
       <div class="card-body">${cardBody}</div>
     </div>
-    <a class="cta" href="${esc(ctaHref)}">유메로 직접 확인해보기 →</a>
+    <a class="cta" href="${esc(ctaHref)}">베리라인으로 직접 확인해보기 →</a>
     ${footer}
   </div>
 </body>
@@ -184,12 +184,12 @@ export function renderResultPage({ id, input, status, result, createdAt, ref = n
       cardBody: `
         ${inputBox(input)}
         <div style="display:flex;flex-direction:column;align-items:center;padding:40px 0 12px;gap:14px;">
-          <div style="width:28px;height:28px;border-radius:999px;border:3px solid #D4BEF0;border-top-color:#8B7FD8;animation:yume-spin 0.8s linear infinite;"></div>
+          <div style="width:28px;height:28px;border-radius:999px;border:3px solid #C9D8FF;border-top-color:#8B7FD8;animation:yume-spin 0.8s linear infinite;"></div>
           <div style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:#8B7FD8;background:#F1E6FB;border-radius:999px;padding:4px 12px;">
             <span style="font-variant-numeric:tabular-nums;">${elapsedSec}초</span> 동안 확인하는 중…
           </div>
-          <div style="font-size:14px;color:#9C8FC2;text-align:center;max-width:420px;padding:0 16px;">AI 답변에서 사실 주장을 추출하고 실시간으로 검색하는 중…</div>
-          <div style="font-size:12px;color:#B6A9D6;">주장마다 원문을 직접 열어 확인해서 1~2분 걸릴 수 있어요 · 이 페이지는 4초마다 자동으로 새로고침됩니다</div>
+          <div style="font-size:14px;color:#8A97B3;text-align:center;max-width:420px;padding:0 16px;">AI 답변에서 사실 주장을 추출하고 실시간으로 검색하는 중…</div>
+          <div style="font-size:12px;color:#AEB9D1;">주장마다 원문을 직접 열어 확인해서 1~2분 걸릴 수 있어요 · 이 페이지는 4초마다 자동으로 새로고침됩니다</div>
         </div>`,
       footer: `<div class="footer">${businessLine()}<br/>id: ${esc(id)}</div>`,
     });
@@ -199,7 +199,7 @@ export function renderResultPage({ id, input, status, result, createdAt, ref = n
     return page({
       cardBody: `
         ${inputBox(input)}
-        <div style="padding:14px 16px;border-radius:12px;background:#FBEDEA;border:1px solid #F0BCB0;font-size:13.5px;color:#2A2440;line-height:1.6;">
+        <div style="padding:14px 16px;border-radius:12px;background:#FBEDEA;border:1px solid #F0BCB0;font-size:13.5px;color:#121827;line-height:1.6;">
           확인 중 오류가 발생했어요. 다시 한번 요청해주세요. 이번 요청은 이용 횟수에서 차감되지 않아요.
         </div>`,
     });
@@ -210,24 +210,24 @@ export function renderResultPage({ id, input, status, result, createdAt, ref = n
     .map((c) => {
       const v = VERDICT[c.verdict] || VERDICT.uncertain;
       const officialBadge = c.verified_via === "official"
-        ? `<span style="font-size:11px;font-weight:700;color:#6B4FA8;background:#EDE4FB;border-radius:999px;padding:2px 9px;">법제처 공식 확인${c.effective_date ? ` · ${esc(c.effective_date)} 시행 기준` : ""}</span>`
+        ? `<span style="font-size:11px;font-weight:700;color:#2F6BFF;background:#EDE4FB;border-radius:999px;padding:2px 9px;">법제처 공식 확인${c.effective_date ? ` · ${esc(c.effective_date)} 시행 기준` : ""}</span>`
         : c.verified_via === "nec"
         ? `<span style="font-size:11px;font-weight:700;color:#8E3B2F;background:#FBE9E7;border-radius:999px;padding:2px 9px;">부존재 신뢰도 판정</span>`
         : c.verified_via === "research"
         ? `<span style="font-size:11px;font-weight:700;color:#1F6FA8;background:#E4F0F8;border-radius:999px;padding:2px 9px;">심층 재확인</span>`
         : c.verified_via === "unavailable"
-        ? `<span style="font-size:11px;font-weight:700;color:#9C8FC2;background:#F1ECFA;border-radius:999px;padding:2px 9px;">공식 API 미연동</span>`
+        ? `<span style="font-size:11px;font-weight:700;color:#8A97B3;background:#F1ECFA;border-radius:999px;padding:2px 9px;">공식 API 미연동</span>`
         : "";
       return `
         <div style="display:flex;gap:12px;padding:16px;border-radius:14px;background:${VBG[c.verdict] || VBG.uncertain};border:1px solid ${VBORDER[c.verdict] || VBORDER.uncertain};margin-bottom:12px;">
           <span style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:999px;background:${v.bg};color:${v.color};font-size:13.5px;font-weight:700;flex-shrink:0;margin-top:1px;">${v.glyph}</span>
           <div>
-            <div style="font-size:12px;font-weight:700;letter-spacing:0.01em;color:#8577A8;margin-bottom:6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+            <div style="font-size:12px;font-weight:700;letter-spacing:0.01em;color:#7B87A1;margin-bottom:6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
               <span>${esc(c.domain || "")} · <span style="color:${v.color};">${v.label}</span></span>
               ${officialBadge}
             </div>
-            <div style="font-size:15px;font-weight:600;color:#241F33;line-height:1.6;margin-bottom:5px;">${esc(c.text)}</div>
-            <div style="font-size:13.5px;color:#5B5470;line-height:1.65;">${esc(c.explanation || "")}</div>
+            <div style="font-size:15px;font-weight:600;color:#121827;line-height:1.6;margin-bottom:5px;">${esc(c.text)}</div>
+            <div style="font-size:13.5px;color:#4A5468;line-height:1.65;">${esc(c.explanation || "")}</div>
             ${necPanelHtml(c.nec)}
           </div>
         </div>`;
@@ -240,17 +240,17 @@ export function renderResultPage({ id, input, status, result, createdAt, ref = n
         .map(
           (s) => `
         <div style="padding:12px 14px;border-radius:10px;background:#F9F6FD;border:1px solid #E3D9F2;margin-bottom:8px;">
-          <a href="${esc(safeUrl(s.url))}" rel="noopener" style="font-size:14px;color:#6B4FA8;font-weight:600;text-decoration:none;line-height:1.5;">${esc(s.title || s.url)}</a>
-          <div style="font-size:12.5px;color:#9C8FC2;margin-top:3px;line-height:1.5;">${esc(s.forClaim)}</div>
+          <a href="${esc(safeUrl(s.url))}" rel="noopener" style="font-size:14px;color:#2F6BFF;font-weight:600;text-decoration:none;line-height:1.5;">${esc(s.title || s.url)}</a>
+          <div style="font-size:12.5px;color:#8A97B3;margin-top:3px;line-height:1.5;">${esc(s.forClaim)}</div>
         </div>`
         )
         .join("\n")
-    : `<div style="font-size:14px;color:#9C8FC2;">이 검증에는 표시할 출처가 없습니다.</div>`;
+    : `<div style="font-size:14px;color:#8A97B3;">이 검증에는 표시할 출처가 없습니다.</div>`;
 
   const products = result.related_products || [];
   const productsHtml = products.length
     ? `<div class="section-label">관련 상품</div>
-       <p style="font-size:12.5px;color:#9C8FC2;margin:0 0 10px;">쿠팡파트너스 활동을 통해 일정액의 수수료를 제공받을 수 있습니다.</p>` +
+       <p style="font-size:12.5px;color:#8A97B3;margin:0 0 10px;">쿠팡파트너스 활동을 통해 일정액의 수수료를 제공받을 수 있습니다.</p>` +
       products
         .map((p) =>
           p.product
@@ -258,10 +258,10 @@ export function renderResultPage({ id, input, status, result, createdAt, ref = n
         <a href="${esc(safeUrl(p.product.url))}" rel="noopener sponsored" style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;background:#fff;border:1px solid #D9BFF0;margin-bottom:8px;text-decoration:none;">
           ${p.product.image ? `<img src="${esc(safeUrl(p.product.image))}" alt="" width="64" height="64" loading="lazy" style="flex:none;width:64px;height:64px;object-fit:contain;border-radius:8px;border:1px solid #EEE8F7;background:#fff;">` : ""}
           <div style="min-width:0;flex:1;">
-            <div style="font-size:11.5px;color:#9C8FC2;margin-bottom:2px;">${esc(p.reason || "")}</div>
-            <div style="font-size:13.5px;font-weight:600;color:#241F33;line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">${esc(p.product.name)}</div>
+            <div style="font-size:11.5px;color:#8A97B3;margin-bottom:2px;">${esc(p.reason || "")}</div>
+            <div style="font-size:13.5px;font-weight:600;color:#121827;line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">${esc(p.product.name)}</div>
             <div style="display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin-top:4px;">
-              ${p.product.price ? `<span style="font-size:14px;font-weight:700;color:#241F33;">${Number(p.product.price).toLocaleString("ko-KR")}원</span>` : ""}
+              ${p.product.price ? `<span style="font-size:14px;font-weight:700;color:#121827;">${Number(p.product.price).toLocaleString("ko-KR")}원</span>` : ""}
               ${p.product.rocket ? `<span style="font-size:10.5px;font-weight:700;color:#0073E9;background:#EAF3FE;border-radius:4px;padding:2px 5px;white-space:nowrap;">로켓배송</span>` : ""}
               <span style="margin-left:auto;font-size:12px;color:#7C5CD9;font-weight:600;white-space:nowrap;">쿠팡에서 보기 →</span>
             </div>
@@ -270,8 +270,8 @@ export function renderResultPage({ id, input, status, result, createdAt, ref = n
             : `
         <a href="${esc(safeUrl(p.url || `https://www.coupang.com/np/search?q=${encodeURIComponent(p.keyword)}`))}" rel="noopener sponsored" style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:14px 16px;border-radius:12px;background:#F9FAFB;border:1px solid #D9BFF0;margin-bottom:8px;text-decoration:none;">
           <div>
-            <div style="font-size:14px;font-weight:700;color:#241F33;margin-bottom:3px;">${esc(p.keyword)}</div>
-            <div style="font-size:12px;color:#9C8FC2;">${esc(p.reason || "")}</div>
+            <div style="font-size:14px;font-weight:700;color:#121827;margin-bottom:3px;">${esc(p.keyword)}</div>
+            <div style="font-size:12px;color:#8A97B3;">${esc(p.reason || "")}</div>
           </div>
           <span style="font-size:12px;color:#7C5CD9;font-weight:600;white-space:nowrap;">쿠팡에서 보기 →</span>
         </a>`
@@ -280,15 +280,15 @@ export function renderResultPage({ id, input, status, result, createdAt, ref = n
     : "";
 
   return page({
-    head: `<meta property="og:title" content="유메 검증 결과" />\n<meta property="og:description" content="${esc(result.overall?.detail || result.summary || "AI 할루시네이션 검사 결과")}" />`,
+    head: `<meta property="og:title" content="베리라인 검증 결과" />\n<meta property="og:description" content="${esc(result.overall?.detail || result.summary || "AI 할루시네이션 검사 결과")}" />`,
     cardBody: `
       ${inputBox(input)}
       <div style="padding:16px;border-radius:14px;background:${tone.bg};border:1px solid ${tone.border};margin-bottom:14px;">
         <div style="display:flex;align-items:center;flex-wrap:wrap;gap:9px;margin-bottom:8px;">
           <span style="font-size:14px;font-weight:700;color:${tone.fg};background:${tone.chipBg};border-radius:999px;padding:4px 12px;">${esc(result.overall?.label || "확인되지 않음")}</span>
-          <span style="font-size:13px;color:#6E6389;font-weight:500;">도메인: ${esc(result.overall_domain || "일반")}</span>
+          <span style="font-size:13px;color:#4F5A72;font-weight:500;">도메인: ${esc(result.overall_domain || "일반")}</span>
         </div>
-        <div style="font-size:14.5px;color:#2A2440;line-height:1.7;">${esc(result.overall?.detail || result.summary || "")}</div>
+        <div style="font-size:14.5px;color:#121827;line-height:1.7;">${esc(result.overall?.detail || result.summary || "")}</div>
       </div>
       ${result.summary ? `<p style="font-size:14px;color:#4C5266;margin:0 0 18px;line-height:1.7;">${esc(result.summary)}</p>` : ""}
       <div class="section-label">검증 결과</div>

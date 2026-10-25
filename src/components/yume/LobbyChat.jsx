@@ -116,11 +116,11 @@ export default function LobbyPanel({ active, loggedIn, onNeedLogin }) {
       {/* 내 등수를 제일 먼저 보여 준다. 내 숫자가 안 보이면 남의 숫자도 안 궁금하다. */}
       {me && (
         <div style={{
-          padding: "10px 14px", borderBottom: "1px solid rgba(20,17,24,0.08)",
-          fontSize: 11.5, color: "#8B8694", display: "flex", alignItems: "center", flexWrap: "wrap", gap: 2,
+          padding: "10px 14px", borderBottom: "1px solid rgba(15, 21, 34,0.08)",
+          fontSize: 11.5, color: "#8A93A6", display: "flex", alignItems: "center", flexWrap: "wrap", gap: 2,
         }}>
           <RankBadge rank={me.rank} color={me.color} />
-          <b style={{ color: me.color || "#54505E", fontWeight: 700 }}>{me.name}</b>
+          <b style={{ color: me.color || "#4A5468", fontWeight: 700 }}>{me.name}</b>
           <span>· {t("공헌도")} {me.points.toLocaleString()}</span>
         </div>
       )}
@@ -128,8 +128,8 @@ export default function LobbyPanel({ active, loggedIn, onNeedLogin }) {
       {/* 등수 색 안내. 처음 보는 사람에게 저 색이 무슨 뜻인지 한 줄로 알려 준다. */}
       {data?.tiers && (
         <div style={{
-          padding: "8px 16px", borderBottom: "1px solid rgba(20,17,24,0.06)",
-          display: "flex", gap: 10, flexWrap: "wrap", fontSize: 10.5, color: "#8B8694",
+          padding: "8px 16px", borderBottom: "1px solid rgba(15, 21, 34,0.06)",
+          display: "flex", gap: 10, flexWrap: "wrap", fontSize: 10.5, color: "#8A93A6",
         }}>
           {data.tiers.map((tier) => (
             <span key={tier.key} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
@@ -161,10 +161,10 @@ export default function LobbyPanel({ active, loggedIn, onNeedLogin }) {
           data.messages.map((m) => (
             <div key={m.id} style={{ fontSize: 13, lineHeight: 1.6, wordBreak: "break-word" }}>
               <RankBadge rank={m.rank} color={m.color} />
-              <b style={{ color: m.color || "#54505E", fontWeight: 700, letterSpacing: "-0.01em" }}>{m.name}</b>
+              <b style={{ color: m.color || "#4A5468", fontWeight: 700, letterSpacing: "-0.01em" }}>{m.name}</b>
               <span style={{ color: "#B5B0BE", fontSize: 10.5, marginLeft: 5 }}>{clock(m.at)}</span>
               {/* 링크는 일부러 걸지 않는다. 자동 링크는 채팅을 가장 빨리 광고판으로 만든다. */}
-              <div style={{ color: "#241F33", marginTop: 1 }}>{m.body}</div>
+              <div style={{ color: "#121827", marginTop: 1 }}>{m.body}</div>
             </div>
           ))
         )}
@@ -173,7 +173,7 @@ export default function LobbyPanel({ active, loggedIn, onNeedLogin }) {
       {/* 입력
 
       {/* 입력 — 문턱을 못 넘었으면 왜 못 쓰는지, 얼마나 남았는지 적는다 */}
-      <div style={{ borderTop: "1px solid rgba(20,17,24,0.10)", padding: 10 }}>
+      <div style={{ borderTop: "1px solid rgba(15, 21, 34,0.10)", padding: 10 }}>
         {!loggedIn ? null : canChat ? (
           <>
             <div style={{ display: "flex", gap: 6 }}>
@@ -186,8 +186,8 @@ export default function LobbyPanel({ active, loggedIn, onNeedLogin }) {
                 placeholder={t("메시지를 입력하세요")}
                 style={{
                   flex: 1, minWidth: 0, padding: "9px 11px", borderRadius: 10,
-                  border: "1px solid rgba(20,17,24,0.16)", background: "#fff",
-                  fontSize: 13, fontFamily: "inherit", color: "#141118", boxSizing: "border-box",
+                  border: "1px solid rgba(15, 21, 34,0.16)", background: "#fff",
+                  fontSize: 13, fontFamily: "inherit", color: "#0F1522", boxSizing: "border-box",
                 }}
               />
               <button
@@ -195,8 +195,8 @@ export default function LobbyPanel({ active, loggedIn, onNeedLogin }) {
                 disabled={sending || !draft.trim()}
                 style={{
                   flex: "none", padding: "0 14px", borderRadius: 10, border: "none",
-                  background: draft.trim() ? "#5B3FA0" : "rgba(118,118,128,0.14)",
-                  color: draft.trim() ? "#fff" : "#8B8694",
+                  background: draft.trim() ? "#2F6BFF" : "rgba(118,118,128,0.14)",
+                  color: draft.trim() ? "#fff" : "#8A93A6",
                   fontSize: 13, fontWeight: 700, cursor: draft.trim() ? "pointer" : "default",
                 }}
               >
@@ -207,8 +207,8 @@ export default function LobbyPanel({ active, loggedIn, onNeedLogin }) {
           </>
         ) : (
           <div style={{
-            padding: "10px 12px", borderRadius: 10, background: "rgba(91,63,160,0.06)",
-            border: "1px solid rgba(91,63,160,0.14)", fontSize: 11.5, lineHeight: 1.7, color: "#54505E",
+            padding: "10px 12px", borderRadius: 10, background: "rgba(47, 107, 255,0.06)",
+            border: "1px solid rgba(47, 107, 255,0.14)", fontSize: 11.5, lineHeight: 1.7, color: "#4A5468",
           }}>
             {me?.identityRequired
               ? t("휴대폰 본인확인을 마치면 채팅에 참여할 수 있어요.")
@@ -231,10 +231,10 @@ function Progress({ now, goal, label }) {
   const pct = Math.max(0, Math.min(100, Math.round((now / Math.max(1, goal)) * 100)));
   return (
     <div style={{ marginTop: 7 }}>
-      <div style={{ height: 4, borderRadius: 999, background: "rgba(91,63,160,0.14)", overflow: "hidden" }}>
-        <div style={{ width: `${pct}%`, height: "100%", background: "#5B3FA0", borderRadius: 999, transition: "width 0.4s ease" }} />
+      <div style={{ height: 4, borderRadius: 999, background: "rgba(47, 107, 255,0.14)", overflow: "hidden" }}>
+        <div style={{ width: `${pct}%`, height: "100%", background: "#2F6BFF", borderRadius: 999, transition: "width 0.4s ease" }} />
       </div>
-      <div style={{ marginTop: 4, fontSize: 10.5, color: "#8B8694", fontVariantNumeric: "tabular-nums" }}>
+      <div style={{ marginTop: 4, fontSize: 10.5, color: "#8A93A6", fontVariantNumeric: "tabular-nums" }}>
         {label} {now} / {goal}
       </div>
     </div>
@@ -243,13 +243,13 @@ function Progress({ now, goal, label }) {
 
 const linkBtn = {
   display: "block", margin: "8px auto 0", padding: "6px 14px", borderRadius: 999,
-  border: "1px solid rgba(91,63,160,0.3)", background: "transparent",
-  color: "#5B3FA0", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
+  border: "1px solid rgba(47, 107, 255,0.3)", background: "transparent",
+  color: "#2F6BFF", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
 };
 
 function Empty({ children }) {
   return (
-    <div style={{ margin: "auto", textAlign: "center", fontSize: 12.5, color: "#8B8694", lineHeight: 1.8, padding: "0 10px" }}>
+    <div style={{ margin: "auto", textAlign: "center", fontSize: 12.5, color: "#8A93A6", lineHeight: 1.8, padding: "0 10px" }}>
       {children}
     </div>
   );

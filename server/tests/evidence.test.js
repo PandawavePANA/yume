@@ -1,6 +1,6 @@
-// 유메가 틀리지 않기 위한 규율 — 근거 없는 단정을 내보내지 않는다.
+// 베리라인이 틀리지 않기 위한 규율 — 근거 없는 단정을 내보내지 않는다.
 //
-// 유메가 틀리는 경로는 둘뿐이다. 없는 걸 있다고 하거나, 못 찾은 걸 찾았다고 하거나.
+// 베리라인이 틀리는 경로는 둘뿐이다. 없는 걸 있다고 하거나, 못 찾은 걸 찾았다고 하거나.
 // 앞은 부존재 신뢰도(NEC)가 막고, 뒤는 이 검사가 막는다. 출처 한 건 없이 "확인됨"으로
 // 나가면 그건 검증이 아니라 모델이 그냥 한 말이다.
 import test from "node:test";
@@ -14,7 +14,7 @@ test("출처 없는 '확인됨'은 '확인되지 않음'으로 내린다", () =>
   const c = sanitizeClaim({ ...base, verdict: "confirmed", verified_via: "web" });
   assert.equal(c.verdict, "uncertain");
   assert.equal(c.unbacked_verdict, "confirmed");
-  assert.match(c.explanation, /출처를 유메가 확보하지 못했습니다/);
+  assert.match(c.explanation, /출처를 베리라인이 확보하지 못했습니다/);
   assert.match(c.explanation, /그럴듯한 설명/, "원래 검토 내용은 버리지 않는다");
 });
 

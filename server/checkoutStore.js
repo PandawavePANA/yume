@@ -26,8 +26,8 @@ function sendReceipt(order, { method, planExpiresAt }) {
     const won = (n) => `${Number(n || 0).toLocaleString("ko-KR")}원`;
     const when = new Date(now()).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" });
     const item = order.kind === "plan"
-      ? `유메 ${order.plan} 플랜 1개월 이용권`
-      : `유메 크레딧 ${Number(order.credits || 0).toLocaleString("ko-KR")}개`;
+      ? `베리라인 ${order.plan} 플랜 1개월 이용권`
+      : `베리라인 크레딧 ${Number(order.credits || 0).toLocaleString("ko-KR")}개`;
     const until = planExpiresAt
       ? new Date(planExpiresAt).toLocaleDateString("ko-KR", { timeZone: "Asia/Seoul" })
       : null;
@@ -56,7 +56,7 @@ function sendReceipt(order, { method, planExpiresAt }) {
     await sendMail({
       brand: "YUME",
       to: user.email,
-      subject: `[유메] 결제가 완료되었습니다 · ${item}`,
+      subject: `[베리라인] 결제가 완료되었습니다 · ${item}`,
       text: [
         `${user.name ? user.name + "님, " : ""}결제가 완료되었습니다.`,
         "",
@@ -71,7 +71,7 @@ function sendReceipt(order, { method, planExpiresAt }) {
         seller,
       ].join("\n"),
       html: `<div style="font-family:system-ui,-apple-system,'Noto Sans KR',sans-serif;max-width:560px;color:#241F33;line-height:1.7">
-  <p style="margin:0 0 6px;font-size:13px;color:#8577A8">유메 YUME</p>
+  <p style="margin:0 0 6px;font-size:13px;color:#8577A8">베리라인 YUME</p>
   <h2 style="margin:0 0 18px;font-size:19px">결제가 완료되었습니다</h2>
   <table style="border-collapse:collapse;font-size:14px;width:100%">
     ${rows.map(([k, v]) => `<tr><td style="padding:7px 14px 7px 0;color:#8577A8;white-space:nowrap">${esc(k)}</td><td style="padding:7px 0"><b>${esc(v)}</b></td></tr>`).join("")}

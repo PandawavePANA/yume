@@ -28,7 +28,7 @@ const C = {
   ground: "#D4C4EF",
   cloud: "#FFFFFF",
   hill: "#F0E7FD",
-  text: "#6B4FA8",
+  text: "#2F6BFF",
 };
 
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
@@ -716,11 +716,11 @@ export default function CatMouseGame() {
           marginBottom: 7,
           fontSize: 11.5,
           fontWeight: 600,
-          color: "#B6A9D6",
+          color: "#AEB9D1",
         }}
       >
         <span>기다리는 동안 한 판</span>
-        <span style={{ fontVariantNumeric: "tabular-nums", color: score > 0 ? "#8B7FD8" : "#B6A9D6" }}>
+        <span style={{ fontVariantNumeric: "tabular-nums", color: score > 0 ? "#8B7FD8" : "#AEB9D1" }}>
           잡은 생쥐 {score}
           {best > 0 ? ` · 최고 ${best}` : ""}
         </span>
@@ -771,10 +771,10 @@ export default function CatMouseGame() {
                 padding: "0 20px",
               }}
             >
-              <div style={{ fontSize: 14, fontWeight: 700, color: "#6B4FA8" }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#2F6BFF" }}>
                 {phase === "ready" ? "스페이스바 또는 화면을 눌러 시작" : "앗, 물웅덩이에 빠졌어요"}
               </div>
-              <div style={{ fontSize: 12, color: "#9C8FC2", lineHeight: 1.6 }}>
+              <div style={{ fontSize: 12, color: "#8A97B3", lineHeight: 1.6 }}>
                 {phase === "ready"
                   ? "점프해서 생쥐를 덮치고, 물웅덩이는 뛰어넘으세요"
                   : `생쥐 ${score}마리를 잡았어요 · 한 번 더 누르면 다시 시작`}

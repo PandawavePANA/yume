@@ -1,4 +1,4 @@
-// YUME 검증 마크 — 발급 기준과 원문 지문.
+// VERILINE 검증 마크 — 발급 기준과 원문 지문.
 // 마크는 한 번이라도 틀린 글에 붙으면 전체의 값어치가 사라진다. 그래서 기준을 테스트로 못박는다.
 import test from "node:test";
 import assert from "node:assert/strict";

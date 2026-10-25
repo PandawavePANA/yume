@@ -1,7 +1,7 @@
-// 유메의 움직임 2 — 같은 언어(문서를 검토하는 손)로 화면 곳곳을 채운다. motion.jsx의 짝.
+// 베리라인의 움직임 2 — 같은 언어(문서를 검토하는 손)로 화면 곳곳을 채운다. motion.jsx의 짝.
 //
 //   · EvidenceField   히어로 뒤로 조문·사건번호·DOI 꼬리표가 깊이를 두고 떠 있다. 스크롤하면 깊이마다
-//                     다른 속도로 흘러가고, 떠오를 때 하나씩 ✓ ✕ ? 가 찍힌다 — 유메가 대조하는 재료다
+//                     다른 속도로 흘러가고, 떠오를 때 하나씩 ✓ ✕ ? 가 찍힌다 — 베리라인이 대조하는 재료다
 //   · VerdictMarquee  판정들이 흘러가는 띠. 스크롤을 빨리 하면 그만큼 빨라지고 기운다
 //   · WordReveal      제목이 검은 가림 막대(기밀문서의 먹칠) 뒤에서 벗겨지며 나온다
 //   · SealRing        "법제처 공식 대조" 인장이 스크롤에 맞춰 돈다
@@ -24,8 +24,8 @@ import {
 } from "framer-motion";
 import { useFinePointer, EASE } from "./motion.jsx";
 
-const INK = "#141118";
-const PURPLE = "#5B3FA0";
+const INK = "#0F1522";
+const PURPLE = "#2F6BFF";
 const RED = "#B8321F";
 const GREEN = "#1F8A57";
 const AMBER = "#9A4318";
@@ -101,8 +101,8 @@ function EvidenceChip({ e, i, scrollY, spx, spy, reduce }) {
         transition={{ duration: 0.9, ease: EASE, delay: 0.5 + i * 0.09 }}
         style={{
           display: "inline-flex", alignItems: "center", gap: 7, padding: "5px 10px 5px 9px", borderRadius: 7,
-          background: "rgba(255,255,255,0.78)", border: "1px solid rgba(20,17,24,0.10)",
-          boxShadow: "0 1px 2px rgba(20,17,24,0.04), 0 8px 22px rgba(40,24,90,0.07)",
+          background: "rgba(255,255,255,0.78)", border: "1px solid rgba(15, 21, 34,0.10)",
+          boxShadow: "0 1px 2px rgba(15, 21, 34,0.04), 0 8px 22px rgba(20, 35, 80,0.07)",
           fontFamily: MONO, fontSize: size, color: INK, whiteSpace: "nowrap",
         }}
       >
@@ -173,7 +173,7 @@ export function VerdictMarquee({ t = (s) => s }) {
   return (
     // 띠를 살짝 기울이면 모서리가 화면 밖으로 나가 가로 스크롤이 생긴다. 바깥 틀이 잘라 준다.
     <div aria-hidden style={{ overflow: "hidden", padding: "34px 0", margin: "clamp(28px, 6vw, 80px) 0 0" }}>
-    <section style={{ width: "108%", marginLeft: "-4%", padding: "18px 0", display: "grid", gap: 10, transform: "rotate(-2deg)", borderBlock: "1px solid rgba(20,17,24,0.08)", background: "rgba(255,255,255,0.45)" }}>
+    <section style={{ width: "108%", marginLeft: "-4%", padding: "18px 0", display: "grid", gap: 10, transform: "rotate(-2deg)", borderBlock: "1px solid rgba(15, 21, 34,0.08)", background: "rgba(255,255,255,0.45)" }}>
       <MarqueeRow baseVelocity={-2.2}>
         {VERDICTS.map((v, i) => (
           <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 18, padding: "0 22px" }}>
@@ -189,7 +189,7 @@ export function VerdictMarquee({ t = (s) => s }) {
       </MarqueeRow>
       <MarqueeRow baseVelocity={1.6}>
         {VERDICTS.map((v, i) => (
-          <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "0 16px", fontFamily: MONO, fontSize: 13, color: "#54505E" }}>
+          <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "0 16px", fontFamily: MONO, fontSize: 13, color: "#4A5468" }}>
             <span style={{ color: TONE[v.m], fontWeight: 800 }}>{GLYPH[v.m]}</span>
             {t(v.s)}
             <span style={{ opacity: 0.35 }}>·</span>
@@ -259,15 +259,15 @@ export function InkWordmark({ text = "YUME" }) {
   const ref = useRef(null);
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start end", "end end"] });
   const fill = useTransform(scrollYProgress, [0.1, 0.95], [0, 100]);
-  const bg = useMotionTemplate`linear-gradient(90deg, ${PURPLE} 0%, #8A6BD4 ${fill}%, transparent ${fill}%)`;
+  const bg = useMotionTemplate`linear-gradient(90deg, ${PURPLE} 0%, #5B8CFF ${fill}%, transparent ${fill}%)`;
   const y = useTransform(scrollYProgress, [0, 1], [60, 0]);
   return (
     <div ref={ref} aria-hidden style={{ overflow: "hidden", lineHeight: 0.82, userSelect: "none", pointerEvents: "none" }}>
       <motion.div style={{
         y: reduce ? 0 : y,
         fontSize: "clamp(92px, 24vw, 300px)", fontWeight: 900, letterSpacing: "-0.06em", textAlign: "center",
-        color: "transparent", WebkitTextStroke: "1.5px rgba(91,63,160,0.32)",
-        backgroundImage: reduce ? `linear-gradient(90deg, ${PURPLE}, #8A6BD4)` : bg,
+        color: "transparent", WebkitTextStroke: "1.5px rgba(47, 107, 255,0.32)",
+        backgroundImage: reduce ? `linear-gradient(90deg, ${PURPLE}, #5B8CFF)` : bg,
         WebkitBackgroundClip: "text", backgroundClip: "text",
       }}>{text}</motion.div>
     </div>
@@ -304,7 +304,7 @@ export function CursorLoupe() {
   if (!fine || reduce) return null;
   return (
     <motion.div aria-hidden
-      animate={{ scale: over ? 1.9 : 1, opacity: shown ? 1 : 0, backgroundColor: over ? "rgba(91,63,160,0.08)" : "rgba(91,63,160,0)" }}
+      animate={{ scale: over ? 1.9 : 1, opacity: shown ? 1 : 0, backgroundColor: over ? "rgba(47, 107, 255,0.08)" : "rgba(47, 107, 255,0)" }}
       transition={{ type: "spring", stiffness: 400, damping: 28 }}
       style={{
         position: "fixed", left: 0, top: 0, x: sx, y: sy, translateX: "-50%", translateY: "-50%",
@@ -332,7 +332,7 @@ export function CreditCoin({ value = 0, size = 16 }) {
       transition={{ type: "spring", stiffness: 520, damping: 14 }}
       className="yume-coin"
       style={{ display: "inline-flex", width: size, height: size, borderRadius: 99, position: "relative", overflow: "hidden", flex: "none",
-        background: "radial-gradient(circle at 35% 30%, #B79BF0, #7D5FC4 55%, #5B3FA0)", boxShadow: "inset 0 0 0 1.5px rgba(255,255,255,0.45)" }}>
+        background: "radial-gradient(circle at 35% 30%, #B79BF0, #4A7DFF 55%, #2F6BFF)", boxShadow: "inset 0 0 0 1.5px rgba(255,255,255,0.45)" }}>
       <svg viewBox="0 0 16 16" width={size} height={size} style={{ position: "absolute", inset: 0 }}>
         <path d="M10.4 5.6a3.3 3.3 0 1 0 0 4.8" fill="none" stroke="#fff" strokeWidth="1.7" strokeLinecap="round" />
       </svg>

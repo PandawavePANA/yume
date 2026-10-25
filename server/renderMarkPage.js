@@ -1,4 +1,4 @@
-// YUME 검증 마크의 공개 화면 — 검증 페이지(/v/:id), A4 검증서(/v/:id/certificate),
+// VERILINE 검증 마크의 공개 화면 — 검증 페이지(/v/:id), A4 검증서(/v/:id/certificate),
 // 고객 홈페이지에 붙는 스크립트(/v/embed.js).
 //
 // 마크의 힘은 "누구나 확인할 수 있다"에서 나온다. 그래서 검증 페이지에는 원문, 주장마다 대조한
@@ -39,15 +39,15 @@ function claimList(claims) {
   return claims
     .map((c, i) => {
       const src = c.evidence?.url ? c.evidence : c.sources?.[0] ? { url: c.sources[0].url, quote: c.sources[0].quote } : null;
-      return `<div style="border-top:1px solid #EDE3FA;padding:14px 0">
+      return `<div style="border-top:1px solid #E8EFFF;padding:14px 0">
   <div style="display:flex;gap:10px;align-items:flex-start">
     <span style="flex-shrink:0;width:24px;height:24px;border-radius:999px;background:#E4F5EC;color:#2E7D56;font-weight:800;font-size:12px;display:inline-flex;align-items:center;justify-content:center">${i + 1}</span>
     <div style="min-width:0;flex:1">
-      <div style="font-weight:700;color:#241F33;line-height:1.6">${esc(c.text)}</div>
+      <div style="font-weight:700;color:#121827;line-height:1.6">${esc(c.text)}</div>
       <div style="font-size:12.5px;color:#2E7D56;margin-top:3px;font-weight:600">✓ 사실로 확인 · ${esc(c.via_label)}</div>
-      ${src?.quote ? `<blockquote style="margin:8px 0 0;padding:8px 12px;border-left:3px solid #A88BEA;background:#FBF8FF;font-size:13px;color:#3F3A52;line-height:1.7">“${esc(src.quote)}”</blockquote>` : ""}
-      ${src?.url ? `<div style="font-size:12px;margin-top:6px"><a href="${esc(src.url)}" target="_blank" rel="noopener nofollow" style="color:#6B4FA8;word-break:break-all">${esc(src.url)}</a></div>` : ""}
-      ${c.via === "reference" ? `<div style="font-size:12px;color:#8577A8;margin-top:6px">발급 기업이 제출한 기준 자료(비공개)와 대조했습니다.</div>` : ""}
+      ${src?.quote ? `<blockquote style="margin:8px 0 0;padding:8px 12px;border-left:3px solid #8DB0FF;background:#F5F8FF;font-size:13px;color:#3F3A52;line-height:1.7">“${esc(src.quote)}”</blockquote>` : ""}
+      ${src?.url ? `<div style="font-size:12px;margin-top:6px"><a href="${esc(src.url)}" target="_blank" rel="noopener nofollow" style="color:#2F6BFF;word-break:break-all">${esc(src.url)}</a></div>` : ""}
+      ${c.via === "reference" ? `<div style="font-size:12px;color:#7B87A1;margin-top:6px">발급 기업이 제출한 기준 자료(비공개)와 대조했습니다.</div>` : ""}
     </div>
   </div>
 </div>`;
@@ -57,23 +57,23 @@ function claimList(claims) {
 
 export function renderMarkPage(mark) {
   if (!mark) {
-    return layout("검증 기록 없음", `<h1>검증 기록을 찾을 수 없습니다</h1><p>주소가 정확한지 확인해 주세요. 유메가 발급하지 않은 마크이거나, 발급한 계정이 삭제되었을 수 있습니다.</p>`);
+    return layout("검증 기록 없음", `<h1>검증 기록을 찾을 수 없습니다</h1><p>주소가 정확한지 확인해 주세요. 베리라인이 발급하지 않은 마크이거나, 발급한 계정이 삭제되었을 수 있습니다.</p>`);
   }
   const status = markStatus(mark);
   const claims = JSON.parse(mark.claims_json || "[]");
   const certBtn =
     status === "valid"
-      ? `<a href="/v/${esc(mark.id)}/certificate" style="display:inline-block;padding:10px 18px;border-radius:999px;background:#1F1B2E;color:#fff;font-weight:700;font-size:14px;text-decoration:none">검증서 PDF 받기</a>`
+      ? `<a href="/v/${esc(mark.id)}/certificate" style="display:inline-block;padding:10px 18px;border-radius:999px;background:#0A0E17;color:#fff;font-weight:700;font-size:14px;text-decoration:none">검증서 PDF 받기</a>`
       : "";
   const body = `
 <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap">
   <div>
-    <div style="font-size:12px;font-weight:800;letter-spacing:.12em;color:#8577A8">YUME 검증 기록</div>
+    <div style="font-size:12px;font-weight:800;letter-spacing:.12em;color:#7B87A1">VERILINE 검증 기록</div>
     <h1 style="margin-top:6px">${esc(mark.title || "검증받은 글")}</h1>
   </div>
   ${statusPill(status, true)}
 </div>
-<p style="font-size:15px;color:#241F33;font-weight:600;margin:14px 0 4px">${esc(STATUS_NOTE[status] || "")}</p>
+<p style="font-size:15px;color:#121827;font-weight:600;margin:14px 0 4px">${esc(STATUS_NOTE[status] || "")}</p>
 ${mark.revoked_reason ? `<p class="muted">철회 사유: ${esc(mark.revoked_reason)}</p>` : ""}
 <table style="margin-top:14px">
   <tr><th style="width:130px">검증 번호</th><td><code>${esc(mark.id)}</code></td></tr>
@@ -85,25 +85,25 @@ ${mark.revoked_reason ? `<p class="muted">철회 사유: ${esc(mark.revoked_reas
 <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap">${certBtn}</div>
 
 <h2>주장별 근거</h2>
-<p class="muted">유메가 글 속 사실 주장을 하나씩 나누고, 서버가 출처 페이지를 직접 열어 근거 문장이 실제로 있는지 확인했습니다. 처음 판정을 모르는 독립 검토도 같은 결론을 낸 주장만 통과합니다.</p>
+<p class="muted">베리라인이 글 속 사실 주장을 하나씩 나누고, 서버가 출처 페이지를 직접 열어 근거 문장이 실제로 있는지 확인했습니다. 처음 판정을 모르는 독립 검토도 같은 결론을 낸 주장만 통과합니다.</p>
 ${claims.length ? claimList(claims) : `<p class="muted">공개할 주장 기록이 없습니다.</p>`}
 
 ${mark.text ? `<h2>검증받은 원문</h2>
-<details><summary style="cursor:pointer;color:#6B4FA8;font-weight:700;font-size:14px">원문 펼치기 (${mark.text.length.toLocaleString()}자)</summary>
-<div style="white-space:pre-wrap;font-size:13.5px;line-height:1.8;color:#3F3A52;background:#FBF8FF;border-radius:12px;padding:14px 16px;margin-top:10px">${esc(mark.text)}</div></details>
+<details><summary style="cursor:pointer;color:#2F6BFF;font-weight:700;font-size:14px">원문 펼치기 (${mark.text.length.toLocaleString()}자)</summary>
+<div style="white-space:pre-wrap;font-size:13.5px;line-height:1.8;color:#3F3A52;background:#F5F8FF;border-radius:12px;padding:14px 16px;margin-top:10px">${esc(mark.text)}</div></details>
 
 <h2>이 글이 검증받은 원문과 같은지 대조</h2>
 <p class="muted">어디선가 이 마크가 붙은 글을 보셨다면, 그 글을 아래에 붙여 넣어 보세요. 띄어쓰기·줄바꿈은 무시하고 글자를 대조합니다. 대조는 이 브라우저 안에서만 하고 서버로 보내지 않습니다.</p>
-<textarea id="cmp" rows="5" style="width:100%;border:1px solid #D4BEF0;border-radius:12px;padding:10px 12px;font:inherit;font-size:13.5px;box-sizing:border-box"></textarea>
+<textarea id="cmp" rows="5" style="width:100%;border:1px solid #C9D8FF;border-radius:12px;padding:10px 12px;font:inherit;font-size:13.5px;box-sizing:border-box"></textarea>
 <button id="cmpBtn" style="margin-top:8px">원문 대조하기</button>
 <div id="cmpOut" class="msg"></div>` : ""}
 
 <h2>이 마크가 말하는 것과 말하지 않는 것</h2>
 <ul>
-<li>유메가 <b>검증 일시 기준</b>으로, 위 글에 담긴 <b>사실 주장</b>을 공개된 원문 자료와 대조해 확인했다는 기록입니다.</li>
+<li>베리라인이 <b>검증 일시 기준</b>으로, 위 글에 담긴 <b>사실 주장</b>을 공개된 원문 자료와 대조해 확인했다는 기록입니다.</li>
 <li>글쓴이·회사·상품·서비스의 품질이나 신뢰도를 <b>보증하지 않습니다.</b> 의견·평가·전망은 확인 대상이 아닙니다.</li>
 <li>법령 개정이나 새 발표로 사실이 바뀔 수 있어 유효기간(${MARK_VALID_DAYS}일)을 둡니다. 기간이 지나면 "재확인 필요"로 바뀝니다.</li>
-<li>틀린 점을 발견하셨다면 <a href="mailto:${esc(COMPANY.email)}?subject=${encodeURIComponent(`[유메 검증 제보] ${mark.id}`)}">${esc(COMPANY.email)}</a>로 알려 주세요. 확인되면 마크를 철회하고 그 사실을 이 페이지에 남깁니다.</li>
+<li>틀린 점을 발견하셨다면 <a href="mailto:${esc(COMPANY.email)}?subject=${encodeURIComponent(`[베리라인 검증 제보] ${mark.id}`)}">${esc(COMPANY.email)}</a>로 알려 주세요. 확인되면 마크를 철회하고 그 사실을 이 페이지에 남깁니다.</li>
 </ul>`;
   const script = mark.text
     ? `<script>${NORMALIZE_JS}
@@ -116,7 +116,7 @@ document.getElementById("cmpBtn").addEventListener("click", async function(){
   else{out.className="msg err";out.textContent="✗ 검증받은 원문과 다릅니다. 글자가 바뀌었거나 일부만 붙여 넣었습니다.";}
 });</script>`
     : "";
-  return layout(`${mark.title || "검증 기록"} — YUME 검증`, body, { script });
+  return layout(`${mark.title || "검증 기록"} — VERILINE 검증`, body, { script });
 }
 
 // ── A4 검증서 ────────────────────────────────────────────────────────────────
@@ -132,9 +132,9 @@ function seal() {
 <circle cx="64" cy="64" r="60" fill="none" stroke="#B3312F" stroke-width="4"/>
 <circle cx="64" cy="64" r="53" fill="none" stroke="#B3312F" stroke-width="1.5"/>
 <circle cx="64" cy="64" r="33" fill="none" stroke="#B3312F" stroke-width="1.5"/>
-<text font-family="'Noto Serif KR',serif" font-size="11.5" font-weight="700" fill="#B3312F" letter-spacing="1.6"><textPath href="#ring" startOffset="1%">YUME FACT VERIFICATION · 유메 사실 검증 ·</textPath></text>
+<text font-family="'Noto Serif KR',serif" font-size="11.5" font-weight="700" fill="#B3312F" letter-spacing="1.6"><textPath href="#ring" startOffset="1%">VERILINE FACT VERIFICATION · 베리라인 사실 검증 ·</textPath></text>
 <text x="64" y="60" text-anchor="middle" font-family="'Noto Serif KR',serif" font-size="17" font-weight="900" fill="#B3312F">검증</text>
-<text x="64" y="80" text-anchor="middle" font-family="'Noto Serif KR',serif" font-size="12" font-weight="700" fill="#B3312F">YUME</text>
+<text x="64" y="80" text-anchor="middle" font-family="'Noto Serif KR',serif" font-size="12" font-weight="700" fill="#B3312F">VERILINE</text>
 </svg>`;
 }
 
@@ -157,7 +157,7 @@ export async function renderCertificatePage(mark, base) {
     );
   }
   const url = `${base}/v/${mark.id}`;
-  const qr = await QRCode.toString(url, { type: "svg", margin: 0, width: 92, color: { dark: "#1F1B2E", light: "#FFFFFF00" } });
+  const qr = await QRCode.toString(url, { type: "svg", margin: 0, width: 92, color: { dark: "#0A0E17", light: "#FFFFFF00" } });
   const claims = JSON.parse(mark.claims_json || "[]");
   const first = claims.slice(0, PER_FIRST);
   const rest = claims.slice(PER_FIRST);
@@ -170,7 +170,7 @@ export async function renderCertificatePage(mark, base) {
   <div class="pageno">${n} / ${pages}</div></div></div></section>`;
 
   const page1 = frame(`
-  <div class="brand"><span class="logo">YUME</span><span class="brandsub">Fact Verification by REAMER</span></div>
+  <div class="brand"><span class="logo">VERILINE</span><span class="brandsub">Fact Verification by REAMER</span></div>
   <div class="title">사 실 검 증 서</div>
   <div class="subtitle">CERTIFICATE OF FACT VERIFICATION</div>
   <div class="no">검증서 번호 ${esc(no)}</div>
@@ -183,7 +183,7 @@ export async function renderCertificatePage(mark, base) {
     <tr><th>유효기간</th><td>${esc(kDate(mark.expires_at))}까지</td></tr>
   </table>
 
-  <p class="statement">위 문서에 담긴 사실 주장 <b>${claims.length}개</b>를 유메가 하나씩 나누어 공개된 원문 자료와 대조한 결과,
+  <p class="statement">위 문서에 담긴 사실 주장 <b>${claims.length}개</b>를 베리라인이 하나씩 나누어 공개된 원문 자료와 대조한 결과,
   <b>모든 주장이 근거 원문으로 확인되었음</b>을 이 검증서로 확인합니다.</p>
 
   <table class="claims">
@@ -199,7 +199,7 @@ export async function renderCertificatePage(mark, base) {
     </div>
     <div class="issuer">
       <div class="date">${esc(kDate(mark.issued_at))}</div>
-      <div class="by">리머(REAMER) · 유메 검증</div>
+      <div class="by">리머(REAMER) · 베리라인 검증</div>
       <div class="ceo">대표 ${esc(COMPANY.ceo)}</div>
       <div class="seal">${seal()}</div>
     </div>
@@ -210,7 +210,7 @@ export async function renderCertificatePage(mark, base) {
 
   const annexPages = annexes.map((group, k) =>
     frame(`
-  <div class="brand"><span class="logo">YUME</span><span class="brandsub">검증서 번호 ${esc(no)}</span></div>
+  <div class="brand"><span class="logo">VERILINE</span><span class="brandsub">검증서 번호 ${esc(no)}</span></div>
   <div class="annexTitle">별지 ${k + 1} — 확인한 사실 주장</div>
   <table class="claims">
     <tr><th class="n">#</th><th>확인한 사실 주장</th><th class="src">근거 출처</th></tr>
@@ -223,56 +223,56 @@ export async function renderCertificatePage(mark, base) {
   return `<!doctype html>
 <html lang="ko"><head>
 <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>사실 검증서 ${esc(no)} · 유메</title>
+<title>사실 검증서 ${esc(no)} · 베리라인</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&family=Noto+Serif+KR:wght@600;700;900&display=swap" rel="stylesheet">
 <style>
   @page { size: A4; margin: 0; }
   * { box-sizing: border-box; }
-  body { margin: 0; background: #E9E5EF; font-family: 'Noto Sans KR', -apple-system, 'Malgun Gothic', sans-serif; color: #1F1B2E; word-break: keep-all; }
-  .bar { position: sticky; top: 0; z-index: 2; display: flex; gap: 10px; justify-content: center; align-items: center; padding: 12px; background: #1F1B2E; color: #fff; font-size: 14px; flex-wrap: wrap; }
+  body { margin: 0; background: #E9E5EF; font-family: 'Noto Sans KR', -apple-system, 'Malgun Gothic', sans-serif; color: #0A0E17; word-break: keep-all; }
+  .bar { position: sticky; top: 0; z-index: 2; display: flex; gap: 10px; justify-content: center; align-items: center; padding: 12px; background: #0A0E17; color: #fff; font-size: 14px; flex-wrap: wrap; }
   .bar button, .bar a { border: none; border-radius: 999px; padding: 9px 18px; font: inherit; font-weight: 700; cursor: pointer; text-decoration: none; }
-  .bar button { background: #A88BEA; color: #1F1B2E; } .bar a { background: transparent; color: #CFC9DE; border: 1px solid #4A4360; }
+  .bar button { background: #8DB0FF; color: #0A0E17; } .bar a { background: transparent; color: #C8D0E0; border: 1px solid #4A4360; }
   #doc { width: 210mm; margin: 18px auto 40px; }
-  .page { width: 210mm; height: 297mm; background: #FFFEFB; padding: 11mm; margin-bottom: 18px; box-shadow: 0 8px 30px rgba(31,27,46,.18); page-break-after: always; break-after: page; overflow: hidden; }
+  .page { width: 210mm; height: 297mm; background: #FFFEFB; padding: 11mm; margin-bottom: 18px; box-shadow: 0 8px 30px rgba(10, 14, 23,.18); page-break-after: always; break-after: page; overflow: hidden; }
   .page:last-child { page-break-after: auto; break-after: auto; margin-bottom: 0; }
   .frame { height: 100%; border: 2.4px solid #3B2C6B; padding: 2.2mm; }
-  .inner { position: relative; height: 100%; border: 0.8px solid #A88BEA; padding: 11mm 13mm 9mm;
+  .inner { position: relative; height: 100%; border: 0.8px solid #8DB0FF; padding: 11mm 13mm 9mm;
     background: radial-gradient(circle at 50% 42%, rgba(168,139,234,.07), transparent 60%),
-      repeating-linear-gradient(45deg, rgba(91,63,160,.025) 0 2px, transparent 2px 9px); }
+      repeating-linear-gradient(45deg, rgba(47, 107, 255,.025) 0 2px, transparent 2px 9px); }
   .brand { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px solid #DCCFF3; padding-bottom: 3mm; }
   .logo { font-family: 'Noto Serif KR', serif; font-weight: 900; font-size: 20px; letter-spacing: .32em; color: #3B2C6B; }
-  .brandsub { font-size: 10.5px; letter-spacing: .14em; color: #8577A8; text-transform: uppercase; }
-  .title { font-family: 'Noto Serif KR', serif; font-weight: 900; font-size: 40px; text-align: center; letter-spacing: .28em; margin: 10mm 0 2mm; color: #1F1B2E; }
-  .subtitle { text-align: center; font-size: 11px; letter-spacing: .42em; color: #8577A8; }
-  .no { text-align: center; font-size: 12px; color: #54505E; margin: 4mm 0 7mm; font-weight: 500; }
+  .brandsub { font-size: 10.5px; letter-spacing: .14em; color: #7B87A1; text-transform: uppercase; }
+  .title { font-family: 'Noto Serif KR', serif; font-weight: 900; font-size: 40px; text-align: center; letter-spacing: .28em; margin: 10mm 0 2mm; color: #0A0E17; }
+  .subtitle { text-align: center; font-size: 11px; letter-spacing: .42em; color: #7B87A1; }
+  .no { text-align: center; font-size: 12px; color: #4A5468; margin: 4mm 0 7mm; font-weight: 500; }
   table { width: 100%; border-collapse: collapse; }
   .meta th, .meta td { border-top: 1px solid #E6DAF6; border-bottom: 1px solid #E6DAF6; padding: 2.3mm 3mm; font-size: 12.5px; text-align: left; vertical-align: top; }
-  .meta th { width: 30mm; color: #5B3FA0; font-weight: 700; background: rgba(247,241,254,.7); }
+  .meta th { width: 30mm; color: #2F6BFF; font-weight: 700; background: rgba(247,241,254,.7); }
   .mono { font-family: ui-monospace, Consolas, Menlo, monospace; font-size: 10.5px; word-break: break-all; letter-spacing: .02em; }
-  .statement { font-family: 'Noto Serif KR', serif; font-size: 15px; line-height: 2; text-align: center; margin: 8mm 4mm 6mm; color: #1F1B2E; }
+  .statement { font-family: 'Noto Serif KR', serif; font-size: 15px; line-height: 2; text-align: center; margin: 8mm 4mm 6mm; color: #0A0E17; }
   .claims th { font-size: 11px; color: #fff; background: #3B2C6B; padding: 2mm 2.5mm; text-align: left; font-weight: 700; }
   .claims td { font-size: 11.5px; line-height: 1.6; padding: 2mm 2.5mm; border-bottom: 1px solid #ECE4F7; vertical-align: top; }
-  .claims .n { width: 9mm; text-align: center; color: #5B3FA0; font-weight: 800; }
-  .claims .src { width: 42mm; color: #54505E; font-size: 10.5px; word-break: break-all; }
+  .claims .n { width: 9mm; text-align: center; color: #2F6BFF; font-weight: 800; }
+  .claims .src { width: 42mm; color: #4A5468; font-size: 10.5px; word-break: break-all; }
   .claims th.src, .claims th.n { color: #fff; }
-  .more { font-size: 11px; color: #8577A8; margin-top: 2mm; text-align: right; }
+  .more { font-size: 11px; color: #7B87A1; margin-top: 2mm; text-align: right; }
   .bottom { position: absolute; left: 13mm; right: 13mm; bottom: 27mm; display: flex; justify-content: space-between; align-items: flex-end; }
   .verify { display: flex; gap: 4mm; align-items: center; }
   .qr svg { width: 25mm; height: 25mm; display: block; }
-  .vtext { font-size: 10.5px; line-height: 1.65; color: #54505E; }
-  .vtext b { color: #1F1B2E; font-size: 11.5px; }
+  .vtext { font-size: 10.5px; line-height: 1.65; color: #4A5468; }
+  .vtext b { color: #0A0E17; font-size: 11.5px; }
   .issuer { position: relative; text-align: right; padding-right: 21mm; white-space: nowrap; }
   .issuer .date { font-family: 'Noto Serif KR', serif; font-size: 14px; font-weight: 700; margin-bottom: 3mm; }
-  .issuer .by { font-family: 'Noto Serif KR', serif; font-size: 15px; font-weight: 900; color: #1F1B2E; }
-  .issuer .ceo { font-size: 12px; color: #54505E; margin-top: 1.5mm; }
+  .issuer .by { font-family: 'Noto Serif KR', serif; font-size: 15px; font-weight: 900; color: #0A0E17; }
+  .issuer .ceo { font-size: 12px; color: #4A5468; margin-top: 1.5mm; }
   /* 직인은 대표자 이름 위에 겹쳐 찍는다(한국 서식 관행). */
   .seal { position: absolute; right: -2mm; bottom: -8mm; opacity: .88; transform: rotate(-8deg); }
   .seal svg { width: 27mm; height: 27mm; }
   .vtext { max-width: 62mm; }
-  .fine { position: absolute; left: 13mm; right: 13mm; bottom: 8mm; font-size: 8.6px; line-height: 1.6; color: #8B8694; border-top: 1px solid #E6DAF6; padding-top: 2.5mm; }
-  .annexTitle { font-family: 'Noto Serif KR', serif; font-weight: 900; font-size: 20px; margin: 8mm 0 5mm; color: #1F1B2E; }
-  .pageno { position: absolute; right: 13mm; top: 4mm; font-size: 9px; color: #A99BC9; }
+  .fine { position: absolute; left: 13mm; right: 13mm; bottom: 8mm; font-size: 8.6px; line-height: 1.6; color: #8A93A6; border-top: 1px solid #E6DAF6; padding-top: 2.5mm; }
+  .annexTitle { font-family: 'Noto Serif KR', serif; font-weight: 900; font-size: 20px; margin: 8mm 0 5mm; color: #0A0E17; }
+  .pageno { position: absolute; right: 13mm; top: 4mm; font-size: 9px; color: #9AA6BF; }
   @media print { body { background: #fff; } .bar { display: none; } #doc { margin: 0; } .page { margin: 0; box-shadow: none; } }
   @media (max-width: 820px) { #doc { transform-origin: top left; } }
 </style></head>
@@ -294,7 +294,7 @@ document.getElementById("dl").addEventListener("click", async function(){
     var pdf=await html2pdf().set(opt).from(document.createElement("div")).toPdf().get("pdf");
     while (pdf.getNumberOfPages()>1) pdf.deletePage(pdf.getNumberOfPages());
     canvases.forEach(function(c,k){ if(k) pdf.addPage(); else pdf.setPage(1); pdf.addImage(c.toDataURL("image/jpeg",0.95),"JPEG",0,0,210,297); });
-    pdf.setProperties({ title: ${JSON.stringify(`YUME 사실 검증서 ${no}`)}, author: "리머(REAMER) · 유메", subject: ${JSON.stringify(url)} });
+    pdf.setProperties({ title: ${JSON.stringify(`VERILINE 사실 검증서 ${no}`)}, author: "리머(REAMER) · 베리라인", subject: ${JSON.stringify(url)} });
     pdf.save(${JSON.stringify(file)});
   } catch(e) { alert("PDF를 만들지 못했어요. 브라우저의 인쇄 → PDF로 저장을 이용해 주세요."); }
   b.disabled=false; b.textContent=old;
@@ -307,7 +307,7 @@ document.getElementById("dl").addEventListener("click", async function(){
 // <div data-yume-mark="ym…">검증받은 글</div> 뒤에 배지를 붙인다. 감싼 글의 글자를 지문과 대조해
 // 바뀌었으면 "원문 변경됨"으로 보여 준다(배지를 글 안에 넣으면 지문이 바뀌므로 글 뒤에 둔다).
 export function embedScript(base) {
-  return `/* YUME 검증 마크 — ${base}/v/ */
+  return `/* VERILINE 검증 마크 — ${base}/v/ */
 (function(){
 ${NORMALIZE_JS}
 var BASE=${JSON.stringify(base)};
@@ -316,9 +316,9 @@ var COLOR=${JSON.stringify(STATUS_COLOR)};
 function badge(id,status){
   var a=document.createElement("a"); a.href=BASE+"/v/"+encodeURIComponent(id); a.target="_blank"; a.rel="noopener";
   a.setAttribute("data-yume-badge",status);
-  a.style.cssText="display:inline-flex;align-items:center;gap:0;margin-top:10px;border-radius:999px;overflow:hidden;font:700 12.5px/1 -apple-system,'Segoe UI','Noto Sans KR','Malgun Gothic',sans-serif;text-decoration:none;box-shadow:0 2px 8px rgba(31,27,46,.15)";
-  var l=document.createElement("span"); l.textContent=(status==="valid"?"✓ ":"")+"YUME 검증"; l.style.cssText="background:#1F1B2E;color:#fff;padding:8px 11px";
-  var r=document.createElement("span"); r.textContent=LABEL[status]||status; r.style.cssText="background:"+(COLOR[status]||"#8B8694")+";color:#fff;padding:8px 11px";
+  a.style.cssText="display:inline-flex;align-items:center;gap:0;margin-top:10px;border-radius:999px;overflow:hidden;font:700 12.5px/1 -apple-system,'Segoe UI','Noto Sans KR','Malgun Gothic',sans-serif;text-decoration:none;box-shadow:0 2px 8px rgba(10, 14, 23,.15)";
+  var l=document.createElement("span"); l.textContent=(status==="valid"?"✓ ":"")+"VERILINE 검증"; l.style.cssText="background:#0A0E17;color:#fff;padding:8px 11px";
+  var r=document.createElement("span"); r.textContent=LABEL[status]||status; r.style.cssText="background:"+(COLOR[status]||"#8A93A6")+";color:#fff;padding:8px 11px";
   a.appendChild(l); a.appendChild(r); return a;
 }
 async function run(el){

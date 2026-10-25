@@ -119,14 +119,14 @@ b2bRouter.post("/b2b/quote", cors, limitMiddleware(quoteLimiter, (req) => `b2bq:
   mailSafe({
     to: q.email,
     replyTo: COMPANY.email,
-    subject: `[유메] 견적서 ${quoteNumber(q)} — ${productLabel(q.product)}`,
+    subject: `[베리라인] 견적서 ${quoteNumber(q)} — ${productLabel(q.product)}`,
     text: `${q.company} ${q.contact_name || ""}님, 요청하신 견적서입니다.\n\n견적번호 ${quoteNumber(q)}\n합계 ${won(q.total_krw)} (부가세 포함)\n\n${quoteUrl(q)}\n\n견적서 화면에서 인쇄·PDF 저장과 계약 신청을 할 수 있습니다.`,
     html: quoteMailHtml(q, `${esc(q.company)} ${esc(q.contact_name || "")}님, 요청하신 견적서입니다.`),
   });
   mailSafe({
     to: ownerMail(),
     replyTo: q.email,
-    subject: `[유메 견적 발행] ${q.company} · ${productLabel(q.product)} · ${won(q.total_krw)}`,
+    subject: `[베리라인 견적 발행] ${q.company} · ${productLabel(q.product)} · ${won(q.total_krw)}`,
     text: `${q.company} / ${q.contact_name || "-"} / ${q.email}\n${productLabel(q.product)} · 합계 ${won(q.total_krw)}\n${quoteUrl(q)}${q.note ? `\n\n메모: ${q.note}` : ""}`,
   });
 });
@@ -143,7 +143,7 @@ b2bRouter.post("/b2b/quote/:token/request", limitMiddleware(requestLimiter, (req
   mailSafe({
     to: ownerMail(),
     replyTo: b.taxEmail || q.email,
-    subject: `[유메 ${audit ? "감사 주문" : "계약 신청"}] ${b.bizName || q.company} · ${won(q.total_krw)} · ${PAY_METHODS[q.pay_method] || ""}`,
+    subject: `[베리라인 ${audit ? "감사 주문" : "계약 신청"}] ${b.bizName || q.company} · ${won(q.total_krw)} · ${PAY_METHODS[q.pay_method] || ""}`,
     text: `${hometaxBlock(q)}${taxNote()}${orderLines(q)}\n\n견적서: ${quoteUrl(q)}\n작업 리스트: ${PUBLIC()}/admin/work`,
   });
   const to = b.taxEmail || q.email;
@@ -153,7 +153,7 @@ b2bRouter.post("/b2b/quote/:token/request", limitMiddleware(requestLimiter, (req
     mailSafe({
       to,
       replyTo: COMPANY.email,
-      subject: `[유메] ${what} 접수 — 견적 ${quoteNumber(q)}`,
+      subject: `[베리라인] ${what} 접수 — 견적 ${quoteNumber(q)}`,
       text: `${b.bizName || q.company}의 ${what}이 접수됐습니다.${lead}\n견적번호 ${quoteNumber(q)} · 합계 ${won(q.total_krw)}\n결제 방법: ${PAY_METHODS[q.pay_method]}\n\n진행 상태: ${quoteUrl(q)}`,
       html: quoteMailHtml(q, `${esc(b.bizName || q.company)}의 ${what}이 접수됐습니다. 결제 방법: ${esc(PAY_METHODS[q.pay_method])}.${esc(lead)} 다음 단계는 견적서 화면에 안내돼 있습니다.`),
     });
@@ -235,7 +235,7 @@ function notifyPaid(q, applied) {
       mailSafe({
         to,
         replyTo: COMPANY.email,
-        subject: `[유메] ${q.product === "metered" ? "계약 확정" : "입금 확인"} — 견적 ${quoteNumber(q)}`,
+        subject: `[베리라인] ${q.product === "metered" ? "계약 확정" : "입금 확인"} — 견적 ${quoteNumber(q)}`,
         text: `${q.product === "metered" ? "계약이 확정됐습니다." : "입금이 확인됐습니다."} 전자세금계산서는 ${to}로 발급됩니다.${due}\n${applied?.key ? `API 키(${applied.key}…)의 월 한도를 ${applied.quota.toLocaleString("ko-KR")}건으로 설정했습니다.\n` : ""}\n${quoteUrl(q)}`,
       });
     }

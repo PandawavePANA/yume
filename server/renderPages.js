@@ -46,28 +46,28 @@ export function layout(title, body, { narrow = false, script = "" } = {}) {
   return `<!doctype html>
 <html lang="ko"><head>
 <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>${esc(title)} · 유메</title>
+<title>${esc(title)} · 베리라인</title>
 <style>
   * { box-sizing: border-box; }
   body { margin: 0; font-family: -apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI','Noto Sans KR',sans-serif;
-    background: radial-gradient(ellipse 80% 60% at 50% -10%, #D3B8F5 0%, #E3CDF7 40%, #F1E3FA 75%, #F8F0FC 100%); color: #241F33; min-height: 100vh; word-break: keep-all; }
+    background: radial-gradient(ellipse 80% 60% at 50% -10%, #D3B8F5 0%, #E3CDF7 40%, #F1E3FA 75%, #F8F0FC 100%); color: #121827; min-height: 100vh; word-break: keep-all; }
   .wrap { max-width: ${narrow ? 440 : 860}px; margin: 0 auto; padding: 36px 18px 70px; }
   .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 22px; }
-  .top a { color: #6B4FA8; text-decoration: none; font-weight: 700; font-size: 15px; }
-  .card { background: #fff; border: 1px solid #D9BFF0; border-radius: 20px; padding: clamp(20px, 4vw, 38px); box-shadow: 0 16px 44px rgba(107,79,168,0.14); }
+  .top a { color: #2F6BFF; text-decoration: none; font-weight: 700; font-size: 15px; }
+  .card { background: #fff; border: 1px solid #D9BFF0; border-radius: 20px; padding: clamp(20px, 4vw, 38px); box-shadow: 0 16px 44px rgba(47, 107, 255,0.14); }
   h1 { font-size: 24px; margin: 0 0 6px; } h2 { font-size: 16.5px; margin: 30px 0 10px; color: #3B3159; } h3 { font-size: 14.5px; margin: 18px 0 8px; }
-  p, li { font-size: 14px; line-height: 1.8; color: #3F3A52; } .muted { color: #8577A8; font-size: 12.5px; }
+  p, li { font-size: 14px; line-height: 1.8; color: #3F3A52; } .muted { color: #7B87A1; font-size: 12.5px; }
   table { width: 100%; border-collapse: collapse; font-size: 13px; margin: 10px 0; } th, td { border: 1px solid #E6DAF6; padding: 8px 10px; text-align: left; vertical-align: top; line-height: 1.6; }
-  th { background: #F7F1FE; color: #5B3FA0; font-weight: 700; }
+  th { background: #F7F1FE; color: #2F6BFF; font-weight: 700; }
   code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; } code { background: #F1E6FB; color: #5B3A9E; padding: 1px 6px; border-radius: 5px; font-size: 12.5px; }
   pre { background: #211A32; color: #E8E1FA; padding: 14px 16px; border-radius: 12px; overflow-x: auto; font-size: 12.5px; line-height: 1.6; }
-  input { width: 100%; padding: 11px 13px; border-radius: 10px; border: 1px solid #D4BEF0; font-size: 14px; margin: 6px 0 14px; }
-  button { width: 100%; padding: 12px 0; border-radius: 12px; border: none; background: linear-gradient(90deg,#B49AEE,#6B4FA8); color: #fff; font-size: 14.5px; font-weight: 600; cursor: pointer; }
+  input { width: 100%; padding: 11px 13px; border-radius: 10px; border: 1px solid #C9D8FF; font-size: 14px; margin: 6px 0 14px; }
+  button { width: 100%; padding: 12px 0; border-radius: 12px; border: none; background: linear-gradient(90deg,#B49AEE,#2F6BFF); color: #fff; font-size: 14.5px; font-weight: 600; cursor: pointer; }
   .msg { font-size: 13px; min-height: 18px; margin-top: 10px; } .err { color: #C6402F; } .ok { color: #1F9D66; }
-  .foot { text-align: center; margin-top: 24px; font-size: 12px; color: #A99BC9; line-height: 1.8; } .foot a { color: #8577A8; }
+  .foot { text-align: center; margin-top: 24px; font-size: 12px; color: #9AA6BF; line-height: 1.8; } .foot a { color: #7B87A1; }
 </style></head>
 <body><div class="wrap">
-  <div class="top"><a href="/">← 유메로 돌아가기</a></div>
+  <div class="top"><a href="/">← 베리라인으로 돌아가기</a></div>
   <div class="card">${body}</div>
   <div class="foot">${businessLine()}<br/>${esc(COMPLAINT_NOTICE)} ${esc(complaintOfficer())}<br/><a href="/terms">이용약관</a> · <a href="/privacy"><b>개인정보처리방침</b></a> · <a href="/refund">환불정책</a> · <a href="/products">상품 안내</a> · <a href="/docs/api">API 문서</a></div>
 </div>${script}</body></html>`;
@@ -112,7 +112,7 @@ export function renderResetPasswordPage() {
       var r = await fetch("/api/auth/reset", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: token, password: pw }) });
       var d = await r.json();
       if (!r.ok) throw new Error(d.error || "변경하지 못했어요.");
-      msg.className = "msg ok"; msg.innerHTML = '비밀번호를 바꿨어요. <a href="/">유메에서 로그인하기</a>';
+      msg.className = "msg ok"; msg.innerHTML = '비밀번호를 바꿨어요. <a href="/">베리라인에서 로그인하기</a>';
     } catch (e) { msg.className = "msg err"; msg.textContent = e.message; this.disabled = false; }
   };
 </script>`,
@@ -123,10 +123,10 @@ export function renderResetPasswordPage() {
 export function renderTermsPage() {
   return layout(
     "이용약관",
-    `<h1>유메 이용약관</h1><p class="muted">시행일: ${EFFECTIVE_DATE}</p>
+    `<h1>베리라인 이용약관</h1><p class="muted">시행일: ${EFFECTIVE_DATE}</p>
 
 <h2>제1조 (목적)</h2>
-<p>이 약관은 ${esc(COMPANY.name)}(이하 "회사")가 제공하는 AI 할루시네이션 검사 서비스 "유메(YUME)"(이하 "서비스")의 이용 조건과 절차, 회사와 이용자의 권리·의무 및 책임 사항을 정합니다.</p>
+<p>이 약관은 ${esc(COMPANY.name)}(이하 "회사")가 제공하는 AI 할루시네이션 검사 서비스 "베리라인(VERILINE, 구 유메)"(이하 "서비스")의 이용 조건과 절차, 회사와 이용자의 권리·의무 및 책임 사항을 정합니다.</p>
 
 <h2>제2조 (정의)</h2>
 <ol>
@@ -146,7 +146,7 @@ export function renderTermsPage() {
 <li>인용된 법령·판례·문헌 또는 사실 주장을 공식 데이터와 웹에서 찾지 못한 경우, 회사는 탐색 범위를 바탕으로 산출한 "부존재 신뢰도"와 아직 확인하지 못한 영역을 함께 안내합니다.</li>
 <li>회원에게는 검증 기록 저장, API 키 발급, 개인 데이터 내려받기 기능을 제공합니다.</li>
 <li>회사는 AI 서비스를 운영하는 기업의 서비스 답변을 표본으로 검사(이하 "감사")할 수 있습니다. 감사는 일반 이용자로서 직접 입력한 질문과 받은 답변으로만 하며, 결과는 그 기업에 비공개로 전달합니다. 기업 이름과 감사 결과는 그 기업이 공개에 동의한 경우에만 공개합니다.</li>
-<li>회사는 같은 방법으로 반복해 측정한 "YUME 할루시네이션 지수"를 주기적으로 공개합니다. 지수는 감사·무료 점검·검사 결과를 개인과 기업을 알아볼 수 없게 집계한 숫자이며, 특정 서비스의 품질을 보증하지 않습니다. 발행한 지수는 고치지 않으며, 바로잡을 때에는 사유와 함께 정정 기록을 공개합니다.</li>
+<li>회사는 같은 방법으로 반복해 측정한 "VERILINE 할루시네이션 지수"를 주기적으로 공개합니다. 지수는 감사·무료 점검·검사 결과를 개인과 기업을 알아볼 수 없게 집계한 숫자이며, 특정 서비스의 품질을 보증하지 않습니다. 발행한 지수는 고치지 않으며, 바로잡을 때에는 사유와 함께 정정 기록을 공개합니다.</li>
 </ol>
 
 <h2>제5조 (판정의 성격과 한계)</h2>
@@ -233,7 +233,7 @@ export function renderTermsPage() {
 
 <h2>부칙</h2>
 <p>이 약관은 ${EFFECTIVE_DATE}부터 시행합니다.</p>
-<p class="muted">개정 이력: 2026년 10월 11일 제4조에 기업 AI 감사와 YUME 할루시네이션 지수 안내를 추가(이용자의 권리·의무 변경 없음) · 2026년 10월 11일 제5조에 생성형 AI 사용·판정의 뜻·법률 자문 아님·정정 신고 안내를 보완(이용자의 권리·의무 변경 없음) · ${EFFECTIVE_DATE} 월 요금제 판매 종료·크레딧 유효기간(1년)·카드 결제 취소 환불 반영 · 이전 약관 ${EFFECTIVE_PREVIOUS} 시행. 개정 전에 적립된 크레딧의 유효기간은 ${EFFECTIVE_DATE}부터 1년입니다.</p>`,
+<p class="muted">개정 이력: 2026년 10월 11일 제4조에 기업 AI 감사와 VERILINE 할루시네이션 지수 안내를 추가(이용자의 권리·의무 변경 없음) · 2026년 10월 11일 제5조에 생성형 AI 사용·판정의 뜻·법률 자문 아님·정정 신고 안내를 보완(이용자의 권리·의무 변경 없음) · ${EFFECTIVE_DATE} 월 요금제 판매 종료·크레딧 유효기간(1년)·카드 결제 취소 환불 반영 · 이전 약관 ${EFFECTIVE_PREVIOUS} 시행. 개정 전에 적립된 크레딧의 유효기간은 ${EFFECTIVE_DATE}부터 1년입니다.</p>`,
   );
 }
 
@@ -241,19 +241,19 @@ export function renderTermsPage() {
 export function renderAccountDeletionPage() {
   return layout(
     "계정 삭제 안내",
-    `<h1>유메 계정 삭제 안내</h1>
-<p class="muted">${esc(COMPANY.name)}가 운영하는 유메(YUME) 웹사이트와 앱(Android·iOS)의 계정 삭제 방법입니다.</p>
+    `<h1>베리라인 계정 삭제 안내</h1>
+<p class="muted">${esc(COMPANY.name)}가 운영하는 베리라인(YUME) 웹사이트와 앱(Android·iOS)의 계정 삭제 방법입니다.</p>
 
 <h2>앱 또는 웹사이트에서 직접 삭제하기</h2>
 <ol>
-<li>유메 앱을 열거나 <a href="/">www.yume-reamer.com</a>에 접속해 로그인합니다.</li>
+<li>베리라인 앱을 열거나 <a href="/">www.yume-reamer.com</a>에 접속해 로그인합니다.</li>
 <li>오른쪽 위 내 이름을 누르고 <b>계정 설정</b>을 엽니다.</li>
 <li><b>보안</b> 탭의 <b>회원 탈퇴</b>에서 비밀번호를 입력하고 <b>탈퇴하기</b>를 누릅니다.</li>
 </ol>
 <p>탈퇴하는 즉시 계정과 연결된 정보가 삭제되며 되돌릴 수 없습니다.</p>
 
 <h2>로그인할 수 없는 경우</h2>
-<p>가입한 이메일 주소에서 <a href="mailto:${esc(COMPANY.email)}?subject=${encodeURIComponent("[유메] 계정 삭제 요청")}">${esc(COMPANY.email)}</a>로 "계정 삭제 요청"이라고 보내주세요. 본인 확인 후 10일 이내에 삭제하고 결과를 알려드립니다.</p>
+<p>가입한 이메일 주소에서 <a href="mailto:${esc(COMPANY.email)}?subject=${encodeURIComponent("[베리라인] 계정 삭제 요청")}">${esc(COMPANY.email)}</a>로 "계정 삭제 요청"이라고 보내주세요. 본인 확인 후 10일 이내에 삭제하고 결과를 알려드립니다.</p>
 
 <h2>삭제되는 정보</h2>
 <table>
@@ -297,7 +297,7 @@ export function renderProductsPage() {
      <p class="muted">${esc(COMPANY.name)} · 모든 상품은 디지털 콘텐츠이며 배송되는 실물이 없습니다.</p>
 
      <h2>크레딧이란</h2>
-     <p>크레딧은 유메가 AI 답변·문서 속 사실 주장을 공식 원문과 대조해 검사하는 데 쓰는 충전식 이용권입니다.
+     <p>크레딧은 베리라인이 AI 답변·문서 속 사실 주장을 공식 원문과 대조해 검사하는 데 쓰는 충전식 이용권입니다.
      매일 3회는 무료로 확인할 수 있고, 그 이상은 크레딧으로 이용합니다.
      검증 1회에 1크레딧이 차감되며, 입력이 길면 <b>${CHARS_PER_CREDIT.toLocaleString()}자마다 1크레딧</b>씩 더 차감됩니다.
      서버 오류로 검증이 완료되지 않으면 차감된 크레딧은 자동으로 환급됩니다.</p>
@@ -345,7 +345,7 @@ export function renderRefundPage() {
      <p class="muted">시행일: ${EFFECTIVE_DATE} · ${esc(COMPANY.name)}</p>
 
      <h2>제1조 (적용 범위)</h2>
-     <p>이 정책은 유메의 크레딧 충전에 적용됩니다. 유메가 판매하는 상품은 모두 디지털 콘텐츠이며 배송되는 실물이 없습니다. 유메는 월 요금제·정기결제 상품을 판매하지 않습니다.</p>
+     <p>이 정책은 베리라인의 크레딧 충전에 적용됩니다. 베리라인이 판매하는 상품은 모두 디지털 콘텐츠이며 배송되는 실물이 없습니다. 베리라인은 월 요금제·정기결제 상품을 판매하지 않습니다.</p>
 
      <h2>제2조 (환불 방법)</h2>
      <ol>
@@ -385,8 +385,8 @@ export function renderRefundPage() {
      <h2>제7조 (서비스 장애와 오류)</h2>
      <ol>
      <li>서버 오류로 검증이 완료되지 않은 경우, 차감된 크레딧은 <b>자동으로 환급</b>됩니다. 별도로 신청하지 않으셔도 됩니다.</li>
-     <li>유메의 귀책으로 서비스를 정상 이용할 수 없었던 기간이 있는 경우, 그 기간에 대해 카드 결제 취소로 환불하거나 크레딧으로 보상합니다.</li>
-     <li>판정 결과에 대한 이견은 환불 사유에 해당하지 않습니다. 유메의 판정은 참고 정보이며, 근거와 조회 시점을 함께 제공하여 이용자가 직접 확인할 수 있도록 하고 있습니다.</li>
+     <li>베리라인의 귀책으로 서비스를 정상 이용할 수 없었던 기간이 있는 경우, 그 기간에 대해 카드 결제 취소로 환불하거나 크레딧으로 보상합니다.</li>
+     <li>판정 결과에 대한 이견은 환불 사유에 해당하지 않습니다. 베리라인의 판정은 참고 정보이며, 근거와 조회 시점을 함께 제공하여 이용자가 직접 확인할 수 있도록 하고 있습니다.</li>
      </ol>
 
      <h2>제8조 (신청 방법과 처리 기한)</h2>
@@ -413,7 +413,7 @@ export function renderPrivacyPage() {
   return layout(
     "개인정보처리방침",
     `<h1>개인정보처리방침</h1><p class="muted">시행일: ${PRIVACY_EFFECTIVE_DATE}</p>
-<p>${esc(COMPANY.name)}(이하 "회사")는 「개인정보 보호법」에 따라 이용자의 개인정보를 보호하고 관련 고충을 신속하게 처리하기 위해 다음과 같이 개인정보처리방침을 공개합니다.</p>
+<p>${esc(COMPANY.name)}(이하 "회사")는 「개인정보 보호법」에 따라 서비스 "베리라인"(구 "유메") 이용자의 개인정보를 보호하고 관련 고충을 신속하게 처리하기 위해 다음과 같이 개인정보처리방침을 공개합니다.</p>
 
 <h2>1. 처리하는 개인정보와 목적</h2>
 <table>
@@ -427,9 +427,9 @@ export function renderPrivacyPage() {
 <tr><td>API 이용 기업</td><td>담당자 이메일·회사명, API 호출 기록</td><td>API 제공, 사용량 집계와 과금</td></tr>
 <tr><td>본인확인(통합인증서비스, 해당 기능 이용 시)</td><td>이름, 생년월일, 성별, 휴대전화번호, 연계정보(CI), 중복가입확인정보(DI)</td><td>본인 확인, 만 14세 미만 가입 제한, 중복 가입 및 부정 이용 방지, 유료 서비스 이용 시 본인 확인</td></tr>
 </table>
-<p>판정 결과는 개인을 알아볼 수 없는 집계 숫자(검사한 글·주장의 수, 판정 종류별 비율, 분야)로만 YUME 할루시네이션 지수에 공개될 수 있습니다. 입력한 글의 내용과 이용자 정보는 공개하지 않습니다.</p>
+<p>판정 결과는 개인을 알아볼 수 없는 집계 숫자(검사한 글·주장의 수, 판정 종류별 비율, 분야)로만 VERILINE 할루시네이션 지수에 공개될 수 있습니다. 입력한 글의 내용과 이용자 정보는 공개하지 않습니다.</p>
 <p>본인확인은 본인확인기관이 제공하는 통합인증서비스(카카오·네이버·PASS 등 인증서)를 통해 이뤄지며, 회사는 <b>주민등록번호를 수집하지 않습니다</b>. 연계정보(CI)는 본인확인기관이 주민등록번호를 일방향 암호화해 만든 값으로, 이용자를 서비스 간에 동일인으로 확인하는 데에만 쓰입니다.</p>
-<p>유메 모바일 앱(Android·iOS)은 웹사이트와 같은 정보만 처리합니다. 앱은 연락처·위치·사진·카메라·마이크 등 기기 정보에 접근하지 않고, 광고 식별자를 수집하지 않으며, 이용자를 추적하지 않습니다. 앱에서 접속했는지 구분하기 위해 브라우저 정보(User-Agent)에 앱 이름이 포함됩니다.</p>
+<p>베리라인 모바일 앱(Android·iOS)은 웹사이트와 같은 정보만 처리합니다. 앱은 연락처·위치·사진·카메라·마이크 등 기기 정보에 접근하지 않고, 광고 식별자를 수집하지 않으며, 이용자를 추적하지 않습니다. 앱에서 접속했는지 구분하기 위해 브라우저 정보(User-Agent)에 앱 이름이 포함됩니다.</p>
 
 <h2>2. 보유 및 이용 기간</h2>
 <table>
@@ -505,7 +505,7 @@ export function renderPrivacyPage() {
 
 <h2>11. 방침의 변경</h2>
 <p>이 개인정보처리방침은 ${PRIVACY_EFFECTIVE_DATE}부터 적용됩니다. 내용이 바뀌면 시행 7일 전부터 서비스에 공지합니다.</p>
-<p class="muted">개정 이력: 2026년 10월 11일 집계 통계(YUME 할루시네이션 지수) 공개 범위를 명시(처리 항목·목적 변경 없음) · ${PRIVACY_EFFECTIVE_DATE} 본인확인(통합인증서비스) 처리 항목·위탁 추가 · 이전 방침 ${PRIVACY_PREVIOUS.join(", ")} 시행</p>`,
+<p class="muted">개정 이력: 2026년 10월 11일 집계 통계(VERILINE 할루시네이션 지수) 공개 범위를 명시(처리 항목·목적 변경 없음) · ${PRIVACY_EFFECTIVE_DATE} 본인확인(통합인증서비스) 처리 항목·위탁 추가 · 이전 방침 ${PRIVACY_PREVIOUS.join(", ")} 시행</p>`,
   );
 }
 
@@ -513,13 +513,13 @@ export function renderApiDocsPage(baseUrl) {
   const base = esc(String(baseUrl).replace(/\/$/, ""));
   return layout(
     "API 문서",
-    `<h1>유메 검증 API <span class="muted">v1</span></h1>
-<p>고객에게 나갈 답변, 보도자료, 상품 설명, 상담 스크립트 — <b>AI가 쓴 글이든 사람이 쓴 글이든</b> 밖으로 내보내기 전에 유메로 사실 여부를 확인하세요. 응답에는 주장별 판정·근거·출처, <b>원문 속 위치</b>, 틀린 문장의 <b>고친 문장</b>, 그리고 인용된 법령·판례·문헌이 공식 자료에 없을 때의 <b>부존재 신뢰도</b>가 함께 들어 있습니다.</p>
+    `<h1>베리라인 검증 API <span class="muted">v1</span></h1>
+<p>고객에게 나갈 답변, 보도자료, 상품 설명, 상담 스크립트 — <b>AI가 쓴 글이든 사람이 쓴 글이든</b> 밖으로 내보내기 전에 베리라인으로 사실 여부를 확인하세요. 응답에는 주장별 판정·근거·출처, <b>원문 속 위치</b>, 틀린 문장의 <b>고친 문장</b>, 그리고 인용된 법령·판례·문헌이 공식 자료에 없을 때의 <b>부존재 신뢰도</b>가 함께 들어 있습니다.</p>
 <p>자사 상품·약관·회사 정보처럼 공개 웹에 없는 사실은 <b>기준 자료</b>(<code>references</code>)로 함께 보내면 그 자료와 먼저 대조합니다.</p>
 
 <h2>시작하기</h2>
 <ol>
-<li>유메에 가입하고 계정 메뉴의 <b>API 키</b>에서 키를 발급받습니다. 키는 발급할 때 한 번만 보여주므로 안전한 곳에 보관하세요.</li>
+<li>베리라인에 가입하고 계정 메뉴의 <b>API 키</b>에서 키를 발급받습니다. 키는 발급할 때 한 번만 보여주므로 안전한 곳에 보관하세요.</li>
 <li>모든 요청에 <code>Authorization: Bearer &lt;API 키&gt;</code> 헤더를 붙입니다.</li>
 <li>키는 서버에서만 사용하세요. 브라우저·앱에 넣으면 누구나 키를 볼 수 있습니다.</li>
 <li>OpenAPI 3.1 명세: <a href="/v1/openapi.json"><code>GET /v1/openapi.json</code></a> — 인증 없이 받을 수 있습니다. Postman·코드 생성기에 그대로 넣으세요.</li>
@@ -610,7 +610,7 @@ while job["status"] == "pending":
 </table>
 
 <h2>부존재 신뢰도(NEC)</h2>
-<p>AI가 존재하지 않는 판례·법령·논문을 지어내거나, 있지도 않은 통계·사건을 사실처럼 말하는 경우가 있습니다. 데이터베이스에서 "못 찾았다"는 사실만으로 곧바로 "없다"고 단정할 수는 없으므로, 유메는 다음 세 지표로 부존재 신뢰도를 산출합니다.</p>
+<p>AI가 존재하지 않는 판례·법령·논문을 지어내거나, 있지도 않은 통계·사건을 사실처럼 말하는 경우가 있습니다. 데이터베이스에서 "못 찾았다"는 사실만으로 곧바로 "없다"고 단정할 수는 없으므로, 베리라인은 다음 세 지표로 부존재 신뢰도를 산출합니다.</p>
 <p>식별자(법령·판례·DOI 등)는 공식 레지스트리가 검색공간입니다. 식별자가 없는 일반 사실 주장은 <b>"이 주장이 사실이라면 어디에 기록되어 있어야 하는가"</b>를 검색공간으로 삼습니다 — 공공 통계·공시처럼 사실이라면 반드시 공표되는 영역을 충분히 탐색하고도 찾지 못하면 부존재 신뢰도가 임계값을 넘어 <code>사실과 다름</code>으로 판정합니다. 반대로 비공개 내부 정보나 개인 경험처럼 애초에 기록이 남지 않는 주장은 탐색 커버리지가 낮아 부존재로 단정하지 않고 <code>확인되지 않음</code>으로 남습니다.</p>
 <pre>NEC = w1·C + w2·F + w3·(1 − P)</pre>
 <ul>
@@ -621,12 +621,12 @@ while job["status"] == "pending":
 <p><code>grade</code>가 <code>nonexistent</code>(NEC ≥ 0.7)이면 해당 주장은 <code>false</code>로, <code>unverifiable</code>이면 <code>uncovered</code>에 아직 확인하지 못한 영역과 확인 방법이 담깁니다. 지원 식별자: 판례 사건번호, 헌법재판소 사건번호, 법령·조문, DOI, arXiv, PMID, ISBN.</p>
 
 <h2>확신도와 엄격 모드</h2>
-<p>유메가 "사실" 또는 "사실과 다름"이라고 단정한 주장마다 <code>confidence</code>가 붙습니다.</p>
+<p>베리라인이 "사실" 또는 "사실과 다름"이라고 단정한 주장마다 <code>confidence</code>가 붙습니다.</p>
 <ul>
 <li><code>high</code> — 법제처 조문 원문 대조, 보내 주신 기준 자료 대조, 부존재 신뢰도 판정, 또는 <b>근거 문장을 출처 페이지에서 서버가 직접 확인</b>하고 처음 판정을 모르는 독립 검토도 같은 결론을 낸 경우. 이때 <code>evidence: { verified: true, url, quote }</code>가 함께 옵니다.</li>
 <li><code>medium</code> — 판정은 있지만 출처 페이지를 직접 열어 확인하지 못한 경우(접속 차단·동적 페이지 등).</li>
 </ul>
-<p>근거로 제시된 문장이 출처 페이지에 실제로 없거나, 독립 검토가 처음 판정과 다르게 보면 판정을 내리지 않고 <code>uncertain</code>으로 둡니다. 요청에 <code>"strict": true</code>를 주면 <b>엄격 모드</b>로, <code>high</code>만 판정하고 나머지는 모두 <code>uncertain</code>입니다 — 유메가 단정하는 말은 원문으로 확인된 것뿐이어야 하는 곳(광고 심의·공시·법무 검토)에 쓰세요.</p>
+<p>근거로 제시된 문장이 출처 페이지에 실제로 없거나, 독립 검토가 처음 판정과 다르게 보면 판정을 내리지 않고 <code>uncertain</code>으로 둡니다. 요청에 <code>"strict": true</code>를 주면 <b>엄격 모드</b>로, <code>high</code>만 판정하고 나머지는 모두 <code>uncertain</code>입니다 — 베리라인이 단정하는 말은 원문으로 확인된 것뿐이어야 하는 곳(광고 심의·공시·법무 검토)에 쓰세요.</p>
 <p><b>"없다"고 말하는 주장도 검증합니다.</b> "그런 판례는 존재하지 않는다", "민법에는 제750조가 없다"처럼 대상의 존재를 부정하는 주장에는 <code>absence_of</code>(없다고 한 대상)가 붙고, 판정은 그 방향 기준입니다 — 없는 것을 없다고 했으면 <code>confirmed</code>, 실재하는 것을 없다고 했으면 <code>false</code>(실재 출처 첨부). 검색에 나오지 않는다는 것만으로는 "없다"를 확인하지 않고, 기록이 있어야 할 공간을 충분히 확인했을 때만(부존재 신뢰도) 판정합니다.</p>
 <p><code>uncertain</code>인 주장에는 이유를 알려 주는 <code>uncertain_reason</code>이 붙습니다.</p>
 <ul>
@@ -657,7 +657,7 @@ while job["status"] == "pending":
 <p><code>level</code>: <code>fast</code>(가벼운 답) · <code>standard</code> · <code>deep</code>(중요한 답) — 답을 쓴 모델 등급에 맞춥니다. 답을 쓰기 <b>전에</b> <code>POST /v1/context { "question" }</code>를 부르면 관련 현행 조문을 <code>block</code>으로 받아 모델 안내에 넣을 수 있습니다(과금 없음).</p>
 
 <h2>POST /v1/documents — 긴 문서·파일</h2>
-<p>1만 자를 넘는 문서나 파일(<b>DOCX·HWPX·PDF·TXT·MD·CSV</b>, 10MB까지)을 그대로 보냅니다. 유메가 문단 경계로 나눠 검사하고, 결과를 <b>원문 전체 기준 위치</b>로 합쳐 돌려줍니다. 틀린 문장을 고친 문장으로 바꾼 <code>corrected_text</code>(고친 본문)도 함께 줍니다.</p>
+<p>1만 자를 넘는 문서나 파일(<b>DOCX·HWPX·PDF·TXT·MD·CSV</b>, 10MB까지)을 그대로 보냅니다. 베리라인이 문단 경계로 나눠 검사하고, 결과를 <b>원문 전체 기준 위치</b>로 합쳐 돌려줍니다. 틀린 문장을 고친 문장으로 바꾼 <code>corrected_text</code>(고친 본문)도 함께 줍니다.</p>
 <ul>
 <li>본문: <code>text</code>(최대 100,000자) 또는 <code>file: { "name": "보도자료.hwpx", "content_base64": "…" }</code>. <code>title</code>·<code>references</code>·<code>organization</code>·<code>callback_url</code>·<code>wait</code>·<code>Idempotency-Key</code>는 단건과 같습니다.</li>
 <li>과금: 약 7,000자 조각 1개 = 검증 1건. 남은 한도가 조각 수보다 적으면 한 조각도 시작하지 않습니다(<code>429</code>, <code>needed</code>·<code>remaining</code> 포함).</li>
@@ -674,7 +674,7 @@ while job["status"] == "pending":
   "text": "…원문…" }</pre>
 <p><code>GET /v1/documents/:id</code>로 진행 상황과 결과를 조회합니다(같은 계정의 키로 만든 문서만).</p>
 
-<h2>YUME 검증 마크</h2>
+<h2>VERILINE 검증 마크</h2>
 <p>문서 검사에서 <b>모든 사실 주장이 출처 원문으로 확인(<code>confidence: "high"</code>)</b>되면 검증 마크를 발급할 수 있습니다. 마크를 받으면 글과 주장별 근거가 공개 검증 페이지에 실리므로 <code>publish: true</code>(공개 동의)가 필요합니다.</p>
 <pre>POST /v1/documents/:id/mark
 { "publish": true }
@@ -756,37 +756,37 @@ export function renderExtensionPrivacyPage() {
   return layout(
     "크롬 확장 프로그램 개인정보처리방침",
     `<h1>크롬 확장 프로그램 개인정보처리방침</h1>
-<p class="muted">시행일: ${PRIVACY_EFFECTIVE_DATE} · 대상: 크롬 확장 프로그램 「유메 — AI 할루시네이션 검사」(이전 이름 「유메 — AI 답변 팩트체크」)</p>
-<p>이 문서는 <b>크롬 확장 프로그램에만</b> 적용됩니다. 유메 웹사이트와 계정에 관한 내용은 <a href="/privacy">유메 개인정보처리방침</a>을 보세요.</p>
+<p class="muted">시행일: ${PRIVACY_EFFECTIVE_DATE} · 대상: 크롬 확장 프로그램 「베리라인 — AI 할루시네이션 검사」(이전 이름 「베리라인 — AI 답변 팩트체크」)</p>
+<p>이 문서는 <b>크롬 확장 프로그램에만</b> 적용됩니다. 베리라인 웹사이트와 계정에 관한 내용은 <a href="/privacy">베리라인 개인정보처리방침</a>을 보세요.</p>
 
 <h2>1. 한 줄 요약</h2>
-<p>확장 프로그램은 <b>이용자가 버튼을 누른 그 순간에만</b> 화면에 있는 글을 읽고, 그 글을 <b>이용자 브라우저 안에만</b> 잠시 담아 유메 입력칸으로 옮깁니다. 확장 프로그램이 스스로 서버로 보내는 데이터는 없습니다.</p>
+<p>확장 프로그램은 <b>이용자가 버튼을 누른 그 순간에만</b> 화면에 있는 글을 읽고, 그 글을 <b>이용자 브라우저 안에만</b> 잠시 담아 베리라인 입력칸으로 옮깁니다. 확장 프로그램이 스스로 서버로 보내는 데이터는 없습니다.</p>
 
 <h2>2. 처리하는 정보</h2>
 <table>
 <tr><th>항목</th><th>언제</th><th>어디에 남나</th></tr>
-<tr><td>이용자가 선택했거나 버튼을 누른 답변 글(최대 1만 자)</td><td>이용자가 「유메로 확인」을 누르거나 글을 선택한 뒤 뜬 버튼을 누를 때만</td><td>이용자 기기의 브라우저 저장소(<code>chrome.storage.local</code>). 유메 탭에서 꺼내 쓰는 즉시 삭제되고, 5분이 지나면 쓰지 않고 지웁니다.</td></tr>
+<tr><td>이용자가 선택했거나 버튼을 누른 답변 글(최대 1만 자)</td><td>이용자가 「베리라인으로 확인」을 누르거나 글을 선택한 뒤 뜬 버튼을 누를 때만</td><td>이용자 기기의 브라우저 저장소(<code>chrome.storage.local</code>). 베리라인 탭에서 꺼내 쓰는 즉시 삭제되고, 5분이 지나면 쓰지 않고 지웁니다.</td></tr>
 </table>
 <p>확장 프로그램은 위 항목 외에 <b>아무것도 수집하지 않습니다.</b> 구체적으로 방문 기록, 쿠키, 로그인 정보, 입력한 비밀번호, 개인 식별 정보, 위치, 광고 식별자를 읽지 않고 저장하지 않습니다. 분석 도구와 추적 코드를 넣지 않았고, 광고를 띄우지 않습니다.</p>
 
 <h2>3. 제3자 제공·판매</h2>
 <p>없습니다. 확장 프로그램은 수집한 글을 <b>누구에게도 제공하거나 판매하지 않으며</b>, 이용자 승인 없이 외부로 전송하지 않습니다. 신용도 평가 등 확장 프로그램의 기능과 무관한 목적으로 쓰지 않습니다.</p>
 
-<h2>4. 글이 유메로 넘어간 뒤</h2>
-<p>확장 프로그램은 옮겨 온 글을 유메 입력칸에 <b>넣어 두기만 하고 멈춥니다.</b> 이용자가 그 글을 확인하고 「유메로 확인하기」를 직접 눌러야 검증이 시작되고, 그때부터는 <a href="/privacy">유메 개인정보처리방침</a>이 적용됩니다. 누르지 않으면 어떤 글도 유메 서버에 도달하지 않습니다.</p>
+<h2>4. 글이 베리라인으로 넘어간 뒤</h2>
+<p>확장 프로그램은 옮겨 온 글을 베리라인 입력칸에 <b>넣어 두기만 하고 멈춥니다.</b> 이용자가 그 글을 확인하고 「베리라인으로 확인하기」를 직접 눌러야 검증이 시작되고, 그때부터는 <a href="/privacy">베리라인 개인정보처리방침</a>이 적용됩니다. 누르지 않으면 어떤 글도 베리라인 서버에 도달하지 않습니다.</p>
 
 <h2>5. 권한을 요구하는 이유</h2>
 <table>
 <tr><th>권한</th><th>쓰는 곳</th></tr>
-<tr><td><code>storage</code></td><td>선택한 글을 유메 탭으로 넘기기 위해 기기 안에만 잠시 보관합니다. 주소창에 실으면 글이 길이 제한에 걸리고 접속 기록에 그대로 남기 때문입니다.</td></tr>
-<tr><td><code>contextMenus</code></td><td>마우스 오른쪽 버튼 메뉴에 「유메로 확인」 항목을 넣습니다.</td></tr>
+<tr><td><code>storage</code></td><td>선택한 글을 베리라인 탭으로 넘기기 위해 기기 안에만 잠시 보관합니다. 주소창에 실으면 글이 길이 제한에 걸리고 접속 기록에 그대로 남기 때문입니다.</td></tr>
+<tr><td><code>contextMenus</code></td><td>마우스 오른쪽 버튼 메뉴에 「베리라인으로 확인」 항목을 넣습니다.</td></tr>
 <tr><td><code>scripting</code></td><td>목록에 없는 사이트에서 오른쪽 버튼 메뉴를 썼을 때, 그 탭에만 선택 영역을 읽는 코드를 넣습니다.</td></tr>
 <tr><td><code>activeTab</code></td><td>도구 모음 아이콘을 눌렀을 때 현재 탭의 선택 영역을 읽습니다.</td></tr>
-<tr><td>사이트 접근(ChatGPT·Claude·Gemini·Perplexity·유메)</td><td>해당 화면에 「유메로 확인」 버튼을 그리고, 이용자가 누른 답변의 글을 읽습니다. 이 사이트들의 계정·쿠키·대화 기록에는 접근하지 않습니다.</td></tr>
+<tr><td>사이트 접근(ChatGPT·Claude·Gemini·Perplexity·베리라인)</td><td>해당 화면에 「베리라인으로 확인」 버튼을 그리고, 이용자가 누른 답변의 글을 읽습니다. 이 사이트들의 계정·쿠키·대화 기록에는 접근하지 않습니다.</td></tr>
 </table>
 
 <h2>6. 보관 기간</h2>
-<p>옮기려고 담아 둔 글은 유메 탭에서 꺼내는 즉시 지워집니다. 꺼내지 않은 경우에도 <b>5분이 지나면 사용하지 않고 삭제</b>합니다. 확장 프로그램을 삭제하면 브라우저가 저장소를 함께 지웁니다.</p>
+<p>옮기려고 담아 둔 글은 베리라인 탭에서 꺼내는 즉시 지워집니다. 꺼내지 않은 경우에도 <b>5분이 지나면 사용하지 않고 삭제</b>합니다. 확장 프로그램을 삭제하면 브라우저가 저장소를 함께 지웁니다.</p>
 
 <h2>7. 아동</h2>
 <p>이 확장 프로그램은 만 14세 미만을 대상으로 하지 않으며, 연령 정보를 수집하지 않습니다.</p>

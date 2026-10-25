@@ -10,7 +10,7 @@ const BAND = {
   moderate: { fg: "#8A5A14", bg: "#FDF4E3", border: "#F0D98C" },
   elevated: { fg: "#B23B2B", bg: "#FDEFEC", border: "#EFC2B6" },
   severe: { fg: "#93261A", bg: "#FBE4E0", border: "#E8A99C" },
-  insufficient: { fg: "#5E5870", bg: "#F4F3F7", border: "#DCD9E4" },
+  insufficient: { fg: "#4A5468", bg: "#F4F3F7", border: "#DCD9E4" },
 };
 const MARK = {
   hallucinated: { glyph: "✕", fg: "#C6402F", label: "할루시네이션" },
@@ -117,7 +117,7 @@ export function renderAuditReport(report, { baseUrl = "" } = {}) {
           var wrong = Math.round(calls * D.rate);
           var p = pick(calls);
           out.innerHTML = "이 점검의 실패율(" + Math.round(D.rate * 100) + "%)이면 매달 약 <b>" + wrong.toLocaleString("ko-KR") +
-            "건</b>의 틀린 답이 고객에게 나갈 수 있습니다.<br>전부 유메로 거르면 <b>" + p.label + "</b>" +
+            "건</b>의 틀린 답이 고객에게 나갈 수 있습니다.<br>전부 베리라인으로 거르면 <b>" + p.label + "</b>" +
             (p.cost != null ? " · 월 약 <b>" + won(p.cost) + "</b>" : "") + "이 맞습니다.";
           if (q) q.href = D.biz + "/?inquiry=" + encodeURIComponent(p.key);
         }
@@ -130,7 +130,7 @@ export function renderAuditReport(report, { baseUrl = "" } = {}) {
         });
       })();
       </script>`
-    : `<div class="noplug"><b>이번 점검에서는 유메를 권하지 않습니다.</b>
+    : `<div class="noplug"><b>이번 점검에서는 베리라인을 권하지 않습니다.</b>
         <p style="margin:8px 0 0">${esc(rec.reason)}</p>
         ${rec.note ? `<p style="margin:8px 0 0">${esc(rec.note)}</p>` : ""}</div>`;
 
@@ -140,7 +140,7 @@ export function renderAuditReport(report, { baseUrl = "" } = {}) {
 <title>할루시네이션 점검 결과${report.subject ? ` · ${esc(report.subject)}` : ""}</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
-  :root{--paper:#F7F7F5;--surface:#fff;--ink:#16181C;--ink2:#3A3F47;--muted:#6A6E76;--line:#E3E4E0;--accent:#6B4FA8}
+  :root{--paper:#F7F7F5;--surface:#fff;--ink:#16181C;--ink2:#3A3F47;--muted:#6A6E76;--line:#E3E4E0;--accent:#2F6BFF}
   *{box-sizing:border-box}
   body{margin:0;padding:0 20px;background:var(--paper);color:var(--ink);line-height:1.7;word-break:keep-all;
        font-family:"IBM Plex Sans KR",-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo",sans-serif;font-size:15px}
@@ -192,27 +192,27 @@ export function renderAuditReport(report, { baseUrl = "" } = {}) {
   .risk b{color:var(--ink)}
   .src{display:inline-block;margin-top:10px;font-size:12.5px;font-weight:600;color:var(--accent);text-decoration:none}
   .method{margin-top:14px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px}
-  .cta{margin-top:20px;background:#1F1B2E;color:#fff;border-radius:14px;padding:24px}
+  .cta{margin-top:20px;background:#0A0E17;color:#fff;border-radius:14px;padding:24px}
   .cta h3{margin:0 0 8px;font-size:17px}
-  .cta p{margin:0;color:#CFC9DE;font-size:14.5px}
+  .cta p{margin:0;color:#C8D0E0;font-size:14.5px}
   .cta a{display:inline-block;margin-top:16px;background:var(--accent);color:#fff;text-decoration:none;
          border-radius:999px;padding:11px 22px;font-weight:600;font-size:14.5px}
   .cta a.ghost,.cta button.ghost{background:rgba(255,255,255,.12);color:#fff;border:0;border-radius:999px;padding:11px 18px;
          font:inherit;font-weight:600;font-size:14px;cursor:pointer;margin-top:16px}
   .ctaRow{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
   .calc{margin-top:18px;padding:14px 16px;border-radius:12px;background:rgba(255,255,255,.07)}
-  .calc label{display:block;font-size:13px;color:#CFC9DE;margin-bottom:6px}
+  .calc label{display:block;font-size:13px;color:#C8D0E0;margin-bottom:6px}
   .calcRow{display:flex;align-items:center;gap:8px}
   .calcRow input{width:160px;padding:9px 11px;border-radius:9px;border:1px solid rgba(255,255,255,.2);background:rgba(0,0,0,.25);
          color:#fff;font:inherit;font-size:15px}
   .calcOut{margin-top:10px !important;color:#fff !important;font-size:14.5px}
   .cta .fine{margin-top:12px;font-size:12.5px;color:#9C96AE}
-  .cta a.plain{display:inline;margin:0;padding:0;background:none;color:#CFC9DE;text-decoration:underline;font-weight:500;font-size:inherit}
+  .cta a.plain{display:inline;margin:0;padding:0;background:none;color:#C8D0E0;text-decoration:underline;font-weight:500;font-size:inherit}
   .noplug{margin-top:20px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px;color:var(--ink2)}
   footer{margin-top:44px;padding-top:18px;border-top:1px solid var(--line);color:var(--muted);font-size:12.5px}
 </style></head><body><div class="wrap">
 
-<div class="eyebrow">유메 · AI 할루시네이션 무료 점검</div>
+<div class="eyebrow">베리라인 · AI 할루시네이션 무료 점검</div>
 <h1>점검 결과</h1>
 ${report.subject ? `<div class="subject">${esc(report.subject)}</div>` : ""}
 
@@ -228,7 +228,7 @@ ${report.subject ? `<div class="subject">${esc(report.subject)}</div>` : ""}
 <div class="tablewrap"><table><thead><tr><th>점검 유형</th><th class="num">실패</th><th class="num">비율</th></tr></thead><tbody>${typeRows}</tbody></table></div>
 
 <h2>문항별 기록</h2>
-<p class="lede">AI가 한 말과 공식 확인 결과를 나란히 싣습니다. 유메의 판정을 믿지 않으셔도 되도록, 문항마다 원 출처로 가는 링크를 달았습니다.</p>
+<p class="lede">AI가 한 말과 공식 확인 결과를 나란히 싣습니다. 베리라인의 판정을 믿지 않으셔도 되도록, 문항마다 원 출처로 가는 링크를 달았습니다.</p>
 ${items}
 
 <h2>점검 방법</h2>
@@ -237,9 +237,9 @@ ${items}
 ${ctaHtml}
 
 <footer>
-  문항은 유메가 법제처 국가법령정보와 학술 레지스트리로 실재 여부를 확인해 생성했으며, 정답이 확정된 상태에서 출제됐습니다.
+  문항은 베리라인이 법제처 국가법령정보와 학술 레지스트리로 실재 여부를 확인해 생성했으며, 정답이 확정된 상태에서 출제됐습니다.
   이 점검은 표본 기반 추정이라 실제 서비스의 모든 실패를 포괄하지 않습니다.
-  생성 ${esc(String(report.createdAt || "").slice(0, 10))} · 유메(YUME)
+  생성 ${esc(String(report.createdAt || "").slice(0, 10))} · 베리라인(YUME)
 </footer>
 </div></body></html>`;
 }

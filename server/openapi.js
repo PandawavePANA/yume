@@ -1,4 +1,4 @@
-// 유메 검증 API의 OpenAPI 3.1 명세 — GET /v1/openapi.json.
+// 베리라인 검증 API의 OpenAPI 3.1 명세 — GET /v1/openapi.json.
 //
 // 기업 개발팀은 문서를 읽기 전에 명세부터 코드 생성기·Postman에 넣는다. 명세가 없으면
 // "붙여 보기" 단계에서 손으로 타입을 옮겨 적다가 필드 하나를 빠뜨리고, 그게 첫 문의가 된다.
@@ -36,7 +36,7 @@ export function openApiSpec(base = "https://www.yume-reamer.com") {
   return {
     openapi: "3.1.0",
     info: {
-      title: "YUME Hallucination Check API",
+      title: "VERILINE Hallucination Check API",
       version: "1.0.0",
       description:
         "글 속 사실 주장을 하나씩 떼어 법령 원문·공식 레지스트리·출처 원문과 대조합니다. " +
@@ -145,7 +145,7 @@ export function openApiSpec(base = "https://www.yume-reamer.com") {
       "/v1/documents/{id}/mark": {
         post: {
           operationId: "issueMark",
-          summary: "YUME 검증 마크 발급",
+          summary: "VERILINE 검증 마크 발급",
           description: "모든 주장이 confirmed이고 confidence: high인 문서만 발급합니다. 같은 글로 다시 받으면 같은 주소의 마크를 갱신합니다(200, renewed: true).",
           parameters: [{ $ref: "#/components/parameters/Id" }],
           requestBody: {
@@ -196,7 +196,7 @@ export function openApiSpec(base = "https://www.yume-reamer.com") {
         post: {
           operationId: "feedback",
           summary: "놓친 오류 알리기 — 사용자가 신고했고 확인된 오류",
-          description: "유메가 확인했다고 본 답에서 사용자가 틀린 곳을 찾았고, 운영자가 맞다고 본 경우 보냅니다. 유메가 다시 확인해 배웁니다(사실 문장만, 개인정보로 보이면 남기지 않음). 과금하지 않습니다.",
+          description: "베리라인이 확인했다고 본 답에서 사용자가 틀린 곳을 찾았고, 운영자가 맞다고 본 경우 보냅니다. 베리라인이 다시 확인해 배웁니다(사실 문장만, 개인정보로 보이면 남기지 않음). 과금하지 않습니다.",
           requestBody: {
             required: true,
             content: { "application/json": { schema: { type: "object", required: ["quote"], properties: {
@@ -229,8 +229,8 @@ export function openApiSpec(base = "https://www.yume-reamer.com") {
                     answer: { type: "string", maxLength: 60000 },
                     level: { enum: ["fast", "standard", "deep"], default: "fast", description: "확인 깊이 — 답을 쓴 모델 등급에 맞춤" },
                     references: { type: "array", maxItems: 10, items: { type: "object", properties: { title: { type: "string" }, text: { type: "string" } } }, description: "사용자가 대화에 준 자료(올린 파일 등, 합계 60,000자까지). 답이 이 자료를 옮긴 부분은 확인 대상에서 뺌" },
-                    sources: { type: "array", maxItems: 30, items: { type: "object", properties: { url: { type: "string" }, title: { type: "string" }, text: { type: "string", description: "그 페이지의 원문 발췌(검색 도구가 준 cited_text)" } } }, description: "답을 쓸 때 실제로 연 웹 페이지 발췌. 유메가 검색 전에 먼저 대조함(근거 문장이 발췌에 그대로 있어야 인정)" },
-                    learn: { type: "boolean", default: false, description: "true 면 이 확인에서 '확인 안 됨 · 바로잡음' 사실 문장(개인정보는 거름)을 유메 정확도 개선에 씀 — 사용자 동의를 받은 서비스만 켤 것" },
+                    sources: { type: "array", maxItems: 30, items: { type: "object", properties: { url: { type: "string" }, title: { type: "string" }, text: { type: "string", description: "그 페이지의 원문 발췌(검색 도구가 준 cited_text)" } } }, description: "답을 쓸 때 실제로 연 웹 페이지 발췌. 베리라인이 검색 전에 먼저 대조함(근거 문장이 발췌에 그대로 있어야 인정)" },
+                    learn: { type: "boolean", default: false, description: "true 면 이 확인에서 '확인 안 됨 · 바로잡음' 사실 문장(개인정보는 거름)을 베리라인 정확도 개선에 씀 — 사용자 동의를 받은 서비스만 켤 것" },
                   },
                 },
               },
@@ -302,7 +302,7 @@ export function openApiSpec(base = "https://www.yume-reamer.com") {
       },
     },
     components: {
-      securitySchemes: { bearer: { type: "http", scheme: "bearer", description: "유메 계정 > API 키에서 발급한 yume_live_… 키. 서버에서만 쓰세요." } },
+      securitySchemes: { bearer: { type: "http", scheme: "bearer", description: "베리라인 계정 > API 키에서 발급한 yume_live_… 키. 서버에서만 쓰세요." } },
       parameters: {
         Id: { name: "id", in: "path", required: true, schema: { type: "string" } },
         IdempotencyKey: {

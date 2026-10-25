@@ -1,21 +1,23 @@
 // 법령 전문 대조 — 글 전체를, 관련 현행 조문 전체와 한 자리에서 읽는다.
 //
 // 왜 따로 두나 (2026-10-16 로무앤톡 벤치):
-//   유메의 주장 단위 판정은 글을 주장으로 쪼갠 뒤 하나씩 따로 본다. 그래서
+//   베리라인의 주장 단위 판정은 글을 주장으로 쪼갠 뒤 하나씩 따로 본다. 그래서
 //   ① 쪼개는 단계가 놓친 말("그건 법정 제도라기보다 회사 자율 제도일 수 있다" 같은 흐린 문장)은 아예 대조되지 않았고,
 //   ② 같은 글 뒤쪽에서 예외를 설명했는데 앞 문장만 떼어 "틀렸다"고 했다.
 //   "법제처에서 조문을 가져와 글 전체와 함께 강한 모델에게 묻는" 단순한 방식이 이 둘을 모두 이겼다.
-//   그래서 유메도 글 전체를 읽는 단계를 두되, 단순한 방식보다 두 가지를 더 한다.
+//   그래서 베리라인도 글 전체를 읽는 단계를 두되, 단순한 방식보다 두 가지를 더 한다.
 //     - 더 넓게 찾는다: 인용·약칭·모델 추정에 더해, 그 법령의 **전체 조문**에서 글의 말과 겹치는 조문,
 //       벌칙·과태료 조문, 삭제·효력 상실 표시, 위임된 시행령까지 가져온다(모델이 조문 번호를 몰라도 찾는다).
 //     - 더 엄하게 거른다: 지적마다 글의 문장과 조문 문장을 **한 글자도 바꾸지 않은 인용**으로 묶고(코드가 확인),
 //       처음 판정을 모르는 두 번째 검토자가 "글이 맞을 수 있는 이유"를 먼저 찾게 한 뒤에만 틀렸다고 낸다.
 //   주장 단위 판정이 낸 '사실과 다름'(법률)도 같은 두 번째 검토를 거친다 — 맞는 답을 틀렸다고 하는 것이
-//   유메가 낼 수 있는 가장 해로운 오류이기 때문이다.
+//   베리라인이 낼 수 있는 가장 해로운 오류이기 때문이다.
 import { callClaudeJson, todayLine } from "./claude.js";
 import { searchStatute, getStatuteArticlesAll } from "./lawApi.js";
 import { LAW_ALIASES, normalizeLawName, resolveLawAlias } from "./nec/identifiers.js";
 import { withLinkedProvisions, delegationsIn } from "./legalLinks.js";
+import { numericAudit, signalsBlock } from "./engine/quantities.js";
+import { traceAmendment } from "./engine/amendmentTrace.js";
 
 const MAX_LAWS = 4;
 const MAX_ANSWER_CHARS = 6000;
@@ -24,7 +26,7 @@ const ARTICLE_CLIP = 1800;
 const LEXICAL_PER_LAW = 4;
 
 // 글에 법령 이야기가 있는지(주장 추출이 '법률'로 분류하지 못해도) — 이게 없으면 이 단계는 돌지 않는다.
-export const LAW_HINT = /(법|법률|시행령|시행규칙)\s*제?\s*\d+\s*조|「[^」]{2,40}」|과태료|벌금|징역|퇴직금|연차|해고|육아휴직|출산휴가|구직급여|최저임금|근로계약|임금체불|산재|고용보험|청약철회|임대차|보증금|세액공제|소득공제|연말정산|종합소득세|양도소득세|양도세|취득세|재산세|종합부동산세|종부세|상속세|증여세|부가가치세|공제율|세율|월세액|근로장려금|자녀장려금|실업급여|주휴수당|기초연금|국민연금|건강보험료/;
+export const LAW_HINT = /(법|법률|시행령|시행규칙)\s*제?\s*\d+\s*조|「[^」]{2,40}」|과태료|벌금|징역|퇴직금|연차|해고|육아휴직|출산휴가|구직급여|최저임금|근로계약|임금체불|산재|고용보험|청약철회|임대차|보증금|세액공제|소득공제|연말정산|종합소득세|양도소득세|양도세|취득세|재산세|종합부동산세|종부세|상속세|증여세|부가가치세|공제율|세율|월세액|근로장려금|자녀장려금|실업급여|주휴수당|기초연금|국민연금|건강보험료|가산세|원천징수|간이과세|면세사업자|의료법|약사법|의료기관|진료기록|처방전|비급여|본인부담|요양급여|의약품|응급의료|감염병|의료인|면허\s*취소|자격정지/;
 
 const squash = (s) => String(s || "").replace(/[\s"'“”‘’「」『』《》〈〉()[\]·ㆍ,.:;…~\-—–]/g, "");
 
@@ -256,11 +258,14 @@ const REVIEW_SYSTEM = `너는 한국 법령 대조 검토자다. 아래 [현행 
 
 export async function reviewStatutes(text, claims = [], { ledger = null, onProgress = () => {}, pick = pickArticles, gathered = null, effort = null } = {}) {
   const answer = String(text || "").slice(0, MAX_ANSWER_CHARS);
-  // 유메 AI처럼 질문 단계에서 이미 조문을 모았으면 그대로 쓴다(같은 조문을 두 번 받지 않는다).
+  // 베리라인 AI처럼 질문 단계에서 이미 조문을 모았으면 그대로 쓴다(같은 조문을 두 번 받지 않는다).
   if (!gathered) onProgress("관련 현행 법령 조문을 모으는 중…");
   const { laws, articles } = gathered || (await gatherArticles(answer, claims, { ledger, pick }));
   if (!articles.length) return { ran: false, laws, articles, issues: [] };
   onProgress(`현행 조문 ${articles.length}개와 글 전체를 대조하는 중…`);
+  // 베리라인 엔진: 모델에게 묻기 전에 코드가 수치 · 제재를 단위까지 맞춰 본다(server/engine/quantities.js).
+  const signals = numericAudit(answer, articles);
+  const hint = signalsBlock(signals);
   const r = await callClaudeJson({
     strong: true,
     effort,
@@ -268,10 +273,10 @@ export async function reviewStatutes(text, claims = [], { ledger = null, onProgr
     ledger,
     label: "statute_review",
     system: REVIEW_SYSTEM,
-    user: `${todayLine()}[현행 조문]\n${articles.map((a) => a.block).join("\n\n")}\n\n[글]\n${answer}`,
+    user: `${todayLine()}[현행 조문]\n${articles.map((a) => a.block).join("\n\n")}\n\n[글]\n${answer}${hint ? `\n\n${hint}` : ""}`,
   });
   const issues = lockIssues(r?.issues || [], answer, articles);
-  return { ran: true, laws, articles, issues };
+  return { ran: true, laws, articles, issues, signals };
 }
 
 /** 인용을 코드로 확인한다 — 글의 문장과 조문 문장이 둘 다 실제로 있어야 지적이 남는다. */
@@ -348,7 +353,7 @@ const overlaps = (a, b) => {
 // 부존재 판정(지어낸 판례·법령)은 "대상이 있나"를 공식 DB 탐색으로 정한 것이라 여기서 다시 보지 않는다.
 const reviewable = (c) => c.verdict === "false" && c.domain === "법률" && c.verified_via !== "nec" && !c.from_reference;
 
-export async function applyStatuteReview(text, claims, review, { ledger = null, onProgress = () => {}, defendFn = defend } = {}) {
+export async function applyStatuteReview(text, claims, review, { ledger = null, onProgress = () => {}, defendFn = defend, traceFn = traceAmendment } = {}) {
   if (!review?.ran) return claims;
   const out = claims.map((c) => ({ ...c }));
   const cands = [];
@@ -367,17 +372,30 @@ export async function applyStatuteReview(text, claims, review, { ledger = null, 
   onProgress(`지목한 ${cands.length}곳을 다른 검토자가 반론부터 다시 보는 중…`);
   const decided = await defendFn(text, review.articles, cands, { ledger });
 
+  // 베리라인 엔진: 확정된 오류마다 ① 코드 수치 대조 결과를 붙이고 ② 옛 법 그대로인지 개정 이력을 거슬러 본다.
+  const traces = new Map();
+  await Promise.all(decided.filter((d) => d.decision === "error" && d.proof).slice(0, 3).map(async (d) => {
+    const art = (review.articles || []).find((a) => a.law === d.proof.law && articleLabel(a) === d.proof.label);
+    if (!art?.no) return;
+    const t = await traceFn({ law: art.law, no: art.no, branch: art.branch, claimText: d.answer_quote, currentText: art.text }).catch(() => null);
+    if (t) traces.set(d.id, t);
+  }));
+  const codeCheckOf = (d) => (review.signals || []).find((s) => overlaps(s.sentence, d.answer_quote));
+
   const added = [];
   for (const d of decided) {
     const proofLine = d.proof ? ` 근거: ${d.proof.law} ${d.proof.label} “${d.proof.quote.slice(0, 160)}”` : "";
     const sources = d.proof ? [{ title: `${d.proof.law} ${d.proof.label}`, url: d.proof.url, quote: d.proof.quote }] : [];
     if (d.decision === "error") {
-      const explanation = `${d.reason || d.problem}${proofLine}`.trim();
+      const trace = traces.get(d.id) || null;
+      const check = codeCheckOf(d);
+      const explanation = `${d.reason || d.problem}${trace ? ` ${trace.note}` : ""}${proofLine}`.trim();
+      const engine = { ...(trace ? { amendment: trace, error_kind: "outdated" } : {}), ...(check ? { code_check: { kind: check.kind, claim: check.claim, article_values: check.articleValues } } : {}) };
       if (d.index >= 0) {
         const c = out[d.index];
-        out[d.index] = { ...c, verdict: "false", verified_via: "official", explanation, sources: [...sources, ...(c.sources || [])].slice(0, 4), statute_review: "confirmed_error" };
+        out[d.index] = { ...c, verdict: "false", verified_via: "official", explanation, sources: [...sources, ...(c.sources || [])].slice(0, 4), statute_review: "confirmed_error", ...engine };
       } else {
-        added.push({ text: d.answer_quote.slice(0, 120), quote: d.answer_quote, domain: "법률", verdict: "false", verified_via: "official", explanation, sources, statute_review: "found" });
+        added.push({ text: d.answer_quote.slice(0, 120), quote: d.answer_quote, domain: "법률", verdict: "false", verified_via: "official", explanation, sources, statute_review: "found", ...engine });
       }
     } else if (d.source === "claim" && d.index >= 0) {
       const c = out[d.index];

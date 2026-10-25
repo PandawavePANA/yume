@@ -34,9 +34,9 @@ export async function seed() {
 }
 
 // ── 서버가 직접 확인할 수 있는 할 일 ─────────────────────────────────────
-// 유메 도메인 주소로 보낸 시험 메일이 성공했으면 그 주소를 저장해 둔다 — 환경변수를 다시 넣지 않아도 첫 메일 발송이 열린다.
+// 베리라인 도메인 주소로 보낸 시험 메일이 성공했으면 그 주소를 저장해 둔다 — 환경변수를 다시 넣지 않아도 첫 메일 발송이 열린다.
 export const OUTREACH_SETTING = "outreach_from";
-const OUTREACH_ADDR = () => `${COMPANY.ceo} (유메) <hello@yume-reamer.com>`;
+const OUTREACH_ADDR = () => `${COMPANY.ceo} (베리라인) <hello@yume-reamer.com>`;
 
 async function checkDone(key, deps = {}) {
   if (key === "gmail") {
@@ -53,7 +53,7 @@ async function checkDone(key, deps = {}) {
     if (!deps.sendMail) return { ok: false, why: "확인할 수 없어요." };
     try {
       const to = process.env.STAFF_CEO_EMAIL || process.env.COMPANY_EMAIL || "reamer@d-reamer.com";
-      await deps.sendMail({ from: OUTREACH_ADDR(), to, subject: "[유메] 메일 도메인 인증 확인", text: "yume-reamer.com 주소로 보낸 시험 메일입니다. 이 메일이 왔다면 첫 메일 발송이 열렸습니다." });
+      await deps.sendMail({ from: OUTREACH_ADDR(), to, subject: "[베리라인] 메일 도메인 인증 확인", text: "yume-reamer.com 주소로 보낸 시험 메일입니다. 이 메일이 왔다면 첫 메일 발송이 열렸습니다." });
       await setSetting(OUTREACH_SETTING, OUTREACH_ADDR());
       return { ok: true };
     } catch (e) {
@@ -86,8 +86,8 @@ export async function list(today = kstDay()) {
 
 // age — 오늘이 그 일을 처음 보인 날(날짜가 있는 일은 그날, 아니면 만든 날)부터 며칠째인지. 끝내지 않으면 다음 날에도 그대로 보이고 하루씩 는다.
 const KST_DAY = (t) => Math.floor((Number(t) + 9 * 3600_000) / 86_400_000);
-// 분류(2026-10-20 대표 "할 일 목록 미르미랑 유메나 이런거 분류해서 보여줘") — 키와 제목으로 정한다(대표가 직접 추가한 일도 제목으로).
-export const AREAS = ["미르미", "유메", "Ballast", "보안", "리머 · 공통"];
+// 분류(2026-10-20 대표 "할 일 목록 미르미랑 베리라인이나 이런거 분류해서 보여줘") — 키와 제목으로 정한다(대표가 직접 추가한 일도 제목으로).
+export const AREAS = ["미르미", "베리라인", "Ballast", "보안", "리머 · 공통"];
 export function areaOf(t) {
   const k = String(t?.key || "");
   const ti = String(t?.title || "");
@@ -95,7 +95,7 @@ export function areaOf(t) {
   if (/^rotate_/.test(k) || /·보안\]|비밀번호 바꾸기/.test(ti)) return "보안";
   if (/^(mirmi_|mugung_|kakao_login|naver_login|google_login|instagram_login|portone_live_channel|lie_reports|inicis_billing)/.test(k) || /미르미|무궁|앱 출시/.test(ti)) return "미르미";
   if (/ballast|밸러스트/i.test(ti) || /^ballast/.test(k)) return "Ballast";
-  if (/^(outreach_domain|korea_data_keys|law_precedent_api|portone_v2_secret|b2b_terms|search_console|inicis_review_pw|inicis_guarantee|engine|gmail)/.test(k) || /유메|yume|할루시네이션|감사|검증 엔진|특허|파일럿/i.test(ti)) return "유메";
+  if (/^(outreach_domain|korea_data_keys|law_precedent_api|portone_v2_secret|b2b_terms|search_console|inicis_review_pw|inicis_guarantee|engine|gmail)/.test(k) || /베리라인|yume|할루시네이션|감사|검증 엔진|특허|파일럿/i.test(ti)) return "베리라인";
   return "리머 · 공통";
 }
 const shape = (t) => {
@@ -120,9 +120,9 @@ export async function complete(id, deps = {}) {
   // 사업자등록 소재지 정정이 끝났다 — 세 사이트의 주소를 새 주소로 바꾼다(코드 배포 없이, businessAddress.js).
   if (t.key === "biz_address") {
     await setBusinessAddress(NEW_ADDRESS);
-    return { ok: true, title: t.title, result: `완료 — 유메·기업용·리머 사이트 하단 주소를 "${NEW_ADDRESS}"로 바꿨어요(5분 안에 반영)` };
+    return { ok: true, title: t.title, result: `완료 — 베리라인·기업용·리머 사이트 하단 주소를 "${NEW_ADDRESS}"로 바꿨어요(5분 안에 반영)` };
   }
-  return { ok: true, title: t.title, result: t.check_key === "outreach_domain" ? "확인 완료 — 유메 주소로 시험 메일을 보냈고, 첫 메일 발송이 열렸습니다" : "완료" };
+  return { ok: true, title: t.title, result: t.check_key === "outreach_domain" ? "확인 완료 — 베리라인 주소로 시험 메일을 보냈고, 첫 메일 발송이 열렸습니다" : "완료" };
 }
 
 export async function snooze(id) {

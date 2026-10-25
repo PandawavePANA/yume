@@ -2,16 +2,16 @@ import { BUSINESS } from "../../businessInfo.js";
 import { getLang, t } from "../../i18n.js";
 import { trackingHeaders } from "../../tracking.js";
 
-// 기업용 사이트는 별도 도메인에 배포되므로 유메 서버를 절대 주소로 불러야 한다.
-// 유메 본체에서는 비워 두면 기존처럼 같은 출처로 나간다.
+// 기업용 사이트는 별도 도메인에 배포되므로 베리라인 서버를 절대 주소로 불러야 한다.
+// 베리라인 본체에서는 비워 두면 기존처럼 같은 출처로 나간다.
 let API_BASE = "";
 
 export function setApiBase(base) {
   API_BASE = String(base || "").replace(/\/+$/, "");
 }
 
-// 유메 서버가 내려준 경로(리포트 링크·API 문서)를 링크로 걸 때 쓴다. 기업용 사이트에서
-// 상대 경로를 그대로 걸면 유메가 아니라 기업용 도메인으로 가 버린다.
+// 베리라인 서버가 내려준 경로(리포트 링크·API 문서)를 링크로 걸 때 쓴다. 기업용 사이트에서
+// 상대 경로를 그대로 걸면 베리라인이 아니라 기업용 도메인으로 가 버린다.
 export const apiUrl = (path) => API_BASE + path;
 
 export async function apiJson(path, { method = "GET", body } = {}) {

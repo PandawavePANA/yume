@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-// 유메의 영구 저장소 — PostgreSQL.
+// 베리라인의 영구 저장소 — PostgreSQL.
 //   · 운영: Supabase Postgres (DATABASE_URL). 백업·복구는 Supabase가 맡는다.
 //   · 로컬 개발·테스트: DATABASE_URL이 없으면 PGlite(WASM으로 돌아가는 진짜 Postgres)를
 //     data/pglite에 띄운다. SQL은 두 경우 모두 똑같이 Postgres 문법이다.
@@ -436,7 +436,7 @@ const MIGRATIONS = [
   `,
 
   // 공헌도 — 크레딧과 완전히 다른 물건이라 원장을 따로 둔다. 크레딧은 검증 횟수로
-  // 바꿔 쓰는 재화라 잔액이 오르내리지만, 공헌도는 "이 사람이 유메에 얼마나 보탰나"를
+  // 바꿔 쓰는 재화라 잔액이 오르내리지만, 공헌도는 "이 사람이 베리라인에 얼마나 보탰나"를
   // 누적으로만 재는 점수라 차감되지 않고 랭킹의 근거가 된다. 한 원장에 섞으면
   // 검증 횟수를 쓸 때마다 순위가 내려가는 이상한 일이 생긴다.
   //
@@ -523,7 +523,7 @@ const MIGRATIONS = [
   //     붙들고 있으면 영영 확인되지 않는다.
   //   · 법률 주장은 하루 단위로만 재사용한다. 법령 개정은 시행일 0시에 적용되므로,
   //     날짜가 바뀌면 캐시가 통째로 무효가 된다 — 개정 전 조문으로 "맞다"고 하는 건
-  //     유메가 잡으려는 실패(시점 붕괴) 그 자체다.
+  //     베리라인이 잡으려는 실패(시점 붕괴) 그 자체다.
   `
   CREATE TABLE claim_cache (
     hash TEXT PRIMARY KEY,
@@ -663,7 +663,7 @@ const MIGRATIONS = [
   CREATE INDEX idx_projects_status ON projects(status, updated_at);
   ALTER TABLE projects ENABLE ROW LEVEL SECURITY;
 
-  -- 자사 제품(유메·프로바·밸러스트·아이픽)의 할 일 체크리스트.
+  -- 자사 제품(베리라인·프로바·밸러스트·아이픽)의 할 일 체크리스트.
   -- 외주 건과 표를 합치지 않는 이유는, 이쪽은 고객도 금액도 마감도 없고
   -- "무엇이 남았나"만 필요해서다. 한 표에 억지로 넣으면 양쪽 다 빈 칸이 많아진다.
   CREATE TABLE product_tasks (
@@ -833,7 +833,7 @@ const MIGRATIONS = [
 
   // ── 판정 정정 ──
   //
-  // 유메가 틀렸을 때 사용자가 할 수 있는 일이 없었다. 화면에는 "사실과 다름"이 붙어
+  // 베리라인이 틀렸을 때 사용자가 할 수 있는 일이 없었다. 화면에는 "사실과 다름"이 붙어
   // 있는데 본인은 그게 아니라는 걸 알고, 근거도 손에 쥐고 있는데 그걸 넘길 문이
   // 없었다. 우리는 그 사실을 영영 모르고, 같은 판정을 다음 사람에게도 내보낸다.
   //
@@ -968,7 +968,7 @@ const MIGRATIONS = [
   ALTER TABLE claim_cache ADD COLUMN confidence TEXT;
   `,
 
-  // YUME 검증 마크(trustMarks.js). 공개 검증 페이지(/v/:id)에 원문과 주장별 근거를 싣는다.
+  // VERILINE 검증 마크(trustMarks.js). 공개 검증 페이지(/v/:id)에 원문과 주장별 근거를 싣는다.
   // 원문은 발급자가 공개에 동의한 것이므로 문서 보관 기간(1년)과 따로 둔다. 계정을 지우면 함께 지운다.
   `
   CREATE TABLE trust_marks (
@@ -994,13 +994,13 @@ const MIGRATIONS = [
 
   // ── 감사 데스크(auditDesk.js) — 특정 회사 AI 서비스를 표본 감사하고 비공개로 알리는 영업 도구 ──
   //
-  // 한 건(ai_audits)이 영업 한 줄이다. 약관 확인 → 질문·답변 기록 → 유메 검사 → 사람이 원문 재확인
+  // 한 건(ai_audits)이 영업 한 줄이다. 약관 확인 → 질문·답변 기록 → 베리라인 검사 → 사람이 원문 재확인
   // → 비공개 보고서 → 메일 → 후속 → 결과까지 같은 행에 시각으로 남는다. 숫자(발송→답장→미팅→
   // 무료 검사→유료 의향)는 여기서 센다. 회사명은 동의(consent_name)가 있을 때만 밖으로 나간다.
   //
   // 문항(ai_audit_items)은 정답을 서버에만 둔다(probe_json) — 무료 점검과 같은 이유다.
   // 답변은 운영자가 일반 사용자로서 손으로 넣은 것이고, answered_at이 캡처 시각이다.
-  // 재확인 항목(ai_audit_findings)은 유메가 지목한 오류 후보다. 사람이 원문을 직접 열어
+  // 재확인 항목(ai_audit_findings)은 베리라인이 지목한 오류 후보다. 사람이 원문을 직접 열어
   // confirmed로 바꾼 것만 보고서·지수에 "불일치"로 들어간다.
   `
   CREATE TABLE ai_audits (
@@ -1113,7 +1113,7 @@ const MIGRATIONS = [
   ALTER TABLE ai_audit_files ENABLE ROW LEVEL SECURITY;
   `,
 
-  // ── 공개 지표 — YUME 할루시네이션 지수(hallucinationIndex.js) ──
+  // ── 공개 지표 — VERILINE 할루시네이션 지수(hallucinationIndex.js) ──
   //
   // audit_outcomes: 무료 자가 점검의 문항별 결과만 익명으로 남긴다. 회사명·답변 원문·IP는 넣지 않는다
   // (리포트 자체는 7일 뒤 지워지지만, 지수는 기간을 거슬러 세어야 한다).

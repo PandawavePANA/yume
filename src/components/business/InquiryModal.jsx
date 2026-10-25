@@ -3,21 +3,23 @@
 // 예전 "도입 문의"는 mailto 링크였다. 회사 PC는 메일 앱이 설정돼 있지 않은 경우가 많아 눌러도
 // 아무 일이 없었고, 열리더라도 무엇을 적어야 할지 모르는 빈 메일이었다. 여기서는 리머 사이트와
 // 같은 문의 API로 보낸다 — 보내는 순간 의뢰 대화가 열리고, 운영자 데스크에서 답장·견적·카드 결제까지
-// 한 줄로 이어진다. 유메는 리머가 운영하므로 견적과 결제도 리머의 대화 화면에서 진행된다.
+// 한 줄로 이어진다. 베리라인은 리머가 운영하므로 견적과 결제도 리머의 대화 화면에서 진행된다.
 import { useEffect, useState } from "react";
 import { API_ORIGIN } from "../../businessConfig.js";
 import { API_RATES } from "../../../server/apiRates.js";
 
 const UI = {
-  ink: "#1D1A24",
-  ink2: "#5E5870",
-  ink3: "#9A93AC",
-  accent: "#6B4FA8",
-  hairline: "rgba(60, 40, 110, 0.12)",
+  ink: "#0F1522",
+  ink2: "#4A5468",
+  ink3: "#8A93A6",
+  accent: "#2F6BFF",
+  hairline: "rgba(30, 45, 90, 0.12)",
 };
 
 const won = (n) => `${n.toLocaleString("ko-KR")}원`;
 export const PLAN_CHOICES = [
+  // 무료 진단(2026-10-25 메인 첫 행동) — 운영자가 일반 사용자로서 함정 질문 몇 개를 넣어 보고 틀린 곳 요약을 보낸다.
+  { key: "diagnosis", label: "무료 진단 — 우리 AI 서비스를 먼저 검사받기" },
   // AI 감사 — 귀사 AI 서비스를 표본으로 감사하고 사람이 재확인한 보고서를 드린다(감사 데스크).
   // 가격은 범위(질문 수·업종·주기)를 듣고 정한다 — 기획안 4-4 "첫 3곳과의 대화에서 정한다".
   { key: "audit", label: "AI 감사 — 1회 정밀 감사 (표본 검사 + 보고서 + 개선 회의)" },
@@ -44,8 +46,9 @@ export default function InquiryModal({ plan = "unsure", note = "", onClose }) {
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
   // 무료 검사·PoC는 호출 수가 아니라 문서로, 감사는 서비스와 분야로 이야기한다.
   const docs = form.plan === "trial10" || form.plan === "poc";
-  const audit = form.plan.startsWith("audit");
-  const volumeLabel = audit ? "감사할 서비스·분야" : docs ? "문서 종류·분량" : "예상 월 호출 수";
+  const diag = form.plan === "diagnosis";
+  const audit = diag || form.plan.startsWith("audit");
+  const volumeLabel = diag ? "AI 서비스 주소 · 분야" : audit ? "감사할 서비스·분야" : docs ? "문서 종류·분량" : "예상 월 호출 수";
 
   useEffect(() => {
     const onKey = (e) => e.key === "Escape" && onClose();
@@ -60,7 +63,7 @@ export default function InquiryModal({ plan = "unsure", note = "", onClose }) {
     const planLabel = PLAN_CHOICES.find((p) => p.key === form.plan)?.label || form.plan;
     // 데스크에서 한눈에 읽히도록 머리에 요약을 붙인다. 운영자는 이 한 덩어리를 보고 견적을 낸다.
     const message = [
-      "[유메 도입 문의]",
+      "[베리라인 도입 문의]",
       `원하는 플랜: ${planLabel}`,
       form.volume ? `${volumeLabel}: ${form.volume}` : null,
       "",
@@ -84,19 +87,19 @@ export default function InquiryModal({ plan = "unsure", note = "", onClose }) {
 
   return (
     <div role="dialog" aria-modal="true" aria-label="도입 문의" onClick={onClose} style={{
-      position: "fixed", inset: 0, background: "rgba(24, 16, 44, 0.32)", zIndex: 80, overflowY: "auto",
+      position: "fixed", inset: 0, background: "rgba(10, 14, 23, 0.32)", zIndex: 80, overflowY: "auto",
       display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "6vh 16px",
     }}>
       <div onClick={(e) => e.stopPropagation()} style={{
         width: "min(520px, 100%)", background: "#fff", borderRadius: 22, padding: "26px 24px 22px",
-        boxShadow: "0 30px 80px rgba(40, 20, 90, 0.22)",
+        boxShadow: "0 30px 80px rgba(20, 35, 80, 0.22)",
       }}>
         {state === "done" ? (
           <div style={{ display: "grid", gap: 12 }}>
             <div style={{ fontSize: 20, fontWeight: 700, color: UI.ink, letterSpacing: "-0.02em" }}>문의가 접수됐습니다</div>
             <p style={{ margin: 0, fontSize: 14.5, color: UI.ink2, lineHeight: 1.7 }}>
               영업일 기준 하루 안에 답변드립니다. 견적서 확인, 확정, 카드 결제까지 아래 대화 화면에서 이어집니다.
-              유메는 리머가 운영하므로 대화 화면에는 리머 이름으로 표시됩니다.
+              베리라인은 리머가 운영하므로 대화 화면에는 리머 이름으로 표시됩니다.
             </p>
             {threadUrl && (
               <a href={threadUrl} target="_blank" rel="noreferrer" style={{
@@ -114,9 +117,11 @@ export default function InquiryModal({ plan = "unsure", note = "", onClose }) {
         ) : (
           <form onSubmit={submit} style={{ display: "grid", gap: 14 }}>
             <div>
-              <div style={{ fontSize: 20, fontWeight: 700, color: UI.ink, letterSpacing: "-0.02em" }}>도입 문의</div>
+              <div style={{ fontSize: 20, fontWeight: 700, color: UI.ink, letterSpacing: "-0.02em" }}>{diag ? "무료 진단 신청" : "도입 문의"}</div>
               <p style={{ margin: "6px 0 0", fontSize: 13.5, color: UI.ink3, lineHeight: 1.6 }}>
-                {audit
+                {diag
+                  ? "AI 서비스 주소와 분야를 남겨 주시면 베리라인이 일반 사용자로서 함정 질문 몇 개를 넣어 보고, 찾은 오류와 근거 조문을 보통 영업일 3일 안에 보내 드립니다. 비용은 없습니다."
+                  : audit
                   ? "보내시면 바로 대화 화면이 열립니다. 가장 신경 쓰이는 오류 유형을 들려 주시면 그 범위로 감사를 설계해 드립니다. 결과는 귀사에만 비공개로 드리고, 공개 여부는 귀사가 정합니다."
                   : docs
                     ? "보내시면 바로 대화 화면이 열립니다. 검사할 문서는 답장 메일로 받고, 결과도 같은 곳으로 보내 드립니다. 공개해도 되는 문서로 시작하셔도 됩니다."
@@ -142,11 +147,11 @@ export default function InquiryModal({ plan = "unsure", note = "", onClose }) {
                 </select>
               </label>
               <label style={labelStyle}>{volumeLabel}
-                <input id="bq-volume" maxLength={40} value={form.volume} onChange={set("volume")} style={field} placeholder={audit ? "예: 노무 상담 챗봇 · 법령 안내" : docs ? "예: 상품 안내문 10건" : "예: 1,200건"} />
+                <input id="bq-volume" maxLength={120} required={diag} value={form.volume} onChange={set("volume")} style={field} placeholder={diag ? "예: example.com · 노무 상담" : audit ? "예: 노무 상담 챗봇 · 법령 안내" : docs ? "예: 상품 안내문 10건" : "예: 1,200건"} />
               </label>
             </div>
-            <label style={labelStyle}>어디에 쓰실 건가요? *
-              <textarea id="bq-message" required minLength={10} maxLength={3000} rows={4} value={form.message} onChange={set("message")}
+            <label style={labelStyle}>{diag ? "특히 걱정되는 부분 (선택)" : "어디에 쓰실 건가요? *"}
+              <textarea id="bq-message" required={!diag} minLength={diag ? 0 : 10} maxLength={3000} rows={4} value={form.message} onChange={set("message")}
                 style={{ ...field, resize: "vertical", lineHeight: 1.6 }} placeholder={audit ? "예: 저희 상담 AI가 법 조문을 틀리게 안내하는지, 투자자·고객사에 보여 줄 검사 기록이 필요합니다." : docs ? "예: AI로 쓴 보험 상품 안내문의 수치를 약관과 대조해 보고 싶습니다." : "예: 법률 상담 챗봇이 고객에게 보내는 답변을 발송 전에 검증하고 싶습니다."} />
             </label>
             {/* 사람 눈에는 안 보이는 칸. 자동 제출 봇만 채운다. */}
@@ -156,7 +161,7 @@ export default function InquiryModal({ plan = "unsure", note = "", onClose }) {
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", flexWrap: "wrap" }}>
               <button type="button" onClick={onClose} style={{ padding: "11px 16px", borderRadius: 12, border: `1px solid ${UI.hairline}`, background: "#fff", color: UI.ink2, fontSize: 14, cursor: "pointer" }}>취소</button>
               <button type="submit" disabled={state === "sending"} style={{ padding: "11px 20px", borderRadius: 12, border: 0, background: UI.accent, color: "#fff", fontWeight: 600, fontSize: 14.5, cursor: "pointer", opacity: state === "sending" ? 0.6 : 1 }}>
-                {state === "sending" ? "보내는 중…" : "문의 보내기"}
+                {state === "sending" ? "보내는 중…" : diag ? "무료 진단 신청" : "문의 보내기"}
               </button>
             </div>
           </form>

@@ -53,7 +53,7 @@ async function call(method, url, body, headers = {}) {
   return { status: res.status, json, text };
 }
 const tokenOf = (url) => url.split("/b2b/quote/")[1];
-// 국세청 검증번호 규칙을 통과하는 번호(유메 공급자 번호).
+// 국세청 검증번호 규칙을 통과하는 번호(베리라인 공급자 번호).
 const GOOD_BIZ = "627-03-03900";
 
 test("사업자등록번호: 검증번호가 맞아야 통과한다", () => {

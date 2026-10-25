@@ -296,7 +296,7 @@ const SCRIPT = String.raw`
   function renderTop() {
     var d = S.data, s = d.summary;
     var eng = s.engine && s.engine.ok ? '<span class="chip"><i></i>검사 엔진 정상</span>' : '<span class="chip bad"><i></i>엔진 멈춤 · 충전 필요</span>';
-    var mail = s.outreachReady ? '<span class="chip"><i></i>유메 메일 발송 가능</span>' : '<span class="chip warn"><i></i>유메 메일 인증 전</span>';
+    var mail = s.outreachReady ? '<span class="chip"><i></i>베리라인 메일 발송 가능</span>' : '<span class="chip warn"><i></i>베리라인 메일 인증 전</span>';
     var inbox = s.gmail ? '<span class="chip"><i></i>메일함 연결됨</span>' : '<span class="chip warn"><i></i>메일함 연결 전</span>';
     var field = s.fieldAgent ? '<span class="chip"><i></i>현장 요원(PC) 연결</span>' : '<span class="chip warn"><i></i>현장 요원(PC) 꺼짐</span>';
     $("#chips").innerHTML = eng + mail + inbox + field;
@@ -361,7 +361,7 @@ const SCRIPT = String.raw`
     } else if (a.kind === "collect_issue") {
       var cmd = "railway run --service yume node scripts/field-agent.mjs --open " + p.auditId;
       h += '<div class="sec" style="display:flex;gap:8px;flex-wrap:wrap">' + (p.url ? '<a class="btn plain sm" href="' + esc(p.url) + '" target="_blank" rel="noopener">서비스 열기 ↗</a>' : "") + '<button type="button" class="btn ghost sm" data-copytext="' + esc(cmd) + '">가입용 창 여는 명령 복사</button><a class="btn plain sm" href="/admin/audits#' + esc(p.auditId) + '" target="_blank" rel="noopener">감사 데스크</a></div>';
-      h += '<div class="hint">' + (p.status === "login_required" ? "가입·로그인은 현장 요원 전용 창에서 해야 저장됩니다(바탕화면 ‘유메 현장요원 열기’). 반려하면 사람이 질문을 넣는 방식으로 바꿉니다." : "반려하면 사람이 질문을 넣는 방식으로 바꿉니다.") + "</div>";
+      h += '<div class="hint">' + (p.status === "login_required" ? "가입·로그인은 현장 요원 전용 창에서 해야 저장됩니다(바탕화면 ‘베리라인 현장요원 열기’). 반려하면 사람이 질문을 넣는 방식으로 바꿉니다." : "반려하면 사람이 질문을 넣는 방식으로 바꿉니다.") + "</div>";
     } else if (a.kind === "collect_answers") {
       h += '<div class="sec qs"><h4>질문 ' + (p.questions || []).length + '개 <button type="button" class="btn ghost sm" data-copyq>질문 전체 복사</button></h4><ol>' + (p.questions || []).map(function (q) { return "<li>" + esc(q) + "</li>"; }).join("") + "</ol></div>";
       h += '<div class="sec" style="display:flex;gap:8px;flex-wrap:wrap">' + (p.url ? '<a class="btn plain sm" href="' + esc(p.url) + '" target="_blank" rel="noopener">상대 서비스 열기 ↗</a>' : "") + '<a class="btn plain sm" href="/admin/audits#' + esc(p.auditId) + '" target="_blank" rel="noopener">감사 데스크(답 붙여넣기)</a></div>';
@@ -371,7 +371,7 @@ const SCRIPT = String.raw`
         var b = function (v, label) { return '<button type="button" data-dec="' + x.id + '" data-v="' + v + '" aria-pressed="' + String(cur === v) + '">' + label + "</button>"; };
         return '<div class="find"><div class="q">질문 · ' + esc(x.question) + '</div><div class="said"><b>AI가 한 말</b>' + esc(x.ai) + '</div><div class="off"><b>공식 원문</b>' + esc(x.official || "(원문 없음)") + "</div>" +
           '<div class="hint">QA 수아: ' + esc(x.qaReason) + "</div>" +
-          '<div class="ctl"><span class="seg">' + b("confirmed", "오류 확정") + b("excluded", "애매 · 제외") + b("yume_wrong", "유메 오판") + "</span>" + (x.url ? '<a class="btn plain sm" href="' + esc(x.url) + '" target="_blank" rel="noopener">원문 열기 ↗</a>' : '<span class="hint">원문 링크 없음 — 확정 불가</span>') + "</div></div>";
+          '<div class="ctl"><span class="seg">' + b("confirmed", "오류 확정") + b("excluded", "애매 · 제외") + b("yume_wrong", "베리라인 오판") + "</span>" + (x.url ? '<a class="btn plain sm" href="' + esc(x.url) + '" target="_blank" rel="noopener">원문 열기 ↗</a>' : '<span class="hint">원문 링크 없음 — 확정 불가</span>') + "</div></div>";
       }).join("") + "</div></div>";
     } else if (a.kind === "reply_mail") {
       h += '<div class="mailcard"><div class="mh"><b>' + esc(p.subject || "(제목 없음)") + "</b><span>" + esc(p.fromName ? p.fromName + " · " : "") + esc(p.to) + " · " + kst(p.date) + '</span></div><div class="mb">' + esc(p.original || "") + "</div></div>";
@@ -468,7 +468,7 @@ const SCRIPT = String.raw`
         '<input name="owner" maxlength="40" placeholder="상가 소유자 성함(어머니)" /><input name="birth" maxlength="20" placeholder="생년월일(선택, 예: 1965-03-02)" />' +
         '<input name="ownerAddr" maxlength="160" placeholder="소유자 주소(선택)" /><input name="relation" maxlength="20" value="모" aria-label="관계" />' +
         '<input name="start" type="date" aria-label="사용 시작일" /><button type="submit" class="btn sm gbtn">승낙서 만들기 · 인쇄</button></form>' +
-        '<div class="hint">홈택스 정정이 끝나 \'완료\'를 누르면 유메·기업용·리머 사이트 주소가 새 주소로 자동으로 바뀝니다.</div>';
+        '<div class="hint">홈택스 정정이 끝나 \'완료\'를 누르면 베리라인·기업용·리머 사이트 주소가 새 주소로 자동으로 바뀝니다.</div>';
     }
     if (t.key === "b2b_terms") return '<details class="tsteps"><summary>여기서 바로 읽기</summary><iframe class="tframe" src="/b2b/terms" title="기업 서비스 이용 조건"></iframe></details><div class="hint">고칠 곳이 있으면 아래 메모에 적고 완료를 누르세요 — 업무 일지에 남고 Claude가 반영합니다. 그대로 좋으면 그냥 완료.</div>';
     if (t.key === "modu_result") return '<div class="hint">결과(합격 여부·지원금·일정)를 아래 메모에 적고 완료를 누르세요.</div>';
@@ -492,7 +492,7 @@ const SCRIPT = String.raw`
   function renderTodos() {
     var d = S.data;
     // 분류별로 묶어 보여 준다 — 위쪽 칩으로 한 분류만 볼 수 있다
-    var AREAS = ["미르미", "유메", "Ballast", "보안", "리머 · 공통"];
+    var AREAS = ["미르미", "베리라인", "Ballast", "보안", "리머 · 공통"];
     var counts = {}; d.todos.forEach(function (t) { counts[t.area || "리머 · 공통"] = (counts[t.area || "리머 · 공통"] || 0) + 1; });
     var pick = S.todoArea && counts[S.todoArea] ? S.todoArea : "";
     var chips = '<div class="tchips">' + ['<button type="button" class="tchip' + (pick ? "" : " on") + '" data-tarea="">전체 <b>' + d.todos.length + "</b></button>"].concat(AREAS.filter(function (a) { return counts[a]; }).map(function (a) { return '<button type="button" class="tchip' + (pick === a ? " on" : "") + '" data-tarea="' + esc(a) + '">' + esc(a) + " <b>" + counts[a] + "</b></button>"; })).join("") + "</div>";
@@ -572,7 +572,7 @@ const SCRIPT = String.raw`
     if (t.dataset.open) { S.sel = Number(t.dataset.open); renderInbox(false); var dp = $("#docpane"); if (dp) dp.scrollIntoView({ block: "start", behavior: "smooth" }); return; }
     if (t.hasAttribute("data-close")) { S.sel = null; renderInbox(false); return; }
     if (t.dataset.dec) { var a1 = S.data.approvals.find(function (x) { return x.id === S.sel; }); inputOf(a1).decisions[t.dataset.dec] = t.dataset.v; t.parentNode.querySelectorAll("button").forEach(function (b) { b.setAttribute("aria-pressed", String(b === t)); }); return; }
-    if (t.dataset.copytext) { try { await navigator.clipboard.writeText(t.dataset.copytext); toast("복사했어요 — PC의 명령 창(유메 폴더)에 붙여 넣으세요"); } catch (_) { toast("복사하지 못했어요"); } return; }
+    if (t.dataset.copytext) { try { await navigator.clipboard.writeText(t.dataset.copytext); toast("복사했어요 — PC의 명령 창(베리라인 폴더)에 붙여 넣으세요"); } catch (_) { toast("복사하지 못했어요"); } return; }
     if (t.hasAttribute("data-copyq")) { var a2 = S.data.approvals.find(function (x) { return x.id === S.sel; }); try { await navigator.clipboard.writeText((a2.payload.questions || []).map(function (q, i) { return (i + 1) + ". " + q; }).join("\n")); toast("질문을 복사했어요"); } catch (_) { toast("복사하지 못했어요"); } return; }
     if (t.hasAttribute("data-approve") || t.hasAttribute("data-reject")) {
       var a = S.data.approvals.find(function (x) { return x.id === S.sel; });
@@ -652,13 +652,13 @@ export function renderStaffPage() {
   return `<!doctype html>
 <html lang="ko"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="robots" content="noindex, nofollow" /><meta name="theme-color" content="#5B3FA0" />
-<title>AI 본사 · 유메</title>
+<title>AI 본사 · 베리라인</title>
 <link rel="preconnect" href="https://cdn.jsdelivr.net" />
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" />
 <style>${CSS}</style></head>
 <body>
 <header class="top"><div class="in">
-  <div class="brand"><span class="logo">R</span><div><b>AI 본사</b><small>리머 · 유메 — 대표는 결재만</small></div></div>
+  <div class="brand"><span class="logo">R</span><div><b>AI 본사</b><small>리머 · 베리라인 — 대표는 결재만</small></div></div>
   <div class="chips" id="chips"></div>
   <span class="clock num" id="clock"></span>
   <span class="chips"><a class="chip" href="/admin/work">작업 리스트</a><a class="chip" href="/admin/audits">감사 데스크</a></span>

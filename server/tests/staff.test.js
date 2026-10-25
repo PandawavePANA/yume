@@ -129,7 +129,7 @@ test("경영지원 민재: 감사 신청 → 입금 확인 결재(대표 알림)
   const a = (await store.listApprovals()).find((x) => x.kind === "confirm_payment" && x.payload.quoteId === Number(quote.id));
   assert.ok(a, "입금 확인 결재가 올라왔다");
   assert.match(a.summary, /테스트은행 000/);
-  assert.ok(sent.some((m) => /\[유메 결재\] 입금 확인/.test(m.subject)), "급한 결재는 대표에게 메일로도 알린다");
+  assert.ok(sent.some((m) => /\[베리라인 결재\] 입금 확인/.test(m.subject)), "급한 결재는 대표에게 메일로도 알린다");
   const r = await staff.approve(a.id, {}, { deps: deps() });
   assert.ok(r.ok, r.error);
   const q = await deals.quoteById(quote.id);
@@ -177,7 +177,7 @@ test("감사팀 수아: 오류 후보를 원문과 대조해 하린 전결로 �
   assert.equal(rows[1].review, "excluded");
 });
 
-test("영업팀 지호: 후속 메일은 유메 도메인 인증 전에는 결재해도 안 나가고, 인증 뒤에는 유메 주소로 나간다", async () => {
+test("영업팀 지호: 후속 메일은 베리라인 도메인 인증 전에는 결재해도 안 나가고, 인증 뒤에는 베리라인 주소로 나간다", async () => {
   sent.length = 0;
   const made = await desk.createAudit({ company: "후속AI", service_url: "https://fu.example.com", domain: "인사", contact_email: "kim@fu.example.com" });
   const t = Date.now();
@@ -191,11 +191,11 @@ test("영업팀 지호: 후속 메일은 유메 도메인 인증 전에는 결�
   assert.equal((await store.getApproval(a.id)).status, "pending", "실패하면 결재함에 남는다");
   assert.equal(sent.length, 0);
 
-  process.env.MAIL_FROM_YUME = "유메 <hello@yume-reamer.com>";
+  process.env.MAIL_FROM_YUME = "베리라인 <hello@yume-reamer.com>";
   const ok = await staff.approve(a.id, {}, { deps: deps() });
   delete process.env.MAIL_FROM_YUME;
   assert.ok(ok.ok, ok.error);
-  assert.match(sent[0].from, /정원영 \(유메\) <hello@yume-reamer\.com>/);
+  assert.match(sent[0].from, /정원영 \(베리라인\) <hello@yume-reamer\.com>/);
   assert.equal(sent[0].to, "kim@fu.example.com");
   assert.equal((await desk.auditById(made.id)).stage, "followed_up");
 });
@@ -387,7 +387,7 @@ test("대표 할 일: 결재함과 따로 — 날짜·앞 일 조건대로 보�
   delete process.env.GMAIL_USER;
   delete process.env.GMAIL_APP_PASSWORD;
 
-  // 메일 도메인 — 완료를 누르면 유메 주소로 시험 발송, 실패면 막고 성공이면 첫 메일 발송이 열린다
+  // 메일 도메인 — 완료를 누르면 베리라인 주소로 시험 발송, 실패면 막고 성공이면 첫 메일 발송이 열린다
   const od = today.find((t) => t.key === "outreach_domain");
   const fail = await staff.completeTodo(od.id, { deps: deps({ sendMail: async () => { throw new Error("domain not verified"); } }) });
   assert.match(fail.error, /인증되지 않았어요/);
@@ -398,7 +398,7 @@ test("대표 할 일: 결재함과 따로 — 날짜·앞 일 조건대로 보�
   const ok = await staff.completeTodo(od.id, { deps: deps() });
   assert.ok(ok.ok, ok.error);
   assert.match(sent[0].from, /hello@yume-reamer\.com/);
-  assert.match(sales.outreachFrom(), /정원영 \(유메\) <hello@yume-reamer\.com>/, "환경변수 없이도 발송이 열린다");
+  assert.match(sales.outreachFrom(), /정원영 \(베리라인\) <hello@yume-reamer\.com>/, "환경변수 없이도 발송이 열린다");
 
   // 내일로 · 직접 추가
   const kmong = (await todos.list("2026-10-14")).find((t) => t.key === "kmong_mvp");

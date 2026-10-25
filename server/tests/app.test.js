@@ -457,7 +457,7 @@ test("카카오 스킬: 비밀 헤더 확인과 응답 형식", async () => {
     assert.equal(ok.status, 200, "앞뒤 공백은 허용");
     const j = await ok.json();
     assert.equal(j.version, "2.0");
-    assert.match(j.template.outputs[0].simpleText.text, /유메/);
+    assert.match(j.template.outputs[0].simpleText.text, /베리라인/);
     const verifyEmpty = await (await post(body("검증해줘"), { "X-Yume-Skill-Token": "kakao-test-secret" })).json();
     assert.match(verifyEmpty.template.outputs[0].simpleText.text, /함께 붙여넣어/);
     // Claude 키가 없는 테스트 환경 — 대화는 5초 안에 오류 안내로 끝나야 한다
@@ -617,7 +617,7 @@ test("문서 검사 — API와 웹 화면이 같은 한도로, 원문 위치와 
   assert.equal((await owner("GET", `/api/documents/${started.data.id}`)).status, 404, "남의 문서는 웹에서도 안 보인다");
 });
 
-// ── YUME 검증 마크 ──
+// ── VERILINE 검증 마크 ──
 test("검증 마크 — 모두 원문으로 확인된 문서에만, 공개 동의를 받고 발급하며 누구나 확인할 수 있다", async () => {
   const owner = client();
   await owner("POST", "/api/auth/signup", signupBody("mark@yume.test", { company: "마크AI" }));

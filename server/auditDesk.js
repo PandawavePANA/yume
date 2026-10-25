@@ -1,8 +1,8 @@
 // 감사 데스크 — 특정 회사의 AI 서비스를 표본 감사하고, 결과를 비공개로 알리며 대화를 시작하는 도구.
 //
-// 보안 회사가 취약점을 찾아 그 회사에 먼저 알리듯, 유메는 상대 서비스를 일반 사용자로서 써 보고
+// 보안 회사가 취약점을 찾아 그 회사에 먼저 알리듯, 베리라인은 상대 서비스를 일반 사용자로서 써 보고
 // 찾은 오류를 원문과 함께 보낸다(기획안 4장). 이 파일은 그 일을 순서대로 강제한다.
-//   약관 확인 → 질문 세트 → 손으로 입력한 답변 기록(캡처 시각) → 유메 검사 → 사람이 원문 재확인
+//   약관 확인 → 질문 세트 → 손으로 입력한 답변 기록(캡처 시각) → 베리라인 검사 → 사람이 원문 재확인
 //   → 비공개 보고서 → 발송 전 체크리스트 → 메일 → 후속 한 번 → 결과
 //
 // 원칙(기획안 5장)을 코드가 지키게 한 자리:
@@ -11,7 +11,7 @@
 //   · 압박하지 않는다 — 메일·보고서에 금액·기한·"공개" 압박 문구가 있으면 발송 처리가 막힌다(lintCopy).
 //   · 약관을 지킨다 — 약관을 확인해 'ok'로 적기 전에는 검사를 시작하지 않는다. 금지면 그 건은 제외된다.
 //     자동 대량 질의는 하지 않는다 — 이 도구는 상대 서비스를 호출하지 않는다. 답변은 사람이 넣는다.
-//   · 직접 재확인한다 — 유메가 지목한 오류는 'pending'이다. 사람이 원문을 직접 열어 링크를 남기고
+//   · 직접 재확인한다 — 베리라인이 지목한 오류는 'pending'이다. 사람이 원문을 직접 열어 링크를 남기고
 //     confirmed로 바꾼 것만 "불일치"로 센다. 하나라도 pending이면 발송할 수 없다.
 //   · 공정하게 쓴다 — 잘된 점이 하나도 없으면 발송할 수 없다.
 import { quoteSummariesForAudit } from "./b2bDeals.js";
@@ -34,8 +34,8 @@ export const CATEGORIES = { service: "특정 회사 AI 서비스", general: "범
 // 질문을 보낸 방법. 보고서·메일·체크리스트 문장이 이걸 따른다 — 실제와 다른 방법을 적으면 보고서 전체를 믿지 않는다.
 export const INPUT_METHODS = {
   manual: { label: "화면에 직접 입력", report: "일반 사용자로서 서비스 화면에 질문을 직접 입력했습니다", basis: "답변 받은 시점의 화면 기준", mail: (s, n) => `${s} 서비스를 일반 사용자로서 ${n}개 질문으로 사용해 보던 중` },
-  // 사람이 로그인한 일반 회원 화면에서, 유메 검토 도구가 질문을 한 건씩 간격을 두고 입력한 경우.
-  browser: { label: "화면 입력(검토 도구)", report: "일반 회원으로 로그인한 서비스 화면에 유메 검토 도구로 질문을 한 건씩 간격을 두고 입력했습니다", basis: "답변 받은 시점의 화면 기준", mail: (s, n) => `${s} 서비스 화면에서 ${n}개 질문을 한 건씩 입력해 확인하던 중` },
+  // 사람이 로그인한 일반 회원 화면에서, 베리라인 검토 도구가 질문을 한 건씩 간격을 두고 입력한 경우.
+  browser: { label: "화면 입력(검토 도구)", report: "일반 회원으로 로그인한 서비스 화면에 베리라인 검토 도구로 질문을 한 건씩 간격을 두고 입력했습니다", basis: "답변 받은 시점의 화면 기준", mail: (s, n) => `${s} 서비스 화면에서 ${n}개 질문을 한 건씩 입력해 확인하던 중` },
   api: { label: "공식 API", report: "공개된 공식 API로 질문을 보냈습니다(시스템 프롬프트 없이, 일반 사용자가 묻는 그대로)", basis: "답변 받은 시점의 API 응답 기준", mail: (s, n) => `${s}에 공식 API로 ${n}개 질문을 보내 확인하던 중` },
 };
 export const methodOf = (audit) => INPUT_METHODS[audit?.input_method] || INPUT_METHODS.manual;
@@ -75,7 +75,7 @@ export const REVIEWS = {
   pending: "재확인 전",
   confirmed: "원문 확인 — 불일치 맞음",
   excluded: "애매해서 제외",
-  yume_wrong: "유메 오판",
+  yume_wrong: "베리라인 오판",
 };
 
 const DAY = 24 * 3600 * 1000;
@@ -400,7 +400,7 @@ export async function deleteFile(fileId) {
 
 // ── 검사 ──────────────────────────────────────────────────────────────
 // 기준 문항은 정답이 정해져 있으므로 채점(gradeAnswer)만 한다. 주제·직접 질문은 정답을 정해 두지
-// 않았으므로 답변 속 주장을 유메 검증 파이프라인이 판정한다. 같은 답을 두 번 태우지 않는다.
+// 않았으므로 답변 속 주장을 베리라인 검증 파이프라인이 판정한다. 같은 답을 두 번 태우지 않는다.
 
 /** 검증 결과에서 보고서·재확인에 필요한 것만 남긴다(상품 링크 같은 건 버린다). */
 function compactVerification(result) {
@@ -669,7 +669,7 @@ export async function reviewFinding(findingId, input = {}) {
 }
 
 // ── 결과 계산(순수) ───────────────────────────────────────────────────
-/** 기준 문항의 재확인 반영 결과. 유메 오판이면 정상, 애매해서 뺐으면 채점 불가. */
+/** 기준 문항의 재확인 반영 결과. 베리라인 오판이면 정상, 애매해서 뺐으면 채점 불가. */
 export function itemOutcome(item, findings) {
   const g = parse(item.grade_json);
   if (!g) return null;
@@ -745,7 +745,7 @@ const LINT_RULES = [
   { re: /기한|마감|까지\s*(회신|답장|연락)|빠른\s*회신|이번\s*주\s*(안|내)/, why: "기한을 주는 문장이 있어요 — 재촉으로 읽힙니다." },
   { re: /공개(하|할|될)\s*(수|예정|것|겠)|언론|기사화|제보하겠|신고하겠/, why: "공개·신고를 암시하는 문장이 있어요 — 압박으로 읽힐 수 있습니다." },
   { re: /계약하지\s*않으면|도입하지\s*않으면|안\s*하시면/, why: "조건을 거는 문장이 있어요 — 압박으로 읽힐 수 있습니다." },
-  { re: /보증|100\s*%|백\s*퍼센트|완벽|AI\s*없이|인공지능\s*없이/, why: "'보증'·'100%'·'AI 없이' 같은 표현이 있어요 — 유메는 검사 결과를 말하지 보증하지 않습니다." },
+  { re: /보증|100\s*%|백\s*퍼센트|완벽|AI\s*없이|인공지능\s*없이/, why: "'보증'·'100%'·'AI 없이' 같은 표현이 있어요 — 베리라인은 검사 결과를 말하지 보증하지 않습니다." },
   { re: /인증(을|받|된|기관|마크|서)/, why: "'인증'은 국가 인증처럼 읽힐 수 있어요 — '검사 결과'로 쓰세요." },
   { re: /거짓말|엉터리|형편없|심각한\s*수준/, why: "단정적인 평가가 있어요 — '이런 유형이 이 빈도로 보였다'로 씁니다." },
 ];
@@ -798,7 +798,7 @@ export function mailDrafts(audit, results, { reportUrl = "", issues = 0, wrongAn
   const service = audit.service_name || audit.company;
   const phrase = domainPhrase(audit.domain);
   const n = results?.answered || 0;
-  const sign = `${COMPANY.ceo} 드림 · 유메 (${SITE})`;
+  const sign = `${COMPANY.ceo} 드림 · 베리라인 (${SITE})`;
   // 제목은 짧고 한 번에 읽히게(2026-10-13 대표: "제목이 너무 길다, 임팩트 있게 컴팩트하게"). 휴대폰 받은편지함에서
   // 잘리지 않는 길이 — 브랜드 이름 + 숫자 하나 + 근거. 법인명((주)…)이면 서비스 이름의 첫 낱말을 브랜드로 쓴다.
   const brand = /\(주\)|주식회사|㈜/.test(audit.company || "") ? String(service).split(/\s+/)[0] : audit.company || String(service).split(/\s+/)[0];
@@ -816,7 +816,7 @@ export function mailDrafts(audit, results, { reportUrl = "", issues = 0, wrongAn
       : `${phrase} 일부가 원문과 다른 것을 확인해 비공개로 공유드립니다.`;
   const body = [
     // 대표가 정한 첫 문장(2026-10-13). 담당자 이름을 알면 이름을 넣는다.
-    `안녕하세요${audit.contact_name ? `, ${audit.contact_name}님` : ""}. AI 할루시네이션 감지 서비스 유메를 운영하는 ${COMPANY.ceo}입니다.`,
+    `안녕하세요${audit.contact_name ? `, ${audit.contact_name}님` : ""}. AI 할루시네이션 감지 서비스 베리라인을 운영하는 ${COMPANY.ceo}입니다.`,
     "",
     clean
       ? `${(ASKED[audit.input_method] || ASKED.manual)(service, n)} 법령·판례 원문과 하나씩 대조했습니다. 원문과 다른 내용은 확인되지 않아 결과를 공유드립니다.`
@@ -831,7 +831,7 @@ export function mailDrafts(audit, results, { reportUrl = "", issues = 0, wrongAn
     NONDISCLOSURE,
     "",
     clean
-      ? "원하시면 이 결과를 'YUME 감사 기록'으로 공개해, 고객이나 투자자에게 답변 정확도의 근거로 보여 주실 수 있습니다(홈페이지에 붙이는 배지 포함). 공개는 귀사가 동의하실 때만 합니다. 관심 있으시면 이 메일로 답장 주세요. 친절히 설명해 드리겠습니다. 필요 없으시면 이 메일은 편하게 넘기셔도 됩니다."
+      ? "원하시면 이 결과를 'VERILINE 감사 기록'으로 공개해, 고객이나 투자자에게 답변 정확도의 근거로 보여 주실 수 있습니다(홈페이지에 붙이는 배지 포함). 공개는 귀사가 동의하실 때만 합니다. 관심 있으시면 이 메일로 답장 주세요. 친절히 설명해 드리겠습니다. 필요 없으시면 이 메일은 편하게 넘기셔도 됩니다."
       : "필요하시면 범위를 넓혀 한 번 더 무료로 검사해 드리겠습니다. 관심 있으시면 이 메일로 답장 주세요. 친절히 설명해 드리겠습니다. 필요 없으시면 편하게 넘기셔도 됩니다.",
     "",
     "감사합니다.",
@@ -922,7 +922,7 @@ export function checklist(audit, items, findings, files, mail) {
         ? `검사하지 않은 답변 ${res.unchecked}개가 있어요.`
         : res.issues.pending
           ? `재확인이 남은 항목 ${res.issues.pending}개`
-          : `확인 ${res.issues.confirmed} · 제외 ${res.issues.excluded} · 유메 오판 ${res.issues.yume_wrong}`,
+          : `확인 ${res.issues.confirmed} · 제외 ${res.issues.excluded} · 베리라인 오판 ${res.issues.yume_wrong}`,
     },
     {
       key: "ambiguous_removed",
@@ -1215,7 +1215,7 @@ export function sprintVerdict(startMs, paidIntent, at = now()) {
   const week = Math.max(1, Math.floor((at - startMs) / (7 * DAY)) + 1);
   const decision = paidIntent >= 3 ? "focus" : paidIntent >= 1 ? "narrow" : "rethink";
   const label = {
-    focus: "유메에 집중 — 실적으로 지원사업 준비, 배지 시작",
+    focus: "베리라인에 집중 — 실적으로 지원사업 준비, 배지 시작",
     narrow: "반응 좋았던 분야로 좁혀 8주 한 번 더",
     rethink: "거절 이유 정리 — 방향 재검토",
   }[decision];

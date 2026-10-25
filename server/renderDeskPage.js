@@ -166,7 +166,7 @@ export function renderDeskPage() {
   <div class="bar">
     <span class="logo"><i></i>REAMER</span>
     <span class="sp"></span>
-    <a class="ghost" href="/admin">유메 운영</a>
+    <a class="ghost" href="/admin">베리라인 운영</a>
     <a class="ghost" href="/admin/studio">스튜디오</a>
     <a class="ghost" href="/admin/funnel">유입</a>
     <span class="ghost on">의뢰 데스크</span>

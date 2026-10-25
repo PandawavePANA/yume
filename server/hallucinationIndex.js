@@ -1,6 +1,6 @@
-// YUME 할루시네이션 지수 — 주기마다 발표하는 공개 지표.
+// VERILINE 할루시네이션 지수 — 주기마다 발표하는 공개 지표.
 //
-// 기준을 만드는 쪽이 신뢰를 갖는다. 신용평가사가 부도율 통계를 해마다 내듯, 유메는 AI가 근거 없이
+// 기준을 만드는 쪽이 신뢰를 갖는다. 신용평가사가 부도율 통계를 해마다 내듯, 베리라인은 AI가 근거 없이
 // 지어내는 비율을 같은 방법으로 반복해서 재고 공개한다. 그 숫자가 시장에서 인용되는 순간 "AI
 // 할루시네이션의 기준 숫자를 내는 곳"이 된다. 그래서 이 파일의 규칙은 숫자의 위엄보다 정직함이 먼저다.
 //
@@ -76,7 +76,7 @@ const typeLabel = (t) => PROBE_TYPES[t]?.label || t;
 export async function computeIndexData({ start, end }) {
   start = Number(start);
   end = Number(end);
-  // ── 1) 유메 감사(사람이 원문으로 재확인을 마친 것만) ──
+  // ── 1) 베리라인 감사(사람이 원문으로 재확인을 마친 것만) ──
   const audits = await all("SELECT * FROM ai_audits WHERE index_excluded = 0 AND stage <> 'excluded'");
   const probeRows = [];
   const claims = { total: 0, match: 0, mismatch: 0, unverifiable: 0 };
@@ -155,7 +155,7 @@ export async function computeIndexData({ start, end }) {
     byDomain: groupCells(selfRows, (r) => r.domain, (k) => k),
   };
 
-  // ── 3) 유메 검사 현황(서비스에 들어온 글, 집계 숫자만) ──
+  // ── 3) 베리라인 검사 현황(서비스에 들어온 글, 집계 숫자만) ──
   // 감사 데스크의 검사(source = 'audit')는 위 1)에서 이미 셌으므로 뺀다. 같은 결과를 재사용한 건(캐시)도 뺀다.
   const eng = await one(
     `SELECT COUNT(*) AS texts, COALESCE(SUM(claim_count), 0) AS claims, COALESCE(SUM(false_count), 0) AS f, COALESCE(SUM(uncertain_count), 0) AS u

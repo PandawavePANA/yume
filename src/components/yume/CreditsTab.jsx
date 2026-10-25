@@ -21,7 +21,7 @@ const REASON = {
   purchase: "크레딧 충전",
   purchase_cancelled: "충전 결제 취소",
   referral: "친구 추천 보상",
-  verify: "사용 · 유메 할루시네이션 검사",
+  verify: "사용 · 베리라인 할루시네이션 검사",
   refund: "환급 · 검증 실패",
   expire: "소멸 · 유효기간 1년 만료",
   admin: "운영자 지급",
@@ -30,7 +30,7 @@ const BOUNTY_STATUS = {
   pending: { label: "검토 중", color: "#B4690E", bg: "#FBEEDA" },
   approved: { label: "점수 지급 완료", color: "#1F9D66", bg: "#E4F5EC" },
   rejected: { label: "반려", color: "#C6402F", bg: "#FBE8E5" },
-  duplicate: { label: "이미 등록된 인용", color: "#6E6389", bg: "#F1EDF8" },
+  duplicate: { label: "이미 등록된 인용", color: "#4F5A72", bg: "#F1EDF8" },
 };
 // 정정은 상태가 셋뿐이다. 중복은 애초에 접수되지 않는다(같은 주장에 한 번만).
 const CORRECTION_STATUS = {
@@ -42,8 +42,8 @@ const PURCHASE_STATUS = { requested: "입금 확인 중", fulfilled: "지급 완
 
 const fmt = (ts) => (ts ? new Date(ts).toLocaleDateString("ko-KR", { month: "short", day: "numeric" }) : "-");
 const fmtDay = (ts) => (ts ? new Date(ts).toLocaleDateString("ko-KR", { year: "numeric", month: "2-digit", day: "2-digit" }) : "-");
-const card = { border: "1px solid #EDE3FA", borderRadius: 12, padding: 14, marginBottom: 10 };
-const ghostBtn = { padding: "7px 13px", borderRadius: 999, border: "1px solid #D4BEF0", background: "#fff", color: "#6B4FA8", fontSize: 12.5, fontWeight: 600, cursor: "pointer" };
+const card = { border: "1px solid #E8EFFF", borderRadius: 12, padding: 14, marginBottom: 10 };
+const ghostBtn = { padding: "7px 13px", borderRadius: 999, border: "1px solid #C9D8FF", background: "#fff", color: "#2F6BFF", fontSize: 12.5, fontWeight: 600, cursor: "pointer" };
 
 export default function CreditsTab() {
   const [checkout, setCheckout] = useState(null);
@@ -123,7 +123,7 @@ export default function CreditsTab() {
     }
   };
 
-  if (!data) return <div style={{ fontSize: 13, color: "#A99BC9" }}>{msg?.text || "불러오는 중…"}</div>;
+  if (!data) return <div style={{ fontSize: 13, color: "#9AA6BF" }}>{msg?.text || "불러오는 중…"}</div>;
 
   const link = referral ? `${window.location.origin}/?ref=${referral.code}` : "";
 
@@ -135,13 +135,13 @@ export default function CreditsTab() {
         </div>
       )}
 
-      <div style={{ background: "linear-gradient(135deg,#F3EBFF,#EDE4FC)", borderRadius: 14, padding: "16px 18px", marginBottom: 16 }}>
-        <div style={{ fontSize: 12, color: "#6E6389", fontWeight: 600 }}>{t("남은 크레딧")}</div>
-        <div style={{ fontSize: 30, fontWeight: 800, color: "#4E3391", letterSpacing: "-0.02em" }}>
+      <div style={{ background: "linear-gradient(135deg,#EAF0FF,#EDE4FC)", borderRadius: 14, padding: "16px 18px", marginBottom: 16 }}>
+        <div style={{ fontSize: 12, color: "#4F5A72", fontWeight: 600 }}>{t("남은 크레딧")}</div>
+        <div style={{ fontSize: 30, fontWeight: 800, color: "#1F54E0", letterSpacing: "-0.02em" }}>
           {data.balance.toLocaleString()}
           <span style={{ fontSize: 14, fontWeight: 600, marginLeft: 4 }}>{t("크레딧")}</span>
         </div>
-        <div style={{ fontSize: 11.5, color: "#8577A8", marginTop: 2 }}>
+        <div style={{ fontSize: 11.5, color: "#7B87A1", marginTop: 2 }}>
           2,000자당 1크레딧 · 매일 무료 3회 뒤에 쓰여요
         </div>
         {data.nextExpiry && (
@@ -151,8 +151,8 @@ export default function CreditsTab() {
         )}
       </div>
 
-      <div style={{ ...card, background: "#FBF8FF" }}>
-        <div style={{ fontSize: 12.5, color: "#5B5470", lineHeight: 1.7 }}>
+      <div style={{ ...card, background: "#F5F8FF" }}>
+        <div style={{ fontSize: 12.5, color: "#4A5468", lineHeight: 1.7 }}>
           검증할 때마다 크레딧이 차감됩니다. <b>{t("충전한 크레딧은 결제한 시점부터 1년 이내에 사용할 수 있으며, 1년 안에 쓰지 않은 크레딧은 소멸합니다.")}</b>
           {" "}{t("먼저 충전한 크레딧부터 쓰여요.")}
         </div>
@@ -165,7 +165,7 @@ export default function CreditsTab() {
       {IS_NATIVE_APP || IS_STORE_BUILD ? (
         <>
           <div style={{ fontSize: 13, fontWeight: 700, margin: "18px 0 8px" }}>{t("크레딧 추가 구매")}</div>
-          <div style={{ ...card, background: "#FBF8FF", color: "#6E6389", fontSize: 12.5, lineHeight: 1.7 }}>
+          <div style={{ ...card, background: "#F5F8FF", color: "#4F5A72", fontSize: 12.5, lineHeight: 1.7 }}>
             {t("앱에서는 크레딧 충전을 준비 중이에요. 이미 가진 크레딧은 그대로 쓰실 수 있어요.")}
           </div>
         </>
@@ -173,16 +173,16 @@ export default function CreditsTab() {
       <>
       <div style={{ fontSize: 13, fontWeight: 700, margin: "18px 0 8px" }}>{t("크레딧 충전")}</div>
       {pay?.identity && !pay.identityVerified && (
-        <div style={{ ...card, background: "#FBF8FF", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
-          <div style={{ fontSize: 12.5, color: "#5B5470", lineHeight: 1.6 }}>
+        <div style={{ ...card, background: "#F5F8FF", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+          <div style={{ fontSize: 12.5, color: "#4A5468", lineHeight: 1.6 }}>
             결제 전 <b>{t("본인확인")}</b>을 한 번 해주세요. 카카오·네이버·PASS 인증서 중에 고르실 수 있어요.
             {!pay.identityAgreed && (
               <label style={{ display: "flex", gap: 7, alignItems: "flex-start", marginTop: 8, cursor: "pointer" }}>
-                <input type="checkbox" checked={ciAgree} onChange={(e) => setCiAgree(e.target.checked)} style={{ marginTop: 2, accentColor: "#6B4FA8" }} />
-                <span style={{ fontSize: 11.5, color: "#6E6389", lineHeight: 1.6 }}>
+                <input type="checkbox" checked={ciAgree} onChange={(e) => setCiAgree(e.target.checked)} style={{ marginTop: 2, accentColor: "#2F6BFF" }} />
+                <span style={{ fontSize: 11.5, color: "#4F5A72", lineHeight: 1.6 }}>
                   <b>{t("[필수]")}</b> 이름·생년월일·성별·휴대전화번호·연계정보(CI)·중복가입확인정보(DI) 수집·이용에 동의합니다.
                   탈퇴 시까지 보관하며 주민등록번호는 수집하지 않아요.{" "}
-                  <a href="/privacy" target="_blank" rel="noreferrer" style={{ color: "#6B4FA8" }}>{t("개인정보처리방침")}</a>
+                  <a href="/privacy" target="_blank" rel="noreferrer" style={{ color: "#2F6BFF" }}>{t("개인정보처리방침")}</a>
                 </span>
               </label>
             )}
@@ -194,13 +194,13 @@ export default function CreditsTab() {
         value={contact}
         onChange={(e) => setContact(e.target.value)}
         placeholder={t("연락받으실 휴대폰 번호 또는 이메일")}
-        style={{ width: "100%", padding: "9px 12px", borderRadius: 10, border: "1px solid #D4BEF0", marginBottom: 10, fontSize: 13, boxSizing: "border-box", fontFamily: "inherit" }}
+        style={{ width: "100%", padding: "9px 12px", borderRadius: 10, border: "1px solid #C9D8FF", marginBottom: 10, fontSize: 13, boxSizing: "border-box", fontFamily: "inherit" }}
       />}
       {data.packs.map((pack) => (
         <div key={pack.key} style={{ ...card, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
           <div>
             <div style={{ fontSize: 13, fontWeight: 600 }}>{pack.label} {t("충전")}</div>
-            <div style={{ fontSize: 11.5, color: "#A99BC9" }}>{pack.krw.toLocaleString()}원 · {t("결제일부터 1년 이내 사용")}</div>
+            <div style={{ fontSize: 11.5, color: "#9AA6BF" }}>{pack.krw.toLocaleString()}원 · {t("결제일부터 1년 이내 사용")}</div>
           </div>
           <button
             onClick={() => (pay?.payment ? buyNow(pack) : buy(pack))}
@@ -211,29 +211,29 @@ export default function CreditsTab() {
           </button>
         </div>
       ))}
-      <div style={{ fontSize: 11, color: "#A99BC9", lineHeight: 1.6, marginBottom: 18 }}>
-        크레딧은 AI 답변·문서 속 사실 주장을 유메가 검증하는 데 쓰는 충전식 이용권입니다. 검증 1회에 1크레딧이 차감되고(입력 2,000자마다 1개),
+      <div style={{ fontSize: 11, color: "#9AA6BF", lineHeight: 1.6, marginBottom: 18 }}>
+        크레딧은 AI 답변·문서 속 사실 주장을 베리라인이 검증하는 데 쓰는 충전식 이용권입니다. 검증 1회에 1크레딧이 차감되고(입력 2,000자마다 1개),
         <b>충전한 크레딧은 결제한 시점부터 1년 이내에 사용할 수 있으며 미사용 크레딧은 소멸합니다.</b> 배송되는 실물은 없으며 결제가 확인되면 계정에 바로 충전됩니다.
         신용카드·체크카드 일시불 결제만 가능합니다.
         {pay?.payment
           ? "결제가 끝나면 서버가 결제 내역을 확인한 뒤 크레딧을 바로 넣어드립니다."
           : "온라인 결제는 준비 중이라 지금은 신청만 받고 있어요. 입금이 확인되면 운영자가 크레딧을 넣어드립니다."}
-        크레딧은 현금으로 바꿔드리지 않으며, 환불은 결제하신 카드의 결제 취소로만 처리됩니다. 환불 조건은 아래 <a href="/refund" target="_blank" rel="noopener noreferrer" style={{ color: "#8577A8" }}>{t("환불정책")}</a>을 따릅니다.
+        크레딧은 현금으로 바꿔드리지 않으며, 환불은 결제하신 카드의 결제 취소로만 처리됩니다. 환불 조건은 아래 <a href="/refund" target="_blank" rel="noopener noreferrer" style={{ color: "#7B87A1" }}>{t("환불정책")}</a>을 따릅니다.
       </div>
       </>
       )}
 
       <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>{t("친구 추천")}</div>
       <div style={card}>
-        <div style={{ fontSize: 12.5, color: "#5B5470", lineHeight: 1.7, marginBottom: 10 }}>
-          내 링크로 가입한 친구가 첫 검증을 마치면 <b>{referral?.creditsPerReferral ?? 0} 크레딧</b>{referral?.krwPerReferral ? <>{" "}<span style={{ color: "#8577A8" }}>(정가 {referral.krwPerReferral.toLocaleString("ko-KR")}원 상당)</span></> : null}과 <b>공헌도 {referral?.pointsPerReferral ?? 0}점</b>을 드려요.
+        <div style={{ fontSize: 12.5, color: "#4A5468", lineHeight: 1.7, marginBottom: 10 }}>
+          내 링크로 가입한 친구가 첫 검증을 마치면 <b>{referral?.creditsPerReferral ?? 0} 크레딧</b>{referral?.krwPerReferral ? <>{" "}<span style={{ color: "#7B87A1" }}>(정가 {referral.krwPerReferral.toLocaleString("ko-KR")}원 상당)</span></> : null}과 <b>공헌도 {referral?.pointsPerReferral ?? 0}점</b>을 드려요.
         </div>
         <div style={{ display: "flex", gap: 6 }}>
           <input
             readOnly
             value={link}
             onFocus={(e) => e.target.select()}
-            style={{ flex: 1, padding: "8px 10px", borderRadius: 10, border: "1px solid #EDE3FA", background: "#FBF8FF", fontSize: 12, color: "#6E6389", boxSizing: "border-box", fontFamily: "inherit" }}
+            style={{ flex: 1, padding: "8px 10px", borderRadius: 10, border: "1px solid #E8EFFF", background: "#F5F8FF", fontSize: 12, color: "#4F5A72", boxSizing: "border-box", fontFamily: "inherit" }}
           />
           <button
             onClick={async () => {
@@ -249,7 +249,7 @@ export default function CreditsTab() {
           </button>
         </div>
         {referral && (
-          <div style={{ fontSize: 11.5, color: "#A99BC9", marginTop: 8 }}>
+          <div style={{ fontSize: 11.5, color: "#9AA6BF", marginTop: 8 }}>
             초대 {referral.invited}명 · 지급 완료 {referral.credited}명
           </div>
         )}
@@ -258,16 +258,16 @@ export default function CreditsTab() {
       {data.bounties.length > 0 && (
         <>
           <div style={{ fontSize: 13, fontWeight: 700, margin: "18px 0 8px" }}>{t("내 제보")}</div>
-          <div style={{ fontSize: 11.5, color: "#A99BC9", lineHeight: 1.6, marginBottom: 8 }}>
+          <div style={{ fontSize: 11.5, color: "#9AA6BF", lineHeight: 1.6, marginBottom: 8 }}>
             제보가 확인되면 크레딧이 아니라 <b>공헌도 {data.reportPoints.toLocaleString()}점</b>이 쌓입니다. 점수와 순위는 랭킹에서 볼 수 있어요.
           </div>
           {data.bounties.slice(0, 5).map((b) => {
             const s = BOUNTY_STATUS[b.status] || BOUNTY_STATUS.pending;
             return (
-              <div key={b.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid #F4EEFC" }}>
+              <div key={b.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid #EEF3FF" }}>
                 <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 12.5, fontWeight: 600, color: "#241F33", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{b.identifier_value}</div>
-                  <div style={{ fontSize: 11, color: "#A99BC9" }}>{fmt(b.created_at)}{b.reviewer_note ? ` · ${b.reviewer_note}` : ""}</div>
+                  <div style={{ fontSize: 12.5, fontWeight: 600, color: "#121827", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{b.identifier_value}</div>
+                  <div style={{ fontSize: 11, color: "#9AA6BF" }}>{fmt(b.created_at)}{b.reviewer_note ? ` · ${b.reviewer_note}` : ""}</div>
                 </div>
                 <span style={{ flexShrink: 0, fontSize: 10.5, fontWeight: 700, color: s.color, background: s.bg, padding: "3px 9px", borderRadius: 999 }}>
                   {s.label}{b.credits ? ` +${b.credits.toLocaleString()}` : ""}
@@ -281,16 +281,16 @@ export default function CreditsTab() {
       {(data.corrections || []).length > 0 && (
         <>
           <div style={{ fontSize: 13, fontWeight: 700, margin: "18px 0 8px" }}>{t("내 판정 정정")}</div>
-          <div style={{ fontSize: 11.5, color: "#A99BC9", lineHeight: 1.6, marginBottom: 8 }}>
-            {t("유메가 틀렸다고 알려주신 것들이에요. 채택되면 공헌도 {n}점이 쌓이고 그 판정도 함께 고칩니다.", { n: (data.correctionPoints || 1000).toLocaleString() })}
+          <div style={{ fontSize: 11.5, color: "#9AA6BF", lineHeight: 1.6, marginBottom: 8 }}>
+            {t("베리라인이 틀렸다고 알려주신 것들이에요. 채택되면 공헌도 {n}점이 쌓이고 그 판정도 함께 고칩니다.", { n: (data.correctionPoints || 1000).toLocaleString() })}
           </div>
           {data.corrections.slice(0, 5).map((c) => {
             const s = CORRECTION_STATUS[c.status] || CORRECTION_STATUS.pending;
             return (
-              <div key={c.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid #F4EEFC" }}>
+              <div key={c.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid #EEF3FF" }}>
                 <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 12.5, fontWeight: 600, color: "#241F33", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.claim_text}</div>
-                  <div style={{ fontSize: 11, color: "#A99BC9" }}>{fmt(c.created_at)}{c.reviewer_note ? ` · ${c.reviewer_note}` : ""}</div>
+                  <div style={{ fontSize: 12.5, fontWeight: 600, color: "#121827", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.claim_text}</div>
+                  <div style={{ fontSize: 11, color: "#9AA6BF" }}>{fmt(c.created_at)}{c.reviewer_note ? ` · ${c.reviewer_note}` : ""}</div>
                 </div>
                 <span style={{ flexShrink: 0, fontSize: 10.5, fontWeight: 700, color: s.color, background: s.bg, padding: "3px 9px", borderRadius: 999 }}>
                   {t(s.label)}{c.points ? ` +${c.points.toLocaleString()}` : ""}
@@ -305,9 +305,9 @@ export default function CreditsTab() {
         <>
           <div style={{ fontSize: 13, fontWeight: 700, margin: "18px 0 8px" }}>{t("구매 신청 내역")}</div>
           {data.purchases.map((r) => (
-            <div key={r.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, padding: "7px 0", borderBottom: "1px solid #F4EEFC" }}>
+            <div key={r.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, padding: "7px 0", borderBottom: "1px solid #EEF3FF" }}>
               <span>{r.item_label}</span>
-              <span style={{ color: "#A99BC9" }}>{PURCHASE_STATUS[r.status] || r.status} · {fmt(r.created_at)}</span>
+              <span style={{ color: "#9AA6BF" }}>{PURCHASE_STATUS[r.status] || r.status} · {fmt(r.created_at)}</span>
             </div>
           ))}
         </>
@@ -317,26 +317,26 @@ export default function CreditsTab() {
       {(
         <>
           <div id="credit-history" style={{ fontSize: 13, fontWeight: 700, margin: "18px 0 4px" }}>{t("크레딧 내역")}</div>
-          <div style={{ fontSize: 11.5, color: "#A99BC9", marginBottom: 6 }}>{t("충전·차감 내역과 거래마다의 잔여 크레딧이에요. 최근 100건까지 보여요.")}</div>
-          <div style={{ display: "grid", gridTemplateColumns: "auto 1fr auto auto", columnGap: 10, fontSize: 11, color: "#A99BC9", fontWeight: 600, padding: "6px 0", borderBottom: "1px solid #EDE3FA" }}>
+          <div style={{ fontSize: 11.5, color: "#9AA6BF", marginBottom: 6 }}>{t("충전·차감 내역과 거래마다의 잔여 크레딧이에요. 최근 100건까지 보여요.")}</div>
+          <div style={{ display: "grid", gridTemplateColumns: "auto 1fr auto auto", columnGap: 10, fontSize: 11, color: "#9AA6BF", fontWeight: 600, padding: "6px 0", borderBottom: "1px solid #E8EFFF" }}>
             <span>{t("날짜")}</span><span>{t("내용")}</span><span style={{ textAlign: "right" }}>{t("증감")}</span><span style={{ textAlign: "right" }}>{t("잔여")}</span>
           </div>
           {data.ledger.length === 0 && (
-            <div style={{ fontSize: 12.5, color: "#A99BC9", padding: "14px 0", borderBottom: "1px solid #F4EEFC", lineHeight: 1.6 }}>
+            <div style={{ fontSize: 12.5, color: "#9AA6BF", padding: "14px 0", borderBottom: "1px solid #EEF3FF", lineHeight: 1.6 }}>
               {t("아직 충전·사용 내역이 없어요. 크레딧을 충전하거나 검사를 하면 여기에 날짜·내용·증감·잔여 크레딧이 한 줄씩 기록돼요.")}
             </div>
           )}
           {data.ledger.map((l) => (
-            <div key={l.id} style={{ display: "grid", gridTemplateColumns: "auto 1fr auto auto", columnGap: 10, alignItems: "baseline", fontSize: 12.5, padding: "7px 0", borderBottom: "1px solid #F4EEFC" }}>
-              <span style={{ color: "#A99BC9", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{fmtDay(l.created_at)}</span>
-              <span style={{ color: "#5B5470", minWidth: 0 }}>
+            <div key={l.id} style={{ display: "grid", gridTemplateColumns: "auto 1fr auto auto", columnGap: 10, alignItems: "baseline", fontSize: 12.5, padding: "7px 0", borderBottom: "1px solid #EEF3FF" }}>
+              <span style={{ color: "#9AA6BF", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{fmtDay(l.created_at)}</span>
+              <span style={{ color: "#4A5468", minWidth: 0 }}>
                 {t(REASON[l.reason] || l.reason)}{l.memo ? ` · ${l.memo}` : ""}
-                {l.expires_at && <span style={{ display: "block", fontSize: 11, color: "#A99BC9" }}>{t("{d}까지 사용 가능", { d: fmtDay(l.expires_at) })}</span>}
+                {l.expires_at && <span style={{ display: "block", fontSize: 11, color: "#9AA6BF" }}>{t("{d}까지 사용 가능", { d: fmtDay(l.expires_at) })}</span>}
               </span>
-              <span style={{ fontWeight: 700, color: l.delta > 0 ? "#1F9D66" : "#6E6389", fontVariantNumeric: "tabular-nums", textAlign: "right" }}>
+              <span style={{ fontWeight: 700, color: l.delta > 0 ? "#1F9D66" : "#4F5A72", fontVariantNumeric: "tabular-nums", textAlign: "right" }}>
                 {l.delta > 0 ? "+" : ""}{l.delta.toLocaleString()}
               </span>
-              <span style={{ color: "#241F33", fontVariantNumeric: "tabular-nums", textAlign: "right" }}>{(l.balance_after ?? 0).toLocaleString()}</span>
+              <span style={{ color: "#121827", fontVariantNumeric: "tabular-nums", textAlign: "right" }}>{(l.balance_after ?? 0).toLocaleString()}</span>
             </div>
           ))}
         </>

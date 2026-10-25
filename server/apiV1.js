@@ -18,7 +18,7 @@ import { logApiCost, newLedger, recordOpsCost, summarize } from "./apiCost.js";
 import { searchFacts } from "./factStore.js";
 import { recordReport, recordSignals } from "./learnSignals.js";
 
-// 유메 검증 API(/v1) — AI 서비스를 운영하는 기업이 자기 서비스의 답변을 유메로 검증하는
+// 베리라인 검증 API(/v1) — AI 서비스를 운영하는 기업이 자기 서비스의 답변을 베리라인으로 검증하는
 // 공개 API. 계정의 "API 키" 메뉴에서 발급한 키로 인증한다(키는 해시로만 저장).
 //
 //   POST /v1/verify         { text, wait? }  → 202 { id, status: "pending" } 또는 200 결과
@@ -480,7 +480,7 @@ router.get("/documents/:id", requireApiKey, async (req, res) => {
   res.json(got.view);
 });
 
-// YUME 검증 마크 — 모든 주장이 원문으로 확인된 문서에 발급한다. 글과 근거가 공개 검증 페이지에
+// VERILINE 검증 마크 — 모든 주장이 원문으로 확인된 문서에 발급한다. 글과 근거가 공개 검증 페이지에
 // 실리므로 publish: true(공개 동의)가 있어야 한다. 같은 글로 다시 받으면 같은 주소의 마크를 갱신한다.
 router.post("/documents/:id/mark", requireApiKey, async (req, res) => {
   const r = await issueMark(String(req.params.id), { userId: req.apiKey.user_id }, { publish: req.body?.publish === true, base: markBase(req) });
@@ -516,7 +516,7 @@ router.post("/context", requireApiKey, engineAvailable, async (req, res) => {
     return fail(res, 400, "invalid_request", "question 필드에 질문을 담아 보내주세요.");
   }
   const ledger = newLedger();
-  // facts: true — 질문과 관련해 유메가 이미 확인해 둔 사실도 함께(답 쓰기 전 근거, 저장소 조회라 수십 ms)
+  // facts: true — 질문과 관련해 베리라인이 이미 확인해 둔 사실도 함께(답 쓰기 전 근거, 저장소 조회라 수십 ms)
   const [ctx, facts] = await Promise.all([
     req.body?.legal === false ? { legal: false, laws: [], articles: [], block: "" } : prepareContext(question.slice(0, MAX_QUESTION_CHARS), { ledger }),
     req.body?.facts ? searchFacts(question) : [],
@@ -569,7 +569,7 @@ router.post("/answer-check", express.json({ limit: "1mb" }), requireApiKey, engi
   res.json({ ...out, level, elapsed_ms: Date.now() - started, billed_units: units, usage: await usageInfo(key) });
 });
 
-// 학습 신호 — 사용자가 '틀렸어요'로 신고했고 운영자가 맞다고 본 오류(유메가 놓친 것). 과금하지 않는다.
+// 학습 신호 — 사용자가 '틀렸어요'로 신고했고 운영자가 맞다고 본 오류(베리라인이 놓친 것). 과금하지 않는다.
 //   POST /v1/feedback { quote, claim?, correct?, url?, note?, field? }
 router.post("/feedback", express.json({ limit: "64kb" }), requireApiKey, async (req, res) => {
   const b = req.body || {};
@@ -606,11 +606,11 @@ router.get("/openapi.json", (req, res) => {
 
 router.get("/", (req, res) => {
   res.json({
-    service: "YUME Hallucination Check API",
+    service: "VERILINE Hallucination Check API",
     version: "v1",
     docs: "/docs/api",
     openapi: "/v1/openapi.json",
-    auth: "Authorization: Bearer <API 키> (유메 계정 > API 키에서 발급)",
+    auth: "Authorization: Bearer <API 키> (베리라인 계정 > API 키에서 발급)",
     idempotency: "Idempotency-Key 헤더 — 같은 키로 다시 보내면 처음 결과를 과금 없이 돌려줌(24시간)",
     endpoints: [
       {
@@ -632,7 +632,7 @@ router.get("/", (req, res) => {
         desc: "긴 문서·파일 검사. 문단 경계로 나눠 조각 수만큼 과금, 원문 기준 위치와 고친 본문(corrected_text)을 돌려준다",
       },
       { method: "GET", path: "/v1/documents/:id", desc: "문서 검사 결과 조회" },
-      { method: "POST", path: "/v1/documents/:id/mark", body: { publish: "true (필수) — 글과 검증 결과가 공개 검증 페이지에 게시되는 데 동의" }, desc: "YUME 검증 마크 발급. 모든 주장이 원문으로 확인(confidence: high)된 문서만. 검증 페이지·A4 검증서·배지·삽입 코드를 돌려준다" },
+      { method: "POST", path: "/v1/documents/:id/mark", body: { publish: "true (필수) — 글과 검증 결과가 공개 검증 페이지에 게시되는 데 동의" }, desc: "VERILINE 검증 마크 발급. 모든 주장이 원문으로 확인(confidence: high)된 문서만. 검증 페이지·A4 검증서·배지·삽입 코드를 돌려준다" },
       { method: "GET", path: "/v1/marks/:id", desc: "검증 마크 상태(valid · expired · revoked)" },
       { method: "POST", path: "/v1/marks/:id/revoke", desc: "검증 마크 철회" },
       { method: "GET", path: "/v1/verify/:id", desc: "검증 결과 조회" },

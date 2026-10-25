@@ -88,7 +88,7 @@ router.get("/documents/:id", async (req, res) => {
   res.json({ ...got.view, mark });
 });
 
-// ── YUME 검증 마크 ──
+// ── VERILINE 검증 마크 ──
 // 모든 주장이 원문으로 확인된 문서에만 발급한다(trustMarkRules.js). 발급하면 글과 근거가 공개
 // 검증 페이지에 실리므로, 화면에서 공개 동의를 받은 요청(publish: true)만 받는다.
 router.post("/documents/:id/mark", async (req, res) => {

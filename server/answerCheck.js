@@ -1,6 +1,6 @@
-// 답변 확인 — 다른 AI가 쓴 답을 내보내기 전에 유메가 확인하고, 틀린 곳은 고친 답을 돌려준다.
+// 답변 확인 — 다른 AI가 쓴 답을 내보내기 전에 베리라인이 확인하고, 틀린 곳은 고친 답을 돌려준다.
 //
-// 2026-10-16 대표 결정: 유메는 검증 엔진으로 독립해 있고, 대화형 AI(무궁 등)는 유메 API를 쓰는 별도 서비스다.
+// 2026-10-16 대표 결정: 베리라인은 검증 엔진으로 독립해 있고, 대화형 AI(무궁 등)는 베리라인 API를 쓰는 별도 서비스다.
 // 그래서 "답 쓰기"는 여기 없다. 여기서 하는 일은 둘이다.
 //   prepareContext(질문)        — 법령 이야기면 현행 조문을 먼저 모아 준다(답을 쓰는 쪽이 원문을 근거로 쓰게).
 //   checkAnswer(질문, 답)       — ① 법령은 현행 조문 전체와 대조하고 반론 검토를 통과한 오류만 남긴다(statuteReview)
@@ -19,6 +19,7 @@ import { loadFacts as defaultLoadFacts, saveFacts as defaultSaveFacts, factKey a
 import { checkCaseNumber } from "./nec/identifiers.js";
 import { hasOC, searchConstitutional, searchPrecedent } from "./lawApi.js";
 import { computeCheck } from "./computeCheck.js";
+import { traceAmendment } from "./engine/amendmentTrace.js";
 
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 const TIMEOUT_MS = 170_000;
@@ -90,7 +91,7 @@ async function callText(opts) {
 // ② 그 분야의 한국 공식 기관 사이트에서만 먼저 찾아 판정한다(koreaSources.js)
 // ③ 거기서 결론이 안 난 것만 웹 전체에서 다시 찾는다
 // ④ 근거로 댄 주소가 그 확인에서 실제로 검색된 결과에 없으면 인정하지 않는다(지어낸 출처 방지)
-const EXTRACT_SYSTEM = `너는 유메의 사실 추출기다. [답변]에서 공개 자료로 참·거짓을 확인할 수 있는 사실 주장만 뽑는다. JSON만 출력한다.
+const EXTRACT_SYSTEM = `너는 베리라인의 사실 추출기다. [답변]에서 공개 자료로 참·거짓을 확인할 수 있는 사실 주장만 뽑는다. JSON만 출력한다.
 뽑는 것: 수치·통계·금액·날짜·연도, 인물·기관·회사·제품의 사실, 사건, 인용문, 출처(논문·보고서·기사), 제도의 내용, 약·질병·치료의 사실(용량·부작용·금기 포함), 세율·금리·지원금 같은 기준.
 뽑지 않는 것: 의견·조언·추천·감상, 예시·가정, 일반 상식 수준의 정의, 답변 안에서 직접 한 계산 과정, 인사·잡담, 코드.
 또 뽑지 않는 것: 요리법·생활 요령·공부법·운동법 같은 방법 안내와 그 속의 일반적인 팁(재료·순서·시간 포함), 프로그래밍 언어·라이브러리의 널리 알려진 동작과 쓰는 법, 누구나 아는 상식, 오늘 날짜·요일(주어진 오늘 날짜 그대로인 것), 답한 AI가 자기 자신(이름·기능)에 대해 한 말. 단 약 용량·법·돈(세금·금리·지원금)·안전 기준처럼 틀리면 해가 되는 수치는 방법 안내 속에 있어도 뽑는다.
@@ -102,7 +103,7 @@ company: field가 company이면 그 회사의 정식 이름(예: "삼성전자",
 [사용자 자료]가 함께 주어지면, 답변이 그 자료(사용자가 올린 계약서·문서 등)의 내용을 옮기거나 요약한 부분은 뽑지 않는다 — 사용자가 준 자료 자체는 확인 대상이 아니다. 자료 밖에서 가져온 사실(법·제도·수치·기관 정보 등)만 뽑는다.
 확인할 사실이 없으면 {"claims":[]}.`;
 
-const WEBCHECK_SYSTEM = `너는 유메의 사실 확인자다. 각 [주장]을 web_search로 찾아본 자료로 판정한다. 기억으로 판정하지 않는다. JSON만 출력한다.
+const WEBCHECK_SYSTEM = `너는 베리라인의 사실 확인자다. 각 [주장]을 web_search로 찾아본 자료로 판정한다. 기억으로 판정하지 않는다. JSON만 출력한다.
 - supported: 신뢰할 만한 자료가 주장을 뒷받침한다. url과 그 페이지의 근거 문장(quote)을 그대로 적는다.
 - contradicted: 신뢰할 만한 자료가 다르게 말한다. 실제 값(correct)과 url·quote를 적는다.
 - unverified: 찾아도 근거가 없거나 자료끼리 엇갈린다. 못 찾았다는 것은 틀렸다는 뜻이 아니다.
@@ -114,7 +115,7 @@ const WEBCHECK_SYSTEM = `너는 유메의 사실 확인자다. 각 [주장]을 w
 
 // 검색 도구 판 — YUME_CHECK_SEARCH=basic 이면 기본판(20250305: 코드 실행 거르기 없음). 속도 비교용 스위치.
 // 2026-10-16 측정: 기본판이 10초쯤 빠르지만, 국세청 상담센터의 옛 안내(중소기업 취업자 감면 한도 150만 원)를 근거로
-// 맞는 답(2023년부터 200만 원)을 '틀림'으로 고쳤다. 틀린 바로잡기는 유메가 거짓말을 만드는 것이라 기본값은 동적 거르기 판.
+// 맞는 답(2023년부터 200만 원)을 '틀림'으로 고쳤다. 틀린 바로잡기는 베리라인이 거짓말을 만드는 것이라 기본값은 동적 거르기 판.
 const searchTool = (maxUses, allowedDomains = null) => ({
   type: process.env.YUME_CHECK_SEARCH === "basic" ? "web_search_20250305" : "web_search_20260209",
   name: "web_search",
@@ -140,7 +141,7 @@ async function judgeClaims(claims, { maxUses, allowedDomains = null, ledger, lab
 }
 
 // 0차: 기관 Open API 원자료로 판정(키가 있을 때만 — koreaData.js). 근거 문장이 원자료에 그대로 있어야 인정한다.
-const DATA_JUDGE_SYSTEM = `너는 유메의 사실 확인자다. 각 [주장]을 아래 [공식 데이터](한국 기관 Open API 원자료, JSON)만으로 판정한다. 기억·추측으로 판정하지 않는다. JSON만 출력한다.
+const DATA_JUDGE_SYSTEM = `너는 베리라인의 사실 확인자다. 각 [주장]을 아래 [공식 데이터](한국 기관 Open API 원자료, JSON)만으로 판정한다. 기억·추측으로 판정하지 않는다. JSON만 출력한다.
 - supported: 공식 데이터가 주장을 뒷받침한다.
 - contradicted: 공식 데이터가 다르게 말한다. 실제 값을 correct에 적는다.
 - unverified: 공식 데이터에 그 내용이 없거나, 시점이 달라 판단할 수 없다.
@@ -152,7 +153,7 @@ const squash = (s) => String(s || "").replace(/\\[nrt]/g, " ").replace(/[\s"\\]+
 export const numbersOf = (s) => [...String(s || "").matchAll(/\d[\d,]*(?:\.\d+)?/g)].map((m) => m[0].replace(/,/g, ""));
 
 // 0.5차: 답을 쓴 모델이 실제로 연 웹 페이지의 원문 발췌(검색 도구가 준 cited_text). 모델이 쓴 글이 아니라 페이지 글자다.
-const PAGE_JUDGE_SYSTEM = `너는 유메의 사실 확인자다. 각 [주장]을 아래 [페이지 발췌](답을 쓸 때 실제로 연 웹 페이지의 원문 일부)만으로 판정한다. 기억·추측으로 판정하지 않는다. JSON만 출력한다.
+const PAGE_JUDGE_SYSTEM = `너는 베리라인의 사실 확인자다. 각 [주장]을 아래 [페이지 발췌](답을 쓸 때 실제로 연 웹 페이지의 원문 일부)만으로 판정한다. 기억·추측으로 판정하지 않는다. JSON만 출력한다.
 - supported: 발췌가 주장을 뒷받침한다(같은 대상·같은 시점이어야 한다. 다른 해·다른 학교·다른 기관의 내용이면 unverified).
 - contradicted: 발췌가 다르게 말한다. 실제 값을 correct에 적는다.
 - unverified: 발췌에 그 내용이 없거나 판단할 수 없다.
@@ -329,17 +330,18 @@ export async function checkCaseCitations(text, { prec = searchPrecedent, detc = 
 }
 
 // ── 고쳐 쓰기 ─────────────────────────────────────────────────
-const REVISE_SYSTEM = `너는 유메의 교정자다. [답변]을 [고칠 곳]대로 고쳐 답변 전체를 다시 쓴다.
+const REVISE_SYSTEM = `너는 베리라인의 교정자다. [답변]을 [고칠 곳]대로 고쳐 답변 전체를 다시 쓴다.
 - "틀림"은 근거에 적힌 실제 값으로 고치고 근거(조문 또는 출처)를 밝힌다.
 - "확인 안 됨"은 틀렸다는 뜻이 아니다(출처를 못 찾았을 뿐). 그 문장에서 확인 안 된 세부(숫자 · 이름 · 날짜 · 가격)만 덜 단정하게 바꾸거나("보통", "~로 알려져 있어요", "대략") 그 세부만 뺀다. 문장 전체를 "확인하지 못했어요"로 바꾸지 않는다.
 - "제가 확인하지 못했어요" · "확인되지 않았어요" · "확인할 수 없어요" 같은 말을 문장마다 붙이지 않는다 — 답이 다 모른다는 말처럼 읽힌다. 꼭 알려야 하면 답 끝에 한 줄로만 모은다(예: "요금 · 영업 여부는 방문 전에 한 번 확인해 보세요").
 - 분명히 "확인되지 않았어요"라고 쓰는 것은 법 · 약 용량 · 돈(세금 · 금리 · 지원금) · 안전처럼 틀리면 해가 되는 수치뿐이다. 일반적인 설명 · 분위기 · 추천 이유는 그대로 둔다. 새 사실을 지어 넣지 않는다.
 - "확인됨"은 출처로 확인된 사실이다. 답변에 "기억에 의존했다", "확인 자료 없이 답했다", "검색해 본 결과가 아니다"처럼 답 전체를 못 믿게 하는 말이 있으면, 확인된 사실에 대해서는 그 말을 뺀다.
+- "첫 대답 점검"이 있으면 [질문]과 고친 내용을 비교한다. 고친 내용이 질문자가 맞는지 물은 바로 그 내용을 뒤집으면, "네, 맞습니다" 같은 첫 대답을 "일부 틀렸습니다" 식으로 바꾸고 무엇이 틀렸는지를 첫 문장에서 먼저 말한다. 틀린 곳이 답변이 덧붙인 내용뿐이고 질문자의 말은 맞으면 첫 대답은 그대로 둔다.
 - 고칠 곳이 아닌 부분은 문장과 형식을 그대로 둔다. 설명이나 머리말 없이 고친 답변 본문만 출력한다.
 - 출력 형식: 고친 답변 본문 전체를 <answer> 와 </answer> 사이에만 쓴다. 그 밖에는 아무것도 쓰지 않는다(생각·메모·영어 설명 금지).`;
 
 // 고칠 문장만 바꾸기 — 출력이 짧아 전체 다시 쓰기보다 몇 배 빠르다.
-const PATCH_SYSTEM = `너는 유메의 교정자다. [답변]에서 [고칠 곳]만 고친다. 답변 전체를 다시 쓰지 않고 바꿀 부분만 JSON으로 낸다.
+const PATCH_SYSTEM = `너는 베리라인의 교정자다. [답변]에서 [고칠 곳]만 고친다. 답변 전체를 다시 쓰지 않고 바꿀 부분만 JSON으로 낸다.
 - old: 답변에 실제로 있는 글을 한 글자도 바꾸지 않고 그대로 옮긴다(띄어쓰기 · 문장부호 · 마크다운 기호까지). 고칠 문장 하나 또는 그 일부.
 - new: 그 자리에 들어갈 글. 앞뒤 문맥 · 말투 · 형식(목록 기호, 굵게)이 그대로 이어지게 쓴다.
 - "틀림"은 근거의 실제 값으로 고치고 근거(조문 또는 출처 이름)를 짧게 밝힌다.
@@ -347,8 +349,26 @@ const PATCH_SYSTEM = `너는 유메의 교정자다. [답변]에서 [고칠 곳]
 - "제가 확인하지 못했어요" · "확인되지 않았어요" · "확인할 수 없어요" 같은 말을 문장마다 붙이지 않는다 — 답이 다 모른다는 말처럼 읽힌다. 꼭 알려야 하면 답 끝에 한 줄로만 모은다(예: "요금 · 영업 여부는 방문 전에 한 번 확인해 보세요").
 - 분명히 "확인되지 않았어요"라고 쓰는 것은 법 · 약 용량 · 돈(세금 · 금리 · 지원금) · 안전처럼 틀리면 해가 되는 수치뿐이다. 일반적인 설명 · 분위기 · 추천 이유는 그대로 둔다. 새 사실을 지어 넣지 않는다.
 - "확인됨" 사실이 있는데 답변에 "기억에 의존했다"처럼 답 전체를 못 믿게 하는 말이 있으면 그 말을 뺀다.
+- "첫 대답 점검"이 있으면 [질문]과 고친 내용을 비교한다. 고친 내용이 질문자가 맞는지 물은 바로 그 내용을 뒤집으면, "네, 맞습니다" 같은 첫 대답을 "일부 틀렸습니다" 식으로 바꾸고 무엇이 틀렸는지를 첫 문장에서 먼저 말한다. 틀린 곳이 답변이 덧붙인 내용뿐이고 질문자의 말은 맞으면 첫 대답은 그대로 둔다.
 - 같은 사실이 답변 여러 곳에 나오면 각각 고친다. 고칠 곳이 아닌 부분은 건드리지 않는다.
 출력(JSON만): {"edits":[{"old":"…","new":"…"}]}`;
+
+// 첫 대답 점검 — "36주 이후가 맞죠?"에 "네, 맞습니다"로 시작한 답은 숫자를 32주로 고쳐도 첫 대답이 틀린 확인을 남긴다
+// (2026-10-26 비교 시험: 베리라인이 값은 고치고도 "네, 맞습니다"를 남겨 오답 처리, 같은 문항을 Opus 검증기는 맞힘).
+// 고쳐 쓰는 쪽은 질문을 보지 못했으므로, 확인을 구하는 질문 + 긍정으로 여는 답 + 틀린 곳이 있으면 그 첫 문장을 점검 대상으로 넘긴다.
+// 틀림으로 세지는 않는다 — 틀린 곳이 답변이 덧붙인 내용뿐이면 첫 대답은 맞는 확인이다.
+const CONFIRM_Q = /맞(?:나요|죠|지요|습니까|는지|을까요|는\s*거(?:죠|지요|예요|에요)|는\s*건가요|아요\s*\?|어요\s*\?|아\s*\?|지\s*\?)|사실(?:인가요|이에요\s*\?|이죠|입니까)|그렇(?:죠|지요|나요)\s*\?|틀렸나요|아닌가요/;
+const AFFIRM_OPEN = /^[\s*#>"'“]*(?:네|예|맞습니다|맞아요|맞아|맞는\s*말|그렇습니다|그래요|정확합니다|정확해요|대체로\s*맞|거의\s*맞|대부분\s*맞)/;
+export function openingSentence(answer) {
+  const t = String(answer || "").trim();
+  const m = t.match(/^[\s\S]*?(?:[.!?。][*_"”’)]*(?=\s|$)|\n)/);
+  return (m ? m[0] : t).trim().slice(0, 160);
+}
+export function premiseCheck(question, answer, fixes = []) {
+  if (!fixes.length || !CONFIRM_Q.test(String(question || ""))) return null;
+  const first = openingSentence(answer);
+  return first && AFFIRM_OPEN.test(first) ? first : null;
+}
 
 async function revisePatch({ model, user, ledger, timeoutMs, json = callJson }) {
   const r = await json({ model, system: PATCH_SYSTEM, user, maxTokens: 4000, effort: "low", ledger, label: "check_patch", ...(timeoutMs ? { timeoutMs } : {}) });
@@ -400,7 +420,7 @@ export function appendCorrections(text, v) {
     ...v.fixes.map((f) => `- “${f.quote}” → ${f.problem}${f.law ? ` (${f.law} ${f.label})` : ""}`),
     ...v.hedged.map((h) => `- “${h.quote}” → 공개 자료로 확인되지 않았어요. 사실로 받아들이지 마세요.`),
   ];
-  return `${text.trim()}\n\n---\n**유메 확인 — 바로잡을 곳**\n${lines.join("\n")}`;
+  return `${text.trim()}\n\n---\n**베리라인 확인 — 바로잡을 곳**\n${lines.join("\n")}`;
 }
 
 const articlePublic = (a) => ({ law: a.law, label: `제${a.no}조${a.branch ? `의${a.branch}` : ""}`, title: a.title, url: a.url, deleted: !!a.deleted });
@@ -450,7 +470,7 @@ export async function prepareContext(question, { ledger = null, deps = {} } = {}
     legal: true,
     laws: g.laws,
     articles: g.articles.map(articlePublic),
-    block: g.articles.length ? `[현행 조문 — 유메가 법제처 국가법령정보에서 지금 받아 온 원문. 법령 이야기는 이것을 기준으로 답하라]\n${g.articles.map((a) => a.block).join("\n\n")}` : "",
+    block: g.articles.length ? `[현행 조문 — 베리라인이 법제처 국가법령정보에서 지금 받아 온 원문. 법령 이야기는 이것을 기준으로 답하라]\n${g.articles.map((a) => a.block).join("\n\n")}` : "",
   };
 }
 
@@ -461,7 +481,7 @@ export async function prepareContext(question, { ledger = null, deps = {} } = {}
  *   verification: { checked, laws, articles, fixes[], hedged[], supported[], cleared, facts_checked, fact_check_failed, revise_failed }
  */
 /**
- * 확인할 사실이 있는 답인가(2026-10-18 대표 "일상적인 간단한 질문도 너무 오래 걸려, 유메가 필요한 정도를 계산해서").
+ * 확인할 사실이 있는 답인가(2026-10-18 대표 "일상적인 간단한 질문도 너무 오래 걸려, 베리라인이 필요한 정도를 계산해서").
  * 짧은 답에 숫자 · 날짜 · 이름(기관 · 회사 · 약 · 장소) · 법 · 인용이 하나도 없으면 사실 뽑기(모델 호출)를 건너뛴다 — 인사 · 잡담 · 감상 · 다듬기.
  * 코드 검산(계산 · 요일)과 법령 대조 여부 판단은 그대로 한다. 애매하면 늘 확인한다(건너뛰는 쪽이 좁다).
  */
@@ -490,7 +510,7 @@ export async function checkAnswer({ question = "", answer, level: levelKey = "fa
   verification.fixes.push(...calc.fixes);
   verification.computed = calc.checked;
 
-  onStage("유메가 답 속 사실을 확인하는 중…");
+  onStage("베리라인이 답 속 사실을 확인하는 중…");
   const legalCheck = legalTalk
     ? (async () => {
         const [fromQ, fromA] = await Promise.all([
@@ -503,7 +523,17 @@ export async function checkAnswer({ question = "", answer, level: levelKey = "fa
         if (!r?.issues?.length) return { all, errors: [], ran: !!r?.ran };
         const cands = r.issues.map((it, i) => ({ id: `R${i}`, source: "review", index: -1, answer_quote: it.answer_quote, problem: it.problem, kind: it.kind, locked: true, proof: { law: it.law, label: it.articleLabel, url: it.url, quote: it.article_quote } }));
         const decided = await defendFn(text, all.articles, cands, { ledger, effort: level.legalEffort || null }).catch(() => []);
-        return { all, ran: true, errors: decided.filter((d) => d.decision === "error"), cleared: decided.filter((d) => d.decision !== "error").length };
+        const errors = decided.filter((d) => d.decision === "error");
+        // 베리라인 엔진: 확정된 틀림이 옛 법 그대로인지 법제처 연혁으로 거슬러 본다(모델 호출 없음 · 법제처 API만).
+        // "틀렸다"에서 그치지 않고 "2025.2.23 개정 전 내용"까지 밝히면, 고쳐 쓴 답과 보고서가 왜 틀렸는지를 말할 수 있다.
+        const trace = deps.traceAmendment || traceAmendment;
+        await Promise.all(errors.filter((d) => d.proof).slice(0, 2).map(async (d) => {
+          const art = all.articles.find((a) => a.law === d.proof.law && articlePublic(a).label === d.proof.label);
+          if (!art?.no) return;
+          const t = await Promise.race([trace({ law: art.law, no: art.no, branch: art.branch, claimText: d.answer_quote, currentText: art.text }), new Promise((r) => setTimeout(() => r(null), 8000))]).catch(() => null);
+          if (t?.outdated) d.amendment = t;
+        }));
+        return { all, ran: true, errors, cleared: decided.filter((d) => d.decision !== "error").length };
       })()
     : Promise.resolve(null);
   // 확인할 사실이 없는 짧은 답(인사 · 잡담 · 감상)은 사실 뽑기를 건너뛴다 — 모델 호출 0번, 1초 안쪽
@@ -522,7 +552,7 @@ export async function checkAnswer({ question = "", answer, level: levelKey = "fa
     verification.laws = legal.all.laws;
     verification.articles = legal.all.articles.slice(0, 10).map(articlePublic);
     verification.cleared += legal.cleared || 0;
-    for (const e of legal.errors || []) verification.fixes.push({ type: "legal", quote: e.answer_quote, problem: e.reason || e.problem, law: e.proof?.law, label: e.proof?.label, url: e.proof?.url, evidence: e.proof?.quote });
+    for (const e of legal.errors || []) verification.fixes.push({ type: "legal", quote: e.answer_quote, problem: `${e.reason || e.problem}${e.amendment ? ` (${e.amendment.note})` : ""}`, law: e.proof?.law, label: e.proof?.label, url: e.proof?.url, evidence: e.proof?.quote, ...(e.amendment ? { amendment: e.amendment, error_kind: "outdated" } : {}) });
   }
   for (const r of facts?.results || []) {
     if (r.verdict === "supported") verification.supported.push({ claim: r.claim, quote: r.quote, url: r.url, evidence: r.quoteSrc, field: r.field, official: r.official });
@@ -547,14 +577,17 @@ export async function checkAnswer({ question = "", answer, level: levelKey = "fa
   const blanket = verification.supported.length > 0 && BLANKET_DISCLAIMER.test(text);
   let finalText = text;
   if (verification.fixes.length || verification.hedged.length || blanket) {
+    const premise = premiseCheck(q, text, verification.fixes);
+    if (premise) verification.premise_checked = true;
     onStage(verification.fixes.length ? `틀린 곳 ${verification.fixes.length}개를 근거대로 고치는 중…` : "답을 다듬는 중…");
     const lines = [
       ...verification.fixes.map((f) => `- 틀림: "${f.quote}" → ${f.problem}${f.hint ? ` (${f.hint})` : ""}${f.law ? ` (근거: ${f.law} ${f.label} “${f.evidence}”)` : f.url ? ` (근거: ${f.url} “${String(f.evidence || "").slice(0, 200)}”)` : ""}`),
       ...verification.hedged.map((h) => `- 확인 안 됨: "${h.quote}"${h.note ? ` (${h.note})` : ""}`),
       ...verification.supported.map((s) => `- 확인됨: "${s.quote || s.claim}" (출처: ${s.url})`),
+      ...(premise ? [`- 첫 대답 점검: "${premise}" — 질문자는 자기 이해가 맞는지 물었다. 위 '틀림'이 질문자가 말한 내용을 고치는 것이면 첫 대답을 바꾼다.`] : []),
     ].join("\n");
     const articlesBlock = legal?.all?.articles?.length ? `[현행 조문]\n${legal.all.articles.map((a) => a.block).join("\n\n")}\n\n` : "";
-    const user = `${todayLine()}${articlesBlock}[답변]\n${text}\n\n[고칠 곳]\n${lines}`;
+    const user = `${todayLine()}${articlesBlock}${q ? `[질문]\n${q}\n\n` : ""}[답변]\n${text}\n\n[고칠 곳]\n${lines}`;
     // 먼저 고칠 문장만 바꾼다(답 전체를 다시 쓰면 고칠 곳이 한 줄이어도 답 길이만큼 시간이 걸렸다 — 2026-10-17 실측 2~8초).
     // 바꿀 글을 답에서 못 찾거나 틀린 문장이 그대로 남으면 예전처럼 전체를 다시 쓴다.
     const patchFn = deps.revisePatch || (deps.revise ? null : revisePatch);

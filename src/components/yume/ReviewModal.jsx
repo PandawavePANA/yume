@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { apiJson } from "./api";
 import { t } from "../../i18n.js";
 
-// 운영자 검토함 — 유메 화면 안에서 바로 승인/반려.
+// 운영자 검토함 — 베리라인 화면 안에서 바로 승인/반려.
 //
 // 왜 여기에 만드는가. 검토 화면은 /admin에 이미 있었는데 그쪽은 ADMIN_PASSWORD로 한 번
 // 더 잠겨 있다. 그 값이 설정되기 전에는 문이 열리지 않아서, 사용자가 실제로 제보를
@@ -21,20 +21,20 @@ const LINK_LABEL = {
   found: { text: "링크에서 확인됨", color: "#1F7A52", bg: "#E4F5EC" },
   not_found: { text: "링크에서 못 찾음", color: "#B4690E", bg: "#FBEEDA" },
   unreachable: { text: "링크를 열지 못함", color: "#C6402F", bg: "#FBE8E5" },
-  checking: { text: "확인 중", color: "#6E6389", bg: "#F1EDF8" },
+  checking: { text: "확인 중", color: "#4F5A72", bg: "#F1EDF8" },
 };
 
 const card = {
-  border: "1px solid #EDE3FA", borderRadius: 14, padding: "14px 16px", marginBottom: 10, background: "#fff",
+  border: "1px solid #E8EFFF", borderRadius: 14, padding: "14px 16px", marginBottom: 10, background: "#fff",
 };
 const btn = (primary) => ({
   padding: "8px 14px", borderRadius: 999, fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
-  border: primary ? "none" : "1px solid #D4BEF0",
-  background: primary ? "#5B3FA0" : "#fff",
-  color: primary ? "#fff" : "#6E6389",
+  border: primary ? "none" : "1px solid #C9D8FF",
+  background: primary ? "#2F6BFF" : "#fff",
+  color: primary ? "#fff" : "#4F5A72",
 });
 const box = {
-  width: "100%", padding: "9px 12px", borderRadius: 10, border: "1px solid #D4BEF0",
+  width: "100%", padding: "9px 12px", borderRadius: 10, border: "1px solid #C9D8FF",
   fontSize: 13, boxSizing: "border-box", fontFamily: "inherit", marginTop: 8, resize: "vertical", lineHeight: 1.6,
 };
 const fmt = (ts) => (ts ? new Date(ts).toLocaleDateString("ko-KR", { month: "short", day: "numeric" }) : "-");
@@ -71,7 +71,7 @@ function Actions({ endpoint, approveLabel, approveDecision, rejectDecision, reje
   const rejecting = mode === "reject";
   return (
     <div style={{ marginTop: 12 }}>
-      <label style={{ fontSize: 12, fontWeight: 600, color: "#6E6389" }}>
+      <label style={{ fontSize: 12, fontWeight: 600, color: "#4F5A72" }}>
         {rejecting ? t("반려 사유 (보낸 분에게 표시됩니다)") : t("승인 메모 (선택)")}
       </label>
       <textarea
@@ -93,7 +93,7 @@ function Actions({ endpoint, approveLabel, approveDecision, rejectDecision, reje
 function Done({ result }) {
   return (
     <div style={{ ...card, background: result.approved ? "#EAF7F0" : "#F5F2FA", borderColor: result.approved ? "#CDE9DA" : "#E7E1F2" }}>
-      <div style={{ fontSize: 13, color: result.approved ? "#1F7A52" : "#6E6389" }}>
+      <div style={{ fontSize: 13, color: result.approved ? "#1F7A52" : "#4F5A72" }}>
         {result.approved ? t("승인했어요 — 공헌도 {n}점을 드렸습니다.", { n: result.points.toLocaleString() }) : t("반려했어요. 사유가 보낸 분에게 표시됩니다.")}
       </div>
     </div>
@@ -113,26 +113,26 @@ export default function ReviewModal({ onClose }) {
 
   return (
     <div onClick={onClose} style={{
-      position: "fixed", inset: 0, background: "rgba(75,55,120,0.28)", display: "flex",
+      position: "fixed", inset: 0, background: "rgba(40, 60, 110,0.28)", display: "flex",
       alignItems: "flex-start", justifyContent: "center", zIndex: 75, backdropFilter: "blur(2px)", padding: "6vh 16px", overflowY: "auto",
     }}>
       <motion.div
         onClick={(e) => e.stopPropagation()}
         initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.22 }}
-        style={{ width: "min(620px, 100%)", background: "#FBF8FF", borderRadius: 20, padding: 24, boxShadow: "0 20px 60px rgba(75,55,120,0.22)", position: "relative" }}
+        style={{ width: "min(620px, 100%)", background: "#F5F8FF", borderRadius: 20, padding: 24, boxShadow: "0 20px 60px rgba(40, 60, 110,0.22)", position: "relative" }}
       >
-        <button onClick={onClose} aria-label={t("닫기")} style={{ position: "absolute", top: 14, right: 16, border: "none", background: "transparent", color: "#9C8FC2", fontSize: 18, cursor: "pointer" }}>×</button>
+        <button onClick={onClose} aria-label={t("닫기")} style={{ position: "absolute", top: 14, right: 16, border: "none", background: "transparent", color: "#8A97B3", fontSize: 18, cursor: "pointer" }}>×</button>
 
         <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>{t("검토 대기")}</div>
-        <div style={{ fontSize: 12.5, color: "#A99BC9", marginBottom: 18 }}>
+        <div style={{ fontSize: 12.5, color: "#9AA6BF", marginBottom: 18 }}>
           {t("근거를 직접 확인하고 처리하세요. 승인하면 그 자리에서 공헌도가 지급됩니다.")}
         </div>
 
         {err && <div style={{ fontSize: 13, color: "#C6402F", background: "#FBE9E7", borderRadius: 10, padding: "10px 12px" }}>{err}</div>}
-        {!data && !err && <div style={{ fontSize: 13, color: "#A99BC9" }}>{t("불러오는 중…")}</div>}
+        {!data && !err && <div style={{ fontSize: 13, color: "#9AA6BF" }}>{t("불러오는 중…")}</div>}
 
         {data && pending === 0 && (
-          <div style={{ fontSize: 13.5, color: "#6E6389", padding: "28px 0", textAlign: "center" }}>{t("검토할 것이 없어요.")}</div>
+          <div style={{ fontSize: 13.5, color: "#4F5A72", padding: "28px 0", textAlign: "center" }}>{t("검토할 것이 없어요.")}</div>
         )}
 
         {data?.bounties.map((b) => {
@@ -142,18 +142,18 @@ export default function ReviewModal({ onClose }) {
           return (
             <div key={key} style={card}>
               <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 8 }}>
-                <span style={{ fontSize: 11, fontWeight: 700, color: "#5B3FA0", background: "#F3EBFF", borderRadius: 999, padding: "3px 9px" }}>{t("할루시네이션 제보")}</span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: "#2F6BFF", background: "#EAF0FF", borderRadius: 999, padding: "3px 9px" }}>{t("할루시네이션 제보")}</span>
                 <span style={{ fontSize: 11, fontWeight: 600, color: link.color, background: link.bg, borderRadius: 999, padding: "3px 9px" }}>{t(link.text)}</span>
-                <span style={{ fontSize: 11.5, color: "#A99BC9", marginLeft: "auto" }}>{b.email} · {fmt(b.createdAt)}</span>
+                <span style={{ fontSize: 11.5, color: "#9AA6BF", marginLeft: "auto" }}>{b.email} · {fmt(b.createdAt)}</span>
               </div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: "#4E3391" }}>{b.identifier}</div>
-              <div style={{ fontSize: 12.5, color: "#6E6389", marginTop: 4, lineHeight: 1.6 }}>{b.claimText}</div>
-              {b.linkCheckNote && <div style={{ fontSize: 11.5, color: "#A99BC9", marginTop: 4 }}>{b.linkCheckNote}</div>}
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#1F54E0" }}>{b.identifier}</div>
+              <div style={{ fontSize: 12.5, color: "#4F5A72", marginTop: 4, lineHeight: 1.6 }}>{b.claimText}</div>
+              {b.linkCheckNote && <div style={{ fontSize: 11.5, color: "#9AA6BF", marginTop: 4 }}>{b.linkCheckNote}</div>}
               <a href={b.shareUrl} target="_blank" rel="noreferrer noopener"
-                style={{ display: "inline-block", marginTop: 8, fontSize: 12.5, color: "#5B3FA0", wordBreak: "break-all" }}>
+                style={{ display: "inline-block", marginTop: 8, fontSize: 12.5, color: "#2F6BFF", wordBreak: "break-all" }}>
                 {t("{platform} 대화 열어보기", { platform: b.platform })} ↗
               </a>
-              <div style={{ fontSize: 11.5, color: "#A99BC9", marginTop: 6, lineHeight: 1.6 }}>
+              <div style={{ fontSize: 11.5, color: "#9AA6BF", marginTop: 6, lineHeight: 1.6 }}>
                 {t("링크를 직접 열어 그 AI가 실제로 이 인용을 했는지 확인한 뒤 승인하세요. 자동 확인은 참고용입니다 — 공유 페이지 상당수가 본문을 자바스크립트로 그려서 못 찾을 수 있어요.")}
               </div>
               <Actions
@@ -174,22 +174,22 @@ export default function ReviewModal({ onClose }) {
           return (
             <div key={key} style={card}>
               <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 8 }}>
-                <span style={{ fontSize: 11, fontWeight: 700, color: "#A32B1A", background: "#FBEBE7", borderRadius: 999, padding: "3px 9px" }}>{t("유메 판정 정정")}</span>
-                <span style={{ fontSize: 11.5, color: "#A99BC9", marginLeft: "auto" }}>{c.email} · {fmt(c.createdAt)}</span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: "#A32B1A", background: "#FBEBE7", borderRadius: 999, padding: "3px 9px" }}>{t("베리라인 판정 정정")}</span>
+                <span style={{ fontSize: 11.5, color: "#9AA6BF", marginLeft: "auto" }}>{c.email} · {fmt(c.createdAt)}</span>
               </div>
-              <div style={{ fontSize: 13.5, fontWeight: 700, color: "#4E3391" }}>{c.claimText}</div>
-              <div style={{ fontSize: 12.5, color: "#6E6389", marginTop: 6, lineHeight: 1.6 }}>
+              <div style={{ fontSize: 13.5, fontWeight: 700, color: "#1F54E0" }}>{c.claimText}</div>
+              <div style={{ fontSize: 12.5, color: "#4F5A72", marginTop: 6, lineHeight: 1.6 }}>
                 {t(VERDICT_LABEL[c.yumeVerdict] || c.yumeVerdict)} → <b>{t(VERDICT_LABEL[c.correctVerdict] || c.correctVerdict)}</b>
               </div>
-              <div style={{ fontSize: 12, color: "#8577A8", marginTop: 6, lineHeight: 1.6 }}>{t("유메가 한 말")}: {c.yumeExplanation}</div>
-              <div style={{ fontSize: 12.5, color: "#241F33", marginTop: 8, lineHeight: 1.6, background: "#FBF8FF", borderRadius: 10, padding: "9px 12px" }}>{c.note}</div>
+              <div style={{ fontSize: 12, color: "#7B87A1", marginTop: 6, lineHeight: 1.6 }}>{t("베리라인이 한 말")}: {c.yumeExplanation}</div>
+              <div style={{ fontSize: 12.5, color: "#121827", marginTop: 8, lineHeight: 1.6, background: "#F5F8FF", borderRadius: 10, padding: "9px 12px" }}>{c.note}</div>
               {c.evidenceUrl && (
                 <a href={c.evidenceUrl} target="_blank" rel="noreferrer noopener"
-                  style={{ display: "inline-block", marginTop: 8, fontSize: 12.5, color: "#5B3FA0", wordBreak: "break-all" }}>
+                  style={{ display: "inline-block", marginTop: 8, fontSize: 12.5, color: "#2F6BFF", wordBreak: "break-all" }}>
                   {t("근거 링크 열어보기")} ↗
                 </a>
               )}
-              <div style={{ fontSize: 11.5, color: "#A99BC9", marginTop: 6, lineHeight: 1.6 }}>
+              <div style={{ fontSize: 11.5, color: "#9AA6BF", marginTop: 6, lineHeight: 1.6 }}>
                 {t("채택하면 그 주장의 캐시가 함께 지워집니다 — 같은 주장이 다음 검증에서 같은 판정으로 또 나가지 않도록.")}
               </div>
               <Actions

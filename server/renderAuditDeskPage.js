@@ -3,7 +3,7 @@
 // 탭 순서가 곧 기획안 4장의 절차다: 개요(약관 확인) → 질문·답변 → 재확인 → 보고서·발송 → 공개.
 // 화면이 순서를 건너뛰게 두지 않는다 — 약관을 확인하기 전에는 검사가 안 돌고, 재확인이 남으면
 // 발송 버튼이 잠긴다. 서버(auditDesk.js)가 같은 규칙을 한 번 더 지킨다.
-// "지수 발행" 탭은 재확인을 마친 감사를 모아 YUME 할루시네이션 지수 한 호를 얼린다.
+// "지수 발행" 탭은 재확인을 마친 감사를 모아 VERILINE 할루시네이션 지수 한 호를 얼린다.
 //
 // DOM은 전부 textContent로 만든다(h 함수). 상대 서비스의 답변을 그대로 붙여넣는 화면이라
 // innerHTML에 넣는 순간 남의 글이 이 관리자 화면에서 실행된다.
@@ -14,7 +14,7 @@ export function renderAuditDeskPage() {
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="robots" content="noindex, nofollow" />
-<title>감사 데스크 · 유메</title>
+<title>감사 데스크 · 베리라인</title>
 <style>
   *, *::before, *::after { box-sizing:border-box; }
   :root {
@@ -225,7 +225,7 @@ export function renderAuditDeskPage() {
     clear(view);
     view.appendChild(funnelView());
     var listPanel = h("div", { class: "panel" }, h("h2", null, "감사 건", h("span", { class: "sp" }), h("span", { class: "pill", text: n(state.list.length) + "건" })), queueView(), newForm(), listRows());
-    var detail = h("div", { class: "panel detail" }, state.detail ? detailView() : h("div", { class: "empty" }, "왼쪽에서 감사 건을 고르거나 새로 만드세요.", h("br"), "기획안 순서: 약관 확인 → 질문 20~30개 → 손으로 입력·캡처 → 유메 검사 → 원문 재확인 → 보고서 → 발송 → 1주 뒤 후속 한 번."));
+    var detail = h("div", { class: "panel detail" }, state.detail ? detailView() : h("div", { class: "empty" }, "왼쪽에서 감사 건을 고르거나 새로 만드세요.", h("br"), "기획안 순서: 약관 확인 → 질문 20~30개 → 손으로 입력·캡처 → 베리라인 검사 → 원문 재확인 → 보고서 → 발송 → 1주 뒤 후속 한 번."));
     view.appendChild(h("div", { class: "split" }, listPanel, detail));
   }
 
@@ -346,7 +346,7 @@ export function renderAuditDeskPage() {
     var a = d.audit;
     var comp = d.composition;
     body.appendChild(h("div", { class: "box" }, h("h3", null, "2단계 · 질문 세트", h("span", { class: "pill", text: d.items.length + "개 (권장 20~30)" })),
-      h("p", { class: "help", text: "기준 문항은 법제처 원문으로 정답을 먼저 확정한 질문이라 채점이 확실합니다. 주제 질문은 실제 사용자가 하는 말 그대로이고, 답변 속 주장을 유메가 하나씩 원문과 대조합니다. 둘을 섞으세요. 해석이 갈리는 질문, 실존 인물·사건 당사자 정보는 넣지 않습니다." }),
+      h("p", { class: "help", text: "기준 문항은 법제처 원문으로 정답을 먼저 확정한 질문이라 채점이 확실합니다. 주제 질문은 실제 사용자가 하는 말 그대로이고, 답변 속 주장을 베리라인이 하나씩 원문과 대조합니다. 둘을 섞으세요. 해석이 갈리는 질문, 실존 인물·사건 당사자 정보는 넣지 않습니다." }),
       h("div", { class: "actions" }, Object.keys(comp).map(function (k) { var c = comp[k]; return h("span", { class: "pill " + (c.count >= c.target ? "g" : ""), text: c.label + " " + c.count + "/" + c.target }); })),
       h("div", { class: "actions" },
         h("button", { class: "btn", onclick: run(async function () { toast("법제처에서 정답을 확정하는 중… 30초쯤 걸려요."); var r = await api("POST", "/api/admin/audits/" + a.id + "/quickset"); toast("질문 " + r.added + "개를 넣었어요 (기준 문항 " + r.probes + " · 주제 질문 " + r.templates + ")."); await refresh(); }) }, "질문 세트 한 번에 (약 25개)"),
@@ -388,7 +388,7 @@ export function renderAuditDeskPage() {
     d.items.forEach(function (it, idx) { body.appendChild(itemCard(it, idx, d)); });
 
     var waiting = d.items.filter(function (i) { return (i.answer || "").trim() && (i.status === "answered" || i.status === "failed"); }).length;
-    body.appendChild(h("div", { class: "box" }, h("h3", null, "4단계 · 유메로 검사"),
+    body.appendChild(h("div", { class: "box" }, h("h3", null, "4단계 · 베리라인으로 검사"),
       h("p", { class: "help", text: a.tos_verdict === "ok" ? "기준 문항은 정답과 대조해 채점하고(독립 채점 2회 일치), 나머지는 답변 속 주장을 원문과 대조합니다. 한 문항에 20~60초 걸립니다. 화면을 닫아도 서버에서 계속 돕니다." : "약관 확인을 먼저 해주세요(개요 탭)." }),
       h("div", { class: "actions" }, h("button", { class: "btn", disabled: a.tos_verdict !== "ok" || !waiting || d.checking, onclick: run(async function () { var r = await api("POST", "/api/admin/audits/" + a.id + "/check"); toast(r.queued ? "답변 " + r.queued + "개 검사를 시작했어요." : "검사할 답변이 없어요."); await refresh(); }) }, d.checking ? "검사 중…" : "검사 실행 (" + waiting + "개)"),
         h("span", { class: "help", text: "API 비용 누적 약 " + n(d.cost.krw) + "원" }))));
@@ -525,8 +525,8 @@ export function renderAuditDeskPage() {
     var goods = d.findings.filter(function (f) { return f.polarity === "good"; });
     var r = d.results.issues;
     body.appendChild(h("div", { class: "box" }, h("h3", null, "5단계 · 직접 재확인", h("span", { class: "pill " + (r.pending ? "w" : "g"), text: r.pending ? "남은 항목 " + r.pending : "모두 확인" })),
-      h("p", { class: "help", text: "유메도 틀릴 수 있고, 틀린 지적 하나가 전체 신뢰를 무너뜨립니다. 오류 후보마다 공식 원문을 직접 열어 확인하고 그 주소를 남기세요. 조금이라도 애매하면 '애매해서 제외'. 원문으로 확인한 것만 보고서·지수에 들어갑니다." }),
-      h("div", { class: "nums", style: "margin-top:10px" }, [["오류 후보", r.total], ["확인", r.confirmed], ["제외", r.excluded], ["유메 오판", r.yume_wrong], ["남음", r.pending]].map(function (x) { return h("div", null, h("div", { class: "k", text: x[0] }), h("div", { class: "v", text: n(x[1]) })); })),
+      h("p", { class: "help", text: "베리라인도 틀릴 수 있고, 틀린 지적 하나가 전체 신뢰를 무너뜨립니다. 오류 후보마다 공식 원문을 직접 열어 확인하고 그 주소를 남기세요. 조금이라도 애매하면 '애매해서 제외'. 원문으로 확인한 것만 보고서·지수에 들어갑니다." }),
+      h("div", { class: "nums", style: "margin-top:10px" }, [["오류 후보", r.total], ["확인", r.confirmed], ["제외", r.excluded], ["베리라인 오판", r.yume_wrong], ["남음", r.pending]].map(function (x) { return h("div", null, h("div", { class: "k", text: x[0] }), h("div", { class: "v", text: n(x[1]) })); })),
       (function () {
         // 판정 강도 — 어디부터 볼지. 약한 후보는 한 번에 뺄 수 있다(빼는 쪽만 일괄, 확정은 한 건씩).
         var pend = issues.filter(function (f) { return f.review === "pending"; });
@@ -536,7 +536,7 @@ export function renderAuditDeskPage() {
           h("span", { class: "help", text: "남은 후보의 판정 강도 — 강함 " + cnt("strong") + " · 보통 " + cnt("medium") + " · 약함 " + weak + ". 강함부터 위에 놓았습니다. 숫자가 원문과 다르면 붉게 표시됩니다." }),
           weak ? h("button", { class: "btn warn", onclick: run(async function () { if (!confirm("근거가 약한 " + weak + "건을 '애매해서 제외'로 처리할까요? 확정은 한 건씩만 할 수 있습니다.")) return; var x = await api("POST", "/api/admin/audits/" + d.audit.id + "/exclude-weak"); toast(x.excluded + "건을 제외했어요."); await refresh(); }) }, "약함 " + weak + "건 한 번에 제외") : null);
       })()));
-    if (!issues.length) body.appendChild(h("div", { class: "empty", text: d.results.checked ? "유메가 지목한 오류 후보가 없어요. 질문을 더 하거나, 이 서비스는 이번 표본에서 깨끗했다고 기록하세요." : "검사를 먼저 실행하세요." }));
+    if (!issues.length) body.appendChild(h("div", { class: "empty", text: d.results.checked ? "베리라인이 지목한 오류 후보가 없어요. 질문을 더 하거나, 이 서비스는 이번 표본에서 깨끗했다고 기록하세요." : "검사를 먼저 실행하세요." }));
     var RANK = { strong: 0, medium: 1, weak: 2 };
     issues.slice().sort(function (x, y) {
       var px = x.review === "pending" ? 0 : 1, py = y.review === "pending" ? 0 : 1;
@@ -552,7 +552,7 @@ export function renderAuditDeskPage() {
       var it = items[g.item_id] || {};
       body.appendChild(h("div", { class: "find" + (g.review === "excluded" ? " excluded" : "") },
         h("div", { class: "meta" }, h("span", { class: "pill g", text: SEVERITY[g.severity] || g.severity }), h("span", { class: "help", text: (it.question || g.claim || "").slice(0, 90) })),
-        h("div", { class: "kv" }, h("b", { text: "AI 답변" }), h("div", { text: g.ai_quote || g.claim }), h("b", { text: "유메" }), h("div", { text: g.yume_reason || "" })),
+        h("div", { class: "kv" }, h("b", { text: "AI 답변" }), h("div", { text: g.ai_quote || g.claim }), h("b", { text: "베리라인" }), h("div", { text: g.yume_reason || "" })),
         h("label", { class: "help", style: "display:flex;gap:6px;align-items:center" }, h("input", { type: "checkbox", style: "width:auto", checked: Number(g.featured), onchange: run(async function (e) { await api("PATCH", "/api/admin/audits/findings/" + g.id, { featured: e.target.checked }); await refresh(); }) }), "보고서의 '잘된 점'에 싣기")));
     });
   }
@@ -580,8 +580,8 @@ export function renderAuditDeskPage() {
     var note = h("input", { value: f.review_note || "", placeholder: "메모 — 무엇을 확인했는지, 왜 뺐는지" });
     // 보고서 사례 제목 — 상대 담당자가 한 줄로 알아보게. 비우면 자동 제목.
     var title = f.polarity === "issue" ? h("input", { value: f.report_title || "", maxlength: 200, placeholder: "보고서 한 줄 제목 (선택) — 예: 해고예고 예외에 법에 없는 '노동위원회 인정' 요건을 붙임", onchange: run(async function () { await api("PATCH", "/api/admin/audits/findings/" + f.id, { report_title: title.value }); toast("제목을 저장했어요."); }) }) : null;
-    function rv(v) { return run(async function () { await api("PATCH", "/api/admin/audits/findings/" + f.id, { review: v, checked_url: url.value, review_note: note.value }); toast({ confirmed: "불일치로 확정했어요.", excluded: "제외했어요.", yume_wrong: "유메 오판으로 돌렸어요.", pending: "되돌렸어요." }[v]); state.focusNext = v !== "pending"; await refresh(); }); }
-    var label = { pending: ["재확인 전", "w"], confirmed: ["불일치 확정", "b"], excluded: ["제외", ""], yume_wrong: ["유메 오판", ""] }[f.review] || [f.review, ""];
+    function rv(v) { return run(async function () { await api("PATCH", "/api/admin/audits/findings/" + f.id, { review: v, checked_url: url.value, review_note: note.value }); toast({ confirmed: "불일치로 확정했어요.", excluded: "제외했어요.", yume_wrong: "베리라인 오판으로 돌렸어요.", pending: "되돌렸어요." }[v]); state.focusNext = v !== "pending"; await refresh(); }); }
+    var label = { pending: ["재확인 전", "w"], confirmed: ["불일치 확정", "b"], excluded: ["제외", ""], yume_wrong: ["베리라인 오판", ""] }[f.review] || [f.review, ""];
     var st = f.strength;
     return h("div", { class: "find " + f.review },
       h("div", { class: "meta" }, h("span", { class: "pill " + label[1], text: label[0] }), h("span", { class: "pill", text: (f.source === "probe" ? "기준 문항 · " : "주장 · ") + (SEVERITY[f.severity] || f.severity) }),
@@ -590,12 +590,12 @@ export function renderAuditDeskPage() {
       h("div", { class: "kv" },
         h("b", { text: "질문" }), h("div", { text: it.question || "" }),
         h("b", { text: "AI 답변" }), h("div", { class: "said" }, markNumbers(f.ai_quote || f.claim || "", f.truth || "")),
-        h("b", { text: "유메 판정" }), h("div", { text: f.yume_reason || "" }),
+        h("b", { text: "베리라인 판정" }), h("div", { text: f.yume_reason || "" }),
         h("b", { text: "원문" }), h("div", { class: "truth" }, f.truth || "", f.source_url ? h("div", null, h("a", { href: f.source_url, target: "_blank", rel: "noopener nofollow", text: f.source_label || f.source_url })) : null)),
-      h("div", { class: "grid2" }, h("div", { style: "display:flex;gap:6px" }, url, f.source_url ? h("button", { class: "ghost", title: "유메가 댄 원문을 새 창으로 열고 그 주소를 적어요", onclick: function () { window.open(f.source_url, "_blank", "noopener"); url.value = f.source_url; } }, "원문 열기") : null), note),
+      h("div", { class: "grid2" }, h("div", { style: "display:flex;gap:6px" }, url, f.source_url ? h("button", { class: "ghost", title: "베리라인이 댄 원문을 새 창으로 열고 그 주소를 적어요", onclick: function () { window.open(f.source_url, "_blank", "noopener"); url.value = f.source_url; } }, "원문 열기") : null), note),
       title ? h("div", { style: "margin-top:8px" }, title) : null,
       h("div", { class: "actions", style: "margin-top:0" },
-        h("button", { class: "btn bad", onclick: rv("confirmed") }, "원문 확인 — 불일치 맞음"), h("button", { class: "btn warn", onclick: rv("excluded") }, "애매해서 제외"), h("button", { class: "ghost", onclick: rv("yume_wrong") }, "유메 오판"), f.review !== "pending" ? h("button", { class: "ghost", onclick: rv("pending") }, "되돌리기") : null,
+        h("button", { class: "btn bad", onclick: rv("confirmed") }, "원문 확인 — 불일치 맞음"), h("button", { class: "btn warn", onclick: rv("excluded") }, "애매해서 제외"), h("button", { class: "ghost", onclick: rv("yume_wrong") }, "베리라인 오판"), f.review !== "pending" ? h("button", { class: "ghost", onclick: rv("pending") }, "되돌리기") : null,
         f.review === "confirmed" ? h("label", { class: "help", style: "display:flex;gap:6px;align-items:center;margin-left:8px" }, h("input", { type: "checkbox", style: "width:auto", checked: Number(f.featured), onchange: run(async function (e) { await api("PATCH", "/api/admin/audits/findings/" + f.id, { featured: e.target.checked }); await refresh(); }) }), "보고서 대표 사례") : null,
         f.review === "confirmed" ? h("label", { class: "help", style: "display:flex;gap:6px;align-items:center" }, h("input", { type: "checkbox", style: "width:auto", checked: Number(f.in_index), onchange: run(async function (e) { await api("PATCH", "/api/admin/audits/findings/" + f.id, { in_index: e.target.checked }); await refresh(); }) }), "지수 사례(익명)") : null));
   }
@@ -709,7 +709,7 @@ export function renderAuditDeskPage() {
         : h("button", { class: "btn", onclick: run(async function () { await api("PATCH", "/api/admin/audits/" + a.id, { consent_note: note.value, consent_name: true }); toast("동의를 기록했어요."); await refresh(); }) }, "동의 받음으로 기록"))));
     body.appendChild(h("div", { class: "box" }, h("h3", null, "공개 감사 기록·배지", a.public_id ? h("span", { class: "pill g", text: "공개 중" }) : null),
       h("p", { class: "help", text: "동의한 회사는 공개 감사 기록 페이지와 홈페이지 배지를 받습니다(유효 90일, 지나면 '재검사 필요'). 정기 감사 상품의 핵심 혜택입니다." }),
-      d.publicUrl ? [h("div", { class: "mono", text: d.publicUrl }), h("div", { class: "actions" }, h("a", { class: "ghost", href: d.publicUrl, target: "_blank", rel: "noopener" }, "열기"), h("button", { class: "ghost", onclick: function () { copy('<a href="' + d.publicUrl + '"><img src="' + d.publicUrl + '/badge.svg" alt="YUME 할루시네이션 감사 기록" height="30" /></a>'); } }, "배지 코드 복사"), h("button", { class: "ghost", onclick: run(async function () { await api("DELETE", "/api/admin/audits/" + a.id + "/public"); await refresh(); }) }, "공개 내리기"))]
+      d.publicUrl ? [h("div", { class: "mono", text: d.publicUrl }), h("div", { class: "actions" }, h("a", { class: "ghost", href: d.publicUrl, target: "_blank", rel: "noopener" }, "열기"), h("button", { class: "ghost", onclick: function () { copy('<a href="' + d.publicUrl + '"><img src="' + d.publicUrl + '/badge.svg" alt="VERILINE 할루시네이션 감사 기록" height="30" /></a>'); } }, "배지 코드 복사"), h("button", { class: "ghost", onclick: run(async function () { await api("DELETE", "/api/admin/audits/" + a.id + "/public"); await refresh(); }) }, "공개 내리기"))]
         : h("div", { class: "actions" }, h("button", { class: "btn", disabled: !Number(a.consent_name) || !d.results.reviewComplete, onclick: run(async function () { await api("POST", "/api/admin/audits/" + a.id + "/public"); toast("공개 감사 기록을 만들었어요."); await refresh(); }) }, "공개 감사 기록 만들기"), !Number(a.consent_name) ? h("span", { class: "help", text: "동의가 먼저예요." }) : !d.results.reviewComplete ? h("span", { class: "help", text: "재확인이 끝나야 해요." }) : null)));
     body.appendChild(h("div", { class: "box" }, h("h3", null, "지수 집계"),
       h("label", { class: "help", style: "display:flex;gap:7px;align-items:center" }, h("input", { type: "checkbox", style: "width:auto", checked: Number(a.index_excluded), onchange: run(async function (e) { await api("PATCH", "/api/admin/audits/" + a.id, { index_excluded: e.target.checked }); await refresh(); }) }), "이 감사를 지수 집계에서 뺀다 (예: 시험용, 방법이 달랐던 감사)"),
@@ -743,7 +743,7 @@ export function renderAuditDeskPage() {
           h("div", { class: "t1" }, h("span", { class: "nm", text: i.title }), h("span", { class: "sp" }), h("span", { class: "pill " + (i.status === "published" ? "g" : "w"), text: i.status === "published" ? "발행" + (Number(i.revision) ? " · 정정 " + i.revision : "") : "초안" })),
           h("div", { class: "t2", text: i.slug + " · " + kd(i.period_start) + " ~ " + kd(Number(i.period_end) - 1) }));
       })) : h("div", { class: "empty", text: "아직 없어요." }));
-    var right = h("div", { class: "panel detail" }, state.issue ? issueView(state.issue) : h("div", { class: "body" }, previewBox.childNodes.length ? previewBox : h("div", { class: "empty" }, "초안을 고르거나 기간을 정해 미리 계산하세요.", h("br"), "지수에는 재확인을 마친 감사, 무료 자가 점검(익명), 유메 검사 현황(집계 숫자)이 들어갑니다."), previewBox));
+    var right = h("div", { class: "panel detail" }, state.issue ? issueView(state.issue) : h("div", { class: "body" }, previewBox.childNodes.length ? previewBox : h("div", { class: "empty" }, "초안을 고르거나 기간을 정해 미리 계산하세요.", h("br"), "지수에는 재확인을 마친 감사, 무료 자가 점검(익명), 베리라인 검사 현황(집계 숫자)이 들어갑니다."), previewBox));
     view.appendChild(h("div", { class: "split" }, left, right));
   }
 
@@ -756,7 +756,7 @@ export function renderAuditDeskPage() {
       h("div", null, h("div", { class: "k", text: "표본" }), h("div", { class: "v", text: hdl ? n(hdl.n) + (hdl.provisional ? " (예비)" : "") : "0" })),
       h("div", null, h("div", { class: "k", text: "감사 서비스" }), h("div", { class: "v", text: n(dt.audits.services) })),
       h("div", null, h("div", { class: "k", text: "자가 점검 답변" }), h("div", { class: "v", text: n(dt.selfAudits.overall.n) })),
-      h("div", null, h("div", { class: "k", text: "유메 검사 글" }), h("div", { class: "v", text: n(dt.engine.texts) }))));
+      h("div", null, h("div", { class: "k", text: "베리라인 검사 글" }), h("div", { class: "v", text: n(dt.engine.texts) }))));
     function table(title, cells) {
       if (!cells || !cells.length) return null;
       return h("div", { style: "margin-top:12px" }, h("div", { class: "help", text: title }), h("table", { class: "t" }, h("thead", null, h("tr", null, h("th", { text: "구분" }), h("th", { text: "n" }), h("th", { text: "비율" }), h("th", { text: "95% 구간" }))),

@@ -18,7 +18,7 @@ import { COMPANY } from "./renderPages.js";
 
 // 의뢰인이 돌아올 주소. 리머 사이트는 별도 도메인의 정적 배포다.
 const SITE = (process.env.REAMER_SITE_URL || "https://www.d-reamer.com").replace(/\/+$/, "");
-// 관리자 데스크가 있는 곳(유메 서버).
+// 관리자 데스크가 있는 곳(베리라인 서버).
 const DESK = () => `${(process.env.PUBLIC_BASE_URL || "https://www.yume-reamer.com").replace(/\/+$/, "")}/admin/desk`;
 
 // 토큰은 경로가 아니라 **해시(#)** 뒤에 붙인다. 해시는 서버로 전송되지 않고

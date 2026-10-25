@@ -1,12 +1,12 @@
-// 유메 첫 화면 아래, 일반 방문자를 위한 장면들.
+// 베리라인 첫 화면 아래, 일반 방문자를 위한 장면들.
 //
-// 이 자리에 법 이야기를 먼저 두면 "변호사용 서비스"로 읽힌다. 실제로 유메가 확인하는 것은
+// 이 자리에 법 이야기를 먼저 두면 "변호사용 서비스"로 읽힌다. 실제로 베리라인이 확인하는 것은
 // 건강·약 용량·통계·역사·임금·사업자 정보처럼 사람들이 매일 AI에게 묻는 것들이고,
 // 법률은 그중 가장 엄격하게 대조하는 한 분야다. 그래서 위에는 일상을, 아래에 기술을 둔다.
 //
 //   Scatter      흩어진 조각이 스크롤에 맞춰 "사실" 한 덩어리로 모인다
 //   CaseDeck     AI가 자신 있게 틀린 실제 사례. 훑는 빛이 지나가면 판정이 찍힌다
-//   DomainCloud  유메가 확인하는 분야가 흩어진 자리에서 제자리로 날아와 앉는다
+//   DomainCloud  베리라인이 확인하는 분야가 흩어진 자리에서 제자리로 날아와 앉는다
 //
 // 문구는 전부 실제로 회귀 테스트(server/tests/accuracy.js)에 들어 있는 사례에서 가져왔다.
 // 없는 기능을 그림으로 만들지 않는다.
@@ -204,7 +204,7 @@ export function Scatter({ text = "사실", caption }) {
       {caption && (
         <p style={{
           margin: "18px auto 0", maxWidth: 520, textAlign: "center",
-          fontSize: "clamp(15px, 1.4vw, 18px)", lineHeight: 1.7, color: "#54505E", letterSpacing: "-0.01em",
+          fontSize: "clamp(15px, 1.4vw, 18px)", lineHeight: 1.7, color: "#4A5468", letterSpacing: "-0.01em",
         }}>{caption}</p>
       )}
     </div>
@@ -212,7 +212,7 @@ export function Scatter({ text = "사실", caption }) {
 }
 
 // ── AI가 자신 있게 틀린 것들 ─────────────────────────────────────────────────
-// 전부 server/tests/accuracy.js의 실제 회귀 사례다. 유메가 매번 통과시키는 것들.
+// 전부 server/tests/accuracy.js의 실제 회귀 사례다. 베리라인이 매번 통과시키는 것들.
 export const CASES = [
   {
     domain: "노동 · 임금",

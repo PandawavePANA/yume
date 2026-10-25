@@ -19,12 +19,12 @@ import { startCheckout } from "../../payments.js";
 import { t } from "../../i18n.js";
 
 const UI = {
-  ink: "#141118", ink2: "#54505E", ink3: "#8B8694",
-  line: "rgba(20,17,24,0.12)", accent: "#5B3FA0",
+  ink: "#0F1522", ink2: "#4A5468", ink3: "#8A93A6",
+  line: "rgba(15, 21, 34,0.12)", accent: "#2F6BFF",
 };
 
 const input = {
-  width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid rgba(20,17,24,0.16)",
+  width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid rgba(15, 21, 34,0.16)",
   fontSize: 15, marginTop: 6, boxSizing: "border-box", fontFamily: "inherit", color: UI.ink,
 };
 const label = { fontSize: 13, fontWeight: 600, color: UI.ink2, display: "block", marginTop: 14 };
@@ -66,7 +66,7 @@ export default function CheckoutPage({ order, user, onClose, onDone }) {
 
   return (
     <div style={{
-      position: "fixed", inset: 0, zIndex: 80, background: "#FBFAF8", overflowY: "auto",
+      position: "fixed", inset: 0, zIndex: 80, background: "#F5F7FA", overflowY: "auto",
       padding: "calc(20px + var(--yume-safe-top)) 20px calc(40px + var(--yume-safe-bottom))",
     }}>
       <div style={{ maxWidth: 520, margin: "0 auto" }}>
@@ -115,7 +115,7 @@ export default function CheckoutPage({ order, user, onClose, onDone }) {
             <label style={label} htmlFor="co-email">{t("이메일")}</label>
             {/* 영수증이 계정이 아닌 곳으로 가면 안 되므로 계정 이메일로 고정한다. */}
             <input id="co-email" value={order?.customer?.email || user?.email || ""} readOnly
-              style={{ ...input, background: "#F5F2ED", color: UI.ink3 }} />
+              style={{ ...input, background: "#EEF2F7", color: UI.ink3 }} />
           </div>
 
           <label style={{
@@ -139,7 +139,7 @@ export default function CheckoutPage({ order, user, onClose, onDone }) {
 
           <button onClick={pay} disabled={busy} style={{
             width: "100%", marginTop: 18, padding: "15px 0", borderRadius: 12, border: "none",
-            background: busy ? "rgba(118,118,128,0.18)" : "#5B3FA0",
+            background: busy ? "rgba(118,118,128,0.18)" : "#2F6BFF",
             color: busy ? UI.ink3 : "#fff", fontSize: 16, fontWeight: 700,
             cursor: busy ? "not-allowed" : "pointer", letterSpacing: "-0.01em",
           }}>{busy ? "결제창을 여는 중…" : `${won(order?.totalAmount)} 결제하기`}</button>

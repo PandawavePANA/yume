@@ -115,7 +115,7 @@ const SCRIPT = `
 export function renderWorkPage() {
   return `<!doctype html>
 <html lang="ko"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
-<meta name="robots" content="noindex, nofollow" /><title>작업 리스트 · 유메 관리자</title>
+<meta name="robots" content="noindex, nofollow" /><title>작업 리스트 · 베리라인 관리자</title>
 <style>${CSS}</style></head>
 <body><div class="wrap">
   <div class="top"><h1>작업 리스트</h1><span><a href="/admin/staff">AI 본사</a> · <a href="/admin/deals">기업 거래</a> · <a href="/admin/audits">감사 데스크</a> · <a href="/admin">관리자</a></span></div>

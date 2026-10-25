@@ -1,4 +1,4 @@
-// YUME 검증 마크 — 규칙만 모은 곳(db를 부르지 않는다. 테스트가 DB 없이 돈다).
+// VERILINE 검증 마크 — 규칙만 모은 곳(db를 부르지 않는다. 테스트가 DB 없이 돈다).
 //
 // 마크는 "이 글의 사실 주장이 모두 공개 원문으로 확인됐다"는 표시다. 한 번이라도 틀린 글에
 // 붙으면 마크 전체의 값어치가 사라지므로 발급 기준은 엄격하게 둔다.
@@ -110,9 +110,9 @@ export const STATUS_LABEL = {
 export const STATUS_COLOR = {
   valid: "#2E7D56",
   expired: "#B4690E",
-  revoked: "#8B8694",
+  revoked: "#8A93A6",
   changed: "#B3312F",
-  missing: "#8B8694",
+  missing: "#8A93A6",
 };
 
 const escXml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&apos;" }[c]));
@@ -124,14 +124,14 @@ export function badgeSvg(status) {
   const right = 18 + label.length * 13;
   const w = 104 + right;
   const icon = status === "valid" ? "M8 14.5l4 4 8-9" : "M14 9v6M14 19v.01";
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="30" viewBox="0 0 ${w} 30" role="img" aria-label="YUME 검증: ${escXml(label)}">
-<title>YUME 검증: ${escXml(label)}</title>
-<rect width="${w}" height="30" rx="15" fill="#1F1B2E"/>
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="30" viewBox="0 0 ${w} 30" role="img" aria-label="VERILINE 검증: ${escXml(label)}">
+<title>VERILINE 검증: ${escXml(label)}</title>
+<rect width="${w}" height="30" rx="15" fill="#0A0E17"/>
 <rect x="104" width="${right}" height="30" rx="15" fill="${color}"/>
 <rect x="104" width="15" height="30" fill="${color}"/>
-<circle cx="15" cy="15" r="9" fill="#A88BEA"/>
-<path d="${icon}" transform="translate(1 1) scale(0.93)" stroke="#1F1B2E" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-<text x="30" y="19.5" fill="#fff" font-family="-apple-system,'Segoe UI','Noto Sans KR','Malgun Gothic',sans-serif" font-size="12.5" font-weight="700" letter-spacing="0.4">YUME 검증</text>
+<circle cx="15" cy="15" r="9" fill="#8DB0FF"/>
+<path d="${icon}" transform="translate(1 1) scale(0.93)" stroke="#0A0E17" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="30" y="19.5" fill="#fff" font-family="-apple-system,'Segoe UI','Noto Sans KR','Malgun Gothic',sans-serif" font-size="12.5" font-weight="700" letter-spacing="0.4">VERILINE 검증</text>
 <text x="${104 + right / 2}" y="19.5" fill="#fff" text-anchor="middle" font-family="-apple-system,'Segoe UI','Noto Sans KR','Malgun Gothic',sans-serif" font-size="12.5" font-weight="700">${escXml(label)}</text>
 </svg>`;
 }

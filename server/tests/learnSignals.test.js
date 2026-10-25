@@ -32,7 +32,7 @@ test("밤사이 재확인: 확인되면 저장소로(배움), 신고와 엇갈�
   const r = await recheckOpen({ limit: 10, now: 10 * day, check, save });
   assert.equal(r.checked, 2);
   assert.equal(r.learned, 1);
-  assert.equal(r.disputed, 1); // 사용자는 틀렸다고 했지만 유메는 맞다고 봄 → 대표 검토
+  assert.equal(r.disputed, 1); // 사용자는 틀렸다고 했지만 베리라인은 맞다고 봄 → 대표 검토
   assert.equal(saved.length, 2);
   assert.ok(saved.some(([c]) => c.field === "education")); // 신고된 것을 먼저, 그다음 많이 나온 확인 안 됨
   const st = await signalStats(10 * day);

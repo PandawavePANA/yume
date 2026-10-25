@@ -1,6 +1,6 @@
 // 제품 하나의 운영 화면(/admin/p/ballast 같은 주소).
 //
-// 유메는 이 서버 안에 데이터가 있어서 /admin이 직접 조회하지만, 밸러스트·아이픽·프로바는
+// 베리라인은 이 서버 안에 데이터가 있어서 /admin이 직접 조회하지만, 밸러스트·아이픽·프로바는
 // 각자 자기 데이터베이스를 쓴다. 그래서 이 화면은 조회하지 않고 **그 제품이 보내 준
 // 현황을 그리기만** 한다. 무엇을 셀지는 제품이 정하고, 여기서는 모양만 안다.
 //
@@ -13,7 +13,7 @@ export function renderProductPage(key) {
   if (!p) return null;
 
   const nav = [
-    { href: "/admin", label: "유메 운영" },
+    { href: "/admin", label: "베리라인 운영" },
     ...EXTERNAL_PRODUCTS.map((x) => ({ href: `/admin/p/${x.key}`, label: `${x.label} 운영`, on: x.key === key })),
     { href: "/admin/studio", label: "스튜디오" },
   ];

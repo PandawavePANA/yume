@@ -1,4 +1,4 @@
-/* 유메 전역 기본 스타일 — 컴포넌트 인라인 스타일로는 줄 수 없는 것들(글꼴 렌더링,
+/* 베리라인 전역 기본 스타일 — 컴포넌트 인라인 스타일로는 줄 수 없는 것들(글꼴 렌더링,
    포커스 링, 선택 색, 줄바꿈, 모션 줄이기)만 둔다. */
 :root {
   --yume-font: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "SF Pro Display", "Apple SD Gothic Neo",
@@ -26,8 +26,8 @@ html {
 body {
   margin: 0;
   font-family: var(--yume-font);
-  background: #FBFAF8;
-  color: #1d1a24;
+  background: #F5F7FA;
+  color: #0F1522;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
@@ -44,7 +44,7 @@ select {
 }
 
 ::selection {
-  background: rgba(91, 63, 160, 0.16);
+  background: rgba(47, 107, 255, 0.16);
 }
 
 /* 입력칸 포커스 — 애플식 부드러운 링 */
@@ -54,9 +54,9 @@ select {
 .yume-field:focus {
   outline: none;
   /* 포커스 링을 얇고 진하게. 두껍고 흐린 보라 링은 어느 서비스에나 있는 모양이다. */
-  border-color: #5b3fa0 !important;
+  border-color: #2F6BFF !important;
   background-color: #fff !important;
-  box-shadow: 0 0 0 3px rgba(91, 63, 160, 0.14) !important;
+  box-shadow: 0 0 0 3px rgba(47, 107, 255, 0.14) !important;
 }
 
 button:focus-visible,
@@ -67,7 +67,7 @@ a:focus-visible,
 }
 
 .yume-link {
-  color: #6b4fa8;
+  color: #2F6BFF;
   text-decoration: none;
 }
 .yume-link:hover {
@@ -79,7 +79,7 @@ a:focus-visible,
   transition: color 0.2s ease;
 }
 .yume-footer-link:hover {
-  color: #1d1a24 !important;
+  color: #0F1522 !important;
   text-decoration: underline !important;
   text-underline-offset: 3px;
 }
@@ -113,7 +113,7 @@ a:focus-visible,
 
 /* "확인하고" — 보라 글씨 위로 빛이 한 번씩 지나간다. 도장 찍기 전 종이를 비춰 보는 손전등. */
 .yume-shimmer {
-  background: linear-gradient(110deg, #8a6bd4 0%, #5b3fa0 38%, #c9b8f2 50%, #5b3fa0 62%, #8a6bd4 100%);
+  background: linear-gradient(110deg, #5B8CFF 0%, #2F6BFF 38%, #c9b8f2 50%, #2F6BFF 62%, #5B8CFF 100%);
   background-size: 250% 100%;
   -webkit-background-clip: text;
   background-clip: text;
@@ -195,10 +195,10 @@ a:focus-visible,
   display: flex;
   flex-direction: column;
   padding: 24px 22px 22px;
-  border: 1px solid rgba(20, 17, 24, 0.10);
+  border: 1px solid rgba(15, 21, 34, 0.10);
   border-radius: 18px;
   background: #fff;
-  box-shadow: 0 1px 2px rgba(20, 17, 24, 0.05), 0 10px 30px rgba(20, 17, 24, 0.06);
+  box-shadow: 0 1px 2px rgba(15, 21, 34, 0.05), 0 10px 30px rgba(15, 21, 34, 0.06);
   opacity: 0;
   transform: translateY(26px) scale(0.985);
   transition:
@@ -210,7 +210,7 @@ a:focus-visible,
   font-size: 11.5px;
   font-weight: 700;
   letter-spacing: 0.08em;
-  color: #7D5FC4;
+  color: #4A7DFF;
   margin-bottom: 12px;
 }
 /* AI가 한 말. 훑는 빛이 한 번 지나간 뒤 판정이 뜬다. */
@@ -219,10 +219,10 @@ a:focus-visible,
   overflow: hidden;
   padding: 13px 14px;
   border-radius: 12px;
-  background: #F5F2ED;
+  background: #EEF2F7;
   font-size: 14.5px;
   line-height: 1.65;
-  color: #141118;
+  color: #0F1522;
   letter-spacing: -0.01em;
 }
 .yc-case__scan {
@@ -272,7 +272,7 @@ a:focus-visible,
   margin: 12px 0 0;
   font-size: 13.5px;
   line-height: 1.7;
-  color: #54505E;
+  color: #4A5468;
   letter-spacing: -0.01em;
   opacity: 0;
   transition: opacity 0.6s ease calc(var(--d, 0s) + 1.35s);
@@ -291,11 +291,11 @@ a:focus-visible,
 .yc-chip {
   padding: 9px 18px;
   border-radius: 980px;
-  border: 1px solid rgba(20, 17, 24, 0.10);
+  border: 1px solid rgba(15, 21, 34, 0.10);
   background: #fff;
   font-size: 14px;
   font-weight: 600;
-  color: #141118;
+  color: #0F1522;
   letter-spacing: -0.01em;
   white-space: nowrap;
   /* 흩어진 자리에서 제자리로 날아와 앉는다. */
@@ -306,11 +306,11 @@ a:focus-visible,
     transform 0.85s cubic-bezier(0.22, 1.12, 0.36, 1) var(--d, 0s);
 }
 .yc-cloud.is-in .yc-chip { opacity: 1; transform: none; }
-/* 법률은 유메가 유일하게 공식 원문과 대조하는 분야라 따로 표시한다. */
+/* 법률은 베리라인이 유일하게 공식 원문과 대조하는 분야라 따로 표시한다. */
 .yc-chip--law {
-  border-color: rgba(91, 63, 160, 0.34);
-  background: rgba(91, 63, 160, 0.06);
-  color: #5B3FA0;
+  border-color: rgba(47, 107, 255, 0.34);
+  background: rgba(47, 107, 255, 0.06);
+  color: #2F6BFF;
 }
 
 @media (prefers-reduced-motion: reduce) {

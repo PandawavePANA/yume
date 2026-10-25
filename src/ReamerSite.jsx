@@ -495,7 +495,7 @@ function WorkCase({ item, index }) {
           {item.live && <Decor name="ping"><LivePing url={item.href} /></Decor>}
         </p>
         <h3 className="case__name">
-          {/* 글자별 span을 flex 항목으로 두면 낱자 사이마다 gap이 들어가 "유메"가
+          {/* 글자별 span을 flex 항목으로 두면 낱자 사이마다 gap이 들어가 "베리라인"가
               "유 메"로 벌어진다. 한 겹 감싸서 이름은 한 덩어리로 둔다. */}
           <span className="case__name-ko">
             <Chars text={item.name} />

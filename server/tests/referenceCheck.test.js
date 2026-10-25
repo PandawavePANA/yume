@@ -2,7 +2,7 @@
 //
 // 기업이 검사하는 글은 상당수가 자기 이야기다. 그 사실은 공개 웹에 없거나 조금뿐이라,
 // 웹만 보면 '확인되지 않음'이 쏟아지거나 "기록이 없으니 지어냈다"가 된다.
-// 실제로 "리머는 2026년 9월 유메를 출시했습니다"가 부존재 판정으로 '사실과 다름'을 받았다.
+// 실제로 "리머는 2026년 9월 베리라인을 출시했습니다"가 부존재 판정으로 '사실과 다름'을 받았다.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { checkAgainstReferences, mentionsOrganization, normalizeReferences, referenceScope } from "../referenceCheck.js";
@@ -24,7 +24,7 @@ test("기준 자료 형식 검사 — 틀리면 무엇이 틀렸는지 알려주
 const claims = [
   { text: "프로 요금제는 월 19,000원이다", domain: "금융", verdict: "uncertain", sources: [] },
   { text: "환불은 결제 후 30일 이내 가능하다", domain: "일반", verdict: "uncertain", sources: [] },
-  { text: "유메는 2026년 출시됐다", domain: "일반", verdict: "uncertain", sources: [] },
+  { text: "베리라인은 2026년 출시됐다", domain: "일반", verdict: "uncertain", sources: [] },
   { text: "검증은 매달 500회 제공된다", domain: "일반", verdict: "uncertain", sources: [] },
 ];
 
@@ -64,7 +64,7 @@ test("기준 자료·자사명이 있으면 결과 캐시를 나눈다 — 다�
 });
 
 test("자사명이 주장에 들어 있는지 — 띄어쓰기·대소문자 무시", () => {
-  assert.ok(mentionsOrganization("리머 는 2026년 9월 유메를 출시했다", "리머"));
+  assert.ok(mentionsOrganization("리머 는 2026년 9월 베리라인을 출시했다", "리머"));
   assert.ok(mentionsOrganization("REAMER launched YUME", "reamer"));
   assert.ok(!mentionsOrganization("삼성전자는 1969년 설립됐다", "리머"));
   assert.ok(!mentionsOrganization("아무 문장", "")); // 자사명이 없으면 보호도 없다
@@ -72,7 +72,7 @@ test("자사명이 주장에 들어 있는지 — 띄어쓰기·대소문자 무
 
 // 부존재 판정이 설 만한 리서치 결과(공식 발표 영역을 다 뒤졌는데 없음).
 const report = (over = {}) => ({ verdict: "uncertain", explanation: "검색했으나 출시 기록을 찾지 못함", sources: [], recordedness: "reported", searchedThoroughly: true, nearMiss: null, subjectFound: true, ...over });
-const launch = { text: "리머는 2026년 9월 유메를 출시했다", domain: "일반", verdict: "uncertain", explanation: "", sources: [] };
+const launch = { text: "리머는 2026년 9월 베리라인을 출시했다", domain: "일반", verdict: "uncertain", explanation: "", sources: [] };
 
 test("자사에 관한 주장은 기록이 없다는 이유로 '사실과 다름'이 되지 않는다", async () => {
   const [out] = await resolveUncertainClaims([launch], { research: async () => report(), organization: "리머" });
@@ -87,7 +87,7 @@ test("주체 자체를 찾지 못했으면 그 활동의 기록 부재로 단정
 });
 
 test("다른 회사·주체를 찾은 경우의 부존재 판정은 그대로다(지어낸 통계를 잡는 경로)", async () => {
-  const [out] = await resolveUncertainClaims([{ ...launch, text: "삼성전자는 2026년 9월 유메를 출시했다" }], { research: async () => report(), organization: "리머" });
+  const [out] = await resolveUncertainClaims([{ ...launch, text: "삼성전자는 2026년 9월 베리라인을 출시했다" }], { research: async () => report(), organization: "리머" });
   assert.equal(out.verdict, "false");
   assert.equal(out.verified_via, "nec");
 });

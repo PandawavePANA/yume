@@ -77,7 +77,7 @@ export function ownerAuditMail(detail, { title, notes = [], goodLines = null, ba
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="table-layout:fixed;width:100%;max-width:600px;table-layout:fixed;background:#FFFFFF;border-radius:18px;overflow:hidden">
   ${banner ? `<tr><td style="background:#FFF8E6;color:#8A5A10;font-size:14px;line-height:1.6;padding:12px 24px;border-bottom:1px solid #F3E3B8"><b>안내</b> · ${esc(banner)}</td></tr>` : ""}
   <tr><td style="background:#1F1B2E;padding:22px 24px 20px">
-    <div style="font-size:12px;font-weight:800;letter-spacing:2px;color:#B9A6F0">YUME · AI 할루시네이션 감사</div>
+    <div style="font-size:12px;font-weight:800;letter-spacing:2px;color:#B9A6F0">VERILINE · AI 할루시네이션 감사</div>
     <div style="font-size:24px;line-height:1.35;font-weight:800;color:#FFFFFF;margin-top:8px;letter-spacing:-0.5px">${esc(title || `${service} 감사 결과`)}</div>
     ${meta ? `<div style="font-size:14px;line-height:1.6;color:#CFC9DE;margin-top:6px">${esc(meta)}</div>` : ""}
   </td></tr>
@@ -118,7 +118,7 @@ export function ownerAuditMail(detail, { title, notes = [], goodLines = null, ba
       <div style="font-size:15px;line-height:1.75;color:#2E2A38;margin-top:2px">${nl(mail.first.body)}</div>
     </td></tr></table>`)}
 
-  <tr><td style="padding:24px 24px 22px;font-size:12px;line-height:1.7;color:#958EA8">유메(YUME) · 리머 · 이 메일은 대표 확인용입니다. 감사 결과는 상대 회사에만 비공개로 전달하고, 동의 없이 공개하지 않습니다.</td></tr>
+  <tr><td style="padding:24px 24px 22px;font-size:12px;line-height:1.7;color:#958EA8">베리라인(YUME) · 리머 · 이 메일은 대표 확인용입니다. 감사 결과는 상대 회사에만 비공개로 전달하고, 동의 없이 공개하지 않습니다.</td></tr>
 </table></td></tr></table></body></html>`;
 
   const text = [
@@ -140,5 +140,5 @@ export function ownerAuditMail(detail, { title, notes = [], goodLines = null, ba
     mail.first.body,
   ].filter((x) => x !== null).join("\n");
 
-  return { subject: `[유메] ${service} — 판정 ${v.label} · 확정 오류 ${cases.length}건`, html, text, verdict: v };
+  return { subject: `[베리라인] ${service} — 판정 ${v.label} · 확정 오류 ${cases.length}건`, html, text, verdict: v };
 }

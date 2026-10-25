@@ -30,11 +30,11 @@ const tier = (key) => API_RATES.tiers.find((t) => t.key === key);
 
 // 사이트에서 고객이 직접 견적을 받을 수 있는 상품 — 단가가 공개된 것만.
 export const SELF_PRODUCTS = {
-  starter: { label: `유메 검증 API ${tier("starter").label}`, spec: `월 ${tier("starter").calls.toLocaleString("ko-KR")}회`, unit: "개월", unitKrw: tier("starter").monthlyKrw, min: 1, max: 12, step: 1 },
-  growth: { label: `유메 검증 API ${tier("growth").label}`, spec: `월 ${tier("growth").calls.toLocaleString("ko-KR")}회`, unit: "개월", unitKrw: tier("growth").monthlyKrw, min: 1, max: 12, step: 1 },
+  starter: { label: `베리라인 검증 API ${tier("starter").label}`, spec: `월 ${tier("starter").calls.toLocaleString("ko-KR")}회`, unit: "개월", unitKrw: tier("starter").monthlyKrw, min: 1, max: 12, step: 1 },
+  growth: { label: `베리라인 검증 API ${tier("growth").label}`, spec: `월 ${tier("growth").calls.toLocaleString("ko-KR")}회`, unit: "개월", unitKrw: tier("growth").monthlyKrw, min: 1, max: 12, step: 1 },
   // 종량제는 후불이다 — 견적의 수량은 "예상 월 호출 수"이고, 실제 사용량으로 매달 정산한다. 계약을 확정하면
   // 그 예상 물량을 월 상한으로 걸어 둔다(예상을 크게 넘는 청구가 고객 모르게 쌓이지 않게).
-  metered: { label: "유메 검증 API 종량제 (후불 월 정산)", spec: "예상 월 건수(1,000자마다 1건) · 실제 사용량으로 정산", unit: "건", unitKrw: API_RATES.metered.unitKrw, min: 100, max: 100_000, step: 100 },
+  metered: { label: "베리라인 검증 API 종량제 (후불 월 정산)", spec: "예상 월 건수(1,000자마다 1건) · 실제 사용량으로 정산", unit: "건", unitKrw: API_RATES.metered.unitKrw, min: 100, max: 100_000, step: 100 },
   // AI 감사 — 2026-10-14부터 사이트에서 바로 산다(정가 공개). 감사할 서비스 정보(order)를 같이 받는다.
   ...Object.fromEntries(Object.entries(AUDIT_RATES).map(([k, a]) => [k, { label: a.label, spec: a.spec, unit: a.unit, unitKrw: a.krw, min: 1, max: k === "audit_regular" ? 4 : 1, step: 1, kind: "audit" }])),
 };

@@ -104,7 +104,7 @@ export async function run(ctx) {
       kind: "collect_issue",
       title: `${login ? "회원가입·로그인 필요" : "답 수집 막힘"} — ${a.company}`,
       summary: `${a.collect_note || ""}\n\n${login
-        ? `대표 PC에서 현장 요원 창으로 ${a.service_url} 에 가입·로그인해 주세요(바탕화면 '유메 현장요원 열기' 또는 node scripts/field-agent.mjs --open ${a.id}). 끝나고 '처리했어요'를 누르면 현장 요원이 이어서 질문을 넣습니다.`
+        ? `대표 PC에서 현장 요원 창으로 ${a.service_url} 에 가입·로그인해 주세요(바탕화면 '베리라인 현장요원 열기' 또는 node scripts/field-agent.mjs --open ${a.id}). 끝나고 '처리했어요'를 누르면 현장 요원이 이어서 질문을 넣습니다.`
         : "원인을 해결하고 '처리했어요'를 누르면 다시 시도합니다. 반려하면 사람이 넣는 방식(답 수집 요청)으로 바꿉니다."}`,
       payload: { auditId: Number(a.id), url: a.service_url, status: a.collect_status },
       ref: `audit:${a.id}`,

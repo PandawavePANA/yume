@@ -15,7 +15,7 @@ import { logError } from "./errorLog.js";
 //   - 그 외 → 일반 대화(chatReply)
 // 카카오 사용자 ID 기준 하루 무료 한도가 있다. 카카오 채널 데이터는 데이터 활용 동의 절차가
 // 없으므로 데이터셋에서 항상 제외된다(data_consent = 0).
-const ONBOARDING_TEXT = `저는 AI 할루시네이션 검사 서비스 유메예요 🌙 편하게 대화하다가, 들은 얘기가 진짜인지 궁금하면 "○○라는데 사실이야?"처럼 그냥 물어보세요. AI 답변을 통째로 붙여넣고 "검증해줘"라고 하셔도 됩니다. 하루 ${FREE_DAILY_LIMIT}회까지 무료예요.
+const ONBOARDING_TEXT = `저는 AI 할루시네이션 검사 서비스 베리라인이에요 🌙 편하게 대화하다가, 들은 얘기가 진짜인지 궁금하면 "○○라는데 사실이야?"처럼 그냥 물어보세요. AI 답변을 통째로 붙여넣고 "검증해줘"라고 하셔도 됩니다. 하루 ${FREE_DAILY_LIMIT}회까지 무료예요.
 
 `;
 
@@ -36,7 +36,7 @@ function linkReply({ resultUrl, text }) {
         { simpleText: { text } },
         {
           basicCard: {
-            title: "유메 검증 결과",
+            title: "베리라인 검증 결과",
             description: "결과가 나오는 대로 이 페이지에 자동으로 표시됩니다. 10~30초 정도 걸려요.",
             buttons: [{ action: "webLink", label: "결과 확인하기", webLinkUrl: resultUrl }],
           },
@@ -98,11 +98,11 @@ export async function kakaoSkillHandler(req, res) {
     }
     const usage = await checkAndConsume({ kakaoId, chars: verifyText.length });
     if (!usage.allowed && usage.reason === "free_paused") {
-      res.json(textReply(prefix + "오늘은 이용자가 많아 준비한 무료 확인이 모두 찼어요. 내일 0시(한국 시간)에 다시 열려요. 지금 더 확인하려면 유메 웹사이트에서 크레딧으로 이용할 수 있어요."));
+      res.json(textReply(prefix + "오늘은 이용자가 많아 준비한 무료 확인이 모두 찼어요. 내일 0시(한국 시간)에 다시 열려요. 지금 더 확인하려면 베리라인 웹사이트에서 크레딧으로 이용할 수 있어요."));
       return remember([{ role: "user", content: utterance }]);
     }
     if (!usage.allowed) {
-      res.json(textReply(prefix + `오늘 무료 확인 ${FREE_DAILY_LIMIT}회를 다 쓰셨어요. 내일 다시 이용해주세요. 더 많이 확인하려면 유메 웹사이트에서 가입해 요금제를 이용할 수 있어요.`));
+      res.json(textReply(prefix + `오늘 무료 확인 ${FREE_DAILY_LIMIT}회를 다 쓰셨어요. 내일 다시 이용해주세요. 더 많이 확인하려면 베리라인 웹사이트에서 가입해 요금제를 이용할 수 있어요.`));
       return remember([{ role: "user", content: utterance }]);
     }
     const usageNote = usage.usedFree ? `(오늘 무료 확인 ${FREE_DAILY_LIMIT - usage.remainingFree}/${FREE_DAILY_LIMIT}회 사용)` : `(토큰 1개 사용 · 남은 토큰 ${usage.tokens}개)`;
@@ -117,7 +117,7 @@ export async function kakaoSkillHandler(req, res) {
     // 같은 내용을 이미 검증했다면 캐시로 곧바로 끝나므로 아주 잠깐만 기다려 본다.
     await Promise.race([done.catch(() => null), new Promise((r) => setTimeout(r, 300))]);
     const finished = (await getVerification(id))?.status === "done";
-    const introText = finished ? "이전에 확인한 것과 같은 내용이라 바로 결과를 보여드려요 ⚡" : "유메가 확인하고 있어요 🔎 아래 링크에서 결과를 확인해보세요.";
+    const introText = finished ? "이전에 확인한 것과 같은 내용이라 바로 결과를 보여드려요 ⚡" : "베리라인이 확인하고 있어요 🔎 아래 링크에서 결과를 확인해보세요.";
     res.json(linkReply({ resultUrl, text: `${prefix}${introText} ${usageNote}` }));
     return remember([
       { role: "user", content: utterance },

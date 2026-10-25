@@ -5,15 +5,15 @@ import { startIdentityReset } from "../../payments.js";
 import { t } from "../../i18n.js";
 
 const input = {
-  width: "100%", padding: "10px 12px", borderRadius: 10, border: "1px solid #D4BEF0",
+  width: "100%", padding: "10px 12px", borderRadius: 10, border: "1px solid #C9D8FF",
   margin: "6px 0 12px", fontSize: 14, boxSizing: "border-box", fontFamily: "inherit",
 };
-const label = { fontSize: 12.5, color: "#6E6389", fontWeight: 500 };
+const label = { fontSize: 12.5, color: "#4F5A72", fontWeight: 500 };
 
 function Check({ checked, onChange, children, strong }) {
   return (
     <label style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 12.5, color: "#4C5266", lineHeight: 1.55, marginBottom: 7, cursor: "pointer" }}>
-      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} style={{ marginTop: 3, accentColor: "#6B4FA8" }} />
+      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} style={{ marginTop: 3, accentColor: "#2F6BFF" }} />
       <span style={{ fontWeight: strong ? 700 : 400 }}>{children}</span>
     </label>
   );
@@ -87,7 +87,7 @@ export default function AuthModal({ mode: initialMode = "login", onClose, onAuth
     }
   };
 
-  const title = mode === "login" ? "로그인" : mode === "signup" ? "유메 시작하기" : "비밀번호 재설정";
+  const title = mode === "login" ? "로그인" : mode === "signup" ? "베리라인 시작하기" : "비밀번호 재설정";
   const sub = mode === "login"
     ? "검증 기록이 계정에 저장되고, 어느 기기에서든 이어볼 수 있어요."
     : mode === "signup"
@@ -98,18 +98,18 @@ export default function AuthModal({ mode: initialMode = "login", onClose, onAuth
 
   return (
     <div onClick={onClose} style={{
-      position: "fixed", inset: 0, background: "rgba(75,55,120,0.28)", display: "flex",
+      position: "fixed", inset: 0, background: "rgba(40, 60, 110,0.28)", display: "flex",
       alignItems: "center", justifyContent: "center", zIndex: 60, backdropFilter: "blur(2px)", padding: 16, overflowY: "auto",
     }}>
       <motion.form
         onSubmit={submit}
         onClick={(e) => e.stopPropagation()}
         initial={{ opacity: 0, y: 16, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: 0.25 }}
-        style={{ width: "min(400px, 100%)", background: "#fff", borderRadius: 20, padding: 28, boxShadow: "0 20px 60px rgba(75,55,120,0.22)", position: "relative" }}
+        style={{ width: "min(400px, 100%)", background: "#fff", borderRadius: 20, padding: 28, boxShadow: "0 20px 60px rgba(40, 60, 110,0.22)", position: "relative" }}
       >
-        <button type="button" onClick={onClose} aria-label={t("닫기")} style={{ position: "absolute", top: 14, right: 16, border: "none", background: "transparent", color: "#9C8FC2", fontSize: 18, cursor: "pointer" }}>×</button>
+        <button type="button" onClick={onClose} aria-label={t("닫기")} style={{ position: "absolute", top: 14, right: 16, border: "none", background: "transparent", color: "#8A97B3", fontSize: 18, cursor: "pointer" }}>×</button>
         <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>{title}</div>
-        <div style={{ fontSize: 12.5, color: "#A99BC9", marginBottom: 20, lineHeight: 1.6 }}>{sub}</div>
+        <div style={{ fontSize: 12.5, color: "#9AA6BF", marginBottom: 20, lineHeight: 1.6 }}>{sub}</div>
 
         {accounts && (
           <div style={{ marginBottom: 6 }}>
@@ -123,14 +123,14 @@ export default function AuthModal({ mode: initialMode = "login", onClose, onAuth
                 onClick={() => { window.location.href = `/reset-password?token=${encodeURIComponent(a.token)}`; }}
                 style={{
                   width: "100%", textAlign: "left", padding: "13px 14px", marginBottom: 8, cursor: "pointer",
-                  borderRadius: 12, border: "1px solid #D4BEF0", background: "#fff", fontFamily: "inherit",
+                  borderRadius: 12, border: "1px solid #C9D8FF", background: "#fff", fontFamily: "inherit",
                 }}
               >
-                <div style={{ fontSize: 14, fontWeight: 600, color: "#241F33" }}>{a.email}</div>
-                <div style={{ fontSize: 12, color: "#9C8FC2", marginTop: 2 }}>{t("이 계정의 비밀번호 바꾸기")}</div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: "#121827" }}>{a.email}</div>
+                <div style={{ fontSize: 12, color: "#8A97B3", marginTop: 2 }}>{t("이 계정의 비밀번호 바꾸기")}</div>
               </button>
             ))}
-            <div style={{ fontSize: 11.5, color: "#B6A9D6", lineHeight: 1.6, marginTop: 4 }}>
+            <div style={{ fontSize: 11.5, color: "#AEB9D1", lineHeight: 1.6, marginTop: 4 }}>
               10분 안에 새 비밀번호를 정해주세요. 바꾸고 나면 다른 기기의 로그인은 모두 풀려요.
             </div>
           </div>
@@ -170,46 +170,46 @@ export default function AuthModal({ mode: initialMode = "login", onClose, onAuth
               placeholder={t("2~16자, 한글·영문·숫자")}
               style={input}
             />
-            <div style={{ fontSize: 11.5, color: "#B6A9D6", margin: "-6px 0 12px", lineHeight: 1.5 }}>
+            <div style={{ fontSize: 11.5, color: "#AEB9D1", margin: "-6px 0 12px", lineHeight: 1.5 }}>
               공헌도 랭킹에 표시되는 이름이에요. 다른 분과 겹칠 수 없어요.
             </div>
-            <label style={label} htmlFor="auth-name">{t("이름")} <span style={{ color: "#B6A9D6" }}>{t("(선택)")}</span></label>
+            <label style={label} htmlFor="auth-name">{t("이름")} <span style={{ color: "#AEB9D1" }}>{t("(선택)")}</span></label>
             <input id="auth-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={40} style={input} />
-            <div style={{ border: "1px solid #EDE3FA", borderRadius: 12, padding: "12px 12px 5px", marginBottom: 14 }}>
+            <div style={{ border: "1px solid #E8EFFF", borderRadius: 12, padding: "12px 12px 5px", marginBottom: 14 }}>
               <Check checked={allChecked} onChange={setAll} strong>{t("전체 동의")}</Check>
               <div style={{ height: 1, background: "#F1EAFB", margin: "4px 0 9px" }} />
               <Check checked={terms} onChange={setTerms}>
-                [필수] 만 14세 이상이며 <a href="/terms" target="_blank" rel="noreferrer" style={{ color: "#6B4FA8" }}>{t("이용약관")}</a>에 동의합니다
+                [필수] 만 14세 이상이며 <a href="/terms" target="_blank" rel="noreferrer" style={{ color: "#2F6BFF" }}>{t("이용약관")}</a>에 동의합니다
               </Check>
               <Check checked={privacy} onChange={setPrivacy}>
-                [필수] <a href="/privacy" target="_blank" rel="noreferrer" style={{ color: "#6B4FA8" }}>{t("개인정보 수집·이용")}</a>에 동의합니다 (검증 처리를 위한 국외 위탁 포함)
+                [필수] <a href="/privacy" target="_blank" rel="noreferrer" style={{ color: "#2F6BFF" }}>{t("개인정보 수집·이용")}</a>에 동의합니다 (검증 처리를 위한 국외 위탁 포함)
               </Check>
               <Check checked={identity} onChange={setIdentity}>
                 [필수] 본인확인 서비스 이용 및 연계정보(CI) 수집·이용에 동의합니다{" "}
-                <span onClick={(e) => { e.preventDefault(); setShowIdentityDetail((v) => !v); }} style={{ color: "#6B4FA8", textDecoration: "underline", cursor: "pointer" }}>
+                <span onClick={(e) => { e.preventDefault(); setShowIdentityDetail((v) => !v); }} style={{ color: "#2F6BFF", textDecoration: "underline", cursor: "pointer" }}>
                   {showIdentityDetail ? "접기" : "자세히"}
                 </span>
               </Check>
               {showIdentityDetail && (
-                <div style={{ fontSize: 11.5, color: "#6E6389", background: "#FAF7FF", borderRadius: 8, padding: "9px 10px", marginBottom: 9, lineHeight: 1.65 }}>
+                <div style={{ fontSize: 11.5, color: "#4F5A72", background: "#FAF7FF", borderRadius: 8, padding: "9px 10px", marginBottom: 9, lineHeight: 1.65 }}>
                   <b>{t("수집 항목")}</b> {t("이름, 생년월일, 성별, 휴대전화번호, 연계정보(CI), 중복가입확인정보(DI)")}<br />
                   <b>{t("목적")}</b> {t("본인 확인, 만 14세 미만 가입 제한, 중복 가입·부정 이용 방지, 유료 결제 시 명의 확인")}<br />
                   <b>{t("보유 기간")}</b> {t("탈퇴 시까지")}<br />
                   <b>{t("수탁자")}</b> {t("본인확인기관의 통합인증서비스(카카오·네이버·PASS 등 인증서)")}<br />
-                  유메는 <b>{t("주민등록번호를 수집하지 않습니다.")}</b> CI는 본인확인기관이 주민등록번호를 일방향 암호화해 만든 값이에요.
+                  베리라인은 <b>{t("주민등록번호를 수집하지 않습니다.")}</b> CI는 본인확인기관이 주민등록번호를 일방향 암호화해 만든 값이에요.
                 </div>
               )}
               <Check checked={dataConsent} onChange={setDataConsent}>
                 [선택] 가명처리한 검증 데이터의 제3자 제공에 동의합니다{" "}
-                <span onClick={(e) => { e.preventDefault(); setShowDataDetail((v) => !v); }} style={{ color: "#6B4FA8", textDecoration: "underline", cursor: "pointer" }}>
+                <span onClick={(e) => { e.preventDefault(); setShowDataDetail((v) => !v); }} style={{ color: "#2F6BFF", textDecoration: "underline", cursor: "pointer" }}>
                   {showDataDetail ? "접기" : "자세히"}
                 </span>
               </Check>
               {showDataDetail && (
-                <div style={{ fontSize: 11.5, color: "#6E6389", background: "#FAF7FF", borderRadius: 8, padding: "9px 10px", marginBottom: 9, lineHeight: 1.65 }}>
-                  <b>{t("제공받는 자")}</b> {t("유메와 데이터 이용 계약을 맺은 AI 개발 기업·연구기관")}<br />
+                <div style={{ fontSize: 11.5, color: "#4F5A72", background: "#FAF7FF", borderRadius: 8, padding: "9px 10px", marginBottom: 9, lineHeight: 1.65 }}>
+                  <b>{t("제공받는 자")}</b> {t("베리라인과 데이터 이용 계약을 맺은 AI 개발 기업·연구기관")}<br />
                   <b>{t("목적")}</b> {t("AI 답변의 사실 오류(할루시네이션) 연구와 정확도 개선")}<br />
-                  <b>{t("항목")}</b> {t("유메가 추출한 주장 문장·판정·근거(원문·이메일·IP 제외, 이름·연락처 등은 가림)")}<br />
+                  <b>{t("항목")}</b> {t("베리라인이 추출한 주장 문장·판정·근거(원문·이메일·IP 제외, 이름·연락처 등은 가림)")}<br />
                   <b>{t("보유 기간")}</b> {t("제공받는 자와의 계약 기간")}<br />
                   동의하지 않아도 서비스 이용에 제한이 없고, 계정 설정에서 언제든 철회할 수 있어요.
                 </div>
@@ -222,7 +222,7 @@ export default function AuthModal({ mode: initialMode = "login", onClose, onAuth
         {notice && <div style={{ fontSize: 12.5, color: "#1F7A52", background: "#EAF7F0", borderRadius: 10, padding: "8px 12px", marginBottom: 12 }}>{notice}</div>}
 
         <button type="submit" disabled={busy} style={{
-          width: "100%", padding: "12px 0", borderRadius: 12, border: "none", background: "#241F33",
+          width: "100%", padding: "12px 0", borderRadius: 12, border: "none", background: "#121827",
           color: "#fff", fontSize: 14.5, fontWeight: 600, cursor: busy ? "default" : "pointer", opacity: busy ? 0.7 : 1,
         }}>
           {busy ? "처리 중…" : mode === "login" ? "로그인" : mode === "signup" ? "계정 만들기" : "재설정 링크 보내기"}
@@ -233,9 +233,9 @@ export default function AuthModal({ mode: initialMode = "login", onClose, onAuth
         {mode === "forgot" && (
           <>
             <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "18px 0 14px" }}>
-              <div style={{ flex: 1, height: 1, background: "#EDE3FA" }} />
-              <span style={{ fontSize: 12, color: "#B6A9D6" }}>{t("메일함을 못 쓰시나요?")}</span>
-              <div style={{ flex: 1, height: 1, background: "#EDE3FA" }} />
+              <div style={{ flex: 1, height: 1, background: "#E8EFFF" }} />
+              <span style={{ fontSize: 12, color: "#AEB9D1" }}>{t("메일함을 못 쓰시나요?")}</span>
+              <div style={{ flex: 1, height: 1, background: "#E8EFFF" }} />
             </div>
             <button
               type="button"
@@ -243,13 +243,13 @@ export default function AuthModal({ mode: initialMode = "login", onClose, onAuth
               disabled={busy}
               style={{
                 width: "100%", padding: "12px 0", borderRadius: 12, cursor: busy ? "default" : "pointer",
-                border: "1px solid #D4BEF0", background: "#fff", color: "#6B4FA8",
+                border: "1px solid #C9D8FF", background: "#fff", color: "#2F6BFF",
                 fontSize: 14.5, fontWeight: 600, fontFamily: "inherit", opacity: busy ? 0.7 : 1,
               }}
             >
               휴대폰 본인확인으로 재설정
             </button>
-            <div style={{ fontSize: 11.5, color: "#B6A9D6", lineHeight: 1.6, marginTop: 9, textAlign: "left" }}>
+            <div style={{ fontSize: 11.5, color: "#AEB9D1", lineHeight: 1.6, marginTop: 9, textAlign: "left" }}>
               가입 후 휴대폰 본인확인을 마친 계정만 이 길로 열려요. 본인확인기관에 이름·휴대전화번호를
               제공하고 받은 연계정보(CI)로 계정을 찾습니다 — 이메일을 몰라도 됩니다.
             </div>
@@ -257,7 +257,7 @@ export default function AuthModal({ mode: initialMode = "login", onClose, onAuth
         )}
         </>}
 
-        <div style={{ textAlign: "center", marginTop: 14, fontSize: 13, color: "#9C8FC2", lineHeight: 1.9 }}>
+        <div style={{ textAlign: "center", marginTop: 14, fontSize: 13, color: "#8A97B3", lineHeight: 1.9 }}>
           {mode === "login" && (
             <>
               <span onClick={() => { setMode("forgot"); setError(""); }} style={{ cursor: "pointer", textDecoration: "underline" }}>{t("비밀번호를 잊으셨나요?")}</span>
@@ -265,16 +265,16 @@ export default function AuthModal({ mode: initialMode = "login", onClose, onAuth
               {/* 상단 바에서 "시작하기"를 없애고 로그인 하나로 합쳤다. 그래서 처음 오신 분이
                   갈 곳이 이 화면 안에 분명히 있어야 한다 — 밑줄 링크가 아니라 버튼으로 둔다. */}
               <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "18px 0 14px" }}>
-                <div style={{ flex: 1, height: 1, background: "#EDE3FA" }} />
-                <span style={{ fontSize: 12, color: "#B6A9D6" }}>{t("처음이신가요?")}</span>
-                <div style={{ flex: 1, height: 1, background: "#EDE3FA" }} />
+                <div style={{ flex: 1, height: 1, background: "#E8EFFF" }} />
+                <span style={{ fontSize: 12, color: "#AEB9D1" }}>{t("처음이신가요?")}</span>
+                <div style={{ flex: 1, height: 1, background: "#E8EFFF" }} />
               </div>
               <button
                 type="button"
                 onClick={() => { setMode("signup"); setError(""); }}
                 style={{
                   width: "100%", padding: "12px 0", borderRadius: 12, cursor: "pointer",
-                  border: "1px solid #D4BEF0", background: "#fff", color: "#6B4FA8", fontSize: 14.5, fontWeight: 600,
+                  border: "1px solid #C9D8FF", background: "#fff", color: "#2F6BFF", fontSize: 14.5, fontWeight: 600,
                   fontFamily: "inherit",
                 }}
               >

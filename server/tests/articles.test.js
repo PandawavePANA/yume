@@ -76,11 +76,11 @@ test("특별호 표지와 지수 홈의 특별호 목록", async () => {
   assert.match(home.text, /\/hallucination-index\/special-1/);
 });
 
-test("사이트맵은 서버가 만들고 글·특별호·기업용을 모두 담는다", async () => {
+test("사이트맵은 서버가 만들고 글·특별호·메인(기업용)·개인용을 모두 담는다", async () => {
   const r = await get("/sitemap.xml");
   assert.equal(r.status, 200);
   assert.match(r.type, /xml/);
-  for (const p of ["/hallucination", ...Object.keys(ARTICLES).map((s) => `/hallucination/${s}`), "/hallucination-index/special-2", "/business"]) {
+  for (const p of ["/hallucination", ...Object.keys(ARTICLES).map((s) => `/hallucination/${s}`), "/hallucination-index/special-2", "/"]) {
     assert.ok(r.text.includes(`<loc>https://www.yume-reamer.com${p}</loc>`), p);
   }
 });

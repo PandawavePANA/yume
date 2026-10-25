@@ -25,7 +25,7 @@ if (IS_PROD && !PERSISTENT_STORAGE) {
 }
 
 const PORT = process.env.PORT || 8787;
-const server = app.listen(PORT, () => console.log(`유메 서버 실행 중: http://localhost:${PORT} (DB: ${DB_DESCRIPTION})`));
+const server = app.listen(PORT, () => console.log(`베리라인 서버 실행 중: http://localhost:${PORT} (DB: ${DB_DESCRIPTION})`));
 
 function shutdown(signal) {
   console.log(`${signal} 수신 — 서버를 정리하고 종료합니다.`);

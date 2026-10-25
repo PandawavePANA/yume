@@ -1,6 +1,6 @@
-// 판정 정정 — 유메가 틀렸다고 알려주는 문.
+// 판정 정정 — 베리라인이 틀렸다고 알려주는 문.
 //
-// 없던 것을 만든 이유. 어떤 사용자가 와인 평점 주장을 검증했더니 유메가 "사실과 다름"을
+// 없던 것을 만든 이유. 어떤 사용자가 와인 평점 주장을 검증했더니 베리라인이 "사실과 다름"을
 // 붙였는데, 대충 검색해도 그 평점은 실재했다. 그런데 그 사실을 우리에게 알릴 방법이
 // 화면에 없었다. 제보(bounty.js)는 **남의 AI가 지어낸 인용**만 받게 되어 있어서,
 // **우리가 틀린 것**을 받을 자리가 아니었다.
@@ -28,12 +28,12 @@ const MAX_PENDING_PER_USER = 10;
 const MIN_NOTE = 10;
 const MAX_NOTE = 1000;
 
-// 사용자가 "맞다고 본 것"의 값. 유메의 판정 값과 같은 어휘를 쓴다.
+// 사용자가 "맞다고 본 것"의 값. 베리라인의 판정 값과 같은 어휘를 쓴다.
 const CORRECT_VERDICTS = new Set(["confirmed", "false", "uncertain"]);
 export const VERDICT_LABEL = { confirmed: "사실로 확인됨", false: "사실과 다름", uncertain: "확인되지 않음" };
 
 // 근거 링크. 필수는 아니다 — 지면 기사나 구독자 전용 자료처럼 링크를 댈 수 없는 근거가
-// 있고, 그게 바로 유메가 틀리는 자리이기 때문이다. 대신 무엇을 보고 그렇게 판단했는지를
+// 있고, 그게 바로 베리라인이 틀리는 자리이기 때문이다. 대신 무엇을 보고 그렇게 판단했는지를
 // 글로 받는다. 링크를 넣는다면 실제로 열 수 있는 주소여야 한다.
 function checkEvidenceUrl(raw) {
   const v = String(raw || "").trim();
@@ -61,7 +61,7 @@ export async function submitCorrection({ user, verification, claimIdx, correctVe
   if (!eligibility.eligible) return { error: eligibility.reason };
 
   if (!CORRECT_VERDICTS.has(correctVerdict)) return { error: "맞는 판정을 골라주세요." };
-  if (correctVerdict === claim.verdict) return { error: "유메가 낸 판정과 같아요. 다른 판정이어야 정정이 됩니다." };
+  if (correctVerdict === claim.verdict) return { error: "베리라인이 낸 판정과 같아요. 다른 판정이어야 정정이 됩니다." };
 
   const body = String(note || "").trim();
   if (body.length < MIN_NOTE) return { error: `무엇이 왜 다른지 ${MIN_NOTE}자 이상 적어주세요. 근거가 없으면 확인할 수 없어요.` };

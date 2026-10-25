@@ -1,9 +1,9 @@
-// 학습 신호 — 미르미(와 동의한 API 고객)의 실제 확인에서 유메가 배울 거리를 모은다(2026-10-18 대표 "미르미에서 쌓인 데이터가 유메를 발전시키는 구조").
+// 학습 신호 — 미르미(와 동의한 API 고객)의 실제 확인에서 베리라인이 배울 거리를 모은다(2026-10-18 대표 "미르미에서 쌓인 데이터가 베리라인을 발전시키는 구조").
 //
 // 무엇을 남기나 — 대화가 아니라 '사실 문장' 하나씩만. 개인정보처럼 보이면 남기지 않는다. 사용자 · 대화를 알 수 있는 값은 없다.
-//   hedged   유메가 확인하지 못한 사실(출처를 못 찾음) → 밤사이 더 깊게 다시 찾아 확인된 사실 저장소에 넣는다
-//   fixed    유메가 출처로 바로잡은 사실 → 무엇을 자주 틀리는지(분야별) 통계
-//   reported 사용자가 '틀렸어요'로 신고했고 운영자가 맞다고 본 것 → 유메가 놓친 것. 다시 확인해 배우거나, 대표 검토로
+//   hedged   베리라인이 확인하지 못한 사실(출처를 못 찾음) → 밤사이 더 깊게 다시 찾아 확인된 사실 저장소에 넣는다
+//   fixed    베리라인이 출처로 바로잡은 사실 → 무엇을 자주 틀리는지(분야별) 통계
+//   reported 사용자가 '틀렸어요'로 신고했고 운영자가 맞다고 본 것 → 베리라인이 놓친 것. 다시 확인해 배우거나, 대표 검토로
 // 보내는 쪽이 learn: true 로 요청했을 때만 남긴다(미르미는 사용자가 설정에서 끌 수 있고, 비밀 수첩은 보내지 않는다).
 import crypto from "node:crypto";
 import { all, one, run } from "./db.js";
@@ -56,7 +56,7 @@ export async function recordSignals(verification = {}, { client = "", now = Date
   return n;
 }
 
-/** 사용자가 신고하고 운영자가 맞다고 본 오류(유메가 놓친 것). */
+/** 사용자가 신고하고 운영자가 맞다고 본 오류(베리라인이 놓친 것). */
 export async function recordReport({ quote = "", claim = "", correct = "", url = "", note = "", field = "general" } = {}, { client = "", now = Date.now() } = {}) {
   const text = String(claim || quote).trim();
   if (!usable(text)) return { skipped: true, reason: "문장이 너무 짧거나 길거나, 개인정보로 보이는 부분이 있어요" };
@@ -67,7 +67,7 @@ export async function recordReport({ quote = "", claim = "", correct = "", url =
 /**
  * 밤사이 재확인 — 많이 나온 '확인 안 됨' · 신고된 문장을 더 깊게(한울 수준 검색) 다시 확인한다.
  * 확인되면(확인됨 · 틀림) 확인된 사실 저장소에 넣는다 → 다음에 같은 사실이 오면 바로 판정된다.
- * 신고된 문장을 유메가 '확인됨'이라고 보면(사용자와 엇갈림) 대표 검토로 남긴다.
+ * 신고된 문장을 베리라인이 '확인됨'이라고 보면(사용자와 엇갈림) 대표 검토로 남긴다.
  */
 export async function recheckOpen({ limit = 10, now = Date.now(), check = checkEverydayFacts, save = saveFacts } = {}) {
   const rows = await all(

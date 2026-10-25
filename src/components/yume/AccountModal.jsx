@@ -18,15 +18,15 @@ const TABS = [
 ];
 
 const field = {
-  width: "100%", padding: "9px 12px", borderRadius: 10, border: "1px solid #D4BEF0",
+  width: "100%", padding: "9px 12px", borderRadius: 10, border: "1px solid #C9D8FF",
   margin: "5px 0 12px", fontSize: 13.5, boxSizing: "border-box", fontFamily: "inherit",
 };
-const lbl = { fontSize: 12, color: "#6E6389", fontWeight: 600 };
+const lbl = { fontSize: 12, color: "#4F5A72", fontWeight: 600 };
 const primaryBtn = (disabled) => ({
-  padding: "9px 16px", borderRadius: 10, border: "none", background: "#5B3FA0",
+  padding: "9px 16px", borderRadius: 10, border: "none", background: "#2F6BFF",
   color: "#fff", fontSize: 13, fontWeight: 600, cursor: disabled ? "default" : "pointer", opacity: disabled ? 0.6 : 1,
 });
-const ghostBtn = { padding: "8px 14px", borderRadius: 999, border: "1px solid #D4BEF0", background: "#fff", color: "#6B4FA8", fontSize: 12.5, fontWeight: 600, cursor: "pointer" };
+const ghostBtn = { padding: "8px 14px", borderRadius: 999, border: "1px solid #C9D8FF", background: "#fff", color: "#2F6BFF", fontSize: 12.5, fontWeight: 600, cursor: "pointer" };
 const fmt = (ts) => (ts ? new Date(ts).toLocaleDateString("ko-KR", { year: "numeric", month: "short", day: "numeric" }) : "-");
 
 function Status({ msg }) {
@@ -52,24 +52,24 @@ function ProfileTab({ user, usage, onUserChange }) {
     <>
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
         <div style={{ flex: 1, minWidth: 150, background: "#F7F1FE", borderRadius: 12, padding: "12px 14px" }}>
-          <div style={{ fontSize: 11.5, color: "#8577A8", fontWeight: 600 }}>{t("이용 등급")}</div>
+          <div style={{ fontSize: 11.5, color: "#7B87A1", fontWeight: 600 }}>{t("이용 등급")}</div>
           <div style={{ fontSize: 17, fontWeight: 700, color: "#3B3159" }}>{user.planLabel}</div>
-          {user.planExpiresAt && <div style={{ fontSize: 11.5, color: "#A99BC9" }}>{fmt(user.planExpiresAt)}까지</div>}
+          {user.planExpiresAt && <div style={{ fontSize: 11.5, color: "#9AA6BF" }}>{fmt(user.planExpiresAt)}까지</div>}
         </div>
         {usage && (
           <div style={{ flex: 1, minWidth: 150, background: "#F7F1FE", borderRadius: 12, padding: "12px 14px" }}>
-            <div style={{ fontSize: 11.5, color: "#8577A8", fontWeight: 600 }}>{t("오늘 남은 확인")}</div>
+            <div style={{ fontSize: 11.5, color: "#7B87A1", fontWeight: 600 }}>{t("오늘 남은 확인")}</div>
             <div style={{ fontSize: 17, fontWeight: 700, color: "#3B3159" }}>{usage.remainingFree} / {usage.dailyLimit}회</div>
-            {usage.tokens > 0 && <div style={{ fontSize: 11.5, color: "#A99BC9" }}>추가 토큰 {usage.tokens}개</div>}
+            {usage.tokens > 0 && <div style={{ fontSize: 11.5, color: "#9AA6BF" }}>추가 토큰 {usage.tokens}개</div>}
           </div>
         )}
       </div>
       <Status msg={msg} />
       <label style={lbl}>{t("이메일")}</label>
-      <input value={user.email} disabled style={{ ...field, background: "#F7F5FA", color: "#8577A8" }} />
+      <input value={user.email} disabled style={{ ...field, background: "#F7F5FA", color: "#7B87A1" }} />
       <label style={lbl}>{t("이름")}</label>
       <input value={name} onChange={(e) => setName(e.target.value)} maxLength={40} style={field} />
-      <label style={lbl}>{t("회사")} <span style={{ color: "#B6A9D6", fontWeight: 400 }}>{t("(API·비즈니스 이용 시)")}</span></label>
+      <label style={lbl}>{t("회사")} <span style={{ color: "#AEB9D1", fontWeight: 400 }}>{t("(API·비즈니스 이용 시)")}</span></label>
       <input value={company} onChange={(e) => setCompany(e.target.value)} maxLength={80} style={field} />
       <button onClick={save} style={primaryBtn(false)}>{t("저장")}</button>
     </>
@@ -113,9 +113,9 @@ function ApiTab() {
 
   return (
     <>
-      <p style={{ fontSize: 12.5, color: "#8577A8", lineHeight: 1.7, margin: "0 0 14px" }}>
-        자사 서비스의 AI 답변을 사용자에게 보여주기 전에 유메로 확인할 수 있어요. 키는 서버에서만 쓰세요.{" "}
-        <a href="/docs/api" target="_blank" rel="noreferrer" style={{ color: "#6B4FA8", fontWeight: 600 }}>{t("API 문서 보기 →")}</a>
+      <p style={{ fontSize: 12.5, color: "#7B87A1", lineHeight: 1.7, margin: "0 0 14px" }}>
+        자사 서비스의 AI 답변을 사용자에게 보여주기 전에 베리라인으로 확인할 수 있어요. 키는 서버에서만 쓰세요.{" "}
+        <a href="/docs/api" target="_blank" rel="noreferrer" style={{ color: "#2F6BFF", fontWeight: 600 }}>{t("API 문서 보기 →")}</a>
       </p>
       <Status msg={msg} />
       {created && (
@@ -137,20 +137,20 @@ function ApiTab() {
         <button onClick={create} style={primaryBtn(false)}>{t("새 키 발급")}</button>
       </div>
       {keys === null ? (
-        <div style={{ fontSize: 12.5, color: "#B6A9D6" }}>{t("불러오는 중…")}</div>
+        <div style={{ fontSize: 12.5, color: "#AEB9D1" }}>{t("불러오는 중…")}</div>
       ) : keys.length === 0 ? (
-        <div style={{ fontSize: 12.5, color: "#B6A9D6" }}>{t("아직 발급한 키가 없어요.")}</div>
+        <div style={{ fontSize: 12.5, color: "#AEB9D1" }}>{t("아직 발급한 키가 없어요.")}</div>
       ) : (
         keys.map((k) => (
-          <div key={k.id} style={{ border: "1px solid #EDE3FA", borderRadius: 12, padding: "11px 13px", marginBottom: 8, opacity: k.status === "active" ? 1 : 0.55 }}>
+          <div key={k.id} style={{ border: "1px solid #E8EFFF", borderRadius: 12, padding: "11px 13px", marginBottom: 8, opacity: k.status === "active" ? 1 : 0.55 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
               <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 13.5, fontWeight: 700, color: "#241F33" }}>{k.label} {k.status !== "active" && <span style={{ fontSize: 11, color: "#C6402F" }}>{t("폐기됨")}</span>}</div>
-                <div style={{ fontSize: 11.5, color: "#8577A8", fontFamily: "ui-monospace, monospace" }}>{k.maskedKey}</div>
+                <div style={{ fontSize: 13.5, fontWeight: 700, color: "#121827" }}>{k.label} {k.status !== "active" && <span style={{ fontSize: 11, color: "#C6402F" }}>{t("폐기됨")}</span>}</div>
+                <div style={{ fontSize: 11.5, color: "#7B87A1", fontFamily: "ui-monospace, monospace" }}>{k.maskedKey}</div>
               </div>
               {k.status === "active" && <button onClick={() => revoke(k.id)} style={{ ...ghostBtn, color: "#C6402F", borderColor: "#F0BCB0" }}>{t("폐기")}</button>}
             </div>
-            <div style={{ fontSize: 11.5, color: "#A99BC9", marginTop: 6 }}>
+            <div style={{ fontSize: 11.5, color: "#9AA6BF", marginTop: 6 }}>
               이번 달 {k.usedThisMonth.toLocaleString()} / {k.monthlyQuota.toLocaleString()}회{k.trialShared ? " (체험 · 계정 전체)" : ""} · 분당 {k.ratePerMin}회 · 발급 {fmt(k.createdAt)} · 최근 사용 {fmt(k.lastUsedAt)}
             </div>
           </div>
@@ -174,29 +174,29 @@ function DataTab({ user, onUserChange }) {
   return (
     <>
       <Status msg={msg} />
-      <div style={{ border: "1px solid #EDE3FA", borderRadius: 12, padding: "14px 16px", marginBottom: 14 }}>
+      <div style={{ border: "1px solid #E8EFFF", borderRadius: 12, padding: "14px 16px", marginBottom: 14 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
           <div>
-            <div style={{ fontSize: 13.5, fontWeight: 700, color: "#241F33" }}>{t("가명처리한 검증 데이터 제공 [선택]")}</div>
-            <div style={{ fontSize: 12, color: "#8577A8", lineHeight: 1.65, marginTop: 4 }}>
-              동의하면 유메가 추출한 주장·판정·근거가 이름·연락처 등을 가린 형태로 AI 연구·개선을 위한 데이터셋에 포함될 수 있어요. 입력 원문과 이메일·IP는 절대 포함되지 않아요.
+            <div style={{ fontSize: 13.5, fontWeight: 700, color: "#121827" }}>{t("가명처리한 검증 데이터 제공 [선택]")}</div>
+            <div style={{ fontSize: 12, color: "#7B87A1", lineHeight: 1.65, marginTop: 4 }}>
+              동의하면 베리라인이 추출한 주장·판정·근거가 이름·연락처 등을 가린 형태로 AI 연구·개선을 위한 데이터셋에 포함될 수 있어요. 입력 원문과 이메일·IP는 절대 포함되지 않아요.
             </div>
           </div>
           <button onClick={toggle} role="switch" aria-checked={user.dataConsent} style={{
             flexShrink: 0, width: 46, height: 26, borderRadius: 999, border: "none", cursor: "pointer", position: "relative",
-            background: user.dataConsent ? "#6B4FA8" : "#DCD3EA", transition: "background 0.2s",
+            background: user.dataConsent ? "#2F6BFF" : "#DCD3EA", transition: "background 0.2s",
           }}>
             <span style={{ position: "absolute", top: 3, left: user.dataConsent ? 23 : 3, width: 20, height: 20, borderRadius: 999, background: "#fff", transition: "left 0.2s" }} />
           </button>
         </div>
       </div>
-      <div style={{ border: "1px solid #EDE3FA", borderRadius: 12, padding: "14px 16px" }}>
-        <div style={{ fontSize: 13.5, fontWeight: 700, color: "#241F33" }}>{t("내 데이터 내려받기")}</div>
-        <div style={{ fontSize: 12, color: "#8577A8", lineHeight: 1.65, margin: "4px 0 10px" }}>{t("계정 정보·동의 내역·검증 기록·대화·API 키 목록을 JSON 파일로 받아요.")}</div>
+      <div style={{ border: "1px solid #E8EFFF", borderRadius: 12, padding: "14px 16px" }}>
+        <div style={{ fontSize: 13.5, fontWeight: 700, color: "#121827" }}>{t("내 데이터 내려받기")}</div>
+        <div style={{ fontSize: 12, color: "#7B87A1", lineHeight: 1.65, margin: "4px 0 10px" }}>{t("계정 정보·동의 내역·검증 기록·대화·API 키 목록을 JSON 파일로 받아요.")}</div>
         <a href="/api/account/export" style={{ ...ghostBtn, display: "inline-block", textDecoration: "none" }}>{t("JSON으로 내려받기")}</a>
       </div>
-      <p style={{ fontSize: 11.5, color: "#A99BC9", marginTop: 12 }}>
-        자세한 내용은 <a href="/privacy" target="_blank" rel="noreferrer" style={{ color: "#8577A8" }}>{t("개인정보처리방침")}</a>을 확인하세요.
+      <p style={{ fontSize: 11.5, color: "#9AA6BF", marginTop: 12 }}>
+        자세한 내용은 <a href="/privacy" target="_blank" rel="noreferrer" style={{ color: "#7B87A1" }}>{t("개인정보처리방침")}</a>을 확인하세요.
       </p>
     </>
   );
@@ -222,14 +222,14 @@ function SecurityTab({ onLoggedOut }) {
     if (!window.confirm("탈퇴하면 검증 기록·API 키를 포함한 모든 정보가 바로 삭제되고 되돌릴 수 없어요. 탈퇴할까요?")) return;
     try {
       await apiJson("/api/account", { method: "DELETE", body: { password: delPw } });
-      onLoggedOut("탈퇴가 완료됐어요. 그동안 유메를 이용해주셔서 감사합니다.");
+      onLoggedOut("탈퇴가 완료됐어요. 그동안 베리라인을 이용해주셔서 감사합니다.");
     } catch (e) {
       setDelMsg({ type: "err", text: e.message });
     }
   };
   return (
     <>
-      <div style={{ fontSize: 13.5, fontWeight: 700, color: "#241F33", marginBottom: 8 }}>{t("비밀번호 변경")}</div>
+      <div style={{ fontSize: 13.5, fontWeight: 700, color: "#121827", marginBottom: 8 }}>{t("비밀번호 변경")}</div>
       <Status msg={msg} />
       <label style={lbl}>{t("현재 비밀번호")}</label>
       <input type="password" autoComplete="current-password" value={current} onChange={(e) => setCurrent(e.target.value)} style={field} />
@@ -239,7 +239,7 @@ function SecurityTab({ onLoggedOut }) {
 
       <div style={{ borderTop: "1px solid #F1EAFB", margin: "24px 0 16px" }} />
       <div style={{ fontSize: 13.5, fontWeight: 700, color: "#C6402F", marginBottom: 6 }}>{t("회원 탈퇴")}</div>
-      <div style={{ fontSize: 12, color: "#8577A8", lineHeight: 1.65, marginBottom: 10 }}>{t("계정과 검증 기록, API 키, 대화 기록이 지체 없이 파기돼요.")}</div>
+      <div style={{ fontSize: 12, color: "#7B87A1", lineHeight: 1.65, marginBottom: 10 }}>{t("계정과 검증 기록, API 키, 대화 기록이 지체 없이 파기돼요.")}</div>
       <Status msg={delMsg} />
       <div style={{ display: "flex", gap: 8 }}>
         <input type="password" placeholder={t("비밀번호 확인")} value={delPw} onChange={(e) => setDelPw(e.target.value)} style={{ ...field, margin: 0, flex: 1 }} />
@@ -253,22 +253,22 @@ export default function AccountModal({ user, usage, initialTab = "profile", onCl
   const [tab, setTab] = useState(initialTab);
   return (
     <div onClick={onClose} style={{
-      position: "fixed", inset: 0, background: "rgba(75,55,120,0.28)", display: "flex",
+      position: "fixed", inset: 0, background: "rgba(40, 60, 110,0.28)", display: "flex",
       alignItems: "flex-start", justifyContent: "center", zIndex: 60, backdropFilter: "blur(2px)", padding: "6vh 16px", overflowY: "auto",
     }}>
       <motion.div
         onClick={(e) => e.stopPropagation()}
         initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}
-        style={{ width: tab === "batch" || tab === "docs" ? "min(860px, 100%)" : "min(560px, 100%)", background: "#fff", borderRadius: 20, padding: 28, boxShadow: "0 20px 60px rgba(75,55,120,0.22)", position: "relative" }}
+        style={{ width: tab === "batch" || tab === "docs" ? "min(860px, 100%)" : "min(560px, 100%)", background: "#fff", borderRadius: 20, padding: 28, boxShadow: "0 20px 60px rgba(40, 60, 110,0.22)", position: "relative" }}
       >
-        <button onClick={onClose} aria-label={t("닫기")} style={{ position: "absolute", top: 14, right: 16, border: "none", background: "transparent", color: "#9C8FC2", fontSize: 18, cursor: "pointer" }}>×</button>
+        <button onClick={onClose} aria-label={t("닫기")} style={{ position: "absolute", top: 14, right: 16, border: "none", background: "transparent", color: "#8A97B3", fontSize: 18, cursor: "pointer" }}>×</button>
         <div style={{ fontSize: 19, fontWeight: 700, marginBottom: 2 }}>{t("계정 설정")}</div>
-        <div style={{ fontSize: 12.5, color: "#A99BC9", marginBottom: 16 }}>{user.email}</div>
-        <div style={{ display: "flex", gap: 4, borderBottom: "1px solid #EDE3FA", marginBottom: 18, overflowX: "auto", overflowY: "hidden" }}>
+        <div style={{ fontSize: 12.5, color: "#9AA6BF", marginBottom: 16 }}>{user.email}</div>
+        <div style={{ display: "flex", gap: 4, borderBottom: "1px solid #E8EFFF", marginBottom: 18, overflowX: "auto", overflowY: "hidden" }}>
           {TABS.map(([id, name]) => (
             <button key={id} onClick={() => setTab(id)} style={{
               border: "none", background: "transparent", padding: "8px 12px", fontSize: 13, fontWeight: 600, cursor: "pointer",
-              color: tab === id ? "#241F33" : "#B6A9D6", borderBottom: tab === id ? "2px solid #241F33" : "2px solid transparent", marginBottom: -1, whiteSpace: "nowrap",
+              color: tab === id ? "#121827" : "#AEB9D1", borderBottom: tab === id ? "2px solid #121827" : "2px solid transparent", marginBottom: -1, whiteSpace: "nowrap",
             }}>{name}</button>
           ))}
         </div>

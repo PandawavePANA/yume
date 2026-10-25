@@ -39,3 +39,4 @@ android/keystore.properties
 extension*.zip
 .tmp-shots-profile/
 .tmp-brand/
+dist-artifact/

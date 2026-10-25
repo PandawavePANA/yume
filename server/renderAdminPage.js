@@ -1,5 +1,5 @@
 // 운영자 대시보드(/admin). 이 HTML은 빈 틀과 스크립트만 담고, 데이터는 관리자 세션으로
-// /api/admin/*를 호출해 채운다. 로그인은 일반 유메 계정과 같고 role=admin만 통과한다
+// /api/admin/*를 호출해 채운다. 로그인은 일반 베리라인 계정과 같고 role=admin만 통과한다
 // (ADMIN_EMAILS 환경변수에 적힌 이메일로 가입·로그인하면 관리자 권한이 붙는다).
 export function renderAdminPage() {
   return `<!doctype html>
@@ -8,7 +8,7 @@ export function renderAdminPage() {
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta name="robots" content="noindex, nofollow" />
-<title>유메 운영 대시보드</title>
+<title>베리라인 운영 대시보드</title>
 <style>
   * { box-sizing: border-box; }
   body { margin: 0; font-family: -apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI','Noto Sans KR',sans-serif; background: #F6F1FC; color: #241F33; word-break: keep-all; }
@@ -65,8 +65,8 @@ export function renderAdminPage() {
 </head>
 <body>
 <div id="gate" hidden>
-  <div style="font-size:17px;font-weight:800;margin-bottom:4px;">유메 운영 대시보드</div>
-  <div class="muted" style="margin-bottom:14px;">관리자 권한이 있는 유메 계정으로 로그인하세요.</div>
+  <div style="font-size:17px;font-weight:800;margin-bottom:4px;">베리라인 운영 대시보드</div>
+  <div class="muted" style="margin-bottom:14px;">관리자 권한이 있는 베리라인 계정으로 로그인하세요.</div>
   <input id="gEmail" type="email" placeholder="이메일" autocomplete="username" />
   <input id="gPw" type="password" placeholder="비밀번호" autocomplete="current-password" />
   <button class="btn primary" id="gBtn">로그인</button>
@@ -75,7 +75,7 @@ export function renderAdminPage() {
 
 <div class="shell" id="app" hidden>
   <aside>
-    <div class="brand">YUME 운영<small>DB 대시보드</small></div>
+    <div class="brand">VERILINE 운영<small>DB 대시보드</small></div>
     <div class="nav" id="nav"></div>
     <div class="who" id="who"></div>
   </aside>
@@ -394,7 +394,7 @@ async function renderCredits() {
   $("main").innerHTML = '<h1>크레딧</h1><div class="sub">제보 보상 · 상품 교환 · 친구 추천. 승인하면 그 자리에서 크레딧이 지급됩니다.</div>' +
     '<div class="grid">' +
       kpi("검토 대기 제보", n(s.bounty.pending)) +
-      kpi("검토 대기 정정", n(s.correction ? s.correction.pending : 0), "유메 판정이 틀렸다는 신고") +
+      kpi("검토 대기 정정", n(s.correction ? s.correction.pending : 0), "베리라인 판정이 틀렸다는 신고") +
       kpi("미사용 크레딧", n(s.outstanding), "약 " + n(s.outstandingKrw) + "원 상당") +
       kpi("교환 처리 대기", n(s.pendingRedemptions)) +
     "</div>" +
@@ -411,8 +411,8 @@ async function renderCredits() {
     }).join("") : '<tr><td colspan="7" class="empty">제보가 없어요.</td></tr>') + "</tbody></table></div></div>" +
 
     '<div class="panel"><h2>판정 정정 검토' + (cpend.length ? " (" + cpend.length + ")" : "") + "</h2>" +
-    '<div class="muted" style="margin-bottom:10px;">유메가 틀렸다는 신고입니다. 근거를 직접 확인하고 받아들이세요 — 받아들이면 공헌도가 지급되고 <b>그 주장의 캐시가 지워집니다</b>(안 지우면 같은 주장이 다음 검증에서 같은 판정으로 또 나갑니다). 반려 사유는 신고자에게 그대로 보입니다.</div>' +
-    '<div class="tablewrap"><table><thead><tr><th>보낸 사람</th><th>주장</th><th>유메 판정 → 맞다는 판정</th><th>근거</th><th>상태</th><th></th></tr></thead><tbody>' +
+    '<div class="muted" style="margin-bottom:10px;">베리라인이 틀렸다는 신고입니다. 근거를 직접 확인하고 받아들이세요 — 받아들이면 공헌도가 지급되고 <b>그 주장의 캐시가 지워집니다</b>(안 지우면 같은 주장이 다음 검증에서 같은 판정으로 또 나갑니다). 반려 사유는 신고자에게 그대로 보입니다.</div>' +
+    '<div class="tablewrap"><table><thead><tr><th>보낸 사람</th><th>주장</th><th>베리라인 판정 → 맞다는 판정</th><th>근거</th><th>상태</th><th></th></tr></thead><tbody>' +
     ((d.corrections || []).length ? d.corrections.map(function (c) {
       return "<tr><td>" + esc(c.email) + "</td>" +
         "<td><b>" + esc(String(c.claim_text || "").slice(0, 70)) + "</b><div class=\\"muted\\">" + esc(String(c.yume_explanation || "").slice(0, 100)) + "</div></td>" +
@@ -480,7 +480,7 @@ async function renderChats() {
   document.querySelectorAll("tr[data-c]").forEach(function (tr) {
     tr.onclick = async function () {
       var m = await api("/api/admin/chats/" + encodeURIComponent(tr.getAttribute("data-c")));
-      modal('<h1 style="font-size:16px;">' + esc(tr.getAttribute("data-c")) + "</h1>" + m.messages.map(function (x) { return '<div class="bubble ' + (x.role === "user" ? "user" : "assistant") + '"><div class="muted">' + (x.role === "user" ? "사용자" : "유메") + " · " + t(x.created_at) + "</div>" + esc(x.content) + "</div>"; }).join(""));
+      modal('<h1 style="font-size:16px;">' + esc(tr.getAttribute("data-c")) + "</h1>" + m.messages.map(function (x) { return '<div class="bubble ' + (x.role === "user" ? "user" : "assistant") + '"><div class="muted">' + (x.role === "user" ? "사용자" : "베리라인") + " · " + t(x.created_at) + "</div>" + esc(x.content) + "</div>"; }).join(""));
     };
   });
 }

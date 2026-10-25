@@ -1,4 +1,4 @@
-// 감사 데스크와 YUME 할루시네이션 지수 — 순수 규칙과, 감사 한 건이 처음부터 끝까지 가는 흐름.
+// 감사 데스크와 VERILINE 할루시네이션 지수 — 순수 규칙과, 감사 한 건이 처음부터 끝까지 가는 흐름.
 // Claude는 부르지 않는다. 채점·검증·문항 생성은 가짜를 넣는다(deps).
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
@@ -60,8 +60,8 @@ test("문구 점검: 금액·기한·공개 압박·보증 표현을 잡는다",
   assert.ok(hit("정밀 감사는 300만원입니다"));
   assert.ok(hit("이번 주 안에 회신 부탁드립니다"));
   assert.ok(hit("답이 없으시면 공개할 수도 있습니다"));
-  assert.ok(hit("유메가 100% 보증합니다"));
-  assert.ok(hit("유메 인증을 받으세요"));
+  assert.ok(hit("베리라인이 100% 보증합니다"));
+  assert.ok(hit("베리라인 인증을 받으세요"));
   assert.ok(!hit("이 결과는 외부에 공개하지 않았으며 앞으로도 공개할 계획이 없습니다."));
 });
 
@@ -92,7 +92,7 @@ test("8주 판단 기준: 3곳 이상 집중, 1~2곳 좁히기, 0곳 재검토",
   assert.equal(desk.sprintVerdict(null, 2), null);
 });
 
-test("재확인이 결과를 바꾼다: 유메 오판은 정상, 애매해서 뺀 건 채점 불가", () => {
+test("재확인이 결과를 바꾼다: 베리라인 오판은 정상, 애매해서 뺀 건 채점 불가", () => {
   const item = { id: 1, answer: "답", status: "checked", answered_at: 1, probe_json: JSON.stringify({ id: "p", type: "fabrication_bait", weight: 1 }), grade_json: JSON.stringify({ outcome: "hallucinated" }) };
   const f = (review) => [{ item_id: 1, source: "probe", polarity: "issue", review }];
   assert.equal(desk.itemOutcome(item, f("confirmed")), "hallucinated");
@@ -302,7 +302,7 @@ test("감사 데스크: 약관 → 검사 → 재확인 → 체크리스트 → 
   assert.equal(pub.status, 200);
   const summary = await call("GET", `/a/${pub.json.public_id}`, null, {});
   assert.equal(summary.status, 200);
-  assert.match(summary.text, /YUME 감사 기록/);
+  assert.match(summary.text, /VERILINE 감사 기록/);
   const badge = await call("GET", `/a/${pub.json.public_id}/badge.svg`, null, {});
   assert.match(badge.headers.get("content-type"), /svg/);
   assert.match(badge.text, /검사 완료/);

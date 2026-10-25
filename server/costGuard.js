@@ -65,7 +65,7 @@ function maybeAlert(usd, cap) {
   sendMail({
     brand: "YUME",
     to,
-    subject: `[유메 운영] 오늘 AI 비용이 상한의 ${Math.round((usd / cap) * 100)}%입니다`,
+    subject: `[베리라인 운영] 오늘 AI 비용이 상한의 ${Math.round((usd / cap) * 100)}%입니다`,
     text: [
       `오늘(한국 시간) AI 비용 $${usd.toFixed(2)} (약 ${krw(usd)}) / 상한 $${cap} (약 ${krw(cap)})`,
       "상한에 닿으면 무료 확인이 내일 0시까지 멈춥니다. 크레딧 사용자와 API 고객은 계속 쓸 수 있습니다.",

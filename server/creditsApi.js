@@ -97,7 +97,7 @@ router.post("/bounty", limitMiddleware(bountyLimiter, (req) => `bounty:${req.use
   const { verificationId, claimIdx, platform, shareUrl, consent } = req.body || {};
   // 보상은 사실상 데이터를 사는 것이라, 데이터셋 활용 동의 없이는 받지 않는다
   // (dataset.js가 동의한 데이터만 반출하므로 동의 없이 받으면 쓸 수가 없다).
-  if (!consent) return res.status(400).json({ error: "제보한 내용을 유메가 데이터로 활용하는 데 동의해주세요." });
+  if (!consent) return res.status(400).json({ error: "제보한 내용을 베리라인이 데이터로 활용하는 데 동의해주세요." });
 
   const v = await getVerification(String(verificationId || ""));
   if (!v || v.user_id !== req.user.id) return res.status(404).json({ error: "검증 기록을 찾을 수 없어요." });
@@ -111,7 +111,7 @@ router.post("/bounty", limitMiddleware(bountyLimiter, (req) => `bounty:${req.use
   res.status(201).json({ bounty: { id: bounty.id, status: bounty.status, createdAt: bounty.created_at } });
 });
 
-// 판정 정정 — 유메가 틀렸다고 알려주는 문.
+// 판정 정정 — 베리라인이 틀렸다고 알려주는 문.
 //
 // 제보(/bounty)와 같은 모양이지만 대상이 반대다. 제보는 남의 AI가 지어낸 인용을
 // 넘겨주는 것이고, 이건 우리가 낸 판정이 틀렸다고 알려주는 것이다. 공유 링크는 받지
@@ -123,7 +123,7 @@ router.post("/corrections", limitMiddleware(correctionLimiter, (req) => `correct
     return res.status(403).json({ error: "제보 보상을 받으려면 휴대폰 본인확인을 먼저 마쳐주세요.", code: "IDENTITY_REQUIRED" });
   }
   const { verificationId, claimIdx, correctVerdict, evidenceUrl, note, consent } = req.body || {};
-  if (!consent) return res.status(400).json({ error: "보내주신 내용을 유메가 판정 개선에 쓰는 데 동의해주세요." });
+  if (!consent) return res.status(400).json({ error: "보내주신 내용을 베리라인이 판정 개선에 쓰는 데 동의해주세요." });
 
   const v = await getVerification(String(verificationId || ""));
   if (!v || v.user_id !== req.user.id) return res.status(404).json({ error: "검증 기록을 찾을 수 없어요." });
@@ -192,7 +192,7 @@ router.post("/checkout", limitMiddleware(checkoutLimiter, (req) => `checkout:${r
   if (req.body?.plan) return res.status(400).json({ error: "월 요금제 판매를 마쳤어요. 크레딧을 충전해서 이용해주세요.", code: "PLAN_DISCONTINUED" });
   const item = packItem(String(req.body?.packKey || ""));
   if (!item) return res.status(400).json({ error: "선택한 크레딧 팩을 찾을 수 없어요." });
-  const order = { kind: "credits", plan: null, key: item.key, credits: item.credits, amount: item.krw, name: `유메 ${item.label} 충전` };
+  const order = { kind: "credits", plan: null, key: item.key, credits: item.credits, amount: item.krw, name: `베리라인 ${item.label} 충전` };
 
   const paymentId = `yume-${Date.now()}-${crypto.randomBytes(6).toString("hex")}`;
   await run(

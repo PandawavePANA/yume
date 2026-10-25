@@ -26,7 +26,7 @@ const SEVERITY = {
 };
 
 const BASE_STYLE = `
-:root { --ink:#1D1A24; --ink2:#4A4458; --ink3:#8A829C; --line:#E4DCF0; --accent:#6B4FA8; --bad:#B4441C; --good:#2F7D5B; --paper:#FFFFFF; --bg:#F4F0F9; }
+:root { --ink:#0F1522; --ink2:#4A4458; --ink3:#8A829C; --line:#E4DCF0; --accent:#2F6BFF; --bad:#B4441C; --good:#2F7D5B; --paper:#FFFFFF; --bg:#F4F0F9; }
 * { box-sizing:border-box; }
 body { margin:0; background:var(--bg); color:var(--ink); font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Pretendard','Noto Sans KR','Malgun Gothic',sans-serif; word-break:keep-all; line-height:1.65; }
 a { color:var(--accent); }
@@ -354,7 +354,7 @@ body { margin:0; background:#EEEBF3; color:var(--ink); font-family:"Noto Sans KR
 a { color:var(--brand); }
 .bar { max-width:880px; margin:18px auto 0; padding:0 16px; display:flex; gap:10px; justify-content:flex-end; }
 .bar button, .bar a { font:inherit; font-size:13px; padding:8px 14px; border-radius:8px; border:1px solid var(--line); background:#fff; color:var(--ink); cursor:pointer; text-decoration:none; }
-.doc { max-width:880px; margin:14px auto 40px; background:#fff; border-radius:4px; box-shadow:0 12px 40px rgba(40,20,90,.10); overflow:hidden; }
+.doc { max-width:880px; margin:14px auto 40px; background:#fff; border-radius:4px; box-shadow:0 12px 40px rgba(20, 35, 80,.10); overflow:hidden; }
 .cover { background:#1B1430; color:#F3F0FA; padding:28px clamp(22px,5vw,48px) 26px; }
 .cover-top { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; font-size:11.5px; letter-spacing:.14em; font-weight:700; color:#BDB2DA; }
 .cover-top .cls { color:#FFB59A; border:1px solid #FFB59A; padding:2px 8px; border-radius:3px; letter-spacing:.1em; }
@@ -495,7 +495,7 @@ function nextSteps(detail, confirmed) {
   }
   const types = [...new Set(confirmed.map((f) => TYPE_LABEL[parseJson(detail.items.find((i) => Number(i.id) === Number(f.item_id))?.probe_json)?.type]).filter(Boolean))].slice(0, 3);
   if (confirmed.length) {
-    cards.push({ href: `${biz}/?quote=growth#pricing`, t: "답변이 나가기 전에 막기", d: `${types.length ? `이번에 확인된 유형(${types.join(" · ")})은` : "이번에 확인된 오류는"} 답변 생성과 고객 노출 사이에 유메 검증 API를 두면 원문과 대조해 걸러 냅니다.`, a: "API 견적서 받기 →" });
+    cards.push({ href: `${biz}/?quote=growth#pricing`, t: "답변이 나가기 전에 막기", d: `${types.length ? `이번에 확인된 유형(${types.join(" · ")})은` : "이번에 확인된 오류는"} 답변 생성과 고객 노출 사이에 베리라인 검증 API를 두면 원문과 대조해 걸러 냅니다.`, a: "API 견적서 받기 →" });
     cards.push({ href: `${biz}/?inquiry=audit_regular`, t: "고친 뒤 다시 재기", d: "같은 질문으로 다시 감사해 개선을 숫자로 확인합니다. 결과가 깨끗해지면 공개 감사 기록과 배지를 받으실 수 있습니다.", a: "재감사 문의 →" });
   } else {
     cards.push({ href: `${biz}/?inquiry=audit_regular`, t: "깨끗한 결과를 기록으로", d: "동의하시면 공개 감사 기록 페이지와 홈페이지 배지(90일 유효)를 드립니다. 분기마다 재감사해 기록을 이어 갑니다.", a: "정기 감사 문의 →" });
@@ -538,7 +538,7 @@ export function renderAuditReport(detail, { fileUrl = null, mode = "shared" } = 
 <div class="bar">${mode === "admin" ? `<a href="/admin/audits#${Number(audit.id)}">← 감사 데스크</a>` : ""}<button type="button" onclick="window.print()">PDF로 저장·인쇄</button></div>
 <div class="doc">
   <header class="cover">
-    <div class="cover-top"><span>YUME · AI HALLUCINATION AUDIT</span><span class="cls">비공개 · ${esc(audit.company)} 한정</span></div>
+    <div class="cover-top"><span>VERILINE · AI HALLUCINATION AUDIT</span><span class="cls">비공개 · ${esc(audit.company)} 한정</span></div>
     <h1>AI 할루시네이션 감사 보고서</h1>
     <p class="target">${esc(service)}</p>
     <dl class="meta">
@@ -591,7 +591,7 @@ export function renderAuditReport(detail, { fileUrl = null, mode = "shared" } = 
     <tr><th>판정 기준</th><td>원문으로 확인한 오류가 들어 있던 답변의 비율 — <b>위험</b> ${VERDICT_RULE.risk}% 이상 · <b>주의</b> ${VERDICT_RULE.caution}% 이상 · <b>양호</b> ${VERDICT_RULE.caution}% 미만. 치명 오류가 하나라도 있으면 양호로 두지 않습니다.</td></tr>
     <tr><th>위험도</th><td>${Object.values(SEVERITY_LEVELS).map((s) => `<b>${esc(s.label)}</b> ${esc(s.note)}`).join("<br />")}</td></tr>
     <tr><th>대상</th><td>${esc(service)}${audit.service_url ? ` · ${linkTo(audit.service_url, audit.service_url)}` : ""} <span class="muted">(${esc(method.basis)})</span></td></tr>
-    <tr><th>방법</th><td>${esc(method.report)}. 받은 답변을 공식 원문(법제처 국가법령정보·판례 데이터베이스 등)과 대조했고, 유메가 지목한 오류는 검토자가 원문을 직접 열어 다시 확인한 것만 남겼습니다.</td></tr>
+    <tr><th>방법</th><td>${esc(method.report)}. 받은 답변을 공식 원문(법제처 국가법령정보·판례 데이터베이스 등)과 대조했고, 베리라인이 지목한 오류는 검토자가 원문을 직접 열어 다시 확인한 것만 남겼습니다.</td></tr>
   </table>
   ${auditNumbers(results)}
   <ul class="plain" style="margin-top:12px">
@@ -601,21 +601,21 @@ export function renderAuditReport(detail, { fileUrl = null, mode = "shared" } = 
   </ul>
 
   <h2><span class="no">${no()}</span>비공개 고지</h2>
-  <p style="font-size:14px;margin:4px 0">이 보고서는 ${esc(audit.company)}에만 전달되었으며 외부에 공개되지 않았습니다. 유메는 이 결과를 공개할 계획이 없습니다.</p>
+  <p style="font-size:14px;margin:4px 0">이 보고서는 ${esc(audit.company)}에만 전달되었으며 외부에 공개되지 않았습니다. 베리라인은 이 결과를 공개할 계획이 없습니다.</p>
 
   <div class="foot">
-    감사: 유메(YUME) · ${esc(COMPANY.name)} · 대표 ${esc(COMPANY.ceo)} · ${esc(COMPANY.email)}<br />
-    유메는 감사 과정(주장 추출·채점 보조)에 생성형 AI를 사용합니다. 판정의 근거는 발견 사항마다 붙인 공식 원문입니다. 문서 ${esc(docNo(audit))} · 방법 ${esc(METHOD_VERSION)}.
+    감사: 베리라인(YUME) · ${esc(COMPANY.name)} · 대표 ${esc(COMPANY.ceo)} · ${esc(COMPANY.email)}<br />
+    베리라인은 감사 과정(주장 추출·채점 보조)에 생성형 AI를 사용합니다. 판정의 근거는 발견 사항마다 붙인 공식 원문입니다. 문서 ${esc(docNo(audit))} · 방법 ${esc(METHOD_VERSION)}.
   </div>
   </div>
 </div>`;
-  return reportShell(`AI 할루시네이션 감사 보고서 — ${service} · 유메`, body);
+  return reportShell(`AI 할루시네이션 감사 보고서 — ${service} · 베리라인`, body);
 }
 
 // ── 공개 감사 기록 ────────────────────────────────────────────────────
 export function renderAuditSummary(summary) {
   if (!summary) {
-    return shell("감사 기록 없음 · 유메", `<main class="sheet"><h1>감사 기록을 찾을 수 없습니다</h1><p class="sub">주소를 확인해 주세요. 공개 동의가 철회되었거나 유메가 발행하지 않은 기록일 수 있습니다.</p></main>`, { robots: "noindex" });
+    return shell("감사 기록 없음 · 베리라인", `<main class="sheet"><h1>감사 기록을 찾을 수 없습니다</h1><p class="sub">주소를 확인해 주세요. 공개 동의가 철회되었거나 베리라인이 발행하지 않은 기록일 수 있습니다.</p></main>`, { robots: "noindex" });
   }
   const { audit, results, expired, validUntil } = summary;
   const service = audit.service_name || audit.company;
@@ -624,9 +624,9 @@ export function renderAuditSummary(summary) {
   const status = expired
     ? `<span style="display:inline-block;padding:5px 12px;border-radius:999px;background:#9A8FB0;color:#fff;font-weight:800;font-size:13px">재검사 필요</span>`
     : `<span style="display:inline-block;padding:5px 12px;border-radius:999px;background:#2F7D5B;color:#fff;font-weight:800;font-size:13px">✓ 검사 기록 유효</span>`;
-  const embed = `<a href="https://www.yume-reamer.com/a/${esc(audit.public_id)}"><img src="https://www.yume-reamer.com/a/${esc(audit.public_id)}/badge.svg" alt="YUME 할루시네이션 감사 기록" height="30" /></a>`;
+  const embed = `<a href="https://www.yume-reamer.com/a/${esc(audit.public_id)}"><img src="https://www.yume-reamer.com/a/${esc(audit.public_id)}/badge.svg" alt="VERILINE 할루시네이션 감사 기록" height="30" /></a>`;
   const body = `<main class="sheet">
-  <div class="muted" style="font-weight:800;letter-spacing:.14em">YUME 감사 기록</div>
+  <div class="muted" style="font-weight:800;letter-spacing:.14em">VERILINE 감사 기록</div>
   <h1>${esc(service)}</h1>
   <p class="sub">${esc(audit.company)} · ${esc(CATEGORIES[audit.category] || "")} · ${esc(audit.domain)}</p>
   <div style="margin-top:12px">${status}</div>
@@ -635,19 +635,19 @@ export function renderAuditSummary(summary) {
     <tr><th>질문 수</th><td>${results.answered}개</td></tr>
     ${p && p.graded ? `<tr><th>기준 문항 결과</th><td>채점 ${p.graded}개 중 할루시네이션율 <b>${pct(p.index)}</b> <span class="muted">(95% 신뢰구간 ${pct(p.interval.low)}~${pct(p.interval.high)})</span></td></tr>` : ""}
     ${c.total ? `<tr><th>주장 대조</th><td>검사한 주장 ${c.total}개 — 원문과 일치 ${c.match} · 불일치 ${c.mismatch} · 확인 불가 ${c.unverifiable}</td></tr>` : ""}
-    <tr><th>오류 확정</th><td>유메가 지목한 항목을 검토자가 공식 원문으로 직접 재확인했습니다.</td></tr>
-    <tr><th>방법</th><td><a href="/hallucination-index#method">${esc(METHOD_VERSION)}</a> — YUME 할루시네이션 지수와 같은 방법</td></tr>
+    <tr><th>오류 확정</th><td>베리라인이 지목한 항목을 검토자가 공식 원문으로 직접 재확인했습니다.</td></tr>
+    <tr><th>방법</th><td><a href="/hallucination-index#method">${esc(METHOD_VERSION)}</a> — VERILINE 할루시네이션 지수와 같은 방법</td></tr>
     <tr><th>유효기간</th><td>${esc(kDate(validUntil))}까지 <span class="muted">(마지막 검사일부터 ${SUMMARY_VALID_DAYS}일)</span></td></tr>
     <tr><th>공개 동의</th><td>${esc(kDate(audit.consent_at))} · ${esc(audit.company)}</td></tr>
   </table>
-  <div class="note">이 기록은 위 기간에 표본으로 검사한 결과입니다. 서비스의 품질이나 앞으로의 답변을 보증하지 않습니다. AI의 답은 시점과 모델에 따라 달라질 수 있어, 유메는 ${SUMMARY_VALID_DAYS}일마다 다시 검사할 것을 권합니다.</div>
+  <div class="note">이 기록은 위 기간에 표본으로 검사한 결과입니다. 서비스의 품질이나 앞으로의 답변을 보증하지 않습니다. AI의 답은 시점과 모델에 따라 달라질 수 있어, 베리라인은 ${SUMMARY_VALID_DAYS}일마다 다시 검사할 것을 권합니다.</div>
   <h2>홈페이지에 붙이기</h2>
   <p class="sub">아래 코드를 붙이면 이 기록으로 연결되는 배지가 보입니다. 기간이 지나면 배지가 '재검사 필요'로 바뀝니다.</p>
   <pre style="background:#211A32;color:#E8E1FA;padding:12px 14px;border-radius:8px;overflow-x:auto;font-size:12px">${esc(embed)}</pre>
-  <p><img src="/a/${esc(audit.public_id)}/badge.svg" alt="YUME 할루시네이션 감사 기록 배지" height="30" /></p>
-  <div class="foot">유메(YUME)는 AI가 쓴 글의 근거를 공식 원문과 대조하는 AI 할루시네이션 검사 서비스입니다 · <a href="/hallucination-index">YUME 할루시네이션 지수</a> · <a href="/business">AI 감사 문의</a></div>
+  <p><img src="/a/${esc(audit.public_id)}/badge.svg" alt="VERILINE 할루시네이션 감사 기록 배지" height="30" /></p>
+  <div class="foot">베리라인(YUME)는 AI가 쓴 글의 근거를 공식 원문과 대조하는 AI 할루시네이션 검사 서비스입니다 · <a href="/hallucination-index">VERILINE 할루시네이션 지수</a> · <a href="/">AI 감사 문의</a></div>
 </main>`;
-  return shell(`${service} — YUME 감사 기록`, body, { robots: "index, follow" });
+  return shell(`${service} — VERILINE 감사 기록`, body, { robots: "index, follow" });
 }
 
 const escXml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&apos;" }[c]));
@@ -664,14 +664,14 @@ export function auditBadgeSvg(summary) {
   const left = 98;
   const right = Math.ceil(textWidth(label) + 22);
   const w = left + right;
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="30" viewBox="0 0 ${w} 30" role="img" aria-label="YUME 감사: ${escXml(label)}">
-<title>YUME 할루시네이션 감사: ${escXml(label)}</title>
-<rect width="${w}" height="30" rx="15" fill="#1F1B2E"/>
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="30" viewBox="0 0 ${w} 30" role="img" aria-label="VERILINE 감사: ${escXml(label)}">
+<title>VERILINE 할루시네이션 감사: ${escXml(label)}</title>
+<rect width="${w}" height="30" rx="15" fill="#0A0E17"/>
 <rect x="${left}" width="${right}" height="30" rx="15" fill="${color}"/>
 <rect x="${left}" width="15" height="30" fill="${color}"/>
-<circle cx="15" cy="15" r="9" fill="#A88BEA"/>
-<path d="M10.5 15.2l3 3 6-6.6" stroke="#1F1B2E" stroke-width="2.3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-<text x="30" y="19.5" fill="#fff" font-family="-apple-system,'Segoe UI','Noto Sans KR','Malgun Gothic',sans-serif" font-size="12.5" font-weight="700">YUME 감사</text>
+<circle cx="15" cy="15" r="9" fill="#8DB0FF"/>
+<path d="M10.5 15.2l3 3 6-6.6" stroke="#0A0E17" stroke-width="2.3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="30" y="19.5" fill="#fff" font-family="-apple-system,'Segoe UI','Noto Sans KR','Malgun Gothic',sans-serif" font-size="12.5" font-weight="700">VERILINE 감사</text>
 <text x="${left + right / 2}" y="19.5" fill="#fff" text-anchor="middle" font-family="-apple-system,'Segoe UI','Noto Sans KR','Malgun Gothic',sans-serif" font-size="12.5" font-weight="700">${escXml(label)}</text>
 </svg>`;
 }

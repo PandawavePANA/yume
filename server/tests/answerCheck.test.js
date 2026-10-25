@@ -59,7 +59,7 @@ test("고쳐 쓰기가 실패해도 틀린 답을 그대로 돌려주지 않는�
       },
     },
   });
-  assert.match(out.text, /유메 확인 — 바로잡을 곳/);
+  assert.match(out.text, /베리라인 확인 — 바로잡을 곳/);
   assert.equal(out.verification.revise_failed, true);
   assert.match(appendCorrections("a", { fixes: [], hedged: [{ quote: "x" }] }), /확인되지 않았어요/);
 });
@@ -272,4 +272,16 @@ test("판례 사건번호: 목록에 없는 사건은 '확인 안 됨'으로 고
   assert.match(lines, /찾지 못함/);
   assert.equal(r.verification.cases[0].found, false);
   assert.match(r.text, /확인되지 않았어요/);
+});
+
+test("첫 대답 점검: 확인을 구한 질문에 '네, 맞습니다'로 시작한 답에 틀린 곳이 있으면 그 첫 문장을 고쳐 쓰기에 넘긴다(2026-10-26 비교 시험)", async () => {
+  const { premiseCheck, openingSentence } = await import("../answerCheck.js");
+  const q = "근로시간 단축 신청 시기가 임신 12주 이내랑 36주 이후까지로 알고 있는데, 맞나요?";
+  const fix = [{ quote: "36주 이후" }];
+  assert.equal(premiseCheck(q, "네, 맞습니다. 다만 36주 이후부터 출산 전까지입니다.", fix), "네, 맞습니다.");
+  assert.equal(premiseCheck(q, "**네, 맞습니다.** 그리고", fix), "**네, 맞습니다.**");
+  assert.equal(premiseCheck(q, "아니요, 32주 이후입니다.", fix), null); // 이미 부정으로 시작
+  assert.equal(premiseCheck("연차는 며칠인가요?", "네, 15일입니다.", fix), null); // 확인을 구한 질문이 아님
+  assert.equal(premiseCheck(q, "네, 맞습니다.", []), null); // 틀린 곳이 없으면 건드리지 않음
+  assert.equal(openingSentence("거의 맞지만 두 가지는 정정이 필요합니다.\n\n- 공개 요건"), "거의 맞지만 두 가지는 정정이 필요합니다.");
 });

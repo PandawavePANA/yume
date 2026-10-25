@@ -4,7 +4,7 @@
 // 첫 메일은 언제나 대표 결재 후 발송한다. 발송 체크리스트의 "사람만 아는 세 줄"(손으로 물었는가, 애매한 걸 뺐는가,
 // 받는 사람이 담당자 개인인가)을 대표가 결재 문서에서 체크해야 나간다. 후속 메일은 자동 모드면 근무 시간에 바로 보낸다.
 //
-// 보내는 주소는 유메 도메인(MAIL_FROM_YUME)이어야 한다 — 인증 전에는 결재까지만 올리고 발송은 막는다.
+// 보내는 주소는 베리라인 도메인(MAIL_FROM_YUME)이어야 한다 — 인증 전에는 결재까지만 올리고 발송은 막는다.
 import { all } from "../../db.js";
 import { auditDetail, getSetting, lintCopy, markSent, MANUAL_CHECKS, setStage, shareReport, updateAudit } from "../../auditDesk.js";
 import { clientAuditMail } from "../../auditClientMail.js";
@@ -12,7 +12,7 @@ import { COMPANY } from "../../renderPages.js";
 
 export const base = () => (process.env.PUBLIC_BASE_URL || "https://www.yume-reamer.com").replace(/\/+$/, "");
 
-/** 첫 연락·후속 메일의 보내는 사람. 유메 도메인이 인증돼 있을 때만(아니면 null). */
+/** 첫 연락·후속 메일의 보내는 사람. 베리라인 도메인이 인증돼 있을 때만(아니면 null). */
 // 환경변수가 없으면, 대표 할 일 "메일 도메인 인증"을 끝낼 때 서버가 시험 발송으로 확인하고 저장해 둔 주소(todos.js)를 쓴다.
 let storedFrom = null;
 export async function loadOutreach() {
@@ -24,7 +24,7 @@ export function outreachFrom() {
   const m = /<([^>]+)>/.exec(raw);
   const addr = (m ? m[1] : raw).trim();
   if (!addr || !/yume-reamer\.com$/i.test(addr)) return storedFrom;
-  return process.env.MAIL_FROM_OUTREACH || `${COMPANY.ceo} (유메) <${addr}>`;
+  return process.env.MAIL_FROM_OUTREACH || `${COMPANY.ceo} (베리라인) <${addr}>`;
 }
 
 export const isPaidOrder = (a) => /유료 주문/.test(String(a.found_via || ""));
@@ -110,7 +110,7 @@ export async function run(ctx) {
 export async function sendFirst(payload, input = {}, deps = {}) {
   await loadOutreach();
   const from = outreachFrom();
-  if (!from) return { ok: false, result: "유메 메일 주소(yume-reamer.com) 인증 전이라 보낼 수 없어요. 도메인 인증 후 다시 승인해 주세요." };
+  if (!from) return { ok: false, result: "베리라인 메일 주소(yume-reamer.com) 인증 전이라 보낼 수 없어요. 도메인 인증 후 다시 승인해 주세요." };
   const checks = input.checks || {};
   const missing = MANUAL_CHECKS.filter((k) => !checks[k]);
   if (missing.length) return { ok: false, result: "결재 문서의 확인 세 줄을 모두 체크해 주세요." };
@@ -137,7 +137,7 @@ const htmlOf = (text) =>
 export async function sendFollowup(payload, input = {}, deps = {}) {
   await loadOutreach();
   const from = outreachFrom();
-  if (!from) return { ok: false, result: "유메 메일 주소 인증 전이라 보낼 수 없어요." };
+  if (!from) return { ok: false, result: "베리라인 메일 주소 인증 전이라 보낼 수 없어요." };
   const to = String(input.to || payload.to || "").trim();
   if (!to) return { ok: false, result: "받는 사람이 없어요." };
   await (deps.sendMail)({ from, to, replyTo: COMPANY.email, subject: payload.subject, text: payload.body, html: htmlOf(payload.body) });

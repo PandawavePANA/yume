@@ -5,7 +5,7 @@
 // 두 개인데 문이 두 개면, 한쪽 문만 잠그는 실수가 반드시 생긴다.
 //
 // 매출은 두 갈래를 나눠서 낸다. 외주는 실제로 받은 금액(paid_krw)만 합치고,
-// 유메 결제는 credit_orders에서 결제 완료된 것만 합친다. 계약 금액으로 매출을
+// 베리라인 결제는 credit_orders에서 결제 완료된 것만 합친다. 계약 금액으로 매출을
 // 세면 아직 받지 못한 돈이 매출로 잡혀, 보고 판단을 틀리게 만든다.
 import express from "express";
 import { patchAsync } from "./asyncExpress.js";
@@ -20,7 +20,7 @@ studioRouter.use(requireAdmin);
 // 자사 제품. 키를 코드에 고정해 두는 이유는, 이 넷은 사용자가 추가하는 것이
 // 아니라 회사가 운영하는 제품이어서다.
 export const PRODUCTS = [
-  { key: "yume", label: "유메", href: "https://www.yume-reamer.com/" },
+  { key: "yume", label: "베리라인", href: "https://www.yume-reamer.com/" },
   { key: "proba", label: "프로바", href: "https://proba.network/" },
   { key: "ballast", label: "밸러스트", href: "https://www.ballast-reamer.com/" },
   { key: "aipick", label: "아이픽", href: "https://www.aipick-reamer.com/" },
@@ -95,7 +95,7 @@ studioRouter.get("/studio", async (req, res) => {
     .filter((p) => p.status !== "dropped")
     .reduce((a, p) => a + Math.max(0, Number(p.amount_krw || 0) - Number(p.paid_krw || 0)), 0);
 
-  // 유메 자체 결제. 웹훅이 취소를 되돌리므로 paid만 센다.
+  // 베리라인 자체 결제. 웹훅이 취소를 되돌리므로 paid만 센다.
   const yume = await one(
     "SELECT COALESCE(SUM(amount), 0) AS krw, COUNT(*) AS n FROM credit_orders WHERE status = 'paid'",
   ).catch(() => ({ krw: 0, n: 0 }));

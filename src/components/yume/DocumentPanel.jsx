@@ -1,7 +1,7 @@
 // 문서 검사 — 개발자 없는 기업 실무자가 쓰는 화면.
 //
 // 보도자료·상품 설명서·약관·보고서를 통째로 올리면(DOCX·HWPX·PDF·TXT 또는 붙여넣기),
-// 유메가 문단 단위로 나눠 검사하고 원문에 틀린 곳을 표시한다. 기업이 결과를 받고 하는 일은
+// 베리라인이 문단 단위로 나눠 검사하고 원문에 틀린 곳을 표시한다. 기업이 결과를 받고 하는 일은
 // 결국 "그 문장을 고치는 것"이라, 고친 문장을 반영한 본문을 바로 내려받게 한다.
 //
 // 과금은 계정의 API 한도(기업 요금제)에서 조각 수만큼 빠진다(server/documentsWeb.js).
@@ -11,12 +11,12 @@ import { apiJson } from "./api.js";
 import { t } from "../../i18n.js";
 
 const UI = {
-  ink: "#141118",
-  ink2: "#54505E",
-  ink3: "#8B8694",
-  accent: "#5B3FA0",
-  line: "rgba(20, 17, 24, 0.10)",
-  soft: "#F5F2ED",
+  ink: "#0F1522",
+  ink2: "#4A5468",
+  ink3: "#8A93A6",
+  accent: "#2F6BFF",
+  line: "rgba(15, 21, 34, 0.10)",
+  soft: "#EEF2F7",
 };
 
 const VERDICT = {
@@ -97,7 +97,7 @@ function Annotated({ text, claims, active, onPick }) {
 const MARK_STATUS = {
   valid: { label: "검증됨", fg: "#2E7D56" },
   expired: { label: "재확인 필요", fg: "#B4690E" },
-  revoked: { label: "철회됨", fg: "#8B8694" },
+  revoked: { label: "철회됨", fg: "#8A93A6" },
 };
 
 async function copy(text) {
@@ -109,7 +109,7 @@ async function copy(text) {
   }
 }
 
-// YUME 검증 마크 — 모든 주장이 원문으로 확인된 문서에 발급한다(server/trustMarkRules.js).
+// VERILINE 검증 마크 — 모든 주장이 원문으로 확인된 문서에 발급한다(server/trustMarkRules.js).
 // 받을 수 없으면 무엇 때문인지 주장별로 보여 준다. 고친 본문으로 다시 검사하면 받을 수 있다.
 function MarkBox({ doc }) {
   const state = doc.mark;
@@ -134,11 +134,11 @@ function MarkBox({ doc }) {
     }
   }
 
-  const box = { marginTop: 18, borderRadius: 16, padding: "16px 18px", border: `1.5px solid ${state.ok ? "#BFE3CF" : UI.line}`, background: state.ok ? "#F5FBF7" : "#FBFAFD" };
+  const box = { marginTop: 18, borderRadius: 16, padding: "16px 18px", border: `1.5px solid ${state.ok ? "#BFE3CF" : UI.line}`, background: state.ok ? "#F5FBF7" : "#F7F9FC" };
   if (!state.ok) {
     return (
       <div style={box}>
-        <div style={{ fontSize: 14.5, fontWeight: 700, color: UI.ink }}>{t("YUME 검증 마크")}</div>
+        <div style={{ fontSize: 14.5, fontWeight: 700, color: UI.ink }}>{t("VERILINE 검증 마크")}</div>
         <div style={{ fontSize: 13, color: UI.ink2, lineHeight: 1.65, marginTop: 6 }}>{t(state.reason || "")}</div>
         {state.blockers?.length > 0 && (
           <ul style={{ margin: "8px 0 0", paddingLeft: 18, fontSize: 12.5, color: UI.ink2, lineHeight: 1.7 }}>
@@ -155,7 +155,7 @@ function MarkBox({ doc }) {
     <div style={box}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
         <span style={{ fontSize: 12, fontWeight: 800, color: "#fff", background: "#2E7D56", borderRadius: 999, padding: "4px 10px" }}>✓ {t("모두 사실로 확인")}</span>
-        <b style={{ fontSize: 14.5, color: UI.ink }}>{t("YUME 검증 마크를 받을 수 있어요")}</b>
+        <b style={{ fontSize: 14.5, color: UI.ink }}>{t("VERILINE 검증 마크를 받을 수 있어요")}</b>
       </div>
       <div style={{ fontSize: 13, color: UI.ink2, lineHeight: 1.65, marginTop: 8 }}>
         {t("홈페이지·보도자료에 마크를 붙이면 누구나 눌러서 주장별 근거 원문을 확인할 수 있어요. A4 검증서(PDF)도 함께 발급돼요. 유효기간은 90일이고, 글이 바뀌면 마크가 원문 변경됨으로 바뀌어요.")}
@@ -172,7 +172,7 @@ function MarkBox({ doc }) {
             <button onClick={async () => setMsg((await copy(mark.embed_html)) ? t("삽입 코드를 복사했어요.") : t("복사하지 못했어요."))} style={btn(false, false)}>{t("홈페이지 삽입 코드 복사")}</button>
             <button onClick={async () => setMsg((await copy(mark.badge_html)) ? t("배지 코드를 복사했어요.") : t("복사하지 못했어요."))} style={btn(false, false)}>{t("배지 이미지 코드 복사")}</button>
           </div>
-          <img src={mark.badge_url} alt="YUME 검증" height="30" style={{ display: "block", marginTop: 12 }} />
+          <img src={mark.badge_url} alt="VERILINE 검증" height="30" style={{ display: "block", marginTop: 12 }} />
           {!issued && state.existing && (
             <button onClick={issue} disabled={busy} style={{ ...btn(false, busy), marginTop: 12 }}>{busy ? t("갱신 중…") : t("이번 검사 결과로 마크 갱신 (주소 그대로)")}</button>
           )}
@@ -317,7 +317,7 @@ export default function DocumentPanel() {
       i + 1, VERDICT[c.verdict]?.label || c.verdict, c.quote || "", c.text, c.explanation || "", c.suggested_fix || "",
       (c.sources || []).map((s) => s.url || s.title).filter(Boolean).join(" "),
     ]);
-    download(`${base}_유메_검사결과.csv`, "﻿" + [head, ...body].map((r) => r.map(cell).join(",")).join("\r\n"), "text/csv;charset=utf-8");
+    download(`${base}_베리라인_검사결과.csv`, "﻿" + [head, ...body].map((r) => r.map(cell).join(",")).join("\r\n"), "text/csv;charset=utf-8");
   }
 
   return (
@@ -382,7 +382,7 @@ export default function DocumentPanel() {
         </button>
         {doc?.result && (
           <>
-            <button onClick={() => download(`${base}_유메_고친본문.txt`, doc.result.corrected_text, "text/plain;charset=utf-8")} style={btn(false, false)}>
+            <button onClick={() => download(`${base}_베리라인_고친본문.txt`, doc.result.corrected_text, "text/plain;charset=utf-8")} style={btn(false, false)}>
               {t("고친 본문 내려받기 ({n}곳 반영)", { n: doc.result.fixes_applied })}
             </button>
             <button onClick={downloadCsv} style={btn(false, false)}>{t("결과 CSV")}</button>

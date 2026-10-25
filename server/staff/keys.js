@@ -1,16 +1,16 @@
 // 키 넣는 칸 — 대표가 Railway에 못 들어갈 때 AI 본사 '할 일' 안에서 키를 넣는다(2026-10-16 대표).
 //
 // 대표가 넣은 값은 채팅·기록·화면 어디에도 남기지 않는다. 두 갈래로 간다:
-//   · 유메가 쓰는 키(포트원 V2 시크릿, 공공데이터 키) — 서버 비밀값으로 봉인(AES-256-GCM, threads.js sealToken)해
+//   · 베리라인이 쓰는 키(포트원 V2 시크릿, 공공데이터 키) — 서버 비밀값으로 봉인(AES-256-GCM, threads.js sealToken)해
 //     DB 설정에 두고, 서버가 켜질 때·저장할 때 process.env에 올린다.
-//   · 미르미가 쓰는 키(유메 API 키, 소셜 로그인 키, 검색 소유 확인) — HTTPS로 미르미의 키 보관함(/api/admin/secrets)에
+//   · 미르미가 쓰는 키(베리라인 API 키, 소셜 로그인 키, 검색 소유 확인) — HTTPS로 미르미의 키 보관함(/api/admin/secrets)에
 //     운영 토큰(MUGUNG_ADMIN_TOKEN)을 붙여 넘긴다. 미르미는 자기 암호 키로 다시 봉인해 저장하고 바로 쓴다.
 // Railway에 같은 이름의 값이 있으면 Railway 값이 우선이라, 여기서는 넣지 않는다.
 import { getSetting, setSetting } from "../auditDesk.js";
 import { openToken, sealToken } from "../threads.js";
 
 export const KEY_FIELDS = {
-  mugung_keys: [{ name: "YUME_API_KEY", label: "유메 API 키", target: "mugung", ph: "yume_live_로 시작" }],
+  mugung_keys: [{ name: "YUME_API_KEY", label: "베리라인 API 키", target: "mugung", ph: "yume_live_로 시작" }],
   portone_v2_secret: [{ name: "PORTONE_V2_API_SECRET", label: "포트원 V2 API 시크릿", target: "both", ph: "포트원 관리자 → 결제 연동 → V2 API" }],
   kakao_login: [
     { name: "KAKAO_REST_API_KEY", label: "REST API 키", target: "mugung" },
@@ -51,7 +51,7 @@ export const KEY_FIELDS = {
   mirmi_open_meteo: [{ name: "OPEN_METEO_KEY", label: "Open-Meteo API 키", target: "mugung" }],
   mirmi_play_console: [{ name: "ANDROID_CERT_SHA256", label: "앱 서명 키 SHA-256 지문", target: "mugung", ph: "AB:CD:… (두 글자씩 콜론, 32칸)" }],
   // 관리자 홈 비밀번호 — Railway 에 못 들어가도 여기서 바꾼다(10-20 대화에 노출). 저장하면 지금 로그인은 풀리고 새 비밀번호로 다시 들어온다.
-  // 10-23 Anthropic 키 교체(대표 "레일웨이 노출 때문에, 유메 할 일에 입력칸") — 유메 · 미르미 둘 다, Railway 값보다 우선
+  // 10-23 Anthropic 키 교체(대표 "레일웨이 노출 때문에, 베리라인 할 일에 입력칸") — 베리라인 · 미르미 둘 다, Railway 값보다 우선
   anthropic_key_1023: [{ name: "ANTHROPIC_API_KEY", label: "새 Anthropic API 키", target: "both", vaultWins: true, secret: true, ph: "sk-ant-api03-로 시작(console.anthropic.com → API Keys)" }],
   rotate_admin_pw_1020: [{ name: "ADMIN_PASSWORD", label: "새 관리자 홈 비밀번호(12자 이상)", target: "yume", vaultWins: true, minLen: 12, secret: true }],
 };
@@ -64,7 +64,7 @@ const fromRailway = new Set(YUME_NAMES.filter((n) => process.env[n] && !byName(n
 const settingKey = (n) => `secret:${n}`;
 const vaultLoaded = new Set();
 
-/** 서버가 켜질 때 — 봉인해 둔 유메 키를 환경에 올린다. */
+/** 서버가 켜질 때 — 봉인해 둔 베리라인 키를 환경에 올린다. */
 export async function loadYumeKeys() {
   let n = 0;
   for (const name of YUME_NAMES) {
@@ -83,7 +83,7 @@ export async function loadYumeKeys() {
 const mugungBase = () => (process.env.MUGUNG_URL || "https://xn--2w2b19bba.com").replace(/\/+$/, "");
 async function mugung(path, body, fetchImpl) {
   const token = process.env.MUGUNG_ADMIN_TOKEN || "";
-  if (!token) throw new Error("미르미 연결 값(MUGUNG_ADMIN_TOKEN)이 유메 서버에 없어요.");
+  if (!token) throw new Error("미르미 연결 값(MUGUNG_ADMIN_TOKEN)이 베리라인 서버에 없어요.");
   const r = await fetchImpl(`${mugungBase()}${path}`, {
     method: body ? "POST" : "GET",
     headers: { "Content-Type": "application/json", "x-admin-token": token },
@@ -127,7 +127,7 @@ export async function saveKey(name, value, { fetchImpl = fetch } = {}) {
     if (bad) return { error: bad };
   }
   if (f.target !== "mugung") {
-    if (fromRailway.has(f.name)) return { error: `Railway 유메 서비스에 ${f.name}이(가) 이미 있어요. Railway 값이 우선이에요.` };
+    if (fromRailway.has(f.name)) return { error: `Railway 베리라인 서비스에 ${f.name}이(가) 이미 있어요. Railway 값이 우선이에요.` };
     const sealed = sealToken(v);
     if (!sealed) return { error: "서버 비밀값이 없어 암호화할 수 없어요." };
     await setSetting(settingKey(f.name), sealed);

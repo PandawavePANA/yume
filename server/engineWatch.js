@@ -28,13 +28,13 @@ export function wireEngineAlerts() {
   onEngineState({
     down: (s) =>
       alert(
-        `[유메 긴급] 검사 엔진 멈춤 — ${s.code === "credit_exhausted" ? "Anthropic 잔액 소진" : "API 키 오류"}`,
+        `[베리라인 긴급] 검사 엔진 멈춤 — ${s.code === "credit_exhausted" ? "Anthropic 잔액 소진" : "API 키 오류"}`,
         [
           `${kst(s.since)}(한국 시간)부터 검사 엔진이 멈췄습니다.`,
           "",
           `조치: ${OPERATOR_NOTE[s.code] || ""}`,
           "",
-          "멈춘 동안 유메는 이렇게 동작합니다:",
+          "멈춘 동안 베리라인은 이렇게 동작합니다:",
           "· 크레딧 충전(카드 결제)을 받지 않습니다 — 돈을 받고 못 쓰는 일을 막습니다.",
           "· 웹 검사는 차감 없이 '잠시 후 다시' 안내를 보여 줍니다.",
           "· 기업 API는 과금하지 않는 503(engine_unavailable)을 돌려줍니다.",
@@ -46,7 +46,7 @@ export function wireEngineAlerts() {
       ),
     recover: (s) => {
       lastAlert.delete(`down:${s.code}`);
-      alert("[유메] 검사 엔진 회복", `${kst(Date.now())}(한국 시간) 검사 엔진이 다시 동작합니다. 멈춘 시각: ${kst(s.since)}. 결제와 검사가 다시 열렸습니다.`, null);
+      alert("[베리라인] 검사 엔진 회복", `${kst(Date.now())}(한국 시간) 검사 엔진이 다시 동작합니다. 멈춘 시각: ${kst(s.since)}. 결제와 검사가 다시 열렸습니다.`, null);
     },
   });
 }

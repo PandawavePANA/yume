@@ -164,7 +164,7 @@ test("현행 법령에서 못 찾은 법령명은 부존재 확실, 약칭형이
   assert.equal(buildNecReport({ identifier: checkStatute("근기법"), spaceKey: "statute_abbrev", coverage: abbr, weights: W }).grade, "unverifiable");
 });
 
-// 조문 표기에서 항 번호가 가지번호에 흡수되면, 사용자가 맞게 인용한 조문을 유메가
+// 조문 표기에서 항 번호가 가지번호에 흡수되면, 사용자가 맞게 인용한 조문을 베리라인이
 // 없는 조문으로 조회하고 "그런 조문이 없습니다"로 판정한다. 틀린 답보다 나쁘다 —
 // 맞는 말을 틀렸다고 하는 것이기 때문이다. 공백을 먼저 지우던 시절의 실제 버그다.
 test("띄어 쓴 항 번호가 가지번호에 붙지 않는다", () => {

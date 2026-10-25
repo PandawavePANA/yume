@@ -1,7 +1,7 @@
-// 판정 정정 — 유메가 틀렸다고 알려주는 문.
+// 판정 정정 — 베리라인이 틀렸다고 알려주는 문.
 //
 // 왜 이 문을 만들었는지가 곧 이 테스트가 지켜야 할 것이다. 어떤 사용자가 와인 평점 주장을
-// 검증했더니 유메가 "사실과 다름"을 붙였는데, 대충 검색해도 그 평점은 실재했다. 그런데
+// 검증했더니 베리라인이 "사실과 다름"을 붙였는데, 대충 검색해도 그 평점은 실재했다. 그런데
 // 그 사실을 우리에게 알릴 방법이 화면에 없었다.
 //
 // 그래서 가장 중요한 두 가지는 이것이다.
@@ -79,7 +79,7 @@ const signupBody = (email) => ({
   dataConsent: true,
 });
 
-// 사용자가 실제로 겪은 그 주장. 평점은 실재했는데 유메가 "사실과 다름"을 붙였다.
+// 사용자가 실제로 겪은 그 주장. 평점은 실재했는데 베리라인이 "사실과 다름"을 붙였다.
 const wineClaim = () => ({
   text: "이 와인은 Wine Enthusiast에서 88점을 받았다",
   domain: "일반",
@@ -219,7 +219,7 @@ test("근거 없는 정정, 같은 판정, 남의 검증은 받지 않는다", a
   assert.match(short.data.error, /적어주세요/);
 
   const same = await c("POST", "/api/corrections", { ...base_, correctVerdict: "false", note: "이건 정말로 사실과 다릅니다 확실합니다." });
-  assert.equal(same.status, 400, "유메가 낸 판정과 같으면 정정이 아니다");
+  assert.equal(same.status, 400, "베리라인이 낸 판정과 같으면 정정이 아니다");
 
   const badUrl = await c("POST", "/api/corrections", { ...base_, correctVerdict: "confirmed", evidenceUrl: "javascript:alert(1)", note: "근거는 여기 있습니다 확인해주세요." });
   assert.equal(badUrl.status, 400, "http(s)가 아닌 주소는 받지 않는다");

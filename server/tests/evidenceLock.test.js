@@ -1,4 +1,4 @@
-// 근거 잠금 — 유메가 단정하는 말은 근거 원문으로 떠받쳐져야 한다.
+// 근거 잠금 — 베리라인이 단정하는 말은 근거 원문으로 떠받쳐져야 한다.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { classifySource, htmlToText, lockEvidence, quoteCoverage } from "../evidenceLock.js";

@@ -39,7 +39,7 @@ export const MAX_INPUT_CHARS = 10_000;
 // '확인되지 않음'의 이유를 남긴다(resolveUncertain.js). 판정이 난 주장에는 붙이지 않는다.
 //   no_evidence  — 공개 자료 어디에도 뒷받침하는 근거가 없다(말한 쪽이 근거 없이 단정했다)
 //   not_public   — 비공개·유료·개인 경험처럼 공개 기록으로 확인할 수 없는 종류다
-//   check_failed — 공식 자료 조회 자체가 실패했다(유메 쪽 사정)
+//   check_failed — 공식 자료 조회 자체가 실패했다(베리라인 쪽 사정)
 function withUncertainReason(c) {
   if (c.verdict !== "uncertain") {
     const { uncertain_reason: _u, ...rest } = c;
@@ -116,12 +116,12 @@ async function processVerification({ id, text, source, onProgress = () => {}, on
       // 재확인이 만들어낸 판정도 같은 잣대로 다시 거른다(이미 강등된 건 건드리지 않는다).
       cs = cs.map(sanitizeClaim);
       // 마지막으로 "사실과 다름" 지목만 다시 본다. 맞는 정보를 거짓이라 부르는 게
-      // 유메가 낼 수 있는 가장 해로운 오류라, 여기에만 따로 비용을 쓴다.
+      // 베리라인이 낼 수 있는 가장 해로운 오류라, 여기에만 따로 비용을 쓴다.
       cs = await reviewAccusations(cs, { onProgress, ledger });
       // 근거 잠금: 웹·리서치 판정의 근거 문장을 출처 페이지에서 직접 확인하고, 처음 판정을 모르는
       // 검토자에게 다시 묻는다. 통과하지 못한 판정은 저장(캐시)되기 전에 여기서 거둔다.
       cs = await lockEvidence(cs, { onProgress, ledger, strict });
-      // 근거 잠금에서 거둔 판정은 "유메가 댄 근거가 가짜였다"는 뜻이지, 주장이 맞다는 뜻이 아니다.
+      // 근거 잠금에서 거둔 판정은 "베리라인이 댄 근거가 가짜였다"는 뜻이지, 주장이 맞다는 뜻이 아니다.
       // 그대로 '확인되지 않음'으로 두지 않고 부존재 검증을 한 번 더 태운다 — 사실이라면 기록이
       // 있어야 할 주장인데 진짜 근거가 어디에도 없으면, 그건 지어낸 것이다(사실과 다름).
       const lockedOut = cs.map((c, i) => ({ c, i })).filter(({ c }) => c.locked_out_verdict && c.verdict === "uncertain");

@@ -130,7 +130,7 @@ export default {
   "이미 처리된 신청이에요.": "That request was already handled.",
 
   // ── 제보 · 추천 ──
-  "제보한 내용을 유메가 데이터로 활용하는 데 동의해주세요.":
+  "제보한 내용을 베리라인이 데이터로 활용하는 데 동의해주세요.":
     "Please agree that Yume may use your report as research data.",
   "이미 접수된 인용이에요.": "That citation was already reported.",
   "제보를 찾을 수 없어요.": "That report couldn't be found.",
@@ -209,11 +209,11 @@ export default {
     "No consented data matches those filters.",
 
   // ── 판정 정정 ──
-  "보내주신 내용을 유메가 판정 개선에 쓰는 데 동의해주세요.":
-    "Please agree that YUME may use what you send to improve its verdicts.",
+  "보내주신 내용을 베리라인이 판정 개선에 쓰는 데 동의해주세요.":
+    "Please agree that VERILINE may use what you send to improve its verdicts.",
   "맞는 판정을 골라주세요.": "Pick the verdict you believe is right.",
-  "유메가 낸 판정과 같아요. 다른 판정이어야 정정이 됩니다.":
-    "That is the verdict YUME already gave. A correction has to differ from it.",
+  "베리라인이 낸 판정과 같아요. 다른 판정이어야 정정이 됩니다.":
+    "That is the verdict VERILINE already gave. A correction has to differ from it.",
   "근거 링크가 올바른 주소가 아니에요. 생략하고 설명만 적어주셔도 됩니다.":
     "That evidence link is not a valid address. You can leave it out and just describe the evidence.",
   "근거 링크는 http 또는 https 주소만 넣을 수 있어요.":

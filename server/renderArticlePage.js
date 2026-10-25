@@ -1,13 +1,13 @@
 // 공개 글 페이지 — /hallucination(허브), /hallucination/:slug(글), /hallucination-index/special-N(특별호 표지).
 //
-// 검색으로 들어오는 사람이 처음 보는 유메다. 그래서 서버에서 완성된 HTML을 내보낸다(자바스크립트 없이도
+// 검색으로 들어오는 사람이 처음 보는 베리라인다. 그래서 서버에서 완성된 HTML을 내보낸다(자바스크립트 없이도
 // 본문·제목·구조화 데이터가 다 있다). 틀은 지수 페이지(renderIndexPage.page)를 같이 쓴다 — 같은 출판물이다.
 import { esc } from "./renderPages.js";
 import { page } from "./renderIndexPage.js";
 import { ARTICLES, ARTICLE_BASE, HUB, PUBLISHED, SPECIAL_ISSUES, articlePath } from "./articles.js";
 
 const SITE = "https://www.yume-reamer.com";
-const ORG = { "@type": "Organization", name: "유메(YUME) · 리머(REAMER)", url: SITE, logo: `${SITE}/favicon.png` };
+const ORG = { "@type": "Organization", name: "베리라인(YUME) · 리머(REAMER)", url: SITE, logo: `${SITE}/favicon.png` };
 const kDate = (iso) => {
   const [y, m, d] = String(iso).split("-").map(Number);
   return `${y}년 ${m}월 ${d}일`;
@@ -58,8 +58,8 @@ function articleCard(slug, label) {
 
 function tryBox() {
   return `<aside class="try noprint"><h2>지금 가진 AI 답변, 원문으로 체크해 보세요</h2>
-<p>AI 답변을 통째로 붙여 넣으면 유메가 사실 주장을 하나씩 떼어 공식 원문과 대조합니다. 매일 무료 3회.</p>
-<div class="btns"><a class="btn" href="/">유메로 할루시네이션 체크</a><a class="btn alt" href="/business">기업용 · AI 감사</a></div></aside>`;
+<p>AI 답변을 통째로 붙여 넣으면 베리라인이 사실 주장을 하나씩 떼어 공식 원문과 대조합니다. 매일 무료 3회.</p>
+<div class="btns"><a class="btn" href="https://www.yume-reamer.com/">유메로 할루시네이션 체크</a><a class="btn alt" href="https://veriline.kr/">베리라인 기업용 · AI 감사</a></div></aside>`;
 }
 
 export function renderArticle(slug, { base = "" } = {}) {
@@ -81,7 +81,7 @@ export function renderArticle(slug, { base = "" } = {}) {
       author: ORG,
       publisher: ORG,
       mainEntityOfPage: `${SITE}${path}`,
-      isPartOf: { "@type": "PublicationIssue", name: `YUME 할루시네이션 지수 · ${issue.title}`, url: `${SITE}/hallucination-index/${issue.slug}` },
+      isPartOf: { "@type": "PublicationIssue", name: `VERILINE 할루시네이션 지수 · ${issue.title}`, url: `${SITE}/hallucination-index/${issue.slug}` },
       about: ["AI 할루시네이션", "AI 환각", "할루시네이션 체크"],
       image: `${SITE}/og-yume.png`,
     }),
@@ -89,20 +89,20 @@ export function renderArticle(slug, { base = "" } = {}) {
       "@context": "https://schema.org",
       "@type": "BreadcrumbList",
       itemListElement: [
-        { "@type": "ListItem", position: 1, name: "유메", item: SITE },
+        { "@type": "ListItem", position: 1, name: "베리라인", item: SITE },
         { "@type": "ListItem", position: 2, name: "AI 할루시네이션", item: `${SITE}${ARTICLE_BASE}` },
         { "@type": "ListItem", position: 3, name: a.title, item: `${SITE}${path}` },
       ],
     }),
   ].join("\n");
   const body = `
-<nav class="crumbs" aria-label="현재 위치"><a href="/">유메</a><span>›</span><a href="${ARTICLE_BASE}">AI 할루시네이션</a><span>›</span><a href="/hallucination-index/${issue.slug}">${esc(issue.title)}</a></nav>
+<nav class="crumbs" aria-label="현재 위치"><a href="/">베리라인</a><span>›</span><a href="${ARTICLE_BASE}">AI 할루시네이션</a><span>›</span><a href="/hallucination-index/${issue.slug}">${esc(issue.title)}</a></nav>
 <article class="art">
   <header class="art-head">
-    <div class="kicker">YUME 할루시네이션 지수 · ${esc(issue.title)}</div>
+    <div class="kicker">VERILINE 할루시네이션 지수 · ${esc(issue.title)}</div>
     <h1>${esc(a.title)}</h1>
     <p class="lede">${esc(a.lede)}</p>
-    <div class="art-meta"><span>유메(YUME)</span><span>${esc(kDate(a.updated || PUBLISHED))}</span><span>읽는 데 약 ${a.minutes}분</span></div>
+    <div class="art-meta"><span>베리라인(YUME)</span><span>${esc(kDate(a.updated || PUBLISHED))}</span><span>읽는 데 약 ${a.minutes}분</span></div>
   </header>
   <div class="art-body">${a.body}</div>
   ${tryBox()}
@@ -141,7 +141,7 @@ export function renderHub({ base = "" } = {}) {
       "@context": "https://schema.org",
       "@type": "BreadcrumbList",
       itemListElement: [
-        { "@type": "ListItem", position: 1, name: "유메", item: SITE },
+        { "@type": "ListItem", position: 1, name: "베리라인", item: SITE },
         { "@type": "ListItem", position: 2, name: "AI 할루시네이션", item: `${SITE}${path}` },
       ],
     }),
@@ -155,13 +155,13 @@ export function renderHub({ base = "" } = {}) {
     ["가짜 판례 판별", "못 찾았다고 곧 없다고 하지 않습니다. 탐색 커버리지·형식·근접도로 '없음'의 확신을 숫자로 냅니다.", "nonexistence"],
   ];
   const body = `
-<nav class="crumbs" aria-label="현재 위치"><a href="/">유메</a><span>›</span><span>AI 할루시네이션</span></nav>
+<nav class="crumbs" aria-label="현재 위치"><a href="/">베리라인</a><span>›</span><span>AI 할루시네이션</span></nav>
 <article class="art" style="max-width:820px">
   <header class="art-head">
-    <div class="kicker">총정리 · YUME 할루시네이션 지수</div>
+    <div class="kicker">총정리 · VERILINE 할루시네이션 지수</div>
     <h1>${esc(HUB.title)}</h1>
     <p class="lede">${esc(HUB.lede)}</p>
-    <div class="art-meta"><span>유메(YUME)</span><span>${esc(kDate(PUBLISHED))}</span></div>
+    <div class="art-meta"><span>베리라인(YUME)</span><span>${esc(kDate(PUBLISHED))}</span></div>
   </header>
   <div class="art-body">
     <h2>짧게 답하면</h2>
@@ -169,7 +169,7 @@ export function renderHub({ base = "" } = {}) {
   </div>
   ${SPECIAL_ISSUES.map((iss) => `<section style="padding-top:18px"><div class="kicker">${esc(iss.title)}</div><h2 style="margin-top:6px">${esc(iss.kicker)}</h2><p class="lede">${esc(iss.intro)}</p>
   <div class="issue-list">${iss.articles.map((s, i) => `<a href="${articlePath(s)}"><span class="n">${i + 1}</span><span><span class="t">${esc(ARTICLES[s].title)}</span><span class="d" style="display:block">${esc(ARTICLES[s].description)}</span></span></a>`).join("")}</div></section>`).join("")}
-  <section><h2>YUME 할루시네이션 지수</h2><p class="lede">AI가 근거 없이 지어내는 비율을 공식 원문으로 정답을 확정한 질문으로, 같은 방법을 써서 반복해 잽니다. 숫자마다 표본·신뢰구간·방법을 함께 싣고, 발행본에는 고칠 수 없는 지문을 붙입니다.</p>
+  <section><h2>VERILINE 할루시네이션 지수</h2><p class="lede">AI가 근거 없이 지어내는 비율을 공식 원문으로 정답을 확정한 질문으로, 같은 방법을 써서 반복해 잽니다. 숫자마다 표본·신뢰구간·방법을 함께 싣고, 발행본에는 고칠 수 없는 지문을 붙입니다.</p>
   <div class="btns"><a class="btn primary" href="/hallucination-index">지수 보기</a><a class="btn" href="/hallucination-index#method">측정 방법</a></div></section>
   <section class="faq"><h2>자주 묻는 질문</h2>${HUB.faq.map(([q, a]) => `<details><summary>${esc(q)}</summary><p>${esc(a)}</p></details>`).join("")}</section>
   ${tryBox()}
@@ -184,7 +184,7 @@ export function renderSpecialIssue(slug, { base = "" } = {}) {
   const head = ld({
     "@context": "https://schema.org",
     "@type": "PublicationIssue",
-    name: `YUME 할루시네이션 지수 · ${iss.title}`,
+    name: `VERILINE 할루시네이션 지수 · ${iss.title}`,
     issueNumber: `특별호 ${iss.no}`,
     datePublished: PUBLISHED,
     description: iss.description,
@@ -193,16 +193,16 @@ export function renderSpecialIssue(slug, { base = "" } = {}) {
   });
   const body = `
 <div class="mast">
-  <div class="kicker">YUME 할루시네이션 지수 · 특별호 ${iss.no} · ${esc(kDate(PUBLISHED))}</div>
+  <div class="kicker">VERILINE 할루시네이션 지수 · 특별호 ${iss.no} · ${esc(kDate(PUBLISHED))}</div>
   <h1>${esc(iss.title.replace(/^특별호 \d+ · /, ""))}</h1>
   <p class="sub">${esc(iss.kicker)}</p>
 </div>
 <section><p class="commentary" style="margin-top:0">${esc(iss.intro)}</p>
 <p class="muted">특별호는 측정 데이터 없이 쓰는 해설입니다. 숫자를 싣는 정기호와 구분합니다.</p>
 <div class="issue-list">${iss.articles.map((s, i) => `<a href="${articlePath(s)}"><span class="n">${i + 1}</span><span><span class="t">${esc(ARTICLES[s].title)}</span><span class="d" style="display:block">${esc(ARTICLES[s].lede)}</span></span></a>`).join("")}</div></section>
-<section style="border-bottom:0"><h2>다른 호</h2><div class="next">${SPECIAL_ISSUES.filter((x) => x.slug !== slug).map((x) => `<a href="/hallucination-index/${x.slug}"><div class="k">특별호 ${x.no}</div><div class="t">${esc(x.title.replace(/^특별호 \d+ · /, ""))}</div></a>`).join("")}<a href="/hallucination-index"><div class="k">정기호</div><div class="t">YUME 할루시네이션 지수 — 지난 호</div></a></div>
+<section style="border-bottom:0"><h2>다른 호</h2><div class="next">${SPECIAL_ISSUES.filter((x) => x.slug !== slug).map((x) => `<a href="/hallucination-index/${x.slug}"><div class="k">특별호 ${x.no}</div><div class="t">${esc(x.title.replace(/^특별호 \d+ · /, ""))}</div></a>`).join("")}<a href="/hallucination-index"><div class="k">정기호</div><div class="t">VERILINE 할루시네이션 지수 — 지난 호</div></a></div>
 ${tryBox()}</section>`;
-  return page({ title: `${iss.title} · YUME 할루시네이션 지수`, description: iss.description, path, body, base, head, style: STYLE });
+  return page({ title: `${iss.title} · VERILINE 할루시네이션 지수`, description: iss.description, path, body, base, head, style: STYLE });
 }
 
 // 사이트맵 — 정적 페이지 + 글 + 발행한 지수. 검색엔진이 새 글을 빨리 찾게 서버가 만든다.
@@ -214,7 +214,6 @@ export function sitemapXml(issues = []) {
     ["/hallucination-index", "weekly", "0.8", null],
     ...SPECIAL_ISSUES.map((s) => [`/hallucination-index/${s.slug}`, "monthly", "0.7", PUBLISHED]),
     ...issues.map((i) => [`/hallucination-index/${i.slug}`, "yearly", "0.7", new Date(Number(i.published_at)).toISOString().slice(0, 10)]),
-    ["/business", "monthly", "0.8", null],
     ["/products", "monthly", "0.6", null],
     ["/docs/api", "monthly", "0.6", null],
     ["/refund", "yearly", "0.3", null],

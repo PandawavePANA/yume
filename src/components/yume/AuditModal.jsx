@@ -1,7 +1,7 @@
 // 무료 할루시네이션 점검 — B2B 진입 화면.
 //
 // 자격 증명을 받지 않는 게 이 화면의 설계 전제다. 무료 진단을 받자고 사내 AI의 API 키를
-// 넘길 기업은 없다. 그래서 두 단계로 나눈다 — 유메가 문항을 주고, 기업이 자기 AI에
+// 넘길 기업은 없다. 그래서 두 단계로 나눈다 — 베리라인이 문항을 주고, 기업이 자기 AI에
 // 넣어본 답변을 붙여넣는다. 복사 한 번, 붙여넣기 한 번으로 끝나야 한다 — 문항별로 여덟 칸에
 // 나눠 넣게 했더니 "0 / 8"에서 멈췄다. 질문별로 나누는 일은 서버가 한다(server/audit/splitAnswers.js).
 import { useEffect, useState } from "react";
@@ -10,12 +10,12 @@ import { apiJson, apiUrl, safeUrl, CONTACT_EMAIL } from "./api.js";
 import { t } from "../../i18n.js";
 
 const UI = {
-  ink: "#1D1A24",
-  ink2: "#5E5870",
-  ink3: "#9A93AC",
-  accent: "#6B4FA8",
-  hairline: "rgba(60, 40, 110, 0.10)",
-  backdrop: "rgba(24, 16, 44, 0.32)",
+  ink: "#0F1522",
+  ink2: "#4A5468",
+  ink3: "#8A93A6",
+  accent: "#2F6BFF",
+  hairline: "rgba(30, 45, 90, 0.10)",
+  backdrop: "rgba(10, 14, 23, 0.32)",
 };
 
 const BAND = {
@@ -23,7 +23,7 @@ const BAND = {
   moderate: { fg: "#8A5A14", bg: "#FDF4E3", border: "#F0D98C" },
   elevated: { fg: "#B23B2B", bg: "#FDEFEC", border: "#EFC2B6" },
   severe: { fg: "#93261A", bg: "#FBE4E0", border: "#E8A99C" },
-  insufficient: { fg: "#5E5870", bg: "#F4F3F7", border: "#DCD9E4" },
+  insufficient: { fg: "#4A5468", bg: "#F4F3F7", border: "#DCD9E4" },
 };
 const MARK = {
   hallucinated: { glyph: "✕", fg: "#C6402F", label: "할루시네이션" },
@@ -146,7 +146,7 @@ export default function AuditModal({ onClose }) {
         onClick={(e) => e.stopPropagation()}
         style={{
           width: "min(720px, 100%)", maxHeight: "88vh", overflowY: "auto", background: "#fff",
-          borderRadius: 28, padding: "clamp(22px, 4vw, 40px)", boxShadow: "0 40px 100px rgba(24,16,44,0.28)",
+          borderRadius: 28, padding: "clamp(22px, 4vw, 40px)", boxShadow: "0 40px 100px rgba(10, 14, 23,0.28)",
         }}
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
@@ -195,11 +195,11 @@ function Intro({ domain, setDomain, subject, setSubject, busy, onStart }) {
   return (
     <>
       <p style={{ fontSize: 15, color: UI.ink2, lineHeight: 1.65, marginTop: 14 }}>
-        유메가 <b>{t("정답을 미리 아는 질문")}</b> 8개를 만들어 드립니다. 귀사에서 쓰는 AI에 그대로 넣어보고
+        베리라인이 <b>{t("정답을 미리 아는 질문")}</b> 8개를 만들어 드립니다. 귀사에서 쓰는 AI에 그대로 넣어보고
         답변을 붙여넣으면, 지어낸 답이 얼마나 나오는지 채점해 드립니다. <b>{t("가입도, API 키도 필요 없습니다.")}</b>
       </p>
 
-      <div style={{ marginTop: 18, padding: "16px 18px", borderRadius: 16, background: "#FBFAFD", border: `1px solid ${UI.hairline}` }}>
+      <div style={{ marginTop: 18, padding: "16px 18px", borderRadius: 16, background: "#F7F9FC", border: `1px solid ${UI.hairline}` }}>
         <div style={{ fontSize: 13, fontWeight: 700, color: UI.ink, marginBottom: 8 }}>{t("질문은 이렇게 만듭니다")}</div>
         <div style={{ fontSize: 13.5, color: UI.ink2, lineHeight: 1.7 }}>
           <b>{t("수치 하나가 틀린 자료로 고객 안내문 쓰기")}</b>, <b>{t("최근 개정된 현행 기준")}</b>, 고객이 내민 있을 법한 가짜 조문, 근거로 대라는 판례 번호처럼
@@ -218,7 +218,7 @@ function Intro({ domain, setDomain, subject, setSubject, busy, onStart }) {
               style={{
                 textAlign: "left", padding: "12px 14px", borderRadius: 14, cursor: "pointer",
                 border: `1px solid ${domain === d ? UI.accent : UI.hairline}`,
-                background: domain === d ? "rgba(139,111,216,0.08)" : "#fff",
+                background: domain === d ? "rgba(91, 140, 255,0.08)" : "#fff",
               }}
             >
               <div style={{ fontSize: 14.5, fontWeight: 600, color: domain === d ? UI.accent : UI.ink }}>{d}</div>
@@ -246,7 +246,7 @@ function Intro({ domain, setDomain, subject, setSubject, busy, onStart }) {
       </div>
       {/* 지수 집계에 쓰는 범위를 미리 말한다(hallucinationIndex.recordSelfAuditOutcomes). */}
       <div style={{ fontSize: 12.5, color: UI.ink3, marginTop: 8, lineHeight: 1.6 }}>
-        {t("채점 결과 중 업종·질문 유형·결과(정상/실패)만 익명으로 모아 YUME 할루시네이션 지수 통계에 씁니다. 점검 대상 이름과 답변 원문은 넣지 않습니다.")}{" "}
+        {t("채점 결과 중 업종·질문 유형·결과(정상/실패)만 익명으로 모아 VERILINE 할루시네이션 지수 통계에 씁니다. 점검 대상 이름과 답변 원문은 넣지 않습니다.")}{" "}
         <a href={apiUrl("/hallucination-index")} target="_blank" rel="noopener noreferrer" style={{ color: UI.accent }}>{t("지수 보기")}</a>
       </div>
     </>
@@ -264,7 +264,7 @@ function AnswerStep({ session, answerText, setAnswerText, busy, onGrade, copy, c
         {" "}{t("답변을 다듬거나 요약하지 마시고 원문 그대로 넣어주셔야 정확하게 채점됩니다.")}
       </p>
 
-      <div style={{ marginTop: 14, padding: "16px 18px", borderRadius: 16, background: "#FBFAFD", border: `1px solid ${UI.hairline}` }}>
+      <div style={{ marginTop: 14, padding: "16px 18px", borderRadius: 16, background: "#F7F9FC", border: `1px solid ${UI.hairline}` }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
           <div style={{ fontSize: 13.5, fontWeight: 700, color: UI.ink }}>{t("질문 {n}개", { n: session.probes.length })}</div>
           <button onClick={() => copy(copyAll, "all")} style={{ ...primaryBtn, padding: "9px 18px", fontSize: 13.5 }}>
@@ -300,7 +300,7 @@ function AnswerStep({ session, answerText, setAnswerText, busy, onGrade, copy, c
         <button onClick={onBack} disabled={busy} style={{ ...ghostBtn, padding: "12px 18px", fontSize: 14 }}>{t("처음으로")}</button>
       </div>
       <div style={{ fontSize: 12.5, color: UI.ink3, marginTop: 12, lineHeight: 1.6 }}>
-        {t("질문별로 나누는 건 유메가 합니다. 일부 질문에만 답했어도 채점되지만, 답한 질문이 적을수록 결과의 신뢰구간이 넓어집니다.")}
+        {t("질문별로 나누는 건 베리라인이 합니다. 일부 질문에만 답했어도 채점되지만, 답한 질문이 적을수록 결과의 신뢰구간이 넓어집니다.")}
       </div>
     </>
   );
@@ -333,7 +333,7 @@ function Result({ report, onRestart }) {
         {Object.entries(s.byType).map(([type, v]) => {
           const meta = report.method.types[type] || {};
           return (
-            <div key={type} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, padding: "12px 15px", borderRadius: 13, background: "#FBFAFD", border: `1px solid ${UI.hairline}` }}>
+            <div key={type} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, padding: "12px 15px", borderRadius: 13, background: "#F7F9FC", border: `1px solid ${UI.hairline}` }}>
               <div>
                 <div style={{ fontSize: 14, fontWeight: 600, color: UI.ink }}>{meta.label || type}</div>
                 <div style={{ fontSize: 12.5, color: UI.ink3, marginTop: 2 }}>{meta.meaning || ""}</div>
@@ -352,10 +352,10 @@ function Result({ report, onRestart }) {
       </div>
 
       {rec.recommend ? (
-        <div style={{ marginTop: 24, padding: 22, borderRadius: 18, background: "#1F1B2E", color: "#fff" }}>
+        <div style={{ marginTop: 24, padding: 22, borderRadius: 18, background: "#0A0E17", color: "#fff" }}>
           <div style={{ fontSize: 16.5, fontWeight: 700, marginBottom: 8 }}>{t("이 결과를 두고 드리는 제안")}</div>
-          <p style={{ margin: 0, fontSize: 14.5, color: "#CFC9DE", lineHeight: 1.65 }}>{rec.reason}</p>
-          <p style={{ margin: "10px 0 0", fontSize: 14.5, color: "#CFC9DE", lineHeight: 1.65 }}>{rec.fit}</p>
+          <p style={{ margin: 0, fontSize: 14.5, color: "#C8D0E0", lineHeight: 1.65 }}>{rec.reason}</p>
+          <p style={{ margin: "10px 0 0", fontSize: 14.5, color: "#C8D0E0", lineHeight: 1.65 }}>{rec.fit}</p>
 
           {/* 점수만 주고 끝내면 한 번 쓰고 마는 진단이 된다. 이 숫자가 실제로 몇 건을
               뜻하는지 보여 주고, 문서가 아니라 사람에게 연결한다 — 도입을 결정하는 쪽은
@@ -364,16 +364,16 @@ function Result({ report, onRestart }) {
             <div style={{ marginTop: 16, padding: "14px 16px", borderRadius: 14, background: "rgba(255,255,255,0.08)" }}>
               <div style={{ fontSize: 13.5, color: "#EDE9F6", lineHeight: 1.7 }}>
                 이 비율이면 답변 <b>1,000건마다 약 {Math.round(s.rate * 1000).toLocaleString()}건</b>이 지어낸 내용을 담고 나갑니다.
-                유메를 앞에 두면 그 자리에서 걸러지고, 근거가 없을 때는 없다고 답하게 됩니다.
+                베리라인을 앞에 두면 그 자리에서 걸러지고, 근거가 없을 때는 없다고 답하게 됩니다.
               </div>
             </div>
           )}
 
           <div style={{ display: "flex", gap: 10, marginTop: 16, flexWrap: "wrap" }}>
-            <a href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent("유메 도입 문의 — 할루시네이션 점검 결과")}&body=${encodeURIComponent(
+            <a href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent("베리라인 도입 문의 — 할루시네이션 점검 결과")}&body=${encodeURIComponent(
               `점검 결과를 보고 문의드립니다.\n\n할루시네이션 지수: ${s.index}/100 (${s.bandLabel})\n채점 문항: ${s.graded}개\n리포트: ${report.report_url ? apiUrl(report.report_url) : "(링크 없음)"}\n\n회사명:\n담당자:\n연락처:\n월 예상 검증 건수:\n`,
             )}`}
-              style={{ display: "inline-block", background: "#fff", color: "#1F1B2E", textDecoration: "none", borderRadius: 999, padding: "11px 22px", fontWeight: 700, fontSize: 14.5 }}>
+              style={{ display: "inline-block", background: "#fff", color: "#0A0E17", textDecoration: "none", borderRadius: 999, padding: "11px 22px", fontWeight: 700, fontSize: 14.5 }}>
               도입 상담 요청하기 →
             </a>
             <a href={apiUrl("/docs/api")} target="_blank" rel="noopener noreferrer"
@@ -386,8 +386,8 @@ function Result({ report, onRestart }) {
           </div>
         </div>
       ) : (
-        <div style={{ marginTop: 24, padding: 20, borderRadius: 16, background: "#FBFAFD", border: `1px solid ${UI.hairline}`, color: UI.ink2 }}>
-          <b style={{ color: UI.ink }}>{t("이번 점검에서는 유메를 권하지 않습니다.")}</b>
+        <div style={{ marginTop: 24, padding: 20, borderRadius: 16, background: "#F7F9FC", border: `1px solid ${UI.hairline}`, color: UI.ink2 }}>
+          <b style={{ color: UI.ink }}>{t("이번 점검에서는 베리라인을 권하지 않습니다.")}</b>
           <p style={{ margin: "8px 0 0", fontSize: 14, lineHeight: 1.65 }}>{rec.reason}</p>
           {rec.note && <p style={{ margin: "8px 0 0", fontSize: 14, lineHeight: 1.65 }}>{rec.note}</p>}
         </div>
@@ -432,7 +432,7 @@ function ResultItem({ r }) {
 
       {(x.aiSaid || x.fact) && (
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
-          <div style={box(failed ? "#FFF7F5" : "#FBFAFD", failed ? "#F3D5CE" : UI.hairline)}>
+          <div style={box(failed ? "#FFF7F5" : "#F7F9FC", failed ? "#F3D5CE" : UI.hairline)}>
             <div style={{ ...cap, color: failed ? m.fg : UI.ink3 }}>{t("AI가 한 말")}</div>
             <div style={{ fontSize: 13.5, color: UI.ink, lineHeight: 1.6 }}>{x.aiSaid || "—"}</div>
             {x.quote && x.quote !== x.aiSaid && (

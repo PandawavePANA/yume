@@ -30,7 +30,7 @@ export async function run(ctx) {
     await ctx.propose({
       kind: "field_offline",
       title: `현장 요원(PC)이 꺼져 있어요 — 답 수집 대기 ${queued.length}건`,
-      summary: `${queued.map((q) => q.company).join(", ")}의 답 수집이 기다리고 있습니다. PC를 켜면 시작프로그램으로 현장 요원이 자동으로 뜹니다(또는 바탕화면 '유메 현장요원 시작').\n마지막 연결: ${hb.at ? new Date(hb.at + 9 * 3600_000).toISOString().slice(5, 16).replace("T", " ") : "없음"}`,
+      summary: `${queued.map((q) => q.company).join(", ")}의 답 수집이 기다리고 있습니다. PC를 켜면 시작프로그램으로 현장 요원이 자동으로 뜹니다(또는 바탕화면 '베리라인 현장요원 시작').\n마지막 연결: ${hb.at ? new Date(hb.at + 9 * 3600_000).toISOString().slice(5, 16).replace("T", " ") : "없음"}`,
       payload: { count: queued.length },
       dedupe: `field_offline:${day}`,
     });

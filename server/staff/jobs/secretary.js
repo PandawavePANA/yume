@@ -51,7 +51,7 @@ export async function briefing(at = Date.now(), roster = {}) {
     "",
     `결재함: ${base()}/admin/staff`,
   ].filter((l) => l !== null);
-  return { subject: `[유메 아침 브리핑] 할 일 ${todoList.length} · 결재 ${approvals.length} · 감사 ${w.now.length} · 입금 대기 ${w.pay.length}`, text: lines.join("\n") };
+  return { subject: `[베리라인 아침 브리핑] 할 일 ${todoList.length} · 결재 ${approvals.length} · 감사 ${w.now.length} · 입금 대기 ${w.pay.length}`, text: lines.join("\n") };
 }
 
 export async function run(ctx) {

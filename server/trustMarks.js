@@ -1,4 +1,4 @@
-// YUME 검증 마크 — 발급·갱신·철회·조회. 규칙은 trustMarkRules.js, 공개 화면은 renderMarkPage.js.
+// VERILINE 검증 마크 — 발급·갱신·철회·조회. 규칙은 trustMarkRules.js, 공개 화면은 renderMarkPage.js.
 //
 // 발급은 문서 검사(documents.js) 결과로만 한다. 웹 화면과 API(/v1/documents/:id/mark)가
 // 같은 함수를 부른다. 같은 계정이 같은 글(원문 지문이 같은 글)로 다시 발급하면 새 마크를 만들지
@@ -37,7 +37,7 @@ export function publicMark(row, base = markBase()) {
     // 원문을 감싼 요소의 글자를 지문과 대조해, 글이 바뀌면 "원문 변경됨"으로 바꿔 보여 준다.
     embed_html: `<div data-yume-mark="${row.id}">\n  <!-- 검증받은 글을 이 안에 그대로 두세요 -->\n</div>\n<script src="${base}/v/embed.js" async></script>`,
     // 스크립트를 쓸 수 없는 곳(블로그·메일·PDF)용. 상태만 보여 주고 원문 변경은 감지하지 못한다.
-    badge_html: `<a href="${url}" target="_blank" rel="noopener"><img src="${url}/badge.svg" alt="YUME 검증" height="30"></a>`,
+    badge_html: `<a href="${url}" target="_blank" rel="noopener"><img src="${url}/badge.svg" alt="VERILINE 검증" height="30"></a>`,
   };
 }
 

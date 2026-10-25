@@ -70,7 +70,7 @@ export async function run(ctx) {
     await ctx.propose({
       kind: "review_findings",
       title: `재확인 결재 — ${a.company} 오류 후보 ${list.length}건 (확정 권고 ${c})`,
-      summary: `QA가 공식 원문과 다시 대조했습니다. 확정 권고 ${c} · 제외 ${list.filter((x) => x.qa === "excluded").length} · 유메 오판 ${list.filter((x) => x.qa === "yume_wrong").length}. 원문 링크를 열어 보고 항목별로 바꿀 수 있습니다.`,
+      summary: `QA가 공식 원문과 다시 대조했습니다. 확정 권고 ${c} · 제외 ${list.filter((x) => x.qa === "excluded").length} · 베리라인 오판 ${list.filter((x) => x.qa === "yume_wrong").length}. 원문 링크를 열어 보고 항목별로 바꿀 수 있습니다.`,
       payload: { auditId: Number(a.id), items: list },
       ref: `audit:${a.id}`,
       dedupe,
@@ -95,5 +95,5 @@ export async function apply(payload, input = {}) {
     if (r.error) out.failed += 1;
     else out[v] += 1;
   }
-  return { ok: out.failed === 0, result: `확정 ${out.confirmed} · 제외 ${out.excluded} · 유메 오판 ${out.yume_wrong}${out.failed ? ` · 실패 ${out.failed}` : ""}` };
+  return { ok: out.failed === 0, result: `확정 ${out.confirmed} · 제외 ${out.excluded} · 베리라인 오판 ${out.yume_wrong}${out.failed ? ` · 실패 ${out.failed}` : ""}` };
 }

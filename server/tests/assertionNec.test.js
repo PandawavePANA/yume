@@ -1,7 +1,7 @@
-// 일반 사실 주장의 부존재 검증 — 유메의 출발점.
+// 일반 사실 주장의 부존재 검증 — 베리라인의 출발점.
 //
 // 공식 기록과 웹을 다 뒤졌는데 없는데 AI가 확언했다면 틀린 쪽은 AI다. "못 찾았다"는
-// 유메의 실패가 아니라 유메가 내놓는 답이다. 다만 아무 때나 그렇게 말하면 안 된다 —
+// 베리라인의 실패가 아니라 베리라인이 내놓는 답이다. 다만 아무 때나 그렇게 말하면 안 된다 —
 // 애초에 기록이 남지 않는 주장(비공개 매출, 개인 경험)은 못 찾는 게 당연하기 때문이다.
 // 그 경계를 기록 가능성(recordedness)과 탐색 충실도로 가른다.
 import test from "node:test";
@@ -111,7 +111,7 @@ test("집계·통계 주장은 모델이 '주체 못 찾음'을 내도 부존재
   assert.equal(out.verdict, "false");
   assert.equal(out.verified_via, "nec");
   // 이름이 특정된 주체 하나에 관한 주장은 여전히 보호한다.
-  const [one] = await run(claim({ text: "대구 달성군의 리머는 2026년 9월 유메를 출시했다" }), report({ recordedness: "reported", subjectFound: false }));
+  const [one] = await run(claim({ text: "대구 달성군의 리머는 2026년 9월 베리라인을 출시했다" }), report({ recordedness: "reported", subjectFound: false }));
   assert.equal(one.verdict, "uncertain");
   assert.equal(one.uncertain_reason, "not_public");
 });

@@ -1,7 +1,7 @@
 // 할루시네이션 감사 채점 — 외부 호출 없이 점수 산출과 제안 로직만 본다.
 //
-// 이 도구는 남의 제품에 "거짓말을 한다"고 말하는 물건이다. 근거가 허술하면 유메가
-// 비판하는 과신을 유메가 저지르는 셈이 된다. 그래서 표본이 작을 때의 불확실성을
+// 이 도구는 남의 제품에 "거짓말을 한다"고 말하는 물건이다. 근거가 허술하면 베리라인이
+// 비판하는 과신을 베리라인이 저지르는 셈이 된다. 그래서 표본이 작을 때의 불확실성을
 // 결과에 반드시 싣고, 멀쩡한 AI에는 영업하지 않는다.
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -79,7 +79,7 @@ test("실패가 잦으면 어느 유형이 문제인지 짚어서 권한다", ()
   // 화면에 내부 코드(fabrication_bait)가 아니라 사람이 읽는 이름이 나가야 한다.
   assert.match(rec.reason, /부존재 미끼/);
   assert.doesNotMatch(rec.reason, /fabrication_bait/);
-  assert.ok(rec.fit.includes("유메 API"));
+  assert.ok(rec.fit.includes("베리라인 API"));
 });
 
 test("채점된 문항이 없으면 판단도 영업도 하지 않는다", () => {

@@ -82,11 +82,19 @@ app.disable("x-powered-by");
 // 미리 한 곳으로 모아 둔다.
 const CANONICAL_HOST = process.env.CANONICAL_HOST || "www.yume-reamer.com";
 const APEX_HOST = CANONICAL_HOST.replace(/^www\./, "");
+// 2026-10-26 대표: 새로 산 veriline.kr = 베리라인 기업용 메인, yume-reamer.com = 유메 개인용(B2C).
+// 같은 서버가 두 주소를 받고, 첫 화면만 주소에 따라 다르다. www.veriline.kr · veriline.co.kr은 veriline.kr 하나로 모은다.
+const VERILINE_HOST = (process.env.VERILINE_HOST || "veriline.kr").toLowerCase();
+const VERILINE_ALIASES = new Set([`www.${VERILINE_HOST}`, "veriline.co.kr", "www.veriline.co.kr"]);
+const PERSONAL_ORIGIN = `https://${CANONICAL_HOST}`;
+const hostOf = (req) => String(req.hostname || "").toLowerCase();
+const isLocalHost = (req) => /^(localhost|127\.0\.0\.1|\[::1\])$/.test(hostOf(req));
 app.use((req, res, next) => {
   // trust proxy가 켜져 있어 req.hostname은 프록시가 붙인 X-Forwarded-Host를 따른다.
-  const host = String(req.hostname || "").toLowerCase();
-  if (host !== APEX_HOST) return next();
-  return res.redirect(301, `https://${CANONICAL_HOST}${req.originalUrl}`);
+  const host = hostOf(req);
+  if (host === APEX_HOST) return res.redirect(301, `https://${CANONICAL_HOST}${req.originalUrl}`);
+  if (VERILINE_ALIASES.has(host)) return res.redirect(301, `https://${VERILINE_HOST}${req.originalUrl}`);
+  return next();
 });
 app.use(securityHeaders);
 // 오류·안내 문구를 사용자의 언어로 내보낸다. 라우터보다 앞에 붙어야 모든 응답을 덮는다.
@@ -107,7 +115,7 @@ app.use((req, res, next) => (BIG_BODY.test(req.path) ? next() : jsonBody(req, re
 
 // 외부 개발자용 공개 API — 자체 CORS·키 인증을 쓰므로 쿠키 세션 미들웨어보다 먼저 붙인다.
 app.use("/v1", apiV1Router);
-// MCP — ChatGPT·클로드가 유메를 도구로 부르는 자리. /v1과 같은 키를 쓰므로 같은 칸에 둔다.
+// MCP — ChatGPT·클로드가 베리라인을 도구로 부르는 자리. /v1과 같은 키를 쓰므로 같은 칸에 둔다.
 app.use(mcpRouter);
 
 // 무료 할루시네이션 점검 — 기업용 사이트(별도 도메인)에서 부르므로 자체 CORS를 쓴다.
@@ -427,14 +435,14 @@ app.use("/api", (req, res) => res.status(404).json({ error: "존재하지 않는
 // ── 서버 렌더링 페이지 ──
 const html = (res, body) => res.set("Content-Type", "text/html; charset=utf-8").send(body);
 // 관리자 화면. 들어갈 자격이 없으면 화면 대신 비밀번호를 묻는다.
-// 유메 관리자 계정으로 로그인해 있으면 그대로 통과한다.
+// 베리라인 관리자 계정으로 로그인해 있으면 그대로 통과한다.
 const adminPage = (render) => (req, res) => {
   res.set("Cache-Control", "no-store").set("X-Robots-Tag", "noindex, nofollow");
   const allowed = req.user?.role === "admin" || hasAdminCookie(req);
   html(res, allowed ? render() : renderLoginPage(req.path));
 };
 // attachUser는 /api에만 붙어 있어서 이 경로에서는 req.user가 비어 있다. 여기서
-// 직접 붙여야 유메 관리자 계정으로 로그인한 사람이 비밀번호를 또 묻지 않는다.
+// 직접 붙여야 베리라인 관리자 계정으로 로그인한 사람이 비밀번호를 또 묻지 않는다.
 app.get("/admin", attachUser, adminPage(renderAdminPage));
 app.get("/admin/studio", attachUser, adminPage(renderStudioPage));
 app.get("/admin/desk", attachUser, adminPage(renderDeskPage));
@@ -475,7 +483,7 @@ app.get("/admin/audits/:id/report", attachUser, async (req, res) => {
 // 제품별 운영 화면. 화면 코드는 하나이고 제품 키만 다르다.
 app.get("/admin/p/:key", attachUser, (req, res) => {
   const page = renderProductPage(String(req.params.key));
-  // next()로 흘려보내면 SPA 폴백이 유메 화면을 200으로 돌려준다. 관리자 경로에서
+  // next()로 흘려보내면 SPA 폴백이 베리라인 화면을 200으로 돌려준다. 관리자 경로에서
   // 오타를 쳤는데 제품 화면 대신 앱이 뜨면 무엇이 잘못됐는지 알 수 없다.
   if (!page) return res.status(404).type("text/plain; charset=utf-8").send("그런 제품이 없어요.");
   return adminPage(() => page)(req, res);
@@ -488,7 +496,7 @@ app.get("/extension-privacy", (req, res) => html(res, renderExtensionPrivacyPage
 app.get("/refund", (req, res) => html(res, renderRefundPage()));
 app.get("/products", (req, res) => html(res, renderProductsPage()));
 
-// ── YUME 검증 마크 — 공개 화면(trustMarks.js) ──
+// ── VERILINE 검증 마크 — 공개 화면(trustMarks.js) ──
 // 누구나 확인할 수 있어야 마크가 의미가 있으므로 로그인 없이 연다. 상태(JSON)·배지·스크립트는
 // 고객 홈페이지에서 불러가므로 다른 출처에도 열어 둔다(읽기 전용, 쿠키를 쓰지 않는다).
 const HTML2PDF = path.join(__dirname, "..", "node_modules", "html2pdf.js", "dist", "html2pdf.bundle.min.js");
@@ -561,7 +569,7 @@ app.get("/a/:id", async (req, res) => {
   html(res, renderAuditSummary(s));
 });
 
-// YUME 할루시네이션 지수 — 공개 지표. 원자료(JSON)는 정규 문자열 그대로 내보내야 지문을 다시 계산할 수 있다.
+// VERILINE 할루시네이션 지수 — 공개 지표. 원자료(JSON)는 정규 문자열 그대로 내보내야 지문을 다시 계산할 수 있다.
 const siteBase = (req) => process.env.PUBLIC_BASE_URL || `${req.protocol}://${req.get("host")}`;
 app.get("/yhi", (req, res) => res.redirect(301, "/hallucination-index"));
 // 공개 글 — 할루시네이션 읽을거리(허브 + 글 6편)와 특별호 표지. 검색으로 들어오는 첫 화면이라 서버에서 완성해 보낸다.
@@ -672,12 +680,30 @@ if (fs.existsSync(appDir)) {
 }
 
 if (fs.existsSync(distDir)) {
-  // 기업용 홈 — 메인 빌드가 business.html을 함께 만든다(vite.config.js). 별도 도메인(business.)에도
-  // 같은 화면이 배포되지만, 메인 상단의 "기업용" 버튼과 지수 페이지는 같은 도메인의 이 주소로 온다.
+  // 첫 화면은 주소로 가른다(2026-10-26 대표): veriline.kr → 베리라인 기업용(business.html), 그 밖(yume-reamer.com) → 유메 개인용(index.html).
+  // 메인 빌드가 두 화면을 함께 만든다(vite.config.js). 약관 · API 문서 · 지수 같은 서버 페이지는 두 주소에서 똑같이 열린다.
+  // 개인용 흐름(결제 복귀 · 본인확인 · 추천 링크 · 이니시스 심사 회신에 적은 "/?open=credits")은 결제 창에 등록된 유메 주소에서만 돈다 —
+  // 베리라인 주소로 들어오면 유메로 넘긴다. 내 PC(localhost)에서는 /business 로 기업용 화면을 본다.
   const businessShell = path.join(distDir, "business.html");
-  app.get(/^\/business\/?$/, (req, res, next) => (fs.existsSync(businessShell) ? sendShell(res, businessShell) : next()));
+  const PERSONAL_KEYS = ["checkout", "identity", "pwreset", "ref", "open"];
+  const queryOf = (req) => {
+    const i = req.originalUrl.indexOf("?");
+    return i >= 0 ? req.originalUrl.slice(i) : "";
+  };
+  const onVeriline = (req) => hostOf(req) === VERILINE_HOST;
+  app.get("/", (req, res, next) => {
+    if (!onVeriline(req) || !fs.existsSync(businessShell)) return next();
+    if (PERSONAL_KEYS.some((k) => k in req.query)) return res.redirect(302, `${PERSONAL_ORIGIN}/${queryOf(req)}`);
+    return sendShell(res, businessShell);
+  });
+  app.get(/^\/business\/?$/, (req, res) => {
+    if (isLocalHost(req) && fs.existsSync(businessShell)) return sendShell(res, businessShell);
+    return res.redirect(301, `https://${VERILINE_HOST}/${queryOf(req)}`);
+  });
+  // 10-25 로컬 개편 때 잠시 쓴 /personal/ 주소(배포된 적 없음) — 혹시 남은 링크는 유메 첫 화면으로.
+  app.get(/^\/personal\/?$/, (req, res) => res.redirect(301, `${onVeriline(req) ? PERSONAL_ORIGIN : ""}/${queryOf(req)}`));
   app.use(staticFiles(distDir));
-  app.get(/^(?!\/(api|v1)\/).*/, (req, res) => sendShell(res, path.join(distDir, "index.html")));
+  app.get(/^(?!\/(api|v1)\/).*/, (req, res) => sendShell(res, path.join(distDir, onVeriline(req) && fs.existsSync(businessShell) ? "business.html" : "index.html")));
 }
 
 // 잘못된 JSON 본문 등 — HTML 에러 페이지 대신 JSON으로.

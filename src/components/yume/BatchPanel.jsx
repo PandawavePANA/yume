@@ -16,12 +16,12 @@ import { trackingHeaders } from "../../tracking.js";
 const CHARS_PER_CREDIT = 2000;
 
 const UI = {
-  ink: "#141118",
-  ink2: "#54505E",
-  ink3: "#8B8694",
-  accent: "#5B3FA0",
-  line: "rgba(20, 17, 24, 0.10)",
-  soft: "#F5F2ED",
+  ink: "#0F1522",
+  ink2: "#4A5468",
+  ink3: "#8A93A6",
+  accent: "#2F6BFF",
+  line: "rgba(15, 21, 34, 0.10)",
+  soft: "#EEF2F7",
 };
 
 const VERDICT = {
@@ -212,7 +212,7 @@ export default function BatchPanel({ onClose }) {
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
     const a = document.createElement("a");
     a.href = url;
-    a.download = `유메_일괄검증_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `베리라인_일괄검증_${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   }
