@@ -530,7 +530,7 @@ const SENTENCES = [
 const FAQ = [
   ["API 키나 내부 권한이 필요한가요?", "아니요. 일반 사용자처럼 서비스를 직접 써 보며 확인합니다. 출시 전이면 시험 계정만 주세요."],
   ["결과가 밖으로 새지 않나요?", "보고서는 비공개 링크로 귀사에만 드리고, 언제든 회수할 수 있습니다."],
-  ["자체 테스트가 있는데도 필요할까요?", "자체 26문항을 모두 통과한 서비스가 함정 12문항 중 4개를 틀렸습니다. 자체 시험은 실사 · 제휴 심사에서 증빙도 되지 않습니다."],
+  ["자체 테스트가 있는데도 필요할까요?", "자체 시험은 회사가 아는 질문만 묻습니다. 노무 상담 AI A사는 무료 진단 26문항 중 8개가 틀렸습니다. 자체 시험은 실사 · 제휴 심사에서 증빙도 되지 않습니다."],
   ["기간과 비용은요?", `무료 진단은 보통 영업일 3일입니다. 정밀 감사는 ${won(AUDIT_RATES.audit.krw)}(부가세 별도), 첫 ${AUDIT_PILOT_SEATS}곳은 ${won(AUDIT_RATES.audit_pilot.krw)}입니다.`],
   ["베리라인이 틀리면요?", "베리라인이 원문으로 고친 부분(판정 영수증이 있는 부분)이 원문과 다르면 이용료를 환불하고 정정 보고서를 드립니다. 확인하지 못한 부분은 결과에 그렇게 적습니다."],
 ];
@@ -651,14 +651,11 @@ export default function BusinessPage() {
       {/* ── 2. 증거: 정말 틀리나(30초) ── */}
       <section className="vl-sec" id="proof">
         <div className="vl-wrap">
-          <Head eyebrow="실제 감사 · 노무 상담 AI A사" title="자체 점검은 통과. 함정 질문에선 4개를 틀렸습니다." />
-          <Reveal className="vl-proof">
-            <div><small>A사가 만든 점검 26문항</small><b>26 / 26</b><em>모두 통과</em><CellGrid total={26} /></div>
-            <div><small>베리라인 함정 12문항</small><b className="key"><CountUp to={4} suffix="개" /></b><em>틀림 · 3개 중 1개꼴</em><CellGrid total={12} hits={4} /></div>
-            {/* 2026-10-27: 예전 "감사 3회 · 28건"은 24건이 모델 시범 감사(고객 서비스 아님)라 고객 사례 옆에 두지 않는다 */}
-            <div><small>찾은 오류, 사람이 원문으로 재확인</small><b>4 / 4</b><em>모두 조문 링크로 확인</em><CellGrid total={4} hits={4} /></div>
+          {/* 2026-10-29 대표: "A사 직접 질문 26/26"은 빼고 무료 진단 결과만. 숫자는 veriline/영업/로무앤톡/01_2026-10-27_밤_재감사_결과.md(낮 8 + 밤 18) */}
+          <Head eyebrow="실제 진단 · 노무 상담 AI A사 · 2026.10" title="A사 무료 진단 결과: 26문항 중 8개가 틀렸습니다." />
+          <Reveal className="vl-proof" style={{ gridTemplateColumns: "1fr" }}>
+            <div><small>A사 무료 진단 26문항</small><b className="key"><CountUp to={8} suffix="개" /></b><em>틀림 · 현행 법과 다른 답 7 · 삭제된 조문 인용 1</em><CellGrid total={26} hits={8} /></div>
           </Reveal>
-          <Reveal><p className="vl-quote">회사가 만든 시험은 회사에 유리합니다. <span>AI가 무너지는 자리를 묻지 않으니까요.</span></p></Reveal>
         </div>
       </section>
 

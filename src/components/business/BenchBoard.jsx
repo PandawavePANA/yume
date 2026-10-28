@@ -1,5 +1,6 @@
 // 성능 구역 — 자체 데이터셋 · 정확도 · 가격을 한 화면에(2026-10-27 대표 "내세울 만한 데이터셋과 모델 능력 · 비용을 전면에").
 // 숫자는 모두 실제 측정값이다(바탕화면 veriline/dataset README · IR bench.json). 서로 다른 문항 세트의 숫자는 한 막대 묶음에 섞지 않는다.
+// 2026-10-29: "Opus보다 정확"으로 읽히지 않게 — 1문항 차이는 대등으로 적고, 원가 비율은 IR bench.json RATIO(42%)와 맞춘다.
 // 막대는 0~100% 전체 눈금 — 축을 잘라 차이를 부풀리지 않는다. 화면에 들어오면 한 번 차오른다.
 import { useEffect, useRef, useState } from "react";
 import { useReducedMotion } from "framer-motion";
@@ -11,7 +12,7 @@ const TRAPS = [["제재", 188], ["예외", 78], ["기간", 61], ["수치", 54], 
 const ACC = [
   { k: "베리라인 정밀", v: 98.5, n: "66문항", us: true },
   { k: "Opus + 법제처 API", v: 97.0, n: "같은 66문항 · 같은 원가" },
-  { k: "베리라인 기본", v: 93.0, n: "128문항 · Opus 원가의 약 40%" },
+  { k: "베리라인 기본", v: 93.0, n: "128문항 · Opus + 법제처 API 원가의 42%" },
 ];
 
 const CSS = `
@@ -93,7 +94,7 @@ export default function BenchBoard({ onTry }) {
           <div><b>{API_RATES.metered.unitKrw.toLocaleString("ko-KR")}원<small> / 검증 1건</small></b><p>월 구독이면 건당 {growthUnit.toLocaleString("ko-KR")}원까지 · 1,000자 기준</p></div>
           <button type="button" className="vl-btn key sm" onClick={onTry}>무료로 먼저 확인 <span className="arr">→</span></button>
         </div>
-        <p className="bb-note">엔진을 고칠 때 보지 않은 법령으로 만든 문항, 채점은 별도 모델이 원문 기준으로(2026-10 자체 측정). 전문가 검수 골든셋은 준비 중입니다.</p>
+        <p className="bb-note">엔진을 고칠 때 보지 않은 법령으로 만든 문항, 채점은 별도 모델이 원문 기준으로(2026-10 자체 측정). 정밀 등급과 Opus + API의 차이는 66문항 중 1문항으로, 앞선다기보다 대등한 수준입니다. 전문가 검수 골든셋은 준비 중입니다.</p>
       </div>
     </div>
   );
