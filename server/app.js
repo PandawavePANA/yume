@@ -67,6 +67,7 @@ import { localizeResponses } from "./i18n.js";
 import { mailConfigured } from "./mailer.js";
 import { UpstreamError, OPERATOR_NOTE, userMessageFor, upstreamStatus, engineGate } from "./upstream.js";
 
+import { siteOrigin, SITE_HOST, LEGACY_HOSTS, consolePath } from "./site.js";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const distDir = path.join(__dirname, "..", "dist");
 
@@ -75,27 +76,29 @@ const app = patchAsync(express());
 app.set("trust proxy", 1);
 app.disable("x-powered-by");
 
-// www 없는 주소로 들어오면 www로 넘긴다.
-//
-// 지금 apex(yume-reamer.com)는 호스팅 업체 파킹 페이지를 가리키고 있어 여기까지 오지도
-// 않지만, DNS를 이 서버로 돌리는 순간 두 주소가 동시에 살아난다. 그러면 같은 사이트가
-// 출처가 다른 두 곳이 되어 세션 쿠키가 갈리고, 공유 링크와 검색 색인도 둘로 쪼개진다.
-// 미리 한 곳으로 모아 둔다.
-const CANONICAL_HOST = process.env.CANONICAL_HOST || "www.yume-reamer.com";
-const APEX_HOST = CANONICAL_HOST.replace(/^www\./, "");
-// 2026-10-26 대표: 새로 산 veriline.kr = 베리라인 기업용 메인, yume-reamer.com = 유메 개인용(B2C).
-// 같은 서버가 두 주소를 받고, 첫 화면만 주소에 따라 다르다. www.veriline.kr · veriline.co.kr은 veriline.kr 하나로 모은다.
-const VERILINE_HOST = (process.env.VERILINE_HOST || "veriline.kr").toLowerCase();
-// business.yume-reamer.com: 예전 기업용 주소. veriline.kr와 같은 Railway 서비스(business)에 붙어 있어 같은 판을 돌린다 — 새 주소로 넘긴다
-const VERILINE_ALIASES = new Set([`www.${VERILINE_HOST}`, "veriline.co.kr", "www.veriline.co.kr", "business.yume-reamer.com"]);
-const PERSONAL_ORIGIN = `https://${CANONICAL_HOST}`;
+// 주소 정리 — 2026-10-29 대표: "yume-reamer 도메인 버린다. veriline.kr 소속 링크로."
+// 정식 주소는 veriline.kr 하나(server/site.js). www.veriline.kr · veriline.co.kr은 veriline.kr로,
+// 옛 주소(yume-reamer.com · www · business.)의 화면 요청은 같은 경로의 veriline.kr로 301 넘긴다.
+// 옛 주소의 API(/v1 · /api)와 GET 아닌 요청(결제 복귀 · 웹훅 POST)은 넘기지 않고 그대로 받는다 —
+// 이미 발급된 키와 등록된 콜백이 끊기지 않게. 301은 POST를 GET으로 바꿔 본문을 잃는다.
+const VERILINE_HOST = SITE_HOST;
+const VERILINE_ALIASES = new Set([`www.${VERILINE_HOST}`, "veriline.co.kr", "www.veriline.co.kr"]);
 const hostOf = (req) => String(req.hostname || "").toLowerCase();
 const isLocalHost = (req) => /^(localhost|127\.0\.0\.1|\[::1\])$/.test(hostOf(req));
+const isApiPath = (p) => /^\/(v1|api)(\/|$)/.test(p);
 app.use((req, res, next) => {
   // trust proxy가 켜져 있어 req.hostname은 프록시가 붙인 X-Forwarded-Host를 따른다.
   const host = hostOf(req);
-  if (host === APEX_HOST) return res.redirect(301, `https://${CANONICAL_HOST}${req.originalUrl}`);
   if (VERILINE_ALIASES.has(host)) return res.redirect(301, `https://${VERILINE_HOST}${req.originalUrl}`);
+  if (LEGACY_HOSTS.has(host)) {
+    if ((req.method === "GET" || req.method === "HEAD") && !isApiPath(req.path)) {
+      // 옛 첫 화면(개인 검사)은 veriline.kr/check로 — 기업용 첫 화면과 겹치지 않게.
+      const to = req.path === "/" ? consolePath(req.originalUrl.split("?")[1] || "") : req.originalUrl;
+      return res.redirect(301, `https://${VERILINE_HOST}${to}`);
+    }
+    res.set("Deprecation", "true");
+    res.set("Link", `<https://${VERILINE_HOST}${req.originalUrl}>; rel="successor-version"`);
+  }
   return next();
 });
 app.use(securityHeaders);
@@ -543,7 +546,7 @@ app.get("/v/:id", async (req, res) => {
   html(res, renderMarkPage(m));
 });
 app.get("/account-deletion", (req, res) => html(res, renderAccountDeletionPage()));
-app.get("/docs/api", (req, res) => html(res, renderApiDocsPage(process.env.PUBLIC_BASE_URL || `${req.protocol}://${req.get("host")}`)));
+app.get("/docs/api", (req, res) => html(res, renderApiDocsPage(siteOrigin(req))));
 // 서비스 소개 릴(화면 녹화용) — 빌드에 포함된 정적 파일을 확장자 없는 주소로도 열어준다.
 app.get("/showreel", (req, res, next) => res.sendFile(path.join(distDir, "showreel.html"), (err) => (err ? next() : undefined)));
 
@@ -552,7 +555,7 @@ app.get("/showreel", (req, res, next) => res.sendFile(path.join(distDir, "showre
 app.get("/audit/r/:id", async (req, res, next) => {
   const report = await getAuditReport(req.params.id);
   if (!report) return next();
-  const base = process.env.PUBLIC_BASE_URL || `${req.protocol}://${req.get("host")}`;
+  const base = siteOrigin(req);
   html(res.set("X-Robots-Tag", "noindex, nofollow").set("Cache-Control", "no-store"), renderAuditReport(report, { baseUrl: base }));
 });
 
@@ -585,7 +588,7 @@ app.get("/a/:id", async (req, res) => {
 });
 
 // VERILINE 할루시네이션 지수 — 공개 지표. 원자료(JSON)는 정규 문자열 그대로 내보내야 지문을 다시 계산할 수 있다.
-const siteBase = (req) => process.env.PUBLIC_BASE_URL || `${req.protocol}://${req.get("host")}`;
+const siteBase = (req) => siteOrigin(req);
 app.get("/yhi", (req, res) => res.redirect(301, "/hallucination-index"));
 // 공개 글 — 할루시네이션 읽을거리(허브 + 글 6편)와 특별호 표지. 검색으로 들어오는 첫 화면이라 서버에서 완성해 보낸다.
 app.get("/hallucination", (req, res) => html(res.set("Cache-Control", "public, max-age=600"), renderHub({ base: siteBase(req) })));
@@ -695,30 +698,28 @@ if (fs.existsSync(appDir)) {
 }
 
 if (fs.existsSync(distDir)) {
-  // 첫 화면은 주소로 가른다(2026-10-26 대표): veriline.kr → 베리라인 기업용(business.html), 그 밖(yume-reamer.com) → 유메 개인용(index.html).
-  // 메인 빌드가 두 화면을 함께 만든다(vite.config.js). 약관 · API 문서 · 지수 같은 서버 페이지는 두 주소에서 똑같이 열린다.
-  // 개인용 흐름(결제 복귀 · 본인확인 · 추천 링크 · 이니시스 심사 회신에 적은 "/?open=credits")은 결제 창에 등록된 유메 주소에서만 돈다 —
-  // 베리라인 주소로 들어오면 유메로 넘긴다. 내 PC(localhost)에서는 /business 로 기업용 화면을 본다.
+  // 화면 나누기(2026-10-29): veriline.kr/ = 기업용 첫 화면(business.html), veriline.kr/check = 개인 검사 · 계정 · API 키(index.html).
+  // 개인 흐름의 쿼리(결제 복귀 · 본인확인 · 비밀번호 재설정 · 추천 · 메뉴 열기)로 첫 화면에 오면 /check로 넘긴다.
+  // 메인 빌드가 두 화면을 함께 만든다(vite.config.js). 약관 · API 문서 · 지수 같은 서버 페이지는 같은 주소 아래에 있다.
   const businessShell = path.join(distDir, "business.html");
+  const consoleShell = path.join(distDir, "index.html");
   const PERSONAL_KEYS = ["checkout", "identity", "pwreset", "ref", "open"];
   const queryOf = (req) => {
     const i = req.originalUrl.indexOf("?");
-    return i >= 0 ? req.originalUrl.slice(i) : "";
+    return i >= 0 ? req.originalUrl.slice(i + 1) : "";
   };
-  const onVeriline = (req) => hostOf(req) === VERILINE_HOST;
+  const hasBusiness = () => fs.existsSync(businessShell);
   app.get("/", (req, res, next) => {
-    if (!onVeriline(req) || !fs.existsSync(businessShell)) return next();
-    if (PERSONAL_KEYS.some((k) => k in req.query)) return res.redirect(302, `${PERSONAL_ORIGIN}/${queryOf(req)}`);
+    if (!hasBusiness()) return next();
+    if (PERSONAL_KEYS.some((k) => k in req.query)) return res.redirect(302, consolePath(queryOf(req)));
     return sendShell(res, businessShell);
   });
-  app.get(/^\/business\/?$/, (req, res) => {
-    if (isLocalHost(req) && fs.existsSync(businessShell)) return sendShell(res, businessShell);
-    return res.redirect(301, `https://${VERILINE_HOST}/${queryOf(req)}`);
-  });
-  // 10-25 로컬 개편 때 잠시 쓴 /personal/ 주소(배포된 적 없음) — 혹시 남은 링크는 유메 첫 화면으로.
-  app.get(/^\/personal\/?$/, (req, res) => res.redirect(301, `${onVeriline(req) ? PERSONAL_ORIGIN : ""}/${queryOf(req)}`));
+  app.get(/^\/check\/?$/, (req, res) => sendShell(res, consoleShell));
+  // 예전 주소들 — 남은 링크가 있으면 새 자리로.
+  app.get(/^\/business\/?$/, (req, res) => (isLocalHost(req) && hasBusiness() ? sendShell(res, businessShell) : res.redirect(301, `/${queryOf(req) ? `?${queryOf(req)}` : ""}`)));
+  app.get(/^\/personal\/?$/, (req, res) => res.redirect(301, consolePath(queryOf(req))));
   app.use(staticFiles(distDir));
-  app.get(/^(?!\/(api|v1)\/).*/, (req, res) => sendShell(res, path.join(distDir, onVeriline(req) && fs.existsSync(businessShell) ? "business.html" : "index.html")));
+  app.get(/^(?!\/(api|v1)\/).*/, (req, res) => sendShell(res, hasBusiness() ? businessShell : consoleShell));
 }
 
 // 잘못된 JSON 본문 등 — HTML 에러 페이지 대신 JSON으로.
@@ -749,7 +750,8 @@ export async function maintenance() {
     await run("DELETE FROM chat_messages WHERE created_at < :t", { t: now() - 180 * DAY_MS });
     // 기업 문의 · 무료 진단 신청: 접수일로부터 1년(개인정보처리방침 · veriline.kr 폼 아래 고지와 같은 기간).
     // 리머 개발 문의(같은 표)는 리머 방침을 따르므로 베리라인 폼에서 온 것만 지운다.
-    await run("DELETE FROM inquiries WHERE kind IN ('veriline_diagnosis', 'yume_api') AND created_at < :t", { t: now() - 365 * DAY_MS });
+    // 2026-10-29: 표에는 종류 이름("베리라인 무료 진단")이 저장되는데 키('veriline_diagnosis')로만 지우고 있어 1년 파기가 한 번도 돌지 않았다 — 둘 다 맞춘다.
+    await run("DELETE FROM inquiries WHERE kind IN ('veriline_diagnosis', 'yume_api', '베리라인 무료 진단', '베리라인 API 도입') AND created_at < :t", { t: now() - 365 * DAY_MS });
     await run("DELETE FROM error_logs WHERE created_at < :t", { t: now() - 90 * DAY_MS });
     // 적립 후 1년이 지난 크레딧 소멸(이니시스 포인트충전 조건, 환불정책 제4조).
     await expireAllCredits();

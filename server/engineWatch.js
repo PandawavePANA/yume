@@ -21,7 +21,7 @@ function alert(subject, text, key) {
   if (key) lastAlert.set(key, t);
   console.warn(`[엔진] ${subject}`);
   if (!mailConfigured()) return;
-  sendMail({ brand: "YUME", to: owner(), subject, text }).catch((e) => logError("engine:alert", e));
+  sendMail({ brand: "VERILINE", to: owner(), subject, text }).catch((e) => logError("engine:alert", e));
 }
 
 export function wireEngineAlerts() {

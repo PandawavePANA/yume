@@ -9,6 +9,7 @@ import { CATEGORIES, SUMMARY_VALID_DAYS, methodOf } from "./auditDesk.js";
 import { METHOD_VERSION } from "./hallucinationIndex.js";
 import { COMPANY } from "./renderPages.js";
 
+import { siteOrigin } from "./site.js";
 const kDate = (ms) =>
   ms ? new Date(Number(ms)).toLocaleDateString("ko-KR", { timeZone: "Asia/Seoul", year: "numeric", month: "long", day: "numeric" }) : "";
 const kDateTime = (ms) =>
@@ -485,7 +486,7 @@ function auditNumbers(results) {
 // 금액은 싣지 않는다 — 금액은 견적서에만 있다(보고서는 결재 첨부로 돌고, 금액이 섞이면 영업 문서가 된다).
 function nextSteps(detail, confirmed) {
   const { audit } = detail;
-  const www = (process.env.PUBLIC_BASE_URL || "https://www.yume-reamer.com").replace(/\/+$/, "");
+  const www = siteOrigin();
   const biz = VERILINE.site;
   const abs = (u) => (/^https?:/.test(u) ? u : `${www}${u}`);
   const open = (detail.quotes || []).find((q) => q.status === "requested" || (q.status === "issued" && !q.expired));
@@ -624,7 +625,7 @@ export function renderAuditSummary(summary) {
   const status = expired
     ? `<span style="display:inline-block;padding:5px 12px;border-radius:999px;background:#8E8E97;color:#fff;font-weight:800;font-size:13px">재검사 필요</span>`
     : `<span style="display:inline-block;padding:5px 12px;border-radius:999px;background:#2F7D5B;color:#fff;font-weight:800;font-size:13px">✓ 검사 기록 유효</span>`;
-  const embed = `<a href="https://www.yume-reamer.com/a/${esc(audit.public_id)}"><img src="https://www.yume-reamer.com/a/${esc(audit.public_id)}/badge.svg" alt="VERILINE 할루시네이션 감사 기록" height="30" /></a>`;
+  const embed = `<a href="${siteOrigin()}/a/${esc(audit.public_id)}"><img src="${siteOrigin()}/a/${esc(audit.public_id)}/badge.svg" alt="VERILINE 할루시네이션 감사 기록" height="30" /></a>`;
   const body = `<main class="sheet">
   <div class="muted" style="font-weight:800;letter-spacing:.14em">VERILINE 감사 기록</div>
   <h1>${esc(service)}</h1>
@@ -645,7 +646,7 @@ export function renderAuditSummary(summary) {
   <p class="sub">아래 코드를 붙이면 이 기록으로 연결되는 배지가 보입니다. 기간이 지나면 배지가 '재검사 필요'로 바뀝니다.</p>
   <pre style="background:#211A32;color:#E8E1FA;padding:12px 14px;border-radius:8px;overflow-x:auto;font-size:12px">${esc(embed)}</pre>
   <p><img src="/a/${esc(audit.public_id)}/badge.svg" alt="VERILINE 할루시네이션 감사 기록 배지" height="30" /></p>
-  <div class="foot">베리라인(YUME)는 AI가 쓴 글의 근거를 공식 원문과 대조하는 AI 할루시네이션 검사 서비스입니다 · <a href="/hallucination-index">VERILINE 할루시네이션 지수</a> · <a href="/">AI 감사 문의</a></div>
+  <div class="foot">베리라인은 AI가 쓴 글의 근거를 공식 원문과 대조하는 AI 할루시네이션 검사 서비스입니다 · <a href="/hallucination-index">VERILINE 할루시네이션 지수</a> · <a href="/">AI 감사 문의</a></div>
 </main>`;
   return shell(`${service} — VERILINE 감사 기록`, body, { robots: "index, follow" });
 }

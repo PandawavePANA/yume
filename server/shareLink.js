@@ -1,3 +1,4 @@
+import { BOT_UA } from "./site.js";
 // AI 대화 공유 링크 확인 — 제보가 "정말 그 AI가 한 말"인지 가리는 유일한 근거다.
 //
 // 링크 없이 플랫폼 이름만 받으면, 사용자가 방금 지어낸 사건번호와 진짜 할루시네이션을
@@ -58,7 +59,7 @@ async function fetchLimited(url) {
     const res = await fetch(current, {
       redirect: "manual",
       signal: AbortSignal.timeout(TIMEOUT_MS),
-      headers: { "User-Agent": "YUME-FactCheck/1.0 (+https://www.yume-reamer.com)", "Accept-Language": "ko,en" },
+      headers: { "User-Agent": BOT_UA(), "Accept-Language": "ko,en" },
     });
     if (res.status >= 300 && res.status < 400) {
       const next = res.headers.get("location");

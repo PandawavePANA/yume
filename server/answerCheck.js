@@ -222,7 +222,7 @@ export function _clearFactCache() {
   factCache.clear();
 }
 
-export async function checkEverydayFacts(answer, { level = CHECK_LEVELS.fast, ledger = null, skipLegal = false, references = [], sources = [], json = callJson, koreaData = gatherKoreaData, facts = { load: defaultLoadFacts, save: defaultSaveFacts } } = {}) {
+export async function checkEverydayFacts(answer, { level = CHECK_LEVELS.fast, ledger = null, skipLegal = false, references = [], sources = [], json = callJson, koreaData = gatherKoreaData, facts = { load: defaultLoadFacts, save: defaultSaveFacts }, shareFacts = true } = {}) {
   const refBlock = references.length ? `[사용자 자료]\n${references.map((r) => `<${r.title}>\n${r.text}`).join("\n\n").slice(0, 15000)}\n\n` : "";
   const ex = await json({ model: EXTRACT_MODEL, system: EXTRACT_SYSTEM, user: `${refBlock}[답변]\n${answer.slice(0, 8000)}`, maxTokens: 3000, effort: "low", ledger, label: "check_extract" });
   const quoteOk = (q) => String(q || "").replace(/\s+/g, "").length >= 4 && answer.replace(/\s+/g, "").includes(String(q).replace(/\s+/g, ""));
@@ -297,7 +297,8 @@ export async function checkEverydayFacts(answer, { level = CHECK_LEVELS.fast, le
   for (const r of first) if (r.verdict !== "unverified" || !byQuote.has(r.quote)) byQuote.set(r.quote, r);
   const results = claims.map((c) => byQuote.get(c.quote) || { ...c, verdict: "unverified", correct: "", url: "", official: false, quoteSrc: "", note: "" });
   for (const [k, c] of claims.entries()) rememberFact(c, results[k]);
-  await facts.save(claims.map((c, k) => [c, results[k]])).catch(() => 0);
+  // 기업 API로 온 글은 공유 저장소에 남기지 않는다(2026-10-29 — 한 고객의 문장이 다른 고객의 결과에 섞이지 않게). 읽기만 한다.
+  if (shareFacts) await facts.save(claims.map((c, k) => [c, results[k]])).catch(() => 0);
   return { claims, results, storeHits: results.filter((r) => r.stored).length };
 }
 
@@ -516,7 +517,7 @@ export function hasCheckableFacts(text) {
   return FACT_CUES.test(t);
 }
 
-export async function checkAnswer({ question = "", answer, level: levelKey = "fast", references = [], sources = [], ledger = null, onStage = () => {}, deps = {} }) {
+export async function checkAnswer({ question = "", answer, level: levelKey = "fast", references = [], sources = [], ledger = null, onStage = () => {}, deps = {}, shareFacts = true }) {
   const level = CHECK_LEVELS[levelKey] || CHECK_LEVELS.fast;
   const gather = deps.gatherArticles || gatherArticles;
   const review = deps.reviewStatutes || reviewStatutes;
@@ -623,7 +624,7 @@ export async function checkAnswer({ question = "", answer, level: levelKey = "fa
     : Promise.resolve(null);
   // 확인할 사실이 없는 짧은 답(인사 · 잡담 · 감상)은 사실 뽑기를 건너뛴다 — 모델 호출 0번, 1초 안쪽
   const factCheck = (deps.checkEverydayFacts || hasCheckableFacts(text))
-    ? everyday(text, { level, ledger, skipLegal: legalTalk, references: normalizeAnswerReferences(references), sources: normalizeSources(sources) }).catch(() => ({ claims: [], results: [], failed: true }))
+    ? everyday(text, { level, ledger, skipLegal: legalTalk, references: normalizeAnswerReferences(references), sources: normalizeSources(sources), shareFacts }).catch(() => ({ claims: [], results: [], failed: true }))
     : Promise.resolve({ claims: [], results: [], skipped: true });
   const caseCheck = (deps.checkCaseCitations || checkCaseCitations)(text).catch(() => []);
   const [legal, facts, cases] = await Promise.all([legalCheck, factCheck, caseCheck]);
@@ -671,6 +672,8 @@ export async function checkAnswer({ question = "", answer, level: levelKey = "fa
     verification.rewritten_by = "legal_agent";
     if (legal.agent.unsupported?.length) verification.unsupported_numbers = legal.agent.unsupported;
   }
+  // 어느 엔진이 판정했는지 늘 적는다(2026-10-29) — 3.x가 돌지 못해 예전 길로 갔으면 고객이 알 수 있어야 한다. 그 길에는 판정 영수증 · 책임 범위가 없다.
+  verification.engine = "veriline-1";
   if (legal?.engine === "v2") {
     verification.engine = legal.v2.version || "veriline-2.1";
     verification.articles = legal.v2.articles.slice(0, 10);

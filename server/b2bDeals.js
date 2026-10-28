@@ -15,7 +15,7 @@
 // 칸과 같은 순서·이름으로 받고, 사업자등록번호는 검증번호까지 확인한다(틀린 번호로 발급하면
 // 수정세금계산서를 다시 끊어야 한다).
 import { now, one, run, all } from "./db.js";
-import { API_RATES, AUDIT_LEAD_DAYS, AUDIT_ORDER_DOMAINS, AUDIT_PILOT_SEATS, AUDIT_RATES } from "./apiRates.js";
+import { API_RATES, AUDIT_LEAD_DAYS, AUDIT_ORDER_DOMAINS_ACCEPTED, AUDIT_PILOT_SEATS, AUDIT_RATES } from "./apiRates.js";
 import { randomToken } from "./security.js";
 import { addBusinessDays } from "./businessDays.js";
 
@@ -23,7 +23,7 @@ export const VAT_RATE = 0.1;
 export const QUOTE_VALID_DAYS = 30;
 // 계약 신청 때 동의받는 조건의 판. 문서(/b2b/terms·/b2b/dpa)를 고치면 함께 올린다 — 누가 어느 판에
 // 동의했는지 남아야 나중에 다툴 일이 없다.
-export const TERMS_VERSION = "B2B-2026-10-27"; // 2026-10-27 제10조의2(고친 부분 책임) 추가
+export const TERMS_VERSION = "B2B-2026-10-29"; // 2026-10-27 제10조의2(고친 부분 책임) 추가
 const DAY = 86_400_000;
 
 const tier = (key) => API_RATES.tiers.find((t) => t.key === key);
@@ -55,7 +55,7 @@ export function readOrder(raw) {
   const serviceName = clean(raw?.serviceName, 120);
   let serviceUrl = clean(raw?.serviceUrl, 400);
   if (serviceUrl && !/^https?:\/\//i.test(serviceUrl)) serviceUrl = `https://${serviceUrl}`;
-  const domain = AUDIT_ORDER_DOMAINS.includes(raw?.domain) ? raw.domain : "";
+  const domain = AUDIT_ORDER_DOMAINS_ACCEPTED.includes(raw?.domain) ? raw.domain : "";
   const order = { serviceName, serviceUrl, domain, access: clean(raw?.access, 300), focus: clean(raw?.focus, 600) };
   if (!serviceName) return { error: "감사할 AI 서비스 이름을 입력해 주세요." };
   if (!/^https?:\/\/[^\s.]+\.[^\s]+/i.test(serviceUrl)) return { error: "감사할 서비스 주소(웹사이트·앱 링크)를 입력해 주세요." };

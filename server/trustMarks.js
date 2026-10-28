@@ -7,12 +7,10 @@ import { all, now, one, run } from "./db.js";
 import { getDocumentView } from "./documents.js";
 import { MARK_VALID_MS, markEligibility, markHash, markSnapshot, markStatus, newMarkId } from "./trustMarkRules.js";
 
+import { siteOrigin } from "./site.js";
 // 마크 주소의 앞부분. 고객 홈페이지에 박히는 주소라 운영 도메인이 기본이고, 로컬 개발에서만 요청 호스트를 쓴다.
 export function markBase(req = null) {
-  if (process.env.PUBLIC_BASE_URL) return process.env.PUBLIC_BASE_URL.replace(/\/$/, "");
-  const host = String(req?.get?.("host") || "");
-  if (/^(localhost|127\.|\[::1\])/.test(host)) return `${req.protocol}://${host}`;
-  return "https://www.yume-reamer.com";
+  return siteOrigin(req);
 }
 
 // 외부(고객·API)에 내보내는 마크 모습.

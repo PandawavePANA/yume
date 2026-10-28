@@ -9,9 +9,10 @@
 // 사례 내용은 본문에 풀지 않는다. 압박·기한·가격 문구는 쓰지 않는다(lintCopy와 같은 원칙).
 // 메일 클라이언트용이라 표(table)와 인라인 스타일만 쓴다.
 import { caseFacts, lawRef } from "./renderAuditDossier.js";
-import { COMPANY } from "./renderPages.js";
+import { COMPANY, VERILINE } from "./renderPages.js";
 import { OPT_OUT } from "./auditDesk.js";
 
+import { siteOrigin } from "./site.js";
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const FONT = "-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif";
 
@@ -34,10 +35,10 @@ function lawChips(detail) {
 
 /**
  * @param detail auditDetail(...) 결과 — mail.first(제목·텍스트 본문)와 결과 숫자를 쓴다
- * @param opts.cardUrl 서명에 넣을 명함 이미지 주소(없으면 글자 서명). 기본은 베리라인 서버의 /mail-assets/card.png
+ * @param opts.cardUrl 서명에 넣을 명함 이미지 주소. 2026-10-29부터 기본은 없음(글자 서명) — 예전 명함 이미지는 리머 명함이었다.
  * 반환: { subject, html, text }
  */
-export function clientAuditMail(detail, { cardUrl = `${(process.env.PUBLIC_BASE_URL || "https://www.yume-reamer.com").replace(/\/+$/, "")}/mail-assets/card.png` } = {}) {
+export function clientAuditMail(detail, { cardUrl = null } = {}) {
   const { audit, results, findings, mail, reportUrl } = detail;
   const confirmed = findings.filter((f) => f.polarity === "issue" && f.review === "confirmed");
   const wrong = new Set(confirmed.map((f) => Number(f.item_id))).size;
@@ -98,10 +99,8 @@ export function clientAuditMail(detail, { cardUrl = `${(process.env.PUBLIC_BASE_
   <tr><td style="padding:22px 24px 24px">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="table-layout:fixed;border-top:1px solid #ECE8F3"><tr><td style="padding-top:16px">
       <div style="font-size:15px;line-height:1.6;color:#3A3546;margin-bottom:12px">감사합니다.<br><b style="color:#0F1522">${esc(COMPANY.ceo)}</b> 드림</div>
-      ${cardUrl
-        ? `<a href="https://www.d-reamer.com" style="text-decoration:none"><img src="${esc(cardUrl)}" width="320" alt="${esc(`${COMPANY.ceo} · REAMER Founder · ${COMPANY.email} · www.d-reamer.com`)}" style="display:block;width:100%;max-width:320px;height:auto;border-radius:10px;border:0"></a>
-      <div style="font-size:12px;line-height:1.6;color:#8A93A6;margin-top:8px">베리라인(YUME)는 리머(REAMER)가 운영합니다 · <a href="https://www.yume-reamer.com" style="color:#2F6BFF;text-decoration:none;font-weight:700">www.yume-reamer.com</a></div>`
-        : `<div style="font-size:13px;line-height:1.7;color:#857E98">베리라인(YUME) 대표 · <a href="https://www.yume-reamer.com" style="color:#2F6BFF;text-decoration:none;font-weight:700">www.yume-reamer.com</a><br>${esc(COMPANY.email)}</div>`}
+      ${cardUrl ? `<img src="${esc(cardUrl)}" width="320" alt="${esc(`${COMPANY.ceo} · 베리라인 대표 · ${VERILINE.email}`)}" style="display:block;width:100%;max-width:320px;height:auto;border-radius:10px;border:0">` : ""}
+      <div style="font-size:13px;line-height:1.7;color:#857E98;margin-top:8px">베리라인 대표 · <a href="${esc(siteOrigin())}" style="color:#2F6BFF;text-decoration:none;font-weight:700">${esc(siteOrigin().replace(/^https?:\/\//, ""))}</a><br>${esc(VERILINE.email)} · ${esc(COMPANY.tel)}</div>
       <div style="font-size:11.5px;line-height:1.6;color:#A8A2B8;margin-top:12px">${esc(OPT_OUT)}</div>
     </td></tr></table>
   </td></tr>

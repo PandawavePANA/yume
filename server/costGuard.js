@@ -63,7 +63,7 @@ function maybeAlert(usd, cap) {
   const to = process.env.INQUIRY_TO || process.env.COMPANY_EMAIL || "reamer@d-reamer.com";
   const krw = (n) => `${Math.round(n * USD_KRW).toLocaleString("ko-KR")}원`;
   sendMail({
-    brand: "YUME",
+    brand: "VERILINE",
     to,
     subject: `[베리라인 운영] 오늘 AI 비용이 상한의 ${Math.round((usd / cap) * 100)}%입니다`,
     text: [

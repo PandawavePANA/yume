@@ -5,7 +5,7 @@
 //
 // 금액은 화면과 같게 "부가세 포함" 한 줄로만 적는다. 공급가·세액을 나눠 적으려면 과세 유형
 // (일반/간이)에 따라 계산이 달라지는데, 그걸 추측해서 적은 문서는 틀린 세금 서류가 된다.
-import { BUSINESS } from "@/businessInfo";
+import { BUSINESS, REAMER_EMAIL } from "@/businessInfo";
 
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 const won = (n) => `${Number(n || 0).toLocaleString("ko-KR")}원`;
@@ -47,7 +47,7 @@ export function openQuoteDoc(quote, thread) {
 <div class="grid">
   <div class="box"><b>받는 분</b>${esc(thread?.name ? `${thread.name} 님` : "의뢰인")}${thread?.title ? `<br/>${esc(thread.title)}` : ""}</div>
   <div class="box"><b>공급자</b>${esc(BUSINESS.name)}(${esc(BUSINESS.nameEn)}) · 대표 ${esc(BUSINESS.ceo)}<br/>
-    사업자등록번호 ${esc(BUSINESS.regNo)}<br/>${esc(BUSINESS.address)}<br/>${esc(BUSINESS.tel)} · ${esc(BUSINESS.email)}</div>
+    사업자등록번호 ${esc(BUSINESS.regNo)}<br/>${esc(BUSINESS.address)}<br/>${esc(BUSINESS.tel)} · ${esc(REAMER_EMAIL)}</div>
 </div>
 <table>
   <thead><tr><th>항목</th><th>기간</th><th style="text-align:right">금액</th></tr></thead>

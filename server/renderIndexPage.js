@@ -8,6 +8,7 @@ import { COMPLAINT_NOTICE, businessLine, complaintOfficer, esc } from "./renderP
 import { METHOD_VERSION, MIN_CELL, MIN_HEADLINE } from "./hallucinationIndex.js";
 import { SPECIAL_ISSUES } from "./articles.js";
 
+import { siteOrigin } from "./site.js";
 const BASE_PATH = "/hallucination-index";
 const kDate = (ms) =>
   new Date(Number(ms)).toLocaleDateString("ko-KR", { timeZone: "Asia/Seoul", year: "numeric", month: "long", day: "numeric" });
@@ -119,13 +120,13 @@ td.n { text-align:right; white-space:nowrap; }
 export function page({ title, description, path, body, base = "", head = "", style = "", ogType = "article" }) {
   // 접속한 호스트(base)가 아니라 정식 주소를 쓴다 — 다른 도메인으로 들어와도 색인은 한 곳으로 모인다.
   void base;
-  const url = `${process.env.PUBLIC_BASE_URL || "https://www.yume-reamer.com"}${path}`;
+  const url = `${siteOrigin()}${path}`;
   return `<!doctype html>
 <html lang="ko"><head>
 <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>${esc(title)}</title>
 <meta name="description" content="${esc(description)}" />
-<meta property="og:type" content="${ogType}" /><meta property="og:image" content="https://www.yume-reamer.com/og-yume.png" /><meta property="og:title" content="${esc(title)}" />
+<meta property="og:type" content="${ogType}" /><meta property="og:image" content="${siteOrigin()}/og-veriline.png" /><meta property="og:title" content="${esc(title)}" />
 <meta property="og:description" content="${esc(description)}" /><meta property="og:url" content="${esc(url)}" />
 <meta property="og:site_name" content="베리라인 · AI 할루시네이션 검사" /><meta name="twitter:card" content="summary" />
 <link rel="canonical" href="${esc(url)}" />
@@ -140,7 +141,7 @@ ${head}
 </header>
 ${body}
 <footer class="foot">
-  베리라인(YUME)는 AI가 쓴 글의 근거를 공식 원문과 대조하는 AI 할루시네이션 검사 서비스입니다. 검사 과정에 생성형 AI를 사용하며, 지수와 판정은 공개 원문과 대조한 검사 결과이지 특정 서비스의 품질 보증이나 법률 자문이 아닙니다.<br />
+  베리라인은 AI가 쓴 글의 근거를 공식 원문과 대조하는 AI 할루시네이션 검사 서비스입니다. 검사 과정에 생성형 AI를 사용하며, 지수와 판정은 공개 원문과 대조한 검사 결과이지 특정 서비스의 품질 보증이나 법률 자문이 아닙니다.<br />
   ${businessLine()}<br />${esc(COMPLAINT_NOTICE)} ${esc(complaintOfficer())}<br />
   <a href="/terms">이용약관</a> · <a href="/privacy">개인정보처리방침</a> · <a href="/docs/api">API 문서</a>
 </footer>

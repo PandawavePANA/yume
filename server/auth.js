@@ -23,6 +23,7 @@ import { attachReferral } from "./referral.js";
 import { nicknameProblem, nicknameTaken } from "./contribution.js";
 import { confirmIdentity, identityConfigured, IDENTITY_CHANNEL_KEY, STORE_ID } from "./portone.js";
 
+import { siteOrigin } from "./site.js";
 const scrypt = promisify(crypto.scrypt);
 const SESSION_COOKIE = "yume_sid";
 const SESSION_TTL_MS = 30 * 24 * 3600 * 1000;
@@ -147,10 +148,7 @@ const passwordCheckLimit = limitMiddleware(passwordCheckLimiter, (req) => `pwche
 // 플랫폼의 내부 도메인이나 www 없는 주소가 메일에 박힌다 — 메일은 고쳐 보낼 수 없다.
 // PUBLIC_BASE_URL을 반드시 설정하되, 빠뜨린 배포에서도 운영 도메인이 나가게 해 둔다.
 function baseUrl(req) {
-  if (process.env.PUBLIC_BASE_URL) return process.env.PUBLIC_BASE_URL.replace(/\/$/, "");
-  const host = String(req.get("host") || "");
-  if (/^localhost|^127\.|^\[::1\]|^0\.0\.0\.0/.test(host)) return `${req.protocol}://${host}`;
-  return "https://www.yume-reamer.com";
+  return siteOrigin(req);
 }
 
 const router = patchAsync(express.Router());
@@ -257,7 +255,7 @@ router.post("/auth/forgot", limitMiddleware(resetLimiter, (req) => `reset:${clie
   const link = `${baseUrl(req)}/reset-password?token=${token}`;
   try {
     await sendMail({
-      brand: "YUME",
+      brand: "VERILINE",
       to: user.email,
       subject: "[베리라인] 비밀번호 재설정 안내",
       text: `안녕하세요, 베리라인입니다.\n\n아래 링크에서 1시간 안에 새 비밀번호를 설정해주세요.\n${link}\n\n본인이 요청하지 않았다면 이 메일을 무시하셔도 됩니다.`,

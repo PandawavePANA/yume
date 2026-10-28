@@ -21,7 +21,8 @@ export const VERILINE = {
 export const COMPANY = {
   name: process.env.COMPANY_NAME || "리머(REAMER)",
   ceo: process.env.COMPANY_CEO || "정원영",
-  email: process.env.COMPANY_EMAIL || "reamer@d-reamer.com",
+  // 2026-10-29 베리라인 독립: 사업자 연락 메일은 베리라인 메일함. 환경변수에 리머 메일(d-reamer.com)이 남아 있어도 쓰지 않는다.
+  email: /d-reamer\.com/i.test(process.env.COMPANY_EMAIL || "") ? "contact@veriline.kr" : process.env.COMPANY_EMAIL || "contact@veriline.kr",
   regNo: process.env.BUSINESS_REG_NO || "627-03-03900",
   get address() {
     return addressOverride || process.env.BUSINESS_ADDRESS || "대구광역시 달성군 유가읍 테크노상업로 112, 204호";
@@ -34,7 +35,10 @@ export const COMPANY = {
 
 // 민원 책임 고지 — 이니시스 포인트충전 입점 조건으로 사이트 하단에 늘 보여야 한다.
 // 프런트(src/businessInfo.js)에도 같은 문장이 있다. 바꾸면 둘 다 고칠 것.
-export const COMPLAINT_NOTICE = "모든 거래에 대한 책임과 환불, 민원 등은 리머에서 진행합니다.";
+export const COMPLAINT_NOTICE = `모든 거래에 대한 책임과 환불, 민원 등은 ${COMPANY.name.replace(/\(.*\)$/, "")}에서 진행합니다.`;
+
+// 리머 외주(개발 의뢰 대화방 · d-reamer.com)의 연락처 — 베리라인 화면 · 메일에는 쓰지 않는다(threads.js 전용).
+export const REAMER = { email: process.env.REAMER_EMAIL || "reamer@d-reamer.com" };
 export const complaintOfficer = () => `민원담당자 ${COMPANY.ceo} · ${COMPANY.tel} · ${COMPANY.email}`;
 // 2026-10-08 개정: 월 요금제 판매 종료, 크레딧 유효기간 1년, 환불은 카드 결제 취소로만(이니시스 포인트충전 조건).
 const EFFECTIVE_DATE = "2026년 10월 8일";
@@ -133,7 +137,7 @@ export function renderTermsPage() {
     `<h1>베리라인 이용약관</h1><p class="muted">시행일: ${EFFECTIVE_DATE}</p>
 
 <h2>제1조 (목적)</h2>
-<p>이 약관은 ${esc(COMPANY.name)}(이하 "회사")가 제공하는 AI 할루시네이션 검사 서비스 "베리라인(VERILINE, 구 유메)"(이하 "서비스")의 이용 조건과 절차, 회사와 이용자의 권리·의무 및 책임 사항을 정합니다.</p>
+<p>이 약관은 ${esc(COMPANY.name)}(이하 "회사")가 제공하는 AI 할루시네이션 검사 서비스 "베리라인(VERILINE)"(이하 "서비스")의 이용 조건과 절차, 회사와 이용자의 권리·의무 및 책임 사항을 정합니다.</p>
 
 <h2>제2조 (정의)</h2>
 <ol>
@@ -249,11 +253,11 @@ export function renderAccountDeletionPage() {
   return layout(
     "계정 삭제 안내",
     `<h1>베리라인 계정 삭제 안내</h1>
-<p class="muted">${esc(COMPANY.name)}가 운영하는 베리라인(YUME) 웹사이트와 앱(Android·iOS)의 계정 삭제 방법입니다.</p>
+<p class="muted">${esc(COMPANY.name)}가 운영하는 베리라인(VERILINE) 웹사이트와 앱(Android·iOS)의 계정 삭제 방법입니다.</p>
 
 <h2>앱 또는 웹사이트에서 직접 삭제하기</h2>
 <ol>
-<li>베리라인 앱을 열거나 <a href="/">www.yume-reamer.com</a>에 접속해 로그인합니다.</li>
+<li>베리라인 앱을 열거나 <a href="/check">veriline.kr/check</a>에 접속해 로그인합니다.</li>
 <li>오른쪽 위 내 이름을 누르고 <b>계정 설정</b>을 엽니다.</li>
 <li><b>보안</b> 탭의 <b>회원 탈퇴</b>에서 비밀번호를 입력하고 <b>탈퇴하기</b>를 누릅니다.</li>
 </ol>
@@ -420,7 +424,7 @@ export function renderPrivacyPage() {
   return layout(
     "개인정보처리방침",
     `<h1>개인정보처리방침</h1><p class="muted">시행일: ${PRIVACY_EFFECTIVE_DATE}</p>
-<p>${esc(COMPANY.name)}(이하 "회사")는 「개인정보 보호법」에 따라 서비스 "베리라인"(구 "유메") 이용자의 개인정보를 보호하고 관련 고충을 신속하게 처리하기 위해 다음과 같이 개인정보처리방침을 공개합니다.</p>
+<p>${esc(COMPANY.name)}(이하 "회사")는 「개인정보 보호법」에 따라 서비스 "베리라인" 이용자의 개인정보를 보호하고 관련 고충을 신속하게 처리하기 위해 다음과 같이 개인정보처리방침을 공개합니다.</p>
 
 <h2>1. 처리하는 개인정보와 목적</h2>
 <table>
@@ -526,6 +530,13 @@ export function renderApiDocsPage(baseUrl) {
 <p>고객에게 나갈 답변, 보도자료, 상품 설명, 상담 스크립트 — <b>AI가 쓴 글이든 사람이 쓴 글이든</b> 밖으로 내보내기 전에 베리라인으로 사실 여부를 확인하세요. 응답에는 주장별 판정·근거·출처, <b>원문 속 위치</b>, 틀린 문장의 <b>고친 문장</b>, 그리고 인용된 법령·판례·문헌이 공식 자료에 없을 때의 <b>부존재 신뢰도</b>가 함께 들어 있습니다.</p>
 <p>자사 상품·약관·회사 정보처럼 공개 웹에 없는 사실은 <b>기준 자료</b>(<code>references</code>)로 함께 보내면 그 자료와 먼저 대조합니다.</p>
 
+<div class="note" style="border:1px solid #2F6BFF;border-radius:10px;padding:12px 16px;margin:16px 0;background:#F3F6FF">
+<b>어느 API를 쓰나요?</b>
+<ul style="margin:6px 0 0">
+<li><b>법령 · 노무 · 세무 답변</b>(챗봇 · 상담 AI가 사용자에게 보내기 전) → <a href="#answer-check"><code>POST /v1/answer-check</code></a>. 베리라인 엔진 3.1이 법제처 현행 조문과 코드로 대조하고, 판정 영수증과 책임 범위가 함께 옵니다. <b>기업 계약의 기본입니다.</b></li>
+<li><b>일반 글의 사실 확인</b>(보도자료 · 상품 설명 · 논문 인용) → <code>POST /v1/verify</code> · <code>/v1/documents</code>. 웹 · 공식 레지스트리로 확인하며, 판정 영수증 · 책임 범위는 붙지 않습니다.</li>
+</ul></div>
+
 <h2>시작하기</h2>
 <ol>
 <li>베리라인에 가입하고 계정 메뉴의 <b>API 키</b>에서 키를 발급받습니다. 키는 발급할 때 한 번만 보여주므로 안전한 곳에 보관하세요.</li>
@@ -548,23 +559,23 @@ export function renderApiDocsPage(baseUrl) {
 </table>
 <p>헤더 <code>Idempotency-Key: &lt;임의 문자열&gt;</code>를 붙이면, 응답을 못 받아 다시 보내도 처음 시작한 검증을 그대로 돌려주고 <b>다시 과금하지 않습니다</b>(24시간). 같은 키로 다른 내용을 보내면 <code>422 idempotency_conflict</code>.</p>
 <pre>curl -X POST ${base}/v1/verify \\
-  -H "Authorization: Bearer yume_live_..." \\
+  -H "Authorization: Bearer vl_live_..." \\
   -H "Content-Type: application/json" \\
   -d '{"text": "대법원 2019다123456 판결에 따르면 …", "wait": true}'</pre>
 <h3>Node.js</h3>
 <pre>const res = await fetch("${base}/v1/verify", {
   method: "POST",
-  headers: { Authorization: \`Bearer \${process.env.YUME_API_KEY}\`, "Content-Type": "application/json" },
+  headers: { Authorization: \`Bearer \${process.env.VERILINE_API_KEY}\`, "Content-Type": "application/json" },
   body: JSON.stringify({ text, wait: 90 }),
 });
 let job = await res.json();
 while (job.status === "pending") {
   await new Promise((r) => setTimeout(r, 3000));
-  job = await (await fetch(\`${base}/v1/verify/\${job.id}\`, { headers: { Authorization: \`Bearer \${process.env.YUME_API_KEY}\` } })).json();
+  job = await (await fetch(\`${base}/v1/verify/\${job.id}\`, { headers: { Authorization: \`Bearer \${process.env.VERILINE_API_KEY}\` } })).json();
 }</pre>
 <h3>Python</h3>
 <pre>import os, time, requests
-H = {"Authorization": f"Bearer {os.environ['YUME_API_KEY']}"}
+H = {"Authorization": f"Bearer {os.environ['VERILINE_API_KEY']}"}
 job = requests.post("${base}/v1/verify", json={"text": text, "wait": 90}, headers=H).json()
 while job["status"] == "pending":
     time.sleep(3)
@@ -657,13 +668,19 @@ while job["status"] == "pending":
   "references": [ { "title": "상품 설명서", "text": "…" } ], "wait": 60 }
 → { "count": 2, "pending": 0, "results": [ { "ref": "faq-01", "id": "…", "status": "done", "result": { … } }, … ] }</pre>
 
-<h2>POST /v1/answer-check — 대화형 AI의 답을 내보내기 전에</h2>
+<h2 id="answer-check">POST /v1/answer-check — 대화형 AI의 답을 내보내기 전에</h2>
 <p>챗봇·상담 AI가 쓴 답을 사용자에게 보내기 전에 넣으면, <b>확인을 거친 답 그 자체</b>(<code>text</code>)를 돌려줍니다. 법령은 법제처 현행 조문 전체와 대조하고 반론 검토를 통과한 오류만 고칩니다. 그 밖의 사실(의료·의약, 경제·금융, 세금, 노동, 부동산, 기업, 복지·행정, 통계)은 <b>그 분야의 한국 공식 기관 사이트에서 먼저</b> 확인하고, 결론이 안 나면 웹 전체로 넓힙니다. 틀린 곳은 근거대로, 확인되지 않은 곳은 단정하지 않게 고칩니다. 보통 10~60초, 답 1,000자마다 1건, 확인을 끝내지 못하면 과금하지 않습니다.</p>
-<pre>{ "question": "타이레놀 하루에 얼마까지 먹어도 돼?", "answer": "성인은 하루 최대 6,000mg까지…", "level": "fast" }
-→ { "text": "성인은 하루 최대 4,000mg까지…(근거: …)", "changed": true,
-    "verification": { "fixes": [ { "quote": "…6,000mg…", "problem": "실제로는 …4,000mg", "url": "https://nedrug.mfds.go.kr/…", "official": true, "field": "medical" } ],
-                      "hedged": [], "supported": [ … ], "articles": [ … ] }, "billed_units": 1 }</pre>
-<p><code>level</code>: <code>fast</code>(가벼운 답) · <code>standard</code> · <code>deep</code>(중요한 답) — 답을 쓴 모델 등급에 맞춥니다. 답을 쓰기 <b>전에</b> <code>POST /v1/context { "question" }</code>를 부르면 관련 현행 조문을 <code>block</code>으로 받아 모델 안내에 넣을 수 있습니다(과금 없음).</p>
+<pre>{ "question": "임금을 안 주면 사장님은 어떤 처벌을 받나요?", "answer": "3년 이하의 징역 또는 3천만원 이하의 벌금…", "level": "fast" }
+→ { "text": "5년 이하의 징역 또는 5천만원 이하의 벌금…(근거: 근로기준법 제107조)", "changed": true,
+    "verification": {
+      "engine": "veriline-3.1",          // 판정한 엔진. "veriline-1"이면 예전 길로 확인했고 영수증 · 책임 범위가 없습니다
+      "fixes": [ { "quote": "…3년 이하의 징역 또는 3천만원…", "problem": "현행 제107조 제1항은 5년 · 5천만원", "official": true, "field": "labor" } ],
+      "receipts": [ { "id": "c1", "verdict": "false", "decided_by": "code",          // code | model_locked(원문 인용으로 잠근 모델)
+                      "source": { "law": "근로기준법", "article": "제107조", "effective": "…", "url": "…", "text_sha256": "…", "fetched_at": "…" } } ],
+      "guarantee": { "status": "covered", "covered": [ … ], "uncovered": [ … ] },   // covered | partial | not_covered — 이용 조건 제10조의2
+      "hedged": [], "supported": [ … ], "articles": [ … ] }, "billed_units": 1 }</pre>
+<p><b>판정 영수증(receipts)</b>은 판정마다 누가(코드 / 원문 인용으로 잠근 모델) 어느 조문 · 시행일 · 원문 지문으로 정했는지 적은 기록입니다. 영수증을 <code>POST ${base}/api/receipts/replay</code>에 보내면 모델 호출 없이 같은 판정이 다시 계산됩니다. <b>책임 범위(guarantee)</b>에 든 판정만 이용 조건 제10조의2(환불 + 정정 보고서)의 대상입니다.</p>
+<p><code>level</code>: <code>fast</code>(가벼운 답) · <code>standard</code> · <code>deep</code>(중요한 답) — 답을 쓴 모델 등급에 맞춥니다. 답을 쓰기 <b>전에</b> <code>POST /v1/context { "question" }</code>를 부르면 관련 현행 조문을 <code>block</code>으로 받아 모델 안내에 넣을 수 있습니다(과금 없음). <code>"facts": true</code>를 주면 베리라인이 공식 출처로 확인해 둔 관련 사실(공식 원문 인용 · 링크)도 함께 옵니다 — 다른 고객이 보낸 글의 문장은 들어 있지 않습니다.</p>
 
 <h2>POST /v1/documents — 긴 문서·파일</h2>
 <p>1만 자를 넘는 문서나 파일(<b>DOCX·HWPX·PDF·TXT·MD·CSV</b>, 10MB까지)을 그대로 보냅니다. 베리라인이 문단 경계로 나눠 검사하고, 결과를 <b>원문 전체 기준 위치</b>로 합쳐 돌려줍니다. 틀린 문장을 고친 문장으로 바꾼 <code>corrected_text</code>(고친 본문)도 함께 줍니다.</p>
@@ -690,9 +707,9 @@ while job["status"] == "pending":
 
 → 201
 { "id": "ym…", "object": "mark", "status": "valid",
-  "url": "https://www.yume-reamer.com/v/ym…",            // 공개 검증 페이지
-  "certificate_url": "https://www.yume-reamer.com/v/ym…/certificate",  // A4 검증서(PDF)
-  "badge_url": "https://www.yume-reamer.com/v/ym…/badge.svg",
+  "url": "${base}/v/ym…",            // 공개 검증 페이지
+  "certificate_url": "${base}/v/ym…/certificate",  // A4 검증서(PDF)
+  "badge_url": "${base}/v/ym…/badge.svg",
   "embed_html": "&lt;div data-yume-mark=\\"ym…\\"&gt;…&lt;/div&gt;&lt;script src=\\"…/v/embed.js\\" async&gt;&lt;/script&gt;",
   "text_hash": "…", "issued_at": "…", "expires_at": "…" }</pre>
 <ul>
@@ -705,23 +722,23 @@ while job["status"] == "pending":
 
 <h2>웹훅</h2>
 <p><code>callback_url</code>을 주면 검증이 끝날 때 아래처럼 보냅니다. 묶음 요청은 항목마다 <code>ref</code>를 붙여 하나씩 보냅니다. 2xx를 받지 못하면 최대 4번까지 다시 보냅니다(0초·2초·10초·60초).</p>
-<pre>POST https://고객사/yume-hook
-X-Yume-Event: verification.completed
-X-Yume-Delivery: 3f9a…        // 같은 전달의 재시도는 같은 값
-X-Yume-Timestamp: 1791234567
-X-Yume-Signature: sha256=…    // callback_secret을 줬을 때만
+<pre>POST https://고객사/veriline-hook
+X-Veriline-Event: verification.completed
+X-Veriline-Delivery: 3f9a…        // 같은 전달의 재시도는 같은 값
+X-Veriline-Timestamp: 1791234567
+X-Veriline-Signature: sha256=…    // callback_secret을 줬을 때만
 
 { "event": "verification.completed", "ref": "faq-01", "id": "…", "status": "done", "result": { … } }</pre>
-<p>서명 확인: <code>hmac_sha256(callback_secret, X-Yume-Timestamp + "." + 원문 본문)</code>의 hex가 <code>sha256=</code> 뒤 값과 같은지 보세요. 시각이 5분 넘게 차이 나면 버리세요(재전송 방지).</p>
+<p>서명 확인: <code>hmac_sha256(callback_secret, X-Veriline-Timestamp + "." + 원문 본문)</code>의 hex가 <code>sha256=</code> 뒤 값과 같은지 보세요. 시각이 5분 넘게 차이 나면 버리세요(재전송 방지).</p>
 <pre>// Node.js
-const sig = "sha256=" + crypto.createHmac("sha256", SECRET).update(req.headers["x-yume-timestamp"] + "." + rawBody).digest("hex");
-const ok = crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(req.headers["x-yume-signature"]));</pre>
+const sig = "sha256=" + crypto.createHmac("sha256", SECRET).update(req.headers["x-veriline-timestamp"] + "." + rawBody).digest("hex");
+const ok = crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(req.headers["x-veriline-signature"]));</pre>
 
 <h2>GET /v1/verify/:id</h2>
 <p>같은 계정의 키로 요청한 검증만 조회할 수 있습니다. 조회는 과금되지 않습니다.</p>
 
 <h2>GET /v1/usage</h2>
-<pre>{ "key": { "label": "운영 서버", "prefix": "yume_live_ab12cd…" }, "rate_per_min": 30,
+<pre>{ "key": { "label": "운영 서버", "prefix": "vl_live_ab12cd…" }, "rate_per_min": 30,
   "month": { "used": 12, "quota": 1000, "remaining": 988, "resets_at": "…" } }</pre>
 
 <h2>한도와 과금</h2>

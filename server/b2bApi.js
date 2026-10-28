@@ -37,6 +37,7 @@ import { kstDate } from "./businessDays.js";
 import { productLabel } from "./renderB2bPages.js";
 import { canIssueTaxInvoice, taxInvoiceFrom } from "./receiptInfo.js";
 
+import { siteOrigin } from "./site.js";
 // 일반과세 시작 전(간이과세 기간)에는 세금계산서를 발급할 수 없다 — 운영자 안내에 붙인다.
 const taxNote = (at = Date.now()) =>
   canIssueTaxInvoice(at)
@@ -46,9 +47,9 @@ const taxNote = (at = Date.now()) =>
 export const b2bRouter = Router();
 export const b2bAdminRouter = Router();
 
-const PUBLIC = () => (process.env.PUBLIC_BASE_URL || "https://www.yume-reamer.com").replace(/\/+$/, "");
+const PUBLIC = () => siteOrigin();
 export const quoteUrl = (q) => `${PUBLIC()}/b2b/quote/${q.token}`;
-const ownerMail = () => process.env.B2B_TO || process.env.INQUIRY_TO || process.env.COMPANY_EMAIL || "reamer@d-reamer.com";
+const ownerMail = () => process.env.B2B_TO || VERILINE.email; // 베리라인 주문 알림은 베리라인 메일함으로(리머 메일함과 분리, 2026-10-29)
 const won = (n) => `${Number(n).toLocaleString("ko-KR")}원`;
 
 const cors = crossOriginGate("B2B_ALLOWED_ORIGINS", "INQUIRY_ALLOWED_ORIGINS", "AUDIT_ALLOWED_ORIGINS");
@@ -81,7 +82,7 @@ const requestLimiter = createLimiter({ windowMs: 60 * 60 * 1000, max: 10 });
 
 function mailSafe(p) {
   if (!mailConfigured()) return;
-  sendMail({ brand: "YUME", ...p }).catch((e) => logError("b2b:mail", e));
+  sendMail({ brand: "VERILINE", ...p }).catch((e) => logError("b2b:mail", e));
 }
 
 function quoteMailHtml(q, lead) {
@@ -152,7 +153,7 @@ b2bRouter.post("/b2b/quote/:token/request", limitMiddleware(requestLimiter, (req
     const what = audit ? "감사 신청" : "계약 신청";
     mailSafe({
       to,
-      replyTo: COMPANY.email,
+      replyTo: VERILINE.email,
       subject: `[베리라인] ${what} 접수 — 견적 ${quoteNumber(q)}`,
       text: `${b.bizName || q.company}의 ${what}이 접수됐습니다.${lead}\n견적번호 ${quoteNumber(q)} · 합계 ${won(q.total_krw)}\n결제 방법: ${PAY_METHODS[q.pay_method]}\n\n진행 상태: ${quoteUrl(q)}`,
       html: quoteMailHtml(q, `${esc(b.bizName || q.company)}의 ${what}이 접수됐습니다. 결제 방법: ${esc(PAY_METHODS[q.pay_method])}.${esc(lead)} 다음 단계는 견적서 화면에 안내돼 있습니다.`),
@@ -226,6 +227,11 @@ b2bAdminRouter.post("/b2b/quotes/:id/paid", async (req, res) => {
   res.json({ quote: view(r.quote), applied: r.applied, auditId: r.auditId, already: r.already });
 });
 
+// 증빙 안내 — 일반과세 시작 전(간이과세) 공급분은 세금계산서를 발급할 수 없어 지출증빙 현금영수증으로 드린다(receiptInfo.js).
+// 2026-10-29: 예전에는 늘 "전자세금계산서를 발급합니다"라고 약속해, 간이과세 기간 고객에게 지킬 수 없는 말을 했다.
+const proofLine = (to, at = Date.now()) =>
+  canIssueTaxInvoice(at) ? `전자세금계산서는 ${to}로 발급됩니다.` : `증빙은 지출증빙 현금영수증(사업자번호)으로 발급해 ${to}로 알려 드립니다.`;
+
 function notifyPaid(q, applied) {
   {
     const b = parseBilling(q) || {};
@@ -234,9 +240,9 @@ function notifyPaid(q, applied) {
       const due = q.due_at ? `\n감사 보고서는 ${kstDate(q.due_at)}까지 보내 드립니다(${AUDIT_LEAD}). 감사에 테스트 계정이 필요하면 이 메일에 답장으로 알려 주세요.` : "";
       mailSafe({
         to,
-        replyTo: COMPANY.email,
+        replyTo: VERILINE.email,
         subject: `[베리라인] ${q.product === "metered" ? "계약 확정" : "입금 확인"} — 견적 ${quoteNumber(q)}`,
-        text: `${q.product === "metered" ? "계약이 확정됐습니다." : "입금이 확인됐습니다."} 전자세금계산서는 ${to}로 발급됩니다.${due}\n${applied?.key ? `API 키(${applied.key}…)의 월 한도를 ${applied.quota.toLocaleString("ko-KR")}건으로 설정했습니다.\n` : ""}\n${quoteUrl(q)}`,
+        text: `${q.product === "metered" ? "계약이 확정됐습니다." : "입금이 확인됐습니다."} ${proofLine(to)}${due}\n${applied?.key ? `API 키(${applied.key}…)의 월 한도를 ${applied.quota.toLocaleString("ko-KR")}건으로 설정했습니다.\n` : ""}\n${quoteUrl(q)}`,
       });
     }
   }

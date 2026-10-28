@@ -14,12 +14,13 @@ import { now, one, all, run } from "./db.js";
 import { sha256, randomToken } from "./security.js";
 import { sendMail, mailConfigured } from "./mailer.js";
 import { logError } from "./errorLog.js";
-import { COMPANY } from "./renderPages.js";
+import { COMPANY, REAMER } from "./renderPages.js";
 
+import { siteOrigin } from "./site.js";
 // 의뢰인이 돌아올 주소. 리머 사이트는 별도 도메인의 정적 배포다.
 const SITE = (process.env.REAMER_SITE_URL || "https://www.d-reamer.com").replace(/\/+$/, "");
 // 관리자 데스크가 있는 곳(베리라인 서버).
-const DESK = () => `${(process.env.PUBLIC_BASE_URL || "https://www.yume-reamer.com").replace(/\/+$/, "")}/admin/desk`;
+const DESK = () => `${siteOrigin()}/admin/desk`;
 
 // 토큰은 경로가 아니라 **해시(#)** 뒤에 붙인다. 해시는 서버로 전송되지 않고
 // Referer 헤더에도 실리지 않는다. 경로에 두면 의뢰인이 이 페이지에서 바깥 링크를
@@ -194,7 +195,7 @@ export const markRead = (threadId, who) =>
 // 메일은 실패해도 대화를 되돌리지 않는다. 말은 이미 DB에 남았고 그게 기준이다.
 // 그래서 기다리지 않고 보내고, 실패는 기록만 남긴다.
 
-const OWNER = () => process.env.INQUIRY_TO || process.env.COMPANY_EMAIL || COMPANY.email;
+const OWNER = () => process.env.INQUIRY_TO || process.env.COMPANY_EMAIL || REAMER.email;
 const fire = (label, p) => Promise.resolve(p).catch((e) => logError(label, e));
 
 function shell(title, inner, cta) {
@@ -204,7 +205,7 @@ function shell(title, inner, cta) {
   ${inner}
   ${cta ? `<p style="margin:22px 0 0"><a href="${esc(cta.href)}" style="display:inline-block;padding:11px 20px;border-radius:10px;background:#141118;color:#fff;text-decoration:none;font-size:14px;font-weight:600">${esc(cta.label)}</a></p>` : ""}
   <p style="margin:20px 0 0;padding-top:14px;border-top:1px solid #E7E4EE;font-size:11.5px;color:#8B8694">
-    ${esc(COMPANY.name)} · ${esc(COMPANY.tel)} · <a href="mailto:${esc(COMPANY.email)}" style="color:#8B8694">${esc(COMPANY.email)}</a>
+    ${esc(COMPANY.name)} · ${esc(COMPANY.tel)} · <a href="mailto:${esc(REAMER.email)}" style="color:#8B8694">${esc(REAMER.email)}</a>
   </p>
 </div>`;
 }
@@ -216,7 +217,7 @@ export function mailThreadOpened(thread, token) {
   fire("thread:mail-open", sendMail({
     brand: "REAMER",
     to: thread.client_email,
-    replyTo: COMPANY.email,
+    replyTo: REAMER.email,
     subject: "[리머] 문의가 접수됐습니다 · 진행 상황은 이 링크에서",
     text: [
       `${thread.client_name || ""}님, 문의 감사합니다.`,
@@ -242,7 +243,7 @@ export function mailThreadLink(thread, token) {
   fire("thread:mail-relink", sendMail({
     brand: "REAMER",
     to: thread.client_email,
-    replyTo: COMPANY.email,
+    replyTo: REAMER.email,
     subject: "[리머] 요청하신 대화 링크입니다",
     text: `요청하신 대화 주소입니다.\n${threadUrl(token)}\n\n이전 링크는 더 이상 열리지 않습니다.`,
     html: shell(
@@ -305,7 +306,7 @@ export function mailClientNewMessage(thread, body) {
   fire("thread:mail-client", sendMail({
     brand: "REAMER",
     to: thread.client_email,
-    replyTo: COMPANY.email,
+    replyTo: REAMER.email,
     subject: "[리머] 답변이 도착했습니다",
     text: token ? `${body}\n\n이어서 보기: ${threadUrl(token)}` : `${body}\n\n대화 화면에서 이어서 보실 수 있습니다.`,
     html: shell(
@@ -323,7 +324,7 @@ export function mailClientQuote(thread, quote) {
   fire("thread:mail-quote", sendMail({
     brand: "REAMER",
     to: thread.client_email,
-    replyTo: COMPANY.email,
+    replyTo: REAMER.email,
     subject: `[리머] 견적을 보내드렸습니다 · ${won(quote.amount_krw)}`,
     text: [
       quote.title,
@@ -370,14 +371,14 @@ export function mailQuoteReceipt(thread, quote) {
     COMPANY.mailOrderNo ? `통신판매업 신고 ${COMPANY.mailOrderNo}` : null,
     `주소 ${COMPANY.address}`,
     `전화 ${COMPANY.tel}`,
-    `이메일 ${COMPANY.email}`,
+    `이메일 ${REAMER.email}`,
   ].filter(Boolean).join(" · ");
 
   if (to) {
     fire("thread:mail-receipt", sendMail({
     brand: "REAMER",
       to,
-      replyTo: COMPANY.email,
+      replyTo: REAMER.email,
       subject: `[리머] 결제가 완료되었습니다 · ${quote.title}`,
       text: [...rows.map(([k, v]) => `${k}: ${v}`), "", "작업 착수 안내는 대화에서 이어집니다.", "", seller].join("\n"),
       html: shell(
@@ -387,7 +388,7 @@ export function mailQuoteReceipt(thread, quote) {
         </table>
         <p style="margin:16px 0 0;font-size:12.5px;color:#54505E">
           용역 제공이 시작되기 전에는 전액 환불됩니다. 착수 이후에는 이미 진행된 부분을 제외하고 환불해 드립니다(전자상거래법 제17조).<br/>
-          환불 문의 <a href="mailto:${esc(COMPANY.email)}" style="color:#54505E">${esc(COMPANY.email)}</a>
+          환불 문의 <a href="mailto:${esc(REAMER.email)}" style="color:#54505E">${esc(REAMER.email)}</a>
         </p>
         <p style="margin:14px 0 0;font-size:11.5px;color:#8B8694">${esc(seller)}</p>`,
       ),

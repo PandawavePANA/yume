@@ -12,6 +12,7 @@ import { createAudit, updateAudit } from "./auditDesk.js";
 import { isAuditProduct, parseBilling, parseOrder, quoteById, quoteNumber } from "./b2bDeals.js";
 import { businessDaysUntil, kstDate } from "./businessDays.js";
 
+import { AUDIT_DOMAIN_KEY } from "./apiRates.js";
 const DAY = 86_400_000;
 // 정기 감사 다음 회차 — 지난 보고서 전달일에서 한 분기 뒤.
 const QUARTER = 91 * DAY;
@@ -41,7 +42,7 @@ export async function ensureAuditForQuote(quoteId) {
     company: b.bizName || q.company,
     service_name: o.serviceName || q.company,
     service_url: o.serviceUrl || "",
-    domain: o.domain === "범용" ? "범용" : o.domain || "법률",
+    domain: o.domain === "범용" ? "범용" : AUDIT_DOMAIN_KEY[o.domain] || o.domain || "법률",
     contact_name: q.contact_name || b.contactName || "",
     contact_email: q.email || b.taxEmail || "",
     found_via: `유료 주문 ${quoteNumber(q)}`,

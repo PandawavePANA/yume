@@ -119,8 +119,8 @@ export const WORK = [
     year: "2026",
     kind: "자사 제품 · 운영 중",
     live: true,
-    href: "https://www.yume-reamer.com/",
-    go: "yume-reamer.com",
+    href: "https://veriline.kr/",
+    go: "veriline.kr",
     blurb: "AI가 쓴 글의 근거를 공식 원문으로 검사하고, AI 할루시네이션 지수를 공개하는 서비스.",
     shots: [
       { src: "/work/yume.webp", alt: "베리라인 첫 화면 — AI 답변을 붙여넣어 검증하는 입력창" },

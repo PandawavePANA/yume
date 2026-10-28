@@ -1,4 +1,4 @@
-// 베리라인(VERILINE) 메인 홈 — 2026-10-25 새로 만듦. 2026-10-26부터 veriline.kr/ 이 이 화면이고, 개인용 검사는 유메(www.yume-reamer.com)다.
+// 베리라인(VERILINE) 메인 홈 — 2026-10-25 새로 만듦. veriline.kr/ 이 이 화면이고, 개인 검사 · 계정 · API 키는 veriline.kr/check다(2026-10-29).
 //
 // 설계서: 바탕화면 veriline/site/베리라인_사이트_설계서.md (페르소나 · 여정 · 정보 구조 · 움직임 · 문구 원칙)
 // 톤앤매너: 바탕화면 veriline/brand/베리라인_톤앤매너_2026-10-25.md — 흑백 + 키 컬러 하나(코발트 #2F5BFF). 틀림은 색 없이 취소선, 바로잡음만 키 컬러.
@@ -20,7 +20,7 @@ import Logo from "./components/business/Logo.jsx";
 import DiagnosisForm from "./components/business/DiagnosisForm.jsx";
 import { HeroFlow, VerifyTicker } from "./components/business/HeroFlow.jsx";
 import { CellGrid, CountUp, HorizontalRail, LineRule, Marquee, MaskWords, Reveal, SplitWords, useStableVh, VerifyStory } from "./components/business/motion.jsx";
-import { API_ORIGIN, YUME_URL, PERSONAL_URL } from "./businessConfig.js";
+import { API_ORIGIN, SITE_URL, CONSOLE_URL } from "./businessConfig.js";
 import { BUSINESS, telHref, COPYRIGHT, businessLine, COMPLAINT_NOTICE, COMPLAINT_OFFICER, VERILINE_EMAIL } from "./businessInfo.js";
 import BusinessAddress from "./BusinessAddress.jsx";
 import { API_RATES, API_UNIT_CHARS, AUDIT_LEAD, AUDIT_PILOT_SEATS, AUDIT_RATES } from "../server/apiRates.js";
@@ -609,7 +609,7 @@ export default function BusinessPage() {
           <a className="brand" href="#top" aria-label="베리라인 홈 맨 위로"><Logo height={24} /></a>
           <nav aria-label="메뉴">{NAV.map(([h, l]) => <a key={h} href={h}>{l}</a>)}</nav>
           <div className="right">
-            <a className="personal" href={PERSONAL_URL}>개인용 검사</a>
+            <a className="personal" href={CONSOLE_URL}>개인용 검사</a>
             <a className="vl-btn key sm" href="#diagnosis" onClick={toDiag}>무료 진단 받기</a>
           </div>
         </div>
@@ -753,13 +753,13 @@ export default function BusinessPage() {
             <div className="vl-pcard"><div className="k">{API_RATES.enterprise.label}</div><div className="price">월 {won(API_RATES.enterprise.fromKrw)}<small>~</small></div><div className="d">전용 한도 · 계약서 · 대량 처리</div><button type="button" className="vl-btn line sm" onClick={() => setInquiry({ plan: "custom", note: "" })}>상담 요청</button></div>
           </div>
           </details>
-          <p className="vl-note">개발팀이 먼저 붙여 보려면 <a href={`${PERSONAL_URL}?open=api`}>가입하고 체험 키 받기</a>(매달 {API_RATES.trial.calls}건 무료) · <a href={`${YUME_URL}/docs/api`}>API 문서</a></p>
+          <p className="vl-note">개발팀이 먼저 붙여 보려면 <a href={`${CONSOLE_URL}?open=api`}>가입하고 체험 키 받기</a>(매달 {API_RATES.trial.calls}건 무료) · <a href={`${SITE_URL}/docs/api`}>API 문서</a></p>
           <h3 className="vl-subh">구매 · 계약 서류</h3>
           <div className="vl-docs">
             <button type="button" onClick={() => setQuote("audit")}><b>견적서 바로 받기</b><span>A4 견적서가 바로 나옵니다</span></button>
-            <a href={`${YUME_URL}/b2b/terms`} target="_blank" rel="noreferrer"><b>기업 서비스 이용 조건</b><span>책임 범위 · 해지 · 비밀 유지</span></a>
-            <a href={`${YUME_URL}/b2b/dpa`} target="_blank" rel="noreferrer"><b>데이터 처리 부속서</b><span>개인정보 처리 위탁 표준본</span></a>
-            <a href={`${YUME_URL}/b2b/security`} target="_blank" rel="noreferrer"><b>보안 설명서</b><span>데이터를 어떻게 다루는지</span></a>
+            <a href={`${SITE_URL}/b2b/terms`} target="_blank" rel="noreferrer"><b>기업 서비스 이용 조건</b><span>책임 범위 · 해지 · 비밀 유지</span></a>
+            <a href={`${SITE_URL}/b2b/dpa`} target="_blank" rel="noreferrer"><b>데이터 처리 부속서</b><span>개인정보 처리 위탁 표준본</span></a>
+            <a href={`${SITE_URL}/b2b/security`} target="_blank" rel="noreferrer"><b>보안 설명서</b><span>데이터를 어떻게 다루는지</span></a>
           </div>
         </div>
       </section>
@@ -815,13 +815,13 @@ export default function BusinessPage() {
             <Logo height={22} style={{ color: "#fff" }} />
             <div className="links">
               <a href={`mailto:${VERILINE_EMAIL}`}>{VERILINE_EMAIL}</a>
-              <a href={PERSONAL_URL}>개인용 할루시네이션 검사</a>
-              <a href={`${YUME_URL}/hallucination-index`}>할루시네이션 지수</a>
-              <a href={`${YUME_URL}/hallucination`}>할루시네이션이란</a>
-              <a href={`${YUME_URL}/docs/api`}>API 문서</a>
-              <a href={`${YUME_URL}/terms`}>이용약관</a>
-              <a href={`${YUME_URL}/privacy`}>개인정보처리방침</a>
-              <a href={`${YUME_URL}/refund`}>환불정책</a>
+              <a href={CONSOLE_URL}>개인용 할루시네이션 검사</a>
+              <a href={`${SITE_URL}/hallucination-index`}>할루시네이션 지수</a>
+              <a href={`${SITE_URL}/hallucination`}>할루시네이션이란</a>
+              <a href={`${SITE_URL}/docs/api`}>API 문서</a>
+              <a href={`${SITE_URL}/terms`}>이용약관</a>
+              <a href={`${SITE_URL}/privacy`}>개인정보처리방침</a>
+              <a href={`${SITE_URL}/refund`}>환불정책</a>
             </div>
           </div>
           <address>
@@ -830,8 +830,6 @@ export default function BusinessPage() {
             {BUSINESS.tel && <div>대표전화 <a href={telHref}>{BUSINESS.tel}</a></div>}
             <div>이메일 {VERILINE_EMAIL}</div>
             <div>{COMPLAINT_NOTICE} {COMPLAINT_OFFICER}</div>
-            {/* 2026-10-28 외부 점검 "도메인이 둘로 나뉘어 브랜드가 흐려진다" — 같은 회사의 같은 엔진임을 밝힌다 */}
-            <div style={{ marginTop: 8 }}>veriline.kr은 기업용, www.yume-reamer.com은 같은 엔진의 개인용 검사 · API 문서 · 약관 사이트입니다. 두 곳 모두 리머(REAMER)가 운영합니다.</div>
             <div style={{ marginTop: 8 }}>판정은 공개 원문과 대조한 검증 정보이며 법률 · 의료 · 금융 자문이 아닙니다. 고친 부분에 대한 책임은 환불과 정정 보고서이며, 범위와 한도는 기업 서비스 이용 조건 제10조 · 제10조의2를 따릅니다.</div>
             <div style={{ marginTop: 8 }}>{COPYRIGHT}</div>
           </address>

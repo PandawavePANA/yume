@@ -9,7 +9,7 @@ export default defineConfig({
   plugins: [react()],
   base: "./",
   // 미리보기는 claude.ai에서 열리므로 서버 페이지 · API는 실제 주소로(src/businessConfig.js)
-  define: { "import.meta.env.VITE_YUME_URL": JSON.stringify("https://veriline.kr") },
+  define: { "import.meta.env.VITE_SITE_URL": JSON.stringify("https://veriline.kr") },
   build: {
     outDir: "dist-artifact",
     emptyOutDir: true,

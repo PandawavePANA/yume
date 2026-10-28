@@ -18,6 +18,7 @@ import { bountyStats, listBounties, reviewBounty } from "./bounty.js";
 import { correctionStats, listCorrections, reviewCorrection } from "./corrections.js";
 import { listReferralsForReview, resolveReferralReview } from "./referral.js";
 
+import { siteOrigin } from "./site.js";
 // 운영자 전용 API. 관리자 권한(role=admin, ADMIN_EMAILS로 지정) 세션이 있거나, 스크립트용으로
 // X-Admin-Key 헤더에 ADMIN_SECRET을 보내야 한다. 개인정보를 열람·반출하는 동작은 전부
 // audit_logs에 남긴다(개인정보 접속기록).
@@ -296,7 +297,7 @@ router.post("/dataset/exports", async (req, res) => {
   });
   if (r.error) return res.status(400).json({ error: r.error });
   await audit(req.adminActor, "data_export_created", `data_export:${r.id}`, { buyer: b.buyer, purpose: b.purpose, records: r.recordCount, filters: b.filters }, clientIp(req));
-  const base = process.env.PUBLIC_BASE_URL ? process.env.PUBLIC_BASE_URL.replace(/\/$/, "") : `${req.protocol}://${req.get("host")}`;
+  const base = siteOrigin(req);
   res.status(201).json({ ...r, downloadUrl: `${base}/datasets/download/${r.token}` });
 });
 

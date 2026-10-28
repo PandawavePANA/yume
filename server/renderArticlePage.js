@@ -6,8 +6,9 @@ import { esc } from "./renderPages.js";
 import { page } from "./renderIndexPage.js";
 import { ARTICLES, ARTICLE_BASE, HUB, PUBLISHED, SPECIAL_ISSUES, articlePath } from "./articles.js";
 
-const SITE = "https://www.yume-reamer.com";
-const ORG = { "@type": "Organization", name: "베리라인(YUME) · 리머(REAMER)", url: SITE, logo: `${SITE}/favicon.png` };
+import { siteOrigin } from "./site.js";
+const SITE = siteOrigin();
+const ORG = { "@type": "Organization", name: "베리라인(VERILINE)", url: SITE, logo: `${SITE}/veriline-icon-512.png` };
 const kDate = (iso) => {
   const [y, m, d] = String(iso).split("-").map(Number);
   return `${y}년 ${m}월 ${d}일`;
@@ -59,7 +60,7 @@ function articleCard(slug, label) {
 function tryBox() {
   return `<aside class="try noprint"><h2>지금 가진 AI 답변, 원문으로 체크해 보세요</h2>
 <p>AI 답변을 통째로 붙여 넣으면 베리라인이 사실 주장을 하나씩 떼어 공식 원문과 대조합니다. 매일 무료 3회.</p>
-<div class="btns"><a class="btn" href="https://www.yume-reamer.com/">유메로 할루시네이션 체크</a><a class="btn alt" href="https://veriline.kr/">베리라인 기업용 · AI 감사</a></div></aside>`;
+<div class="btns"><a class="btn" href="${SITE}/check">베리라인으로 할루시네이션 체크</a><a class="btn alt" href="${SITE}/">기업용 · AI 감사</a></div></aside>`;
 }
 
 export function renderArticle(slug, { base = "" } = {}) {
@@ -102,7 +103,7 @@ export function renderArticle(slug, { base = "" } = {}) {
     <div class="kicker">VERILINE 할루시네이션 지수 · ${esc(issue.title)}</div>
     <h1>${esc(a.title)}</h1>
     <p class="lede">${esc(a.lede)}</p>
-    <div class="art-meta"><span>베리라인(YUME)</span><span>${esc(kDate(a.updated || PUBLISHED))}</span><span>읽는 데 약 ${a.minutes}분</span></div>
+    <div class="art-meta"><span>베리라인</span><span>${esc(kDate(a.updated || PUBLISHED))}</span><span>읽는 데 약 ${a.minutes}분</span></div>
   </header>
   <div class="art-body">${a.body}</div>
   ${tryBox()}
@@ -161,7 +162,7 @@ export function renderHub({ base = "" } = {}) {
     <div class="kicker">총정리 · VERILINE 할루시네이션 지수</div>
     <h1>${esc(HUB.title)}</h1>
     <p class="lede">${esc(HUB.lede)}</p>
-    <div class="art-meta"><span>베리라인(YUME)</span><span>${esc(kDate(PUBLISHED))}</span></div>
+    <div class="art-meta"><span>베리라인</span><span>${esc(kDate(PUBLISHED))}</span></div>
   </header>
   <div class="art-body">
     <h2>짧게 답하면</h2>

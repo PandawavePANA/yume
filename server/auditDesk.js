@@ -29,6 +29,7 @@ import { COMPANY } from "./renderPages.js";
 import { USD_KRW } from "./costGuard.js";
 import { logError } from "./errorLog.js";
 
+import { SITE_HOST } from "./site.js";
 export const DESK_DOMAINS = [...AUDIT_DOMAINS, "범용"];
 export const CATEGORIES = { service: "특정 회사 AI 서비스", general: "범용 AI 서비스" };
 // 질문을 보낸 방법. 보고서·메일·체크리스트 문장이 이걸 따른다 — 실제와 다른 방법을 적으면 보고서 전체를 믿지 않는다.
@@ -786,7 +787,8 @@ export const NONDISCLOSURE = "이 결과는 외부에 공개하지 않았으며 
 export const OPT_OUT = "이 메일은 귀사 AI 답변 점검 결과를 알려 드리는 안내입니다. 더 받지 않으시려면 '수신 거부'라고 답장해 주세요.";
 const hasNondisclosure = (s) => /공개하지\s*않았/.test(s) && /공개할\s*계획이\s*없/.test(s);
 
-const SITE = "www.yume-reamer.com";
+// 서명에 쓰는 주소 — veriline.kr(server/site.js). 2026-10-29까지 옛 주소(yume-reamer.com)가 박혀 나갔다.
+const SITE = SITE_HOST;
 
 /** 부록 C의 메일 네 통. C-1은 운영자가 고친 제목·본문이 있으면 그것을 쓴다. */
 // issues: 원문으로 확정한 오류 수, wrongAnswers: 그 오류가 들어 있던 답변 수, examples: 대표 사례 한 줄 제목(최대 3).
@@ -802,11 +804,12 @@ export function mailDrafts(audit, results, { reportUrl = "", issues = 0, wrongAn
   // 제목은 짧고 한 번에 읽히게(2026-10-13 대표: "제목이 너무 길다, 임팩트 있게 컴팩트하게"). 휴대폰 받은편지함에서
   // 잘리지 않는 길이 — 브랜드 이름 + 숫자 하나 + 근거. 법인명((주)…)이면 서비스 이름의 첫 낱말을 브랜드로 쓴다.
   const brand = /\(주\)|주식회사|㈜/.test(audit.company || "") ? String(service).split(/\s+/)[0] : audit.company || String(service).split(/\s+/)[0];
+  // 제목 앞 (광고): 받는 쪽이 요청하지 않은 첫 메일이고 서비스 소개로 이어지므로 정보통신망법 제50조 표기를 붙인다(2026-10-29).
   const subject = issues
-    ? `[비공개] ${brand} AI 오답 ${issues}건 — 법령 원문 대조`
+    ? `(광고) [비공개] ${brand} AI 오답 ${issues}건 — 법령 원문 대조`
     : clean
-      ? `[비공개] ${brand} AI 답변 ${n}개, 법령과 다른 내용 없음`
-      : `[비공개] ${brand} AI 답변 확인 결과`;
+      ? `(광고) [비공개] ${brand} AI 답변 ${n}개, 법령과 다른 내용 없음`
+      : `(광고) [비공개] ${brand} AI 답변 확인 결과`;
   // 본문은 짧게 — 결과 한 문장과 보고서 링크만. 사례를 본문에 다 풀면 보고서를 열 이유가 없어진다
   // (2026-10-13 대표: "보고서 내용을 다 말로 해버리면 의미가 없잖아"). 사례·원문은 보고서에만 둔다.
   const finding = issues

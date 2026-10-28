@@ -6,7 +6,9 @@ import { API_TRIAL_QUOTA } from "./plans.js";
 // 외부 서비스용 검증 API(/v1) 키. 원문 키는 발급 순간 한 번만 보여주고 DB에는 SHA-256
 // 해시만 저장한다 — DB가 유출돼도 키를 되살릴 수 없다.
 const MAX_ACTIVE_KEYS_PER_USER = 10;
-const KEY_PREFIX = "yume_live_";
+// 새 키는 vl_live_(2026-10-29 베리라인 독립). 이미 발급된 yume_live_ 키도 그대로 받는다 — 고객 서버의 키를 바꾸게 하지 않는다.
+const KEY_PREFIX = "vl_live_";
+const KEY_PREFIXES = [KEY_PREFIX, "yume_live_"];
 
 export async function createApiKey(user, label) {
   const active = (await one("SELECT COUNT(*) AS n FROM api_keys WHERE user_id = :uid AND status = 'active'", { uid: user.id })).n;
@@ -31,7 +33,7 @@ export async function createApiKey(user, label) {
 }
 
 export function authenticateApiKey(raw) {
-  if (!raw || !raw.startsWith(KEY_PREFIX)) return Promise.resolve(null);
+  if (!raw || !KEY_PREFIXES.some((p) => raw.startsWith(p))) return Promise.resolve(null);
   return one(
     `SELECT k.*, u.email AS owner_email, u.status AS owner_status
        FROM api_keys k JOIN users u ON u.id = k.user_id

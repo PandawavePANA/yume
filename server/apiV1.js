@@ -18,6 +18,7 @@ import { logApiCost, newLedger, recordOpsCost, summarize } from "./apiCost.js";
 import { searchFacts } from "./factStore.js";
 import { recordReport, recordSignals } from "./learnSignals.js";
 
+import { siteOrigin } from "./site.js";
 // 베리라인 검증 API(/v1) — AI 서비스를 운영하는 기업이 자기 서비스의 답변을 베리라인으로 검증하는
 // 공개 API. 계정의 "API 키" 메뉴에서 발급한 키로 인증한다(키는 해시로만 저장).
 //
@@ -41,7 +42,7 @@ router.use((req, res, next) => {
   next();
 });
 
-const UPGRADE_URL = `${(process.env.BUSINESS_URL || "https://business.yume-reamer.com").replace(/\/+$/, "")}/#pricing`;
+const UPGRADE_URL = `${siteOrigin()}/#pricing`;
 
 function fail(res, status, code, message, extra = {}) {
   return res.status(status).json({ error: { code, message, ...extra } });
@@ -563,7 +564,7 @@ router.post("/answer-check", express.json({ limit: "1mb" }), requireApiKey, engi
   const started = Date.now();
   let out;
   try {
-    out = await checkAnswer({ question, answer, level, references: req.body?.references, sources: req.body?.sources, ledger });
+    out = await checkAnswer({ question, answer, level, references: req.body?.references, sources: req.body?.sources, ledger, shareFacts: false });
   } catch (e) {
     // 확인을 끝내지 못한 요청은 과금하지 않는다.
     if (usageId) await finishApiUsage(usageId, { statusCode: 500, cached: false, billable: false });

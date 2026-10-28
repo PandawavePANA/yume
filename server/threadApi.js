@@ -14,7 +14,7 @@ import { patchAsync } from "./asyncExpress.js";
 import { clientIp, createLimiter, limitMiddleware, crossOriginGate } from "./security.js";
 import { now, one, run } from "./db.js";
 import { logError } from "./errorLog.js";
-import { COMPANY } from "./renderPages.js";
+import { COMPANY, REAMER } from "./renderPages.js";
 import { STORE_ID, CHANNEL_KEY, paymentConfigured } from "./portone.js";
 import { newPaymentId, settleQuote } from "./quoteCheckout.js";
 import { RECEIPT_KINDS, readReceipt, receiptBlock } from "./receiptInfo.js";
@@ -135,7 +135,7 @@ threadRouter.get("/thread", cors, limitMiddleware(readLimiter, (req) => `thread-
     payable: cardLive(),
     // 계좌이체는 늘 받는다. 계좌가 설정돼 있으면 신청 직후 화면에 보여 주고, 없으면 메일로 안내한다.
     transfer: { bank: bankAccount() || null, receiptKinds: RECEIPT_KINDS },
-    company: { name: COMPANY.name, email: COMPANY.email, tel: COMPANY.tel },
+    company: { name: COMPANY.name, email: REAMER.email, tel: COMPANY.tel },
   });
 });
 

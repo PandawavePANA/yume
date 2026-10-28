@@ -4,7 +4,8 @@
 // 사실마다 유효 기간이 다르다: 법 · 의료는 길게, 금리 · 환율 · 시세처럼 매일 바뀌는 것은 하루, '현재 · 오늘'이 든 주장도 하루.
 // 운영(DATABASE_URL)에서만 DB 를 쓴다 — 시험 · 로컬은 아무것도 남기지 않는다(메모리 캐시는 answerCheck.js 에 따로 있다).
 const DAY = 24 * 3600 * 1000;
-const TTL_DAYS = { law: 30, medical: 30, tax: 14, labor: 14, realestate: 14, welfare: 14, company: 7, statistics: 3, economy: 1, general: 7 };
+// 2026-10-29: 법 · 세금 · 노동은 하루. 개정은 시행일 0시에 적용되는데 30일씩 붙들면 "개정 직후"를 잡는다는 약속과 어긋난다(claimCache.js와 같은 원칙).
+const TTL_DAYS = { law: 1, medical: 30, tax: 1, labor: 1, realestate: 1, welfare: 14, company: 7, statistics: 3, economy: 1, general: 7 };
 const VOLATILE = /오늘|현재|지금|최근|요즘|이번\s?(주|달|해)|실시간|시세|환율|주가|금리|날씨/;
 
 export const factKey = (c) => `${c.field || "general"}|${String(c.claim || "").replace(/[\s"'“”‘’.,·]/g, "")}`;
@@ -80,12 +81,14 @@ export async function searchFacts(question, { limit = 8, now = Date.now() } = {}
     const { all } = await db();
     const pats = terms.map((t) => `%${t}%`);
     const rows = await all(
-      `SELECT claim, verdict, correct, url, source_name, quote_src, checked_at FROM verified_facts
-        WHERE expires_at > :now AND verdict IN ('supported', 'contradicted') AND claim ILIKE ANY(:pats)
+      `SELECT verdict, correct, url, source_name, quote_src, checked_at FROM verified_facts
+        WHERE expires_at > :now AND verdict IN ('supported', 'contradicted') AND official = 1 AND quote_src <> '' AND claim ILIKE ANY(:pats)
         ORDER BY hits DESC, checked_at DESC LIMIT :lim`,
       { now, pats, lim: limit },
     );
-    return rows.map((r) => ({ claim: r.claim, verdict: r.verdict, correct: r.correct || "", url: r.url || "", source: r.source_name || "", quote: r.quote_src || "", checkedAt: Number(r.checked_at) || null }));
+    // 2026-10-29 고객 데이터 보호: 저장소의 claim은 다른 고객 · 이용자가 보낸 글의 문장이라 돌려주지 않는다.
+    // 공식 출처에서 받은 원문 인용(quote) · 바른 값 · 링크만 — 누구에게나 공개된 정보다.
+    return rows.map((r) => ({ claim: r.quote_src || "", verdict: r.verdict, correct: r.correct || "", url: r.url || "", source: r.source_name || "", quote: r.quote_src || "", checkedAt: Number(r.checked_at) || null }));
   } catch (e) {
     console.error("[facts] 찾기 실패", e.message);
     return [];

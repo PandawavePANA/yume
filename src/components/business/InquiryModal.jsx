@@ -1,9 +1,9 @@
 // 기업용 도입 문의 — 메일 앱을 여는 대신 이 자리에서 받는다.
 //
 // 예전 "도입 문의"는 mailto 링크였다. 회사 PC는 메일 앱이 설정돼 있지 않은 경우가 많아 눌러도
-// 아무 일이 없었고, 열리더라도 무엇을 적어야 할지 모르는 빈 메일이었다. 여기서는 리머 사이트와
-// 같은 문의 API로 보낸다 — 보내는 순간 의뢰 대화가 열리고, 운영자 데스크에서 답장·견적·카드 결제까지
-// 한 줄로 이어진다. 베리라인은 리머가 운영하므로 견적과 결제도 리머의 대화 화면에서 진행된다.
+// 아무 일이 없었고, 열리더라도 무엇을 적어야 할지 모르는 빈 메일이었다. 여기서는 문의 API로 받고,
+// 신청자에게 베리라인 접수 확인 메일(접수 번호)을 보낸다. 견적서는 메일로 가고 견적서 화면에서 계약 신청까지 이어진다.
+// 2026-10-29: 예전에는 리머 외주 대화방(d-reamer.com)이 열렸다 — 베리라인 독립으로 끊었다.
 import { useEffect, useState } from "react";
 import { API_ORIGIN, FORM_PRIVACY_NOTE, PRIVACY_URL } from "../../businessConfig.js";
 import { API_RATES } from "../../../server/apiRates.js";
@@ -42,7 +42,8 @@ export default function InquiryModal({ plan = "unsure", note = "", onClose }) {
   const [form, setForm] = useState({ name: "", contact: "", company: "", plan, volume: "", message: note, website: "" });
   const [state, setState] = useState("idle");
   const [error, setError] = useState("");
-  const [threadUrl, setThreadUrl] = useState("");
+  const [number, setNumber] = useState("");
+  const [mailed, setMailed] = useState(false);
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
   // 무료 검사·PoC는 호출 수가 아니라 문서로, 감사는 서비스와 분야로 이야기한다.
   const docs = form.plan === "trial10" || form.plan === "poc";
@@ -73,11 +74,12 @@ export default function InquiryModal({ plan = "unsure", note = "", onClose }) {
       const r = await fetch(`${API_ORIGIN}/api/inquiry`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: form.name, contact: form.contact, company: form.company, kind: "yume_api", budget: "undecided", message, website: form.website }),
+        body: JSON.stringify({ name: form.name, contact: form.contact, company: form.company, kind: diag ? "veriline_diagnosis" : "yume_api", budget: "undecided", message, website: form.website }),
       });
       const data = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(data.error || "보내지 못했어요. 잠시 후 다시 시도해주세요.");
-      setThreadUrl(data.threadUrl || "");
+      setNumber(data.number || "");
+      setMailed(!!data.mailed);
       setState("done");
     } catch (err) {
       setError(err.message || "보내지 못했어요.");
@@ -98,19 +100,14 @@ export default function InquiryModal({ plan = "unsure", note = "", onClose }) {
           <div style={{ display: "grid", gap: 12 }}>
             <div style={{ fontSize: 20, fontWeight: 700, color: UI.ink, letterSpacing: "-0.02em" }}>문의가 접수됐습니다</div>
             <p style={{ margin: 0, fontSize: 14.5, color: UI.ink2, lineHeight: 1.7 }}>
-              영업일 기준 하루 안에 답변드립니다. 견적서 확인, 확정, 카드 결제까지 아래 대화 화면에서 이어집니다.
-              베리라인은 리머가 운영하므로 대화 화면에는 리머 이름으로 표시됩니다.
+              영업일 기준 하루 안에 {form.contact}로 답장드립니다.{number ? ` 접수 번호 ${number}.` : ""} 견적서는 메일로 보내 드리고, 견적서 화면에서 계약 신청까지 하실 수 있습니다.
             </p>
-            {threadUrl && (
-              <a href={threadUrl} target="_blank" rel="noreferrer" style={{
-                justifySelf: "start", padding: "11px 18px", borderRadius: 12, background: UI.ink, color: "#fff",
-                textDecoration: "none", fontWeight: 600, fontSize: 14.5,
-              }}>대화 열기 →</a>
-            )}
             <p style={{ margin: 0, fontSize: 12.5, color: UI.ink3, lineHeight: 1.6 }}>
-              {/.+@.+\..+/.test(form.contact)
-                ? `같은 링크를 ${form.contact}로도 보내드렸습니다.`
-                : "전화번호로 문의하셔서 링크를 메일로 보내드리지 못했습니다. 위 버튼을 눌러 대화 화면을 즐겨찾기해 두세요."}
+              {mailed
+                ? "접수 확인 메일을 방금 보냈습니다. 보이지 않으면 스팸함을 확인하시거나 contact@veriline.kr로 연락 주세요."
+                : /.+@.+\..+/.test(form.contact)
+                  ? "급하시면 contact@veriline.kr로 접수 번호와 함께 연락 주세요."
+                  : "전화번호로 남기셔서 확인 메일은 보내지 못했습니다. 영업일 하루 안에 전화드리겠습니다."}
             </p>
             <button type="button" onClick={onClose} style={{ justifySelf: "end", border: 0, background: "none", color: UI.ink3, fontSize: 13.5, cursor: "pointer" }}>닫기</button>
           </div>
@@ -122,10 +119,10 @@ export default function InquiryModal({ plan = "unsure", note = "", onClose }) {
                 {diag
                   ? "AI 서비스 주소와 분야를 남겨 주시면 베리라인이 일반 사용자로서 함정 질문 몇 개를 넣어 보고, 찾은 오류와 근거 조문을 보통 영업일 3일 안에 보내 드립니다. 비용은 없습니다."
                   : audit
-                  ? "보내시면 바로 대화 화면이 열립니다. 가장 신경 쓰이는 오류 유형을 들려 주시면 그 범위로 감사를 설계해 드립니다. 결과는 귀사에만 비공개로 드리고, 공개 여부는 귀사가 정합니다."
+                  ? "보내시면 접수 확인 메일이 갑니다. 가장 신경 쓰이는 오류 유형을 들려 주시면 그 범위로 감사를 설계해 드립니다. 결과는 귀사에만 비공개로 드리고, 공개 여부는 귀사가 정합니다."
                   : docs
-                    ? "보내시면 바로 대화 화면이 열립니다. 검사할 문서는 답장 메일로 받고, 결과도 같은 곳으로 보내 드립니다. 공개해도 되는 문서로 시작하셔도 됩니다."
-                    : "보내시면 바로 대화 화면이 열립니다. 견적서와 결제도 그 자리에서 진행됩니다."}
+                    ? "보내시면 접수 확인 메일이 갑니다. 검사할 문서는 그 메일에 답장으로 받고, 결과도 같은 곳으로 보내 드립니다. 공개해도 되는 문서로 시작하셔도 됩니다."
+                    : "보내시면 접수 확인 메일이 가고, 영업일 하루 안에 견적서를 메일로 보내 드립니다."}
               </p>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 12 }}>
@@ -138,7 +135,7 @@ export default function InquiryModal({ plan = "unsure", note = "", onClose }) {
             </div>
             <label style={labelStyle}>연락받으실 이메일 *
               <input id="bq-contact" required maxLength={200} value={form.contact} onChange={set("contact")} style={field}
-                placeholder="견적서와 대화 링크를 보내드립니다" autoComplete="email" />
+                placeholder="견적서와 답장을 보내드립니다" autoComplete="email" />
             </label>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 12 }}>
               <label style={labelStyle}>원하는 플랜

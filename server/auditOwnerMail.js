@@ -118,7 +118,7 @@ export function ownerAuditMail(detail, { title, notes = [], goodLines = null, ba
       <div style="font-size:15px;line-height:1.75;color:#2E2A38;margin-top:2px">${nl(mail.first.body)}</div>
     </td></tr></table>`)}
 
-  <tr><td style="padding:24px 24px 22px;font-size:12px;line-height:1.7;color:#958EA8">베리라인(YUME) · 리머 · 이 메일은 대표 확인용입니다. 감사 결과는 상대 회사에만 비공개로 전달하고, 동의 없이 공개하지 않습니다.</td></tr>
+  <tr><td style="padding:24px 24px 22px;font-size:12px;line-height:1.7;color:#958EA8">베리라인 · 이 메일은 대표 확인용입니다. 감사 결과는 상대 회사에만 비공개로 전달하고, 동의 없이 공개하지 않습니다.</td></tr>
 </table></td></tr></table></body></html>`;
 
   const text = [

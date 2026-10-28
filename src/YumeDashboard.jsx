@@ -25,7 +25,7 @@ import { t, useLang, getLang } from "./i18n.js";
 import { useMediaQuery } from "./useMedia.js";
 
 // 기업용 사이트 주소. 별도 도메인에 따로 배포되므로 코드에 박지 않고 빌드 환경변수로 받는다.
-// 2026-10-26 대표: 이 개인용 화면(유메)은 www.yume-reamer.com/ 에, 기업용(베리라인)은 veriline.kr 에 있다(server/app.js가 주소로 가른다).
+// 2026-10-29: 이 개인 검사 · 계정 · API 키 화면은 veriline.kr/check, 기업용 첫 화면은 veriline.kr/ 에 있다(server/app.js가 주소로 가른다).
 const BUSINESS_URL = (import.meta.env?.VITE_BUSINESS_URL || "https://veriline.kr").replace(/\/+$/, "");
 // 첫 화면 아래의 긴 소개(판정 띠 · 사례 · 원리 · 지수 · 마무리 CTA)는 끈다 — 2026-10-26 대표 "유메는 디자인 바뀐 채로 원래 기능 그대로, 밑에 내용 없앤 채로 B2C로".
 // 코드는 남겨 두어 다시 켤 수 있다. 사업자 정보 · AI 고지가 있는 푸터는 법정 표시라 그대로 둔다.

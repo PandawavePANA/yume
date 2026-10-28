@@ -6,6 +6,7 @@
 // 필드를 추가·삭제하면 여기도 고친다(server/tests/openapi.test.js가 경로 목록을 대조한다).
 import { MAX_REFERENCES, MAX_REFERENCE_CHARS } from "./referenceCheck.js";
 
+import { siteOrigin } from "./site.js";
 const ref = (name) => ({ $ref: `#/components/schemas/${name}` });
 const json = (schema, description = "") => ({ description, content: { "application/json": { schema } } });
 const errors = (...codes) =>
@@ -32,7 +33,7 @@ const verifyBody = {
   },
 };
 
-export function openApiSpec(base = "https://www.yume-reamer.com") {
+export function openApiSpec(base = siteOrigin()) {
   return {
     openapi: "3.1.0",
     info: {

@@ -13,6 +13,8 @@ import { now, run, all, one } from "./db.js";
 import { mailConfigured, sendMail } from "./mailer.js";
 import { logError } from "./errorLog.js";
 import { openThreadForInquiry, mailThreadOpened } from "./threads.js";
+import { COMPANY, VERILINE } from "./renderPages.js";
+import { veriLineReceiptMail } from "./verilineMail.js";
 
 export const inquiryRouter = Router();
 
@@ -40,11 +42,14 @@ export const INQUIRY_KINDS = {
   automation: "업무 자동화 · 데이터",
   maintain: "기존 서비스 개선 · 유지보수",
   other: "그 외",
-  // 기업용 페이지(business.yume-reamer.com)의 도입 문의. 같은 데스크로 들어와 견적·결제가 이어진다.
+  // 베리라인(veriline.kr) 도입 문의.
   yume_api: "베리라인 API 도입",
   // 2026-10-25 메인의 무료 진단 — 운영자가 일반 사용자로서 함정 질문 몇 개를 넣어 보고 틀린 곳 요약을 보낸다.
   veriline_diagnosis: "베리라인 무료 진단",
 };
+
+// 베리라인 양식에서 오는 종류. 이 종류는 리머 대화방을 열지 않는다.
+export const VERILINE_KINDS = new Set(["veriline_diagnosis", "yume_api"]);
 
 const BUDGETS = {
   "under-500": "500만원 미만",
@@ -82,30 +87,40 @@ inquiryRouter.post("/inquiry", cors, limitMiddleware(limiter, (req) => `inquiry:
   );
   const id = row.rows[0]?.id;
 
-  // 접수와 동시에 대화방을 연다. 이 링크가 이 문의의 전부다 — 대화도, 견적도, 결제도
-  // 여기서 이어진다. 만드는 데 실패해도 문의 자체는 남아 있으므로 접수를 취소하지 않는다.
-  let thread = null;
-  try {
-    thread = await openThreadForInquiry({ id, name, contact, company, kind: kindLabel, budget: budgetLabel, message });
-  } catch (e) {
-    logError("inquiry:thread", e);
-  }
-
-  // 여기서부터는 실패해도 접수는 유효하다. 기다리게 하지 않고 바로 응답한다.
-  res.status(201).json({ ok: true, threadUrl: thread?.url || null });
-
-  if (thread) {
-    const row2 = await one("SELECT * FROM threads WHERE id = :id", { id: thread.id }).catch(() => null);
-    if (row2) mailThreadOpened(row2, thread.token);
+  // 베리라인 신청은 리머 외주 대화방과 분리한다(2026-10-29 대표 "리머 외주 관련도 싹 끊고 베리라인은 단독으로").
+  // 예전에는 무료 진단을 신청한 고객에게 "[리머] 문의가 접수됐습니다" 메일과 d-reamer.com 대화 링크가 갔다.
+  const veriline = VERILINE_KINDS.has(kind);
+  if (veriline) {
+    // mailed: 접수 확인 메일을 보낼 수 있는지 — 화면이 "메일을 보냈습니다"라고 말해도 되는지(2026-10-29).
+    const mailed = mailConfigured() && looksEmail(contact);
+    res.status(201).json({ ok: true, number: `VL-D-${id}`, mailed });
+    if (mailed) {
+      const m = veriLineReceiptMail({ id, name, kind, company });
+      sendMail({ brand: "VERILINE", to: contact, replyTo: VERILINE.email, ...m }).catch((e) => logError("inquiry:receipt", e));
+    }
+  } else {
+    // 리머 개발 문의 — 접수와 동시에 대화방을 연다. 이 링크가 이 문의의 전부다(대화 · 견적 · 결제).
+    // 만드는 데 실패해도 문의 자체는 남아 있으므로 접수를 취소하지 않는다.
+    let thread = null;
+    try {
+      thread = await openThreadForInquiry({ id, name, contact, company, kind: kindLabel, budget: budgetLabel, message });
+    } catch (e) {
+      logError("inquiry:thread", e);
+    }
+    // 여기서부터는 실패해도 접수는 유효하다. 기다리게 하지 않고 바로 응답한다.
+    res.status(201).json({ ok: true, threadUrl: thread?.url || null });
+    if (thread) {
+      const row2 = await one("SELECT * FROM threads WHERE id = :id", { id: thread.id }).catch(() => null);
+      if (row2) mailThreadOpened(row2, thread.token);
+    }
   }
 
   if (!mailConfigured()) return;
-  const to = process.env.INQUIRY_TO || process.env.COMPANY_EMAIL || "reamer@d-reamer.com";
+  // 운영자 알림 — 베리라인 신청은 베리라인 메일함으로, 리머 문의는 리머 메일함으로.
+  const to = veriline ? process.env.VERILINE_INQUIRY_TO || VERILINE.email : process.env.INQUIRY_TO || COMPANY.email;
   const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
-  // 베리라인(기업용) 문의는 베리라인 이름으로 — 리머 개발 문의와 섞여 보이면 첫 고객 문의를 놓친다(2026-10-27)
-  const veriline = kind === "veriline_diagnosis" || kind === "yume_api";
   sendMail({
-    brand: veriline ? "YUME" : "REAMER",
+    brand: veriline ? "VERILINE" : "REAMER",
     to,
     // 연락처가 이메일이면 그대로 답장할 수 있게 건다. 전화번호면 걸 것이 없다.
     replyTo: looksEmail(contact) ? contact : undefined,

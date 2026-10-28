@@ -8,6 +8,7 @@
 // 차단 목록 방식은 IP 표기법(10진수, 8진법, IPv6 매핑)마다 빠져나갈 구멍이 생긴다.
 import { logError } from "./errorLog.js";
 
+import { BOT_UA } from "./site.js";
 // 공유 링크를 지원하는 서비스. 호스트는 정확히 일치하거나 그 하위 도메인만 인정한다.
 export const SUPPORTED = [
   { host: "chatgpt.com", label: "ChatGPT", how: "대화 우측 상단 ⋯ → 공유 → 링크 복사" },
@@ -70,7 +71,7 @@ async function fetchHtml(url) {
       signal: AbortSignal.timeout(TIMEOUT_MS),
       headers: {
         // 공유 페이지는 사람이 여는 것을 전제로 만들어져 있다.
-        "User-Agent": "Mozilla/5.0 (compatible; YumeContextBot/1.0; +https://www.yume-reamer.com)",
+        "User-Agent": BOT_UA(),
         Accept: "text/html,application/xhtml+xml",
         "Accept-Language": "ko,en;q=0.8",
       },

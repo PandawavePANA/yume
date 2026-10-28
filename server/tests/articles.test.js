@@ -44,7 +44,7 @@ test("글 여섯 편과 허브가 서버에서 완성된 HTML로 나온다 — �
     // 제목은 HTML로 이스케이프돼 나간다(따옴표 → &#39;).
     const escHtml = (x) => x.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
     assert.ok(r.text.includes(`<title>${escHtml(a.seoTitle)}</title>`), slug);
-    assert.match(r.text, /<link rel="canonical" href="https:\/\/www\.yume-reamer\.com\/hallucination\//);
+    assert.match(r.text, /<link rel="canonical" href="https:\/\/veriline\.kr\/hallucination\//);
     const ld = jsonLd(r.text);
     assert.ok(ld.some((x) => x["@type"] === "Article" && x.headline === a.title), slug);
     assert.ok(ld.some((x) => x["@type"] === "BreadcrumbList"));
@@ -81,6 +81,6 @@ test("사이트맵은 서버가 만들고 글·특별호·메인(기업용)·개
   assert.equal(r.status, 200);
   assert.match(r.type, /xml/);
   for (const p of ["/hallucination", ...Object.keys(ARTICLES).map((s) => `/hallucination/${s}`), "/hallucination-index/special-2", "/"]) {
-    assert.ok(r.text.includes(`<loc>https://www.yume-reamer.com${p}</loc>`), p);
+    assert.ok(r.text.includes(`<loc>https://veriline.kr${p}</loc>`), p);
   }
 });

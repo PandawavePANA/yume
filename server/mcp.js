@@ -29,6 +29,7 @@ import { getVerification, newVerificationId } from "./verificationStore.js";
 import { logError } from "./errorLog.js";
 import { apiUnits } from "./apiRates.js";
 
+import { siteOrigin } from "./site.js";
 const router = patchAsync(express.Router());
 
 // 클라이언트가 붙을 때 한 번 주고받는 값. 프로토콜 버전은 요청한 것을 그대로 돌려준다 —
@@ -45,7 +46,7 @@ const FALLBACK_PROTOCOL = "2025-06-18";
 const WAIT_MS = 45_000;
 
 // 대기를 넘겼을 때 줄 결과 페이지 주소. 배포마다 도메인이 다르므로 환경변수를 먼저 본다.
-const publicBase = () => (process.env.PUBLIC_BASE_URL || "https://www.yume-reamer.com").replace(/\/+$/, "");
+const publicBase = () => siteOrigin();
 
 const TOOLS = [
   {

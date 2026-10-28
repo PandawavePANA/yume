@@ -8,6 +8,7 @@ import net from "node:net";
 import { classifyUpstream, noteUpstreamFailure, noteUpstreamSuccess } from "../upstream.js";
 import { newLedger, record, summarize } from "../apiCost.js";
 
+import { BOT_UA } from "../site.js";
 const MODEL = process.env.STAFF_MODEL || process.env.CLAUDE_MODEL || "claude-sonnet-5";
 const FAST_MODEL = process.env.CLAUDE_FAST_MODEL || "claude-haiku-4-5-20251001";
 // Sonnet 5는 생각하는 데 쓴 토큰도 max_tokens에 든다(claude.js THINKING_FLOOR와 같은 이유).
@@ -138,7 +139,7 @@ export async function readPage(raw, { maxChars = 30_000 } = {}) {
   for (let hop = 0; hop < 4; hop += 1) {
     const res = await fetch(url, {
       redirect: "manual",
-      headers: { "User-Agent": "YumeStaff/1.0 (+https://www.yume-reamer.com)", Accept: "text/html,text/plain" },
+      headers: { "User-Agent": BOT_UA("VerilineStaff"), Accept: "text/html,text/plain" },
       signal: AbortSignal.timeout(12_000),
     });
     if (res.status >= 300 && res.status < 400 && res.headers.get("location")) {

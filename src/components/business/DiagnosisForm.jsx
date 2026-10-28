@@ -1,5 +1,5 @@
 // 무료 진단 신청 — 메인 마지막 구역에 바로 놓인 양식(창을 띄우지 않는다: 결정한 사람이 한 번 더 누를 일을 없앤다).
-// 도입 문의와 같은 /api/inquiry 로 보내 운영자 데스크의 대화로 들어가고(kind: veriline_diagnosis), 담당자 메일로 대화 링크가 간다.
+// /api/inquiry(kind: veriline_diagnosis)로 보내고, 신청자에게는 베리라인 접수 확인 메일(접수 번호)이 간다 — 리머 대화방은 열지 않는다(2026-10-29).
 import { useState } from "react";
 import { API_ORIGIN, FORM_PRIVACY_NOTE, PRIVACY_URL } from "../../businessConfig.js";
 
@@ -9,7 +9,8 @@ export default function DiagnosisForm() {
   const [f, setF] = useState({ name: "", company: "", contact: "", url: "", field: "노무", worry: "", website: "" });
   const [state, setState] = useState("idle");
   const [error, setError] = useState("");
-  const [threadUrl, setThreadUrl] = useState("");
+  const [number, setNumber] = useState("");
+  const [mailed, setMailed] = useState(false);
   const set = (k) => (e) => setF((x) => ({ ...x, [k]: e.target.value }));
 
   const submit = async (e) => {
@@ -30,7 +31,8 @@ export default function DiagnosisForm() {
       });
       const data = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(data.error || "보내지 못했어요. 잠시 후 다시 시도해 주세요.");
-      setThreadUrl(data.threadUrl || "");
+      setNumber(data.number || "");
+      setMailed(!!data.mailed);
       setState("done");
     } catch (err) {
       setError(err.message || "보내지 못했어요. 잠시 후 다시 시도해 주세요.");
@@ -43,9 +45,8 @@ export default function DiagnosisForm() {
       <div className="vl-form">
         <div className="done">
           <b>신청을 받았습니다</b>
-          <p>보통 영업일 3일 안에 찾은 오류와 근거 조문을 보내 드립니다. 진행 상황과 답장은 아래 대화 화면에서 이어집니다.</p>
-          {threadUrl && <a className="vl-btn key" href={threadUrl} target="_blank" rel="noreferrer" style={{ justifySelf: "start" }}>대화 열기 →</a>}
-          <p className="fine">{/.+@.+\..+/.test(f.contact) ? `같은 링크를 ${f.contact}로도 보내 드렸습니다.` : "위 버튼을 눌러 대화 화면을 즐겨찾기해 두세요."}</p>
+          <p>보통 영업일 3일 안에 현행 법과 다르게 답한 곳과 근거 조문을 {f.contact}로 보내 드립니다.{number ? ` 접수 번호 ${number}.` : ""}</p>
+          <p className="fine">{mailed ? "접수 확인 메일을 방금 보냈습니다. 로그인이 필요한 서비스라면 그 메일에 시험 계정을 답장으로 보내 주세요. 메일이 보이지 않으면 스팸함을 확인해 주세요." : "로그인이 필요한 서비스라면 시험 계정을 contact@veriline.kr로 보내 주세요(접수 번호를 함께 적어 주세요)."}</p>
         </div>
       </div>
     );

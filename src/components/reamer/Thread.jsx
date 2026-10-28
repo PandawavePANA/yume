@@ -6,7 +6,7 @@
 //
 // 로그인은 없다. 링크가 곧 열쇠다.
 import { useCallback, useEffect, useRef, useState } from "react";
-import { BUSINESS, telHref } from "@/businessInfo";
+import { BUSINESS, REAMER_EMAIL, telHref } from "@/businessInfo";
 import { API, call, forgetToken, readToken } from "./threadApi.js";
 import { MAX_PHOTOS, shrinkPhoto } from "./photos.js";
 import { openQuoteDoc } from "./quoteDoc.js";
@@ -290,7 +290,7 @@ function ThreadFoot({ company }) {
         {BUSINESS.address}
         <br />
         <a href={telHref}>{company?.tel || BUSINESS.tel}</a> ·{" "}
-        <a href={`mailto:${company?.email || BUSINESS.email}`}>{company?.email || BUSINESS.email}</a>
+        <a href={`mailto:${company?.email || REAMER_EMAIL}`}>{company?.email || REAMER_EMAIL}</a>
       </p>
       <p className="th__fine">이 주소를 아는 사람은 이 대화를 볼 수 있습니다. 공유에 주의해주세요.</p>
     </footer>
@@ -726,7 +726,7 @@ function NoLink({ expired }) {
           </form>
         )}
         <p className="th__fine">
-          이메일로 문의하지 않으셨다면 <a href={`mailto:${BUSINESS.email}`}>{BUSINESS.email}</a> 또는{" "}
+          이메일로 문의하지 않으셨다면 <a href={`mailto:${REAMER_EMAIL}`}>{REAMER_EMAIL}</a> 또는{" "}
           <a href={telHref}>{BUSINESS.tel}</a>로 연락 주세요.
         </p>
         <p className="th__fine">

@@ -172,13 +172,21 @@ test("환불정책에 필수 항목이 다 들어 있다", async () => {
   }
 });
 
-test("www 없는 주소는 www로 넘긴다", async () => {
-  const r = await fetch(`${base}/terms`, { headers: { "X-Forwarded-Host": "yume-reamer.com" }, redirect: "manual" });
-  assert.equal(r.status, 301);
-  assert.equal(r.headers.get("location"), "https://www.yume-reamer.com/terms");
-
-  // 이미 www면 그대로 통과해야 한다 — 안 그러면 무한 리다이렉트다.
-  const ok = await fetch(`${base}/terms`, { headers: { "X-Forwarded-Host": "www.yume-reamer.com" }, redirect: "manual" });
+test("옛 주소(yume-reamer.com)의 화면 요청은 veriline.kr로 넘기고, API는 그대로 받는다", async () => {
+  for (const host of ["yume-reamer.com", "www.yume-reamer.com"]) {
+    const r = await fetch(`${base}/terms`, { headers: { "X-Forwarded-Host": host }, redirect: "manual" });
+    assert.equal(r.status, 301, host);
+    assert.equal(r.headers.get("location"), "https://veriline.kr/terms");
+  }
+  // 옛 첫 화면(개인 검사)은 /check로
+  const home = await fetch(`${base}/?open=api`, { headers: { "X-Forwarded-Host": "www.yume-reamer.com" }, redirect: "manual" });
+  assert.equal(home.headers.get("location"), "https://veriline.kr/check?open=api");
+  // 이미 발급된 키 · 웹훅이 끊기지 않게 API는 넘기지 않는다
+  const api = await fetch(`${base}/v1/openapi.json`, { headers: { "X-Forwarded-Host": "www.yume-reamer.com" }, redirect: "manual" });
+  assert.equal(api.status, 200);
+  assert.equal(api.headers.get("deprecation"), "true");
+  // veriline.kr은 그대로 통과해야 한다 — 안 그러면 무한 리다이렉트다.
+  const ok = await fetch(`${base}/terms`, { headers: { "X-Forwarded-Host": "veriline.kr" }, redirect: "manual" });
   assert.equal(ok.status, 200);
 });
 
@@ -201,7 +209,7 @@ test("API 키 발급 → 캐시 경로로 검증 → 소유권·한도", async (
   const created = await owner("POST", "/api/account/api-keys", { label: "운영 서버" });
   assert.equal(created.status, 201);
   const key = created.data.key;
-  assert.match(key, /^yume_live_[0-9a-f]{48}$/);
+  assert.match(key, /^vl_live_[0-9a-f]{48}$/);
   const list = await owner("GET", "/api/account/api-keys");
   assert.ok(!JSON.stringify(list.data).includes(key), "목록에는 원문 키가 없어야 함");
 

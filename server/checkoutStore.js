@@ -9,6 +9,7 @@ import { sendMail } from "./mailer.js";
 import { recordEvent } from "./events.js";
 import { COMPANY } from "./renderPages.js";
 
+import { siteOrigin } from "./site.js";
 // 결제 완료 안내.
 //
 // 「전자상거래 등에서의 소비자보호에 관한 법률」 제13조는 계약 내용을 적은 서면을
@@ -54,7 +55,7 @@ function sendReceipt(order, { method, planExpiresAt }) {
     ].filter(Boolean).join(" · ");
 
     await sendMail({
-      brand: "YUME",
+      brand: "VERILINE",
       to: user.email,
       subject: `[베리라인] 결제가 완료되었습니다 · ${item}`,
       text: [
@@ -66,7 +67,7 @@ function sendReceipt(order, { method, planExpiresAt }) {
         "전자상거래법 제17조 제2항 제5호에 따라 청약철회가 제한됩니다.",
         "환불은 결제하신 카드의 결제 취소로만 처리되며, 현금으로 돌려드리지 않습니다.",
         `환불 문의: ${COMPANY.email}`,
-        "환불정책: https://www.yume-reamer.com/refund",
+        `환불정책: ${siteOrigin()}/refund`,
         "",
         seller,
       ].join("\n"),
@@ -81,7 +82,7 @@ function sendReceipt(order, { method, planExpiresAt }) {
     전자상거래법 제17조 제2항 제5호에 따라 청약철회가 제한됩니다.
     환불은 결제하신 카드의 결제 취소로만 처리됩니다.<br/>
     환불 문의 <a href="mailto:${esc(COMPANY.email)}">${esc(COMPANY.email)}</a> ·
-    <a href="https://www.yume-reamer.com/refund">환불정책</a>
+    <a href="${siteOrigin()}/refund">환불정책</a>
   </p>
   <p style="margin:18px 0 0;padding-top:14px;border-top:1px solid #E6DAF6;font-size:11.5px;color:#8577A8">${esc(seller)}</p>
 </div>`,

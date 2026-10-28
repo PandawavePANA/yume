@@ -59,7 +59,13 @@ export async function deliverWebhook({ url, secret = "", event = "verification.c
     const ts = String(Math.floor(Date.now() / 1000));
     const headers = {
       "Content-Type": "application/json",
-      "User-Agent": "YUME-Webhook/1",
+      "User-Agent": "Veriline-Webhook/1",
+      // 2026-10-29: X-Veriline-* 가 정식 이름. 이미 연동한 고객을 위해 X-Yume-* 도 같은 값으로 함께 보낸다.
+      "X-Veriline-Event": event,
+      "X-Veriline-Delivery": delivery,
+      "X-Veriline-Attempt": String(n + 1),
+      "X-Veriline-Timestamp": ts,
+      ...(secret ? { "X-Veriline-Signature": signPayload(secret, ts, body) } : {}),
       "X-Yume-Event": event,
       "X-Yume-Delivery": delivery,
       "X-Yume-Attempt": String(n + 1),

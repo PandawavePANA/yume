@@ -6,4 +6,4 @@ Disallow: /admin
 Disallow: /datasets/
 Disallow: /reset-password
 
-Sitemap: https://www.yume-reamer.com/sitemap.xml
+Sitemap: https://veriline.kr/sitemap.xml

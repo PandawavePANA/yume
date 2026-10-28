@@ -3,7 +3,7 @@ import "./reamer.css";
 import "@/components/reamer/site.css";
 import SiteBackdrop from "@/components/reamer/SiteBackdrop";
 import Logo from "@/components/reamer/Logo";
-import { BUSINESS, telHref, COPYRIGHT, businessLine } from "@/businessInfo";
+import { BUSINESS, REAMER_EMAIL, telHref, COPYRIGHT, businessLine } from "@/businessInfo";
 import BusinessAddress from "@/BusinessAddress";
 import { rememberToken } from "@/components/reamer/threadApi";
 import { NAV, HERO_NOTE, WHY, GUARANTEES, SERVICES, PROCESS, WORK, ALSO, CREDENTIALS, TIMELINE, FAQ, AFTER_SEND } from "@/reamerContent";
@@ -336,7 +336,7 @@ function InquiryForm() {
         ) : (
           <p className="inquiry__done-desc">
             영업일 기준 하루 안에 <b>{form.contact}</b>로 답장드리겠습니다.
-            급하시면 <a href={`mailto:${BUSINESS.email}`}>{BUSINESS.email}</a>로 바로 연락 주셔도 됩니다.
+            급하시면 <a href={`mailto:${REAMER_EMAIL}`}>{REAMER_EMAIL}</a>로 바로 연락 주셔도 됩니다.
           </p>
         )}
       </div>
@@ -374,7 +374,7 @@ function InquiryForm() {
       <input className="inquiry__trap" tabIndex={-1} autoComplete="off" aria-hidden
         value={form.website} onChange={set("website")} />
 
-      {error && <p className="inquiry__error">{error} 메일로 보내셔도 됩니다: <a href={`mailto:${BUSINESS.email}`}>{BUSINESS.email}</a></p>}
+      {error && <p className="inquiry__error">{error} 메일로 보내셔도 됩니다: <a href={`mailto:${REAMER_EMAIL}`}>{REAMER_EMAIL}</a></p>}
 
       <button className="btn btn--solid inquiry__submit" data-magnet type="submit" disabled={state === "sending"}>
         <Roll>{state === "sending" ? "보내는 중…" : "문의 보내기"}</Roll> <span className="btn__arrow">→</span>
@@ -882,7 +882,7 @@ const ReamerSite = () => {
                 <ul className="contact__direct">
                   <li>
                     <span>이메일</span>
-                    <a href={`mailto:${BUSINESS.email}`}>{BUSINESS.email}</a>
+                    <a href={`mailto:${REAMER_EMAIL}`}>{REAMER_EMAIL}</a>
                   </li>
                   {BUSINESS.tel && (
                     <li>
@@ -947,7 +947,7 @@ const ReamerSite = () => {
                   {" · "}
                 </>
               )}
-              이메일 <a className="footer__link" href={`mailto:${BUSINESS.email}`}>{BUSINESS.email}</a>
+              이메일 <a className="footer__link" href={`mailto:${REAMER_EMAIL}`}>{REAMER_EMAIL}</a>
             </span>
             <Txt as="p" className="footer__copy">{COPYRIGHT}</Txt>
           </address>

@@ -12,7 +12,7 @@ if (process.env.TEST_DATABASE_URL) process.env.DATABASE_URL = process.env.TEST_D
 else delete process.env.DATABASE_URL;
 process.env.ADMIN_SECRET = "test-admin-secret-0123";
 delete process.env.ANTHROPIC_API_KEY;
-delete process.env.MAIL_FROM_YUME;
+delete process.env.MAIL_FROM_VERILINE;
 delete process.env.MAIL_FROM_OUTREACH;
 process.env.B2B_BANK_ACCOUNT = "테스트은행 000";
 
@@ -191,11 +191,11 @@ test("영업팀 지호: 후속 메일은 베리라인 도메인 인증 전에는
   assert.equal((await store.getApproval(a.id)).status, "pending", "실패하면 결재함에 남는다");
   assert.equal(sent.length, 0);
 
-  process.env.MAIL_FROM_YUME = "베리라인 <hello@yume-reamer.com>";
+  process.env.MAIL_FROM_VERILINE = "베리라인 <hello@veriline.kr>";
   const ok = await staff.approve(a.id, {}, { deps: deps() });
-  delete process.env.MAIL_FROM_YUME;
+  delete process.env.MAIL_FROM_VERILINE;
   assert.ok(ok.ok, ok.error);
-  assert.match(sent[0].from, /정원영 \(베리라인\) <hello@yume-reamer\.com>/);
+  assert.match(sent[0].from, /정원영 \(베리라인\) <hello@veriline\.kr>/);
   assert.equal(sent[0].to, "kim@fu.example.com");
   assert.equal((await desk.auditById(made.id)).stage, "followed_up");
 });
@@ -371,7 +371,7 @@ test("대표 할 일: 결재함과 따로 — 날짜·앞 일 조건대로 보�
   await todos.seed();
   const today = await todos.list("2026-10-14");
   const keys = today.map((t) => t.key);
-  assert.ok(keys.includes("outreach_domain") && keys.includes("gmail") && keys.includes("biz_address"));
+  assert.ok(keys.includes("outreach_domain_veriline") && keys.includes("gmail") && keys.includes("biz_address"));
   assert.ok(!keys.includes("modu_result"), "10/15 일은 그날부터");
   assert.ok(!keys.includes("tax_general"), "11/1 일은 그날부터");
   assert.ok(!keys.includes("inicis_address"), "사업자 정정이 끝나야 보인다");
@@ -388,7 +388,7 @@ test("대표 할 일: 결재함과 따로 — 날짜·앞 일 조건대로 보�
   delete process.env.GMAIL_APP_PASSWORD;
 
   // 메일 도메인 — 완료를 누르면 베리라인 주소로 시험 발송, 실패면 막고 성공이면 첫 메일 발송이 열린다
-  const od = today.find((t) => t.key === "outreach_domain");
+  const od = today.find((t) => t.key === "outreach_domain_veriline");
   const fail = await staff.completeTodo(od.id, { deps: deps({ sendMail: async () => { throw new Error("domain not verified"); } }) });
   assert.match(fail.error, /인증되지 않았어요/);
   const sales = await import("../staff/jobs/sales.js");
@@ -397,8 +397,8 @@ test("대표 할 일: 결재함과 따로 — 날짜·앞 일 조건대로 보�
   sent.length = 0;
   const ok = await staff.completeTodo(od.id, { deps: deps() });
   assert.ok(ok.ok, ok.error);
-  assert.match(sent[0].from, /hello@yume-reamer\.com/);
-  assert.match(sales.outreachFrom(), /정원영 \(베리라인\) <hello@yume-reamer\.com>/, "환경변수 없이도 발송이 열린다");
+  assert.match(sent[0].from, /hello@veriline\.kr/);
+  assert.match(sales.outreachFrom(), /정원영 \(베리라인\) <hello@veriline\.kr>/, "환경변수 없이도 발송이 열린다");
 
   // 내일로 · 직접 추가
   const kmong = (await todos.list("2026-10-14")).find((t) => t.key === "kmong_mvp");

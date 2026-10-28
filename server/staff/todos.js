@@ -36,7 +36,9 @@ export async function seed() {
 // ── 서버가 직접 확인할 수 있는 할 일 ─────────────────────────────────────
 // 베리라인 도메인 주소로 보낸 시험 메일이 성공했으면 그 주소를 저장해 둔다 — 환경변수를 다시 넣지 않아도 첫 메일 발송이 열린다.
 export const OUTREACH_SETTING = "outreach_from";
-const OUTREACH_ADDR = () => `${COMPANY.ceo} (베리라인) <hello@yume-reamer.com>`;
+// 2026-10-29: 영업 메일은 veriline.kr 주소로만(옛 yume-reamer.com 폐기).
+const OUTREACH_ADDR = () => `${COMPANY.ceo} (베리라인) <hello@veriline.kr>`;
+const isVerilineFrom = (v) => /@veriline\.kr>?\s*$/i.test(String(v || ""));
 
 async function checkDone(key, deps = {}) {
   if (key === "gmail") {
@@ -49,11 +51,11 @@ async function checkDone(key, deps = {}) {
   }
   if (key === "engine") return engineStopped() ? { ok: false, why: "검사 엔진이 아직 멈춰 있어요." } : { ok: true };
   if (key === "outreach_domain") {
-    if (process.env.MAIL_FROM_YUME || (await getSetting(OUTREACH_SETTING).catch(() => null))) return { ok: true };
+    if (isVerilineFrom(process.env.MAIL_FROM_OUTREACH || process.env.MAIL_FROM_VERILINE) || isVerilineFrom(await getSetting(OUTREACH_SETTING).catch(() => null))) return { ok: true };
     if (!deps.sendMail) return { ok: false, why: "확인할 수 없어요." };
     try {
       const to = process.env.STAFF_CEO_EMAIL || process.env.COMPANY_EMAIL || "reamer@d-reamer.com";
-      await deps.sendMail({ from: OUTREACH_ADDR(), to, subject: "[베리라인] 메일 도메인 인증 확인", text: "yume-reamer.com 주소로 보낸 시험 메일입니다. 이 메일이 왔다면 첫 메일 발송이 열렸습니다." });
+      await deps.sendMail({ from: OUTREACH_ADDR(), to, subject: "[베리라인] 메일 도메인 인증 확인", text: "veriline.kr 주소로 보낸 시험 메일입니다. 이 메일이 왔다면 첫 메일 발송이 열렸습니다." });
       await setSetting(OUTREACH_SETTING, OUTREACH_ADDR());
       return { ok: true };
     } catch (e) {

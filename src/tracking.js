@@ -22,7 +22,7 @@ function firstTouch() {
   // 광고 주소가 아니면 들어온 사이트 이름. 자기 사이트끼리 넘어온 것은 "직접"으로 친다.
   try {
     const ref = document.referrer ? new URL(document.referrer) : null;
-    if (ref && ref.hostname && !ref.hostname.endsWith("yume-reamer.com")) {
+    if (ref && ref.hostname && !/(^|\.)(veriline\.kr|yume-reamer\.com)$/.test(ref.hostname)) {
       return [ref.hostname.replace(/^www\./, "").replace(/^m\./, ""), "referral", ""].join("|");
     }
   } catch {

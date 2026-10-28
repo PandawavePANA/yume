@@ -9,6 +9,10 @@
 import { COMPANY, COMPLAINT_NOTICE, complaintOfficer, businessLine, esc, layout, VERILINE } from "./renderPages.js";
 import { API_RATES, API_UNIT_CHARS, AUDIT_LEAD, AUDIT_RATES } from "./apiRates.js";
 import { kstDate } from "./businessDays.js";
+import { siteOrigin } from "./site.js";
+import { canIssueTaxInvoice } from "./receiptInfo.js";
+// 견적서 결제 줄의 증빙 표시 — 일반과세 시작 전에는 세금계산서를 약속하지 않는다(2026-10-29).
+const proofLabel = () => (canIssueTaxInvoice() ? "전자세금계산서 발급" : "지출증빙 현금영수증 발급 · 일반과세 전환 뒤 세금계산서");
 import {
   DESK_PRODUCTS,
   isAuditProduct,
@@ -107,7 +111,7 @@ function sheetPage(title, body, script = "") {
 function apiKeyHelp(q, billing) {
   if (isAuditProduct(q.product)) return "";
   const mail = q.email || billing?.taxEmail || "";
-  const main = (process.env.PUBLIC_BASE_URL || "https://www.yume-reamer.com").replace(/\/+$/, "");
+  const main = siteOrigin();
   return `<br/><br/><b>API 키 받기</b> — 개발팀이 <a href="${esc(main)}/?open=api">베리라인 개발자 키 발급</a>에서 <b>${esc(mail)}</b>로 가입해 키를 받아 두세요. 입금(계약)이 확인되면 그 계정의 키에 이 계약의 월 한도가 자동으로 걸립니다. 연결 방법: <a href="${esc(main)}/docs/api">API 문서</a>`;
 }
 
@@ -162,12 +166,12 @@ export function renderQuotePage(q) {
     <b>조건</b>
     <ol>
       ${isAudit
-        ? `<li>결제: 계좌이체(전자세금계산서 발급)${cardEnabled() ? " 또는 법인카드" : ""}. 입금 확인 후 <b>${esc(AUDIT_LEAD)}</b> 안에 비공개 감사 보고서를 보냅니다. 로그인이 필요한 서비스는 테스트 계정을 받은 날부터 셉니다.</li>
+        ? `<li>결제: 계좌이체(${proofLabel()})${cardEnabled() ? " 또는 법인카드" : ""}. 입금 확인 후 <b>${esc(AUDIT_LEAD)}</b> 안에 비공개 감사 보고서를 보냅니다. 로그인이 필요한 서비스는 테스트 계정을 받은 날부터 셉니다.</li>
       <li>감사는 일반 사용자로서 서비스에 질문을 넣고, 베리라인이 원문과 대조한 뒤 사람이 공식 원문으로 재확인한 오류만 보고서에 담습니다. 자동으로 대량 질의하지 않습니다.</li>
       <li>착수 전에 취소하면 전액 환불합니다. 보고서는 귀사에만 드리며, 회사 이름은 서면 동의가 있을 때만 공개합니다.</li>`
         : isMetered
         ? `<li>종량제는 후불입니다. 수량은 예상 월 호출 수이며, 매달 말일까지의 실제 사용량 × 단가로 정산해 다음 달 10일까지 전자세금계산서를 발급합니다. 예상 물량을 월 상한으로 설정하고, 늘릴 때는 알려 주시면 됩니다.</li>`
-        : `<li>결제: 계좌이체(전자세금계산서 발급)${cardEnabled() ? " 또는 법인카드" : ""}. 월 약정은 매달 선결제이며, 쓰지 않은 호출은 다음 달로 넘어가지 않습니다.</li>`}
+        : `<li>결제: 계좌이체(${proofLabel()})${cardEnabled() ? " 또는 법인카드" : ""}. 월 약정은 매달 선결제이며, 쓰지 않은 호출은 다음 달로 넘어가지 않습니다.</li>`}
       ${isAudit ? "" : `<li>보낸 글 ${API_UNIT_CHARS.toLocaleString("ko-KR")}자마다 1건으로 셉니다. 처리하지 못하고 실패한 건은 세지 않고, 같은 요청을 다시 보내도 멱등 키로 두 번 과금되지 않습니다.</li>`}
       <li>서비스 조건은 <b>베리라인 기업 서비스 이용 조건</b>(${esc(TERMS_VERSION)})과 <b>데이터 처리 부속서</b>를 따르며, 귀사 계약서 양식으로 진행할 수도 있습니다.</li>
       <li>베리라인의 판정은 검증 시점의 공개 원문으로 확인한 기록이며, 서비스 품질 보증이나 법률·의료·금융 자문이 아닙니다.</li>
@@ -206,7 +210,7 @@ export function renderQuotePage(q) {
     tail = `
 <form class="req" id="req" novalidate>
   <h2>이 견적으로 ${isAudit ? "감사" : "계약"} 신청</h2>
-  <p class="lede">전자세금계산서 발급에 쓰는 정보입니다. 사업자등록증에 적힌 그대로 적어 주세요. 신청하면 담당자 이메일로 다음 단계를 보내 드리고, 이 페이지에서도 진행 상태를 볼 수 있습니다.</p>
+  <p class="lede">증빙(전자세금계산서 · 현금영수증) 발급에 쓰는 정보입니다. 사업자등록증에 적힌 그대로 적어 주세요. 신청하면 담당자 이메일로 다음 단계를 보내 드리고, 이 페이지에서도 진행 상태를 볼 수 있습니다.</p>
   <div class="grid2">
     <label class="f">사업자등록번호 *<input id="bizNo" name="bizNo" inputmode="numeric" autocomplete="off" placeholder="000-00-00000" required /></label>
     <label class="f">상호 *<input id="bizName" name="bizName" value="${esc(q.company)}" required /></label>
@@ -277,12 +281,12 @@ export function renderB2bTerms() {
 </ol>
 
 <h2>제3조 (계약의 성립)</h2>
-<p>귀사가 견적서 화면에서 계약 신청을 하고 리머가 확인 메일을 보내면 계약이 성립합니다. 견적서의 유효기간은 발행일부터 ${QUOTE_VALID_DAYS}일입니다.</p>
+<p>귀사가 견적서 화면에서 계약 신청을 하고 베리라인이 확인 메일을 보내면 계약이 성립합니다. 견적서의 유효기간은 발행일부터 ${QUOTE_VALID_DAYS}일입니다.</p>
 
 <h2>제4조 (요금과 결제)</h2>
 <ol>
 <li>표시 금액은 부가가치세 별도입니다. API는 보낸 글 ${API_UNIT_CHARS.toLocaleString("ko-KR")}자마다 1건으로 셉니다. 공개 요금: 종량제 건당 ${won(API_RATES.metered.unitKrw)}, ${t}. AI 감사: ${a}. PoC·맞춤 물량은 견적서의 금액을 따릅니다.</li>
-<li>결제는 계좌이체(전자세금계산서 발급) 또는 법인카드로 합니다. 카드로 결제한 건에는 세금계산서를 따로 발급하지 않습니다(카드 매출전표가 증빙입니다).</li>
+<li>결제는 계좌이체로 합니다. 법인카드 결제는 준비되면 견적서 화면에 표시하며, 카드로 결제한 건은 카드 매출전표가 증빙입니다. 계좌이체 건의 증빙은 전자세금계산서이고, 공급자가 일반과세로 전환하기 전의 공급분은 지출증빙 현금영수증으로 드립니다.</li>
 <li><b>월 약정</b>은 매달 선결제이며 쓰지 않은 호출은 다음 달로 넘어가지 않습니다. <b>종량제</b>는 매달 말일까지의 실제 사용량으로 정산해 다음 달 10일까지 세금계산서를 발급합니다.</li>
 <li>처리하지 못하고 실패한 호출은 세지 않습니다. 같은 멱등 키(Idempotency-Key)로 다시 보낸 요청은 한 번만 셉니다.</li>
 </ol>
@@ -299,7 +303,7 @@ export function renderB2bTerms() {
 </ol>
 
 <h2>제7조 (데이터)</h2>
-<p>귀사가 보낸 텍스트·파일·기준 자료의 처리는 <a href="/b2b/dpa">데이터 처리 부속서</a>를 따릅니다. 베리라인은 귀사 데이터를 데이터셋으로 제공하거나 판매하지 않습니다(별도 서면 계약으로 허용한 경우 제외).</p>
+<p>귀사가 보낸 텍스트·파일·기준 자료의 처리는 <a href="/b2b/dpa">데이터 처리 부속서</a>를 따릅니다. 베리라인은 귀사가 보낸 글의 문장을 다른 고객의 결과나 조회에 보여 주지 않고, 귀사 데이터를 데이터셋으로 제공하거나 판매하지 않습니다(별도 서면 계약으로 허용한 경우 제외).</p>
 
 <h2>제8조 (장애)</h2>
 <p>서비스 장애를 알게 되면 계약 담당자 이메일로 알리고, 장애로 처리되지 못한 호출은 과금하지 않습니다. 수치로 정한 서비스 수준(SLA)이 필요하시면 별도로 협의합니다.</p>
@@ -334,7 +338,7 @@ export function renderB2bDpa() {
   const region = esc(process.env.DB_REGION_LABEL || "프로젝트 설정 지역의 데이터센터");
   return layout("데이터 처리 부속서", `
 <h1>데이터 처리 부속서</h1>
-<p class="muted">귀사가 베리라인에 보내는 텍스트·파일에 개인정보가 들어 있을 때, 귀사는 개인정보처리자(위탁자)이고 리머는 그 처리를 맡은 수탁자입니다. 이 부속서는 「개인정보 보호법」 제26조의 위탁 문서로 쓸 수 있도록 만든 표준본입니다.</p>
+<p class="muted">귀사가 베리라인에 보내는 텍스트·파일에 개인정보가 들어 있을 때, 귀사는 개인정보처리자(위탁자)이고 베리라인(사업자 ${esc(COMPANY.name)})은 그 처리를 맡은 수탁자입니다. 이 부속서는 「개인정보 보호법」 제26조의 위탁 문서로 쓸 수 있도록 만든 표준본입니다.</p>
 
 <h2>1. 처리 목적과 범위</h2>
 <table>
@@ -390,7 +394,7 @@ export function renderB2bSecurity() {
 
 <h2>구성</h2>
 <table>
-<tr><th>서버</th><td>Railway(미국)에서 Node.js 서버로 요청을 처리합니다. 서버에 요청 내용을 따로 저장하지 않습니다.</td></tr>
+<tr><th>서버</th><td>Railway(미국)에서 Node.js 서버로 요청을 처리합니다. 요청 내용은 아래 데이터베이스에만 저장합니다(보관 기간은 아래 '보관').</td></tr>
 <tr><th>데이터베이스</th><td>Supabase Postgres. 저장소 제공자의 저장 암호화(at-rest)와 백업을 씁니다. 테이블은 행 수준 보안(RLS)을 켜 두고 서버만 접근합니다.</td></tr>
 <tr><th>생성형 AI</th><td>Anthropic Claude API — 주장 추출·검색어·고친 문장 제안. API 입력은 모델 학습에 쓰이지 않습니다. 판정은 원문·출처 문장으로만 단정합니다.</td></tr>
 <tr><th>공식 원문</th><td>법제처 국가법령정보 공동활용 API, DOI 레지스트리 등에서 원문을 직접 받습니다.</td></tr>
@@ -409,6 +413,7 @@ export function renderB2bSecurity() {
 <li>웹훅(callback_url)은 HMAC 서명을 붙여 보내 귀사가 진위를 확인할 수 있습니다.</li>
 <li>멱등 키(Idempotency-Key)로 재시도해도 한 번만 처리·과금합니다.</li>
 <li>기준 자료(references)는 저장하지 않고, 그 자료로 낸 판정은 다른 고객과 공유하는 캐시에 넣지 않습니다.</li>
+<li>API로 보낸 글의 문장은 다른 고객의 결과나 조회(<code>/v1/context</code>)에 나오지 않습니다. 공유되는 것은 공식 출처의 원문 인용뿐입니다.</li>
 </ul>
 
 <h2>보관</h2>

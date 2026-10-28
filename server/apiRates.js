@@ -59,5 +59,8 @@ export const AUDIT_RATES = {
   audit_regular_year: { label: "AI 정기 감사 — 1년 선납", krw: 1620000, unit: "년", spec: "4분기 · 정기 감사 4회 값에서 10% 할인", rounds: 4 },
   audit_package: { label: "출시 전 패키지", krw: 1170000, unit: "식", spec: "정밀 감사 + API 스타터 3개월(월 400건)", rounds: 1 },
 };
-// 감사 주문서에서 고르는 업종(감사 데스크의 문항 은행 업종과 같은 이름).
-export const AUDIT_ORDER_DOMAINS = ["법률", "인사", "의료", "금융", "커머스", "제조", "공공", "범용"];
+// 감사 주문서에서 고르는 업종 — 고객이 보는 이름(2026-10-29: 사이트 범위와 맞춤. 노무 정식 · 법률 · 세무 베타, 의료는 준비 중이라 뺐다).
+export const AUDIT_ORDER_DOMAINS = ["노무", "법률", "세무", "공공", "범용"];
+// 감사 데스크 문항 은행의 업종 이름으로 옮길 때(auditDesk.js DOMAIN_ALIAS와 같은 짝). 예전 양식이 보낸 이름도 받는다.
+export const AUDIT_DOMAIN_KEY = { 노무: "인사", 세무: "공공" };
+export const AUDIT_ORDER_DOMAINS_ACCEPTED = [...AUDIT_ORDER_DOMAINS, "인사", "의료", "금융", "커머스", "제조"];

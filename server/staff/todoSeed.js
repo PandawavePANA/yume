@@ -66,35 +66,31 @@ export const SEED = [
 5. 확인되면 console.anthropic.com에서 옛 키를 Delete → '완료'`,
   },
   {
-    key: "outreach_domain",
+    // 2026-10-29 대표 "yume-reamer 도메인 버린다" — 메일도 veriline.kr에서 나가야 한다. 옛 항목(yume-reamer.com 인증)을 대신한다.
+    key: "outreach_domain_veriline",
     priority: 1,
-    title: "베리라인 메일 도메인(yume-reamer.com) 인증",
+    title: "베리라인 메일 도메인(veriline.kr) 인증 — Resend",
     link: "https://resend.com/domains",
     check_key: "outreach_domain",
-    steps: `왜: 감사 결과 메일이 "정원영 (베리라인) <hello@yume-reamer.com>"로 나가려면 이 도메인을 메일 발송 서비스(Resend)에 인증해야 합니다. 지금은 첫 메일 발송이 막혀 있습니다. (약 15분 + 반영 대기)
+    steps: `왜: 지금 서버가 보내는 메일(진단 접수 확인 · 견적서 · 입금 확인 · 감사 결과)은 "베리라인 <…@yume-reamer.com>"로 나갑니다. 고객이 veriline.kr에서 신청했는데 다른 주소에서 메일이 오면 스팸이나 사칭으로 보입니다. (약 15분 + 반영 대기)
 
 ① Resend에 도메인 추가 (3분)
-  1. resend.com 에 로그인 — 지금 Ballast 메일을 보내는 그 계정입니다.
-  2. 왼쪽 메뉴 Domains → 오른쪽 위 Add Domain
-  3. Domain: yume-reamer.com / Region: Tokyo (ap-northeast-1) → Add
-  4. DNS 레코드 3줄이 나옵니다. 이 창은 닫지 말고 그대로 두세요.
+  1. resend.com 로그인 → 왼쪽 Domains → Add Domain
+  2. Domain: veriline.kr / Region: Tokyo (ap-northeast-1) → Add
+  3. DNS 레코드 3줄(TXT resend._domainkey · MX send · TXT send)이 나옵니다. 창을 닫지 마세요.
 
-② 호스팅어에 DNS 레코드 넣기 (7분)
-  1. hpanel.hostinger.com 로그인 → 도메인 → yume-reamer.com → DNS / 네임서버 → DNS 레코드 관리
-  2. Resend 화면의 값을 한 줄씩 그대로 복사해 "레코드 추가"
-     · TXT  이름: resend._domainkey   값: Resend에 보이는 긴 값(p=MIG… 로 시작)
-     · MX   이름: send   값: Resend에 보이는 주소(feedback-smtp.ap-northeast-1.amazonses.com 같은 것)   우선순위: 10
-     · TXT  이름: send   값: v=spf1 include:amazonses.com ~all
-     · TXT  이름: _dmarc   값: v=DMARC1; p=none;   ← Resend에는 없지만 꼭 넣으세요(스팸함 방지)
-  3. 주의: 이름 칸에는 send 처럼 앞부분만 씁니다(send.yume-reamer.com 아님). TTL은 기본값. 이미 있는 레코드(사이트 연결 A·CNAME, google-site-verification)는 건드리지 마세요.
+② Cloudflare에 DNS 레코드 넣기 (5분)
+  1. dash.cloudflare.com → veriline.kr → DNS → Records → Add record
+  2. Resend 화면의 값을 한 줄씩 그대로 넣습니다. 이름 칸에는 앞부분만(resend._domainkey, send). Proxy는 끈 상태(회색 구름, DNS only).
+  3. 이미 있는 레코드(MX aspmx.l.google.com · SPF · DMARC · google-site-verification · 사이트 CNAME)는 건드리지 마세요. Google Workspace 메일은 그대로 받습니다.
 
-③ 인증 확인
-  1. Resend 도메인 화면 → Verify DNS Records
-  2. 세 줄이 모두 초록색 Verified가 되면 끝(보통 몇 분, 길면 1시간). 1시간이 지나도 안 되면 그 화면을 캡처해 Claude에게.
+③ Railway 변수 (2분)
+  Railway → yume 서비스 → Variables → New Variable
+  · MAIL_FROM_VERILINE = 베리라인 <hello@veriline.kr>
+  · MAIL_FROM_OUTREACH = 정원영 (베리라인) <hello@veriline.kr>
 
-④ 여기서 '완료' 체크
-  서버가 hello@yume-reamer.com 으로 대표 메일함(reamer@d-reamer.com)에 시험 메일을 보냅니다. 성공하면 바로 첫 메일 발송이 열립니다.
-  · "restricted" 같은 오류로 실패하면: 서버의 Resend 키가 ballast-reamer.com 전용일 수 있습니다. Resend → API Keys → Create API Key(Permission: Sending access, Domain: All domains) → Railway → yume 서비스 → Variables의 RESEND_API_KEY 값을 새 키로 바꾸고, 옛 키는 Resend에서 삭제.`,
+④ Resend → Verify DNS Records가 모두 Verified면 여기서 '완료'
+  서버가 hello@veriline.kr로 시험 메일을 보냅니다. 성공하면 감사 결과 메일 발송이 열립니다.`,
   },
   {
     key: "gmail",
@@ -231,7 +227,7 @@ export const SEED = [
     key: "b2b_terms",
     priority: 3,
     title: "기업 이용 조건 한 번 읽어 보기 (환불·책임 한도·관할)",
-    link: "https://www.yume-reamer.com/b2b/terms",
+    link: "https://veriline.kr/b2b/terms",
     steps: `왜: 기업이 감사·API를 살 때 동의하는 표준 조건입니다. Claude가 쓴 초안이라 대표님이 한 번 봐야 합니다. 세 곳만 보면 됩니다. (약 10분)
 
 ① 제9조 해지와 환불
@@ -782,7 +778,7 @@ D-U-N-S는 지금 필요 없어요(법인이 생기면 그때 신청하고, 앱�
     title: "이니시스 심사가 끝나면 심사용 계정 비밀번호 바꾸기",
     priority: 3,
     steps: `심사용으로 이니시스에 알려 준 베리라인 계정(reamer@d-reamer.com) 비밀번호가 대화에도 노출됐습니다. 심사가 끝났다는 연락을 받으면:
-1. www.yume-reamer.com 로그인 → 계정 → 비밀번호 변경
+1. veriline.kr/check 로그인 → 계정 → 비밀번호 변경
 2. 여기서 '완료' 체크
 심사 중이라면 "내일로"를 눌러 두세요(심사 중에 바꾸면 담당자가 못 들어갑니다).`,
   },
@@ -792,9 +788,9 @@ D-U-N-S는 지금 필요 없어요(법인이 생기면 그때 신청하고, 앱�
     priority: 3,
     link: "https://search.google.com/search-console",
     steps: `베리라인의 할루시네이션 글·지수 페이지가 구글 검색에 잡히게 하는 일입니다(10분).
-1. search.google.com/search-console 접속 → 속성 www.yume-reamer.com (없으면 "속성 추가" → URL 접두어 → https://www.yume-reamer.com → HTML 태그 방식은 Claude에게 말하면 태그를 넣어 드림)
-2. 왼쪽 Sitemaps → "https://www.yume-reamer.com/sitemap.xml" 입력 → 제출
-3. 위쪽 검색창에 https://www.yume-reamer.com/hallucination 입력 → "색인 생성 요청"
+1. search.google.com/search-console 접속 → 속성 veriline.kr (없으면 "속성 추가" → 도메인 → veriline.kr → Cloudflare DNS로 소유 확인. 옛 www.yume-reamer.com 속성에는 "주소 변경" 도구로 veriline.kr을 알림 → HTML 태그 방식은 Claude에게 말하면 태그를 넣어 드림)
+2. 왼쪽 Sitemaps → "https://veriline.kr/sitemap.xml" 입력 → 제출
+3. 위쪽 검색창에 https://veriline.kr/hallucination 입력 → "색인 생성 요청"
 4. 여기서 '완료' 체크`,
   },
   {

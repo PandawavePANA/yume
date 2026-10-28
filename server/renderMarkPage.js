@@ -199,7 +199,7 @@ export async function renderCertificatePage(mark, base) {
     </div>
     <div class="issuer">
       <div class="date">${esc(kDate(mark.issued_at))}</div>
-      <div class="by">리머(REAMER) · 베리라인 검증</div>
+      <div class="by">VERILINE · 베리라인 검증</div>
       <div class="ceo">대표 ${esc(COMPANY.ceo)}</div>
       <div class="seal">${seal()}</div>
     </div>
@@ -294,7 +294,7 @@ document.getElementById("dl").addEventListener("click", async function(){
     var pdf=await html2pdf().set(opt).from(document.createElement("div")).toPdf().get("pdf");
     while (pdf.getNumberOfPages()>1) pdf.deletePage(pdf.getNumberOfPages());
     canvases.forEach(function(c,k){ if(k) pdf.addPage(); else pdf.setPage(1); pdf.addImage(c.toDataURL("image/jpeg",0.95),"JPEG",0,0,210,297); });
-    pdf.setProperties({ title: ${JSON.stringify(`VERILINE 사실 검증서 ${no}`)}, author: "리머(REAMER) · 베리라인", subject: ${JSON.stringify(url)} });
+    pdf.setProperties({ title: ${JSON.stringify(`VERILINE 사실 검증서 ${no}`)}, author: "베리라인(VERILINE)", subject: ${JSON.stringify(url)} });
     pdf.save(${JSON.stringify(file)});
   } catch(e) { alert("PDF를 만들지 못했어요. 브라우저의 인쇄 → PDF로 저장을 이용해 주세요."); }
   b.disabled=false; b.textContent=old;

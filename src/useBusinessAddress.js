@@ -4,7 +4,9 @@
 import { useEffect, useState } from "react";
 import { BUSINESS } from "./businessInfo.js";
 
-const ORIGIN = (import.meta.env?.VITE_YUME_API_ORIGIN || "https://www.yume-reamer.com").replace(/\/+$/, "");
+// veriline.kr에서는 같은 출처, 다른 곳(리머 정적 사이트 · 미리보기)에서는 베리라인 서버 절대 주소(2026-10-29 옛 주소 폐기).
+const SAME = typeof location !== "undefined" && /(^|\.)veriline\.kr$|^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+const ORIGIN = (import.meta.env?.VITE_API_ORIGIN || (SAME ? "" : "https://veriline.kr")).replace(/\/+$/, "");
 let cached = null;
 
 export function useBusinessAddress() {

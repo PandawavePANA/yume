@@ -7,6 +7,7 @@ import { VERIFY_TRIGGER, asksIfTrue } from "./kakaoTriggers.js";
 import { getVerification, newVerificationId } from "./verificationStore.js";
 import { logError } from "./errorLog.js";
 
+import { siteOrigin } from "./site.js";
 // 카카오 i 오픈빌더 "스킬" 서버. 카카오는 스킬 응답을 5초 안에 요구하므로(콜백 방식은
 // 실제로 쓸 수 없음을 테스트로 확인), 검증 요청이면 결과 페이지 링크(/r/:id)부터 바로
 // 돌려주고 검증은 백그라운드에서 끝낸다. 결과 페이지가 자동 새로고침으로 완료를 기다린다.
@@ -20,8 +21,7 @@ const ONBOARDING_TEXT = `저는 AI 할루시네이션 검사 서비스 베리라
 `;
 
 function baseUrl(req) {
-  if (process.env.PUBLIC_BASE_URL) return process.env.PUBLIC_BASE_URL.replace(/\/$/, "");
-  return `${req.protocol}://${req.get("host")}`;
+  return siteOrigin(req);
 }
 
 function textReply(text) {

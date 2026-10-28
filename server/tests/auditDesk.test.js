@@ -67,11 +67,11 @@ test("문구 점검: 금액·기한·공개 압박·보증 표현을 잡는다",
 
 test("첫 메일 템플릿은 그 자체로 점검을 통과하고 비공개 문장을 담는다", () => {
   const audit = { company: "가나다", service_name: "가나다 AI 상담", domain: "인사", contact_name: "김담당", mail_subject: null, mail_body: null };
-  const m = desk.mailDrafts(audit, { answered: 24 }, { reportUrl: "https://www.yume-reamer.com/audit/p/abc" });
+  const m = desk.mailDrafts(audit, { answered: 24 }, { reportUrl: "https://veriline.kr/audit/p/abc" });
   assert.deepEqual(desk.lintCopy(`${m.first.subject}\n${m.first.body}`), []);
   assert.match(m.first.body, /공개하지 않았으며 앞으로도 공개할 계획이 없습니다/);
   assert.match(m.first.body, /24개 질문/);
-  assert.match(m.first.subject, /^\[비공개\]/);
+  assert.match(m.first.subject, /^\(광고\) \[비공개\]/);
   assert.match(m.followup.body, /이후로는 따로 연락드리지 않겠습니다/);
 });
 

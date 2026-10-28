@@ -7,6 +7,7 @@ import { patchAsync } from "./asyncExpress.js";
 import { requireAdmin } from "./adminApi.js";
 import { audit as auditLog } from "./audit.js";
 import { clientIp } from "./security.js";
+import { siteOrigin } from "./site.js";
 import {
   CATEGORIES,
   DESK_DOMAINS,
@@ -85,7 +86,7 @@ auditDeskRouter.use((req, res, next) => {
   next();
 });
 
-const baseOf = (req) => process.env.PUBLIC_BASE_URL || `${req.protocol}://${req.get("host")}`;
+const baseOf = (req) => siteOrigin(req);
 const send = (res, r, okStatus = 200) => (r?.error ? res.status(400).json(r) : res.status(okStatus).json(r));
 // 발송·공개처럼 밖으로 나가는 동작은 누가 했는지 남긴다.
 const log = (req, action, target, detail = null) => auditLog(req.adminActor || "admin", action, target, detail, clientIp(req));

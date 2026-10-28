@@ -5,6 +5,7 @@
 import { explainResult } from "./audit/explain.js";
 import { API_RATES } from "./apiRates.js";
 
+import { siteOrigin } from "./site.js";
 const BAND = {
   low: { fg: "#1F7A52", bg: "#E7F6EE", border: "#B7E4CC" },
   moderate: { fg: "#8A5A14", bg: "#FDF4E3", border: "#F0D98C" },
@@ -79,7 +80,7 @@ export function renderAuditReport(report, { baseUrl = "" } = {}) {
   // 표(apiRates.js)에서 읽는다.
   const totals = Object.values(s.byType || {}).reduce((a, v) => ({ f: a.f + (v.failed || 0), t: a.t + (v.total || 0) }), { f: 0, t: 0 });
   const failRate = totals.t ? totals.f / totals.t : 0;
-  const bizUrl = (process.env.BUSINESS_URL || "https://business.yume-reamer.com").replace(/\/+$/, "");
+  const bizUrl = siteOrigin();
   const calcData = JSON.stringify({ rate: failRate, metered: API_RATES.metered.unitKrw, tiers: API_RATES.tiers, biz: bizUrl })
     .replace(/</g, "\\u003c");
   const ctaHtml = rec.recommend
@@ -239,7 +240,7 @@ ${ctaHtml}
 <footer>
   문항은 베리라인이 법제처 국가법령정보와 학술 레지스트리로 실재 여부를 확인해 생성했으며, 정답이 확정된 상태에서 출제됐습니다.
   이 점검은 표본 기반 추정이라 실제 서비스의 모든 실패를 포괄하지 않습니다.
-  생성 ${esc(String(report.createdAt || "").slice(0, 10))} · 베리라인(YUME)
+  생성 ${esc(String(report.createdAt || "").slice(0, 10))} · 베리라인
 </footer>
 </div></body></html>`;
 }

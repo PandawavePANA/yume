@@ -14,8 +14,12 @@ export function mailConfigured() {
 //   MAIL_FROM_REAMER / MAIL_FROM_VERILINE 가 있으면 그것을 쓴다(각 도메인을 Resend에서 인증한 뒤).
 //   없으면 MAIL_FROM의 주소는 그대로 두고 **이름만** 바꾼다 — 주소는 인증된 것만 쓸 수 있지만
 //   이름은 자유다. 받는 사람이 처음 보는 것이 이름이다.
-const BRAND_NAME = { REAMER: "리머", YUME: "베리라인" };
+// 2026-10-29: 베리라인은 리머 외주와 분리된 독립 서비스 — 베리라인 메일은 MAIL_FROM_VERILINE(예: "베리라인 <hello@veriline.kr>", Resend에서 veriline.kr 인증 뒤)을 쓴다.
+// 예전 이름 "YUME"로 부르는 곳이 남아 있어도 베리라인으로 보낸다.
+const BRAND_NAME = { REAMER: "리머", VERILINE: "베리라인", YUME: "베리라인" };
+const BRAND_ALIAS = { YUME: "VERILINE" };
 export function fromFor(brand) {
+  brand = BRAND_ALIAS[brand] || brand;
   const own = brand && process.env[`MAIL_FROM_${brand}`];
   if (own) return own;
   const base = process.env.MAIL_FROM || "";

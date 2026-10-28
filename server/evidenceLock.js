@@ -22,6 +22,7 @@
 import { judgeEvidence as defaultJudge } from "./claude.js";
 import { privateHost } from "./netGuard.js";
 
+import { BOT_UA } from "./site.js";
 const FETCH_TIMEOUT_MS = 6_000;
 const MAX_BYTES = 1_500_000;
 const MAX_SOURCES_PER_CLAIM = 3;
@@ -60,7 +61,7 @@ export async function fetchPageText(url) {
   if (!/^https?:$/.test(u.protocol) || privateHost(u.hostname)) return null;
   try {
     const res = await fetch(u, {
-      headers: { "User-Agent": "Mozilla/5.0 (compatible; YumeFactCheck/1.0; +https://www.yume-reamer.com)", Accept: "text/html,text/plain;q=0.9,*/*;q=0.5" },
+      headers: { "User-Agent": BOT_UA(), Accept: "text/html,text/plain;q=0.9,*/*;q=0.5" },
       redirect: "follow",
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     });
