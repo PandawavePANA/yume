@@ -20,6 +20,12 @@ import { checkCaseNumber } from "./nec/identifiers.js";
 import { hasOC, searchConstitutional, searchPrecedent } from "./lawApi.js";
 import { computeCheck } from "./computeCheck.js";
 import { traceAmendment } from "./engine/amendmentTrace.js";
+import { numericAudit, signalsBlock } from "./engine/quantities.js";
+import { legalAgentCheck, legalModelFor, legalEffortFor, legalEscalateModelFor, shouldEscalate } from "./engine/legalAgent.js";
+import { verifyLegalV2 } from "./engine/v2/verify.js";
+import { verifyLegalHybrid } from "./engine/v2/hybrid.js";
+import { verifyLegalV3 } from "./engine/v3/engine.js";
+import { guaranteeScope } from "./engine/v2/receipt.js";
 
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 const TIMEOUT_MS = 170_000;
@@ -531,11 +537,78 @@ export async function checkAnswer({ question = "", answer, level: levelKey = "fa
   onStage("베리라인이 답 속 사실을 확인하는 중…");
   const legalCheck = legalTalk
     ? (async () => {
+        // 베리라인 엔진 2.0(server/engine/v2/verify.js) — 주장 표 → 코드 대조(조문 저장소 · 벌칙 지도 · 위임 지도) → 애매한 것만 좁게 판단 → 확정 값으로 고쳐 쓰기.
+        // 1.x 대조 · 반론을 주입한 시험, VERILINE_ENGINE=1 이면 예전 길. 2.0이 돌지 못하면(주장 표 실패 등) 아래 1.x 길로 간다.
+        const useV2 = deps.engineV2 ?? (!deps.reviewStatutes && !deps.defend && process.env.VERILINE_ENGINE !== "1");
+        if (useV2) {
+          // 기본 2.1(코드 확정 + 저장소 도구를 쥔 검증관, engine/v2/hybrid.js). VERILINE_ENGINE=2.0 이면 주장 표 · 판정관 · 교정자만 쓰는 2.0.
+          // 기본 3.0(근거 묶음 + 한 번에 판정 · 작성 + 등급 넘김, engine/v3). 깊음 단계 · VERILINE_MODE=precision 은 2.1 정밀(Opus + 도구).
+          const ver = process.env.VERILINE_ENGINE || "3";
+          const precisionTier = level.key === "deep" || process.env.VERILINE_MODE === "precision";
+          const v2 = ver === "3" && !precisionTier
+            ? await (deps.verifyLegalV3 || verifyLegalV3)({ question: q, answer: text, ledger, deps: { todayLine } }).catch(() => null)
+            : ver === "2.0"
+            ? await (deps.verifyLegalV2 || verifyLegalV2)({ question: q, answer: text, ledger, deps: { todayLine } }).catch(() => null)
+            : await (deps.verifyLegalHybrid || verifyLegalHybrid)({
+                question: q, answer: text, ledger,
+                // 등급: 빠름 = 기본(Haiku, 코드가 고른 조문을 넉넉히), 깊음 = 정밀(Opus, 코드 확정 근거만 주고 스스로 찾게).
+                // VERILINE_MODE=precision 이면 단계와 상관없이 정밀(비교 시험용).
+                ...(level.key === "deep" || process.env.VERILINE_MODE === "precision"
+                  ? { model: process.env.VERILINE_PRECISION_MODEL || "claude-opus-5-5", deps: { todayLine, mode: "precision" } }
+                  : { model: legalModelFor(level.key), deps: { todayLine } }),
+              }).catch(() => null);
+          if (v2) v2.version = v2.engine || (ver === "2.0" ? "veriline-2.0" : precisionTier ? "veriline-2.1-precision" : "veriline-2.1");
+          if (v2?.ran) {
+            return { all: { laws: v2.laws, articles: [], missing: [] }, ran: true, engine: "v2", v2, errors: v2.errors, agent: { issues: v2.errors, turns: v2.calls, toolCalls: 0, unsupported: v2.unsupported }, agentAnswer: v2.answer, cleared: 0 };
+          }
+        }
         const [fromQ, fromA] = await Promise.all([
           LAW_HINT.test(q) ? gatherQuestion(q, gather, ledger, !deps.gatherArticles) : { laws: [], articles: [] },
           gather(text, [], { ledger }).catch(() => ({ laws: [], articles: [] })),
         ]);
         const all = mergeGathered(fromQ, fromA);
+        const trace = deps.traceAmendment || traceAmendment;
+        const traceErrors = (errors, articleOf) => Promise.all(errors.filter((d) => d.proof).slice(0, 2).map(async (d) => {
+          const art = articleOf(d);
+          if (!art?.no) return;
+          const t = await Promise.race([trace({ law: art.law, no: art.no, branch: art.branch, claimText: d.answer_quote, currentText: art.text }), new Promise((r) => setTimeout(() => r(null), 8000))]).catch(() => null);
+          if (t?.outdated) d.amendment = t;
+        }));
+        // 베리라인 엔진 1.1 — 법령 검증관(server/engine/legalAgent.js): 미리 모은 조문 + 코드 확인 단서를 쥐고, 모자라면 법제처 도구로 더 찾아
+        // 대조하고 고쳐 쓴다. 근거는 인용 잠금으로, 고친 답의 수치는 코드로 다시 본다. 실패하면 1.0 길(대조 → 반론)로 간다.
+        // 1.0 대조 · 반론을 주입한 시험은 1.0 길을 시험하는 것이다 — 검증관은 따로 켜야(deps.legalAgent) 돈다.
+        const useAgent = deps.legalAgent ?? (!deps.reviewStatutes && !deps.defend && process.env.VERILINE_LEGAL_AGENT !== "off");
+        if (useAgent) {
+          const signals = numericAudit(text, all.articles);
+          const missingLines = (all.missing || []).map((m) => `- 글이 든 ${m.law} 제${m.no}조${m.branch ? `의${m.branch}` : ""}는 현행 법령에 없다(본칙 마지막 조문 제${m.lastNo}조${m.lastTitle ? `(${m.lastTitle})` : ""})`);
+          const hints = [signalsBlock(signals), missingLines.length ? `[코드 확인 결과 — 없는 조문]\n${missingLines.join("\n")}` : ""].filter(Boolean).join("\n\n");
+          const runAgent = (model) => (deps.legalAgentCheck || legalAgentCheck)({ question: q, answer: text, gathered: all, hints, model, effort: legalEffortFor(level.key), ledger, deps: { todayLine } }).catch(() => null);
+          let agent = await runAgent(legalModelFor(level.key));
+          const strong = legalEscalateModelFor(level.key);
+          if (strong && strong !== legalModelFor(level.key) && shouldEscalate(agent, signals.length + (all.missing || []).length)) {
+            const second = await runAgent(strong);
+            if (second?.ran) agent = { ...second, escalatedFrom: { model: legalModelFor(level.key), issues: agent?.issues?.length ?? null } };
+          }
+          if (agent?.ran) {
+            let errors = agent.issues.map((it) => ({ answer_quote: it.answer_quote, reason: it.problem, proof: it.proof, art: { law: it.proof.law, no: it.no, branch: it.branch, text: it.articleText } }));
+            // 반론 먼저 — 검증관이 틀렸다고 지목한 곳을 두 번째 검토자(반론 · 인용 잠금)가 다시 본다. 싼 검증관이 맞는 답을 과하게 고치지 않게.
+            // 지목이 있을 때만 돈다. 모두 반론에 막히면(ok) 원래 답을 그대로 둔다.
+            // 2026-10-26 비교 시험: 켜면 진짜 틀림 4건을 막아 바로잡음이 100% → 87.5%로 떨어지고 1건 $0.025가 더 들었다 — 기본은 끈다.
+            if (errors.length && (deps.agentDefense ?? process.env.VERILINE_AGENT_DEFENSE === "on")) {
+              const arts = agent.articlesSeen.map((a, i) => ({ ...a, id: `D${i + 1}`, block: `[D${i + 1}] ${a.law} 제${a.no}조${a.branch ? `의${a.branch}` : ""}${a.title ? `(${a.title})` : ""}\n${String(a.text).slice(0, 1800)}` }));
+              const cands = errors.map((e, i) => ({ id: `G${i}`, source: "agent", index: -1, answer_quote: e.answer_quote, problem: e.reason, locked: true, proof: e.proof }));
+              const decided = await defendFn(text, arts, cands, { ledger, effort: level.legalEffort || null, question: q }).catch(() => null);
+              if (decided?.length) {
+                const keep = new Set(decided.filter((d) => d.decision !== "ok").map((d) => d.id));
+                agent.cleared = errors.length - keep.size;
+                errors = errors.filter((e, i) => keep.has(`G${i}`));
+                if (!errors.length) agent.answer = null;
+              }
+            }
+            await traceErrors(errors, (d) => d.art);
+            return { all, ran: true, errors, agent, agentAnswer: agent.answer, cleared: agent.cleared || 0 };
+          }
+        }
         if (!all.articles.length) return { all, errors: [] };
         const r = await review(text, [], { ledger, gathered: all, effort: level.legalEffort || null, question: q }).catch(() => null);
         if (!r?.issues?.length) return { all, errors: [], ran: !!r?.ran };
@@ -544,13 +617,7 @@ export async function checkAnswer({ question = "", answer, level: levelKey = "fa
         const errors = decided.filter((d) => d.decision === "error");
         // 베리라인 엔진: 확정된 틀림이 옛 법 그대로인지 법제처 연혁으로 거슬러 본다(모델 호출 없음 · 법제처 API만).
         // "틀렸다"에서 그치지 않고 "2025.2.23 개정 전 내용"까지 밝히면, 고쳐 쓴 답과 보고서가 왜 틀렸는지를 말할 수 있다.
-        const trace = deps.traceAmendment || traceAmendment;
-        await Promise.all(errors.filter((d) => d.proof).slice(0, 2).map(async (d) => {
-          const art = all.articles.find((a) => a.law === d.proof.law && articlePublic(a).label === d.proof.label);
-          if (!art?.no) return;
-          const t = await Promise.race([trace({ law: art.law, no: art.no, branch: art.branch, claimText: d.answer_quote, currentText: art.text }), new Promise((r) => setTimeout(() => r(null), 8000))]).catch(() => null);
-          if (t?.outdated) d.amendment = t;
-        }));
+        await traceErrors(errors, (d) => all.articles.find((a) => a.law === d.proof.law && articlePublic(a).label === d.proof.label));
         return { all, ran: true, errors, cleared: decided.filter((d) => d.decision !== "error").length };
       })()
     : Promise.resolve(null);
@@ -597,24 +664,54 @@ export async function checkAnswer({ question = "", answer, level: levelKey = "fa
   if (facts?.failed) verification.fact_check_failed = true;
 
   const blanket = verification.supported.length > 0 && BLANKET_DISCLAIMER.test(text);
-  let finalText = text;
-  if (verification.fixes.length || verification.hedged.length || blanket) {
-    const premise = premiseCheck(q, text, verification.fixes);
+  // 법령 검증관이 고쳐 쓴 답이 있으면 그것이 바탕이다. 남은 고칠 곳(법령 밖 사실 · 없는 조문 등)은 그 답에 아직 남아 있는 것만 이어서 고친다.
+  const agentAnswer = legal?.agentAnswer || null;
+  const base = agentAnswer || text;
+  if (agentAnswer) {
+    verification.rewritten_by = "legal_agent";
+    if (legal.agent.unsupported?.length) verification.unsupported_numbers = legal.agent.unsupported;
+  }
+  if (legal?.engine === "v2") {
+    verification.engine = legal.v2.version || "veriline-2.1";
+    verification.articles = legal.v2.articles.slice(0, 10);
+    verification.claims = legal.v2.table || legal.v2.codeTable;
+    // 판정 영수증 — 판정마다 누가(코드 / 모델+원문 인용 잠금) 무엇을 근거로 정했는지. 영수증만으로 AI 없이 다시 확인할 수 있다(engine/v2/receipt.js).
+    verification.receipts = legal.v2.receipts || [];
+    verification.provenance = legal.v2.provenance || null;
+    verification.evidence = legal.v2.evidence || null; // 원문으로 증명된 고침(영수증) / 증빙 없이 AI가 쓴 문장 여부
+    // 책임 범위 — 영수증이 있는 판정만(engine/v2/receipt.js guaranteeScope). 확정 못 한 주장은 "확인하지 못함"으로 돌려준다
+    verification.guarantee = guaranteeScope({ receipts: verification.receipts, codeTable: legal.v2.codeTable || [], evidence: verification.evidence });
+    if (legal.v2.unsupported?.length) verification.unsupported_numbers = legal.v2.unsupported;
+  } else if (legal?.agent) verification.legal_agent = { model: legal.agent.escalatedFrom ? legalEscalateModelFor(level.key) : legalModelFor(level.key), escalated: !!legal.agent.escalatedFrom, turns: legal.agent.turns, tool_calls: legal.agent.toolCalls, issues: legal.agent.issues.length };
+  const stillIn = (quote) => !!quote && squash(base).includes(squash(quote));
+  const pend = agentAnswer
+    ? { fixes: verification.fixes.filter((f) => stillIn(f.quote)), hedged: verification.hedged.filter((h) => stillIn(h.quote)), supported: [] }
+    : { fixes: verification.fixes, hedged: verification.hedged, supported: verification.supported };
+  // 법령 답을 엔진 2.x가 조문으로 확인했으면, 웹 사실 확인의 '확인 안 됨'으로 수치를 흐리게 고치지 않는다 — 2026-10-26 비교 시험에서
+  // "60일이 아니라 30일"이라는 맞는 답이 웹에서 출처를 못 찾았다는 이유로 "더 짧은 기한"으로 바뀌어 감점됐다. 출처로 반대 증거를 찾은 틀림(fixes)만 남긴다.
+  if (legal?.engine === "v2") {
+    if (pend.hedged.length) verification.hedges_skipped_by_statute = pend.hedged.length;
+    pend.hedged = [];
+  }
+  let finalText = base;
+  if (pend.fixes.length || pend.hedged.length || (blanket && !agentAnswer)) {
+    // 검증관이 이미 고쳐 쓴 답은 첫 대답도 정리돼 있다 — 첫 대답 점검은 1.0 길에서만.
+    const premise = agentAnswer ? null : premiseCheck(q, base, pend.fixes);
     if (premise) verification.premise_checked = true;
-    onStage(verification.fixes.length ? `틀린 곳 ${verification.fixes.length}개를 근거대로 고치는 중…` : "답을 다듬는 중…");
+    onStage(pend.fixes.length ? `틀린 곳 ${pend.fixes.length}개를 근거대로 고치는 중…` : "답을 다듬는 중…");
     const lines = [
-      ...verification.fixes.map((f) => `- 틀림: "${f.quote}" → ${f.problem}${f.hint ? ` (${f.hint})` : ""}${f.law ? ` (근거: ${f.law} ${f.label} “${f.evidence}”)` : f.url ? ` (근거: ${f.url} “${String(f.evidence || "").slice(0, 200)}”)` : ""}`),
-      ...verification.hedged.map((h) => `- 확인 안 됨: "${h.quote}"${h.note ? ` (${h.note})` : ""}`),
-      ...verification.supported.map((s) => `- 확인됨: "${s.quote || s.claim}" (출처: ${s.url})`),
+      ...pend.fixes.map((f) => `- 틀림: "${f.quote}" → ${f.problem}${f.hint ? ` (${f.hint})` : ""}${f.law ? ` (근거: ${f.law} ${f.label} “${f.evidence}”)` : f.url ? ` (근거: ${f.url} “${String(f.evidence || "").slice(0, 200)}”)` : ""}`),
+      ...pend.hedged.map((h) => `- 확인 안 됨: "${h.quote}"${h.note ? ` (${h.note})` : ""}`),
+      ...pend.supported.map((s) => `- 확인됨: "${s.quote || s.claim}" (출처: ${s.url})`),
       ...(premise ? [`- 첫 대답 점검: "${premise}" — 질문자는 자기 이해가 맞는지 물었다. 위 '틀림'이 질문자가 말한 내용을 고치는 것이면 첫 대답을 바꾼다.`] : []),
     ].join("\n");
     const articlesBlock = legal?.all?.articles?.length ? `[현행 조문]\n${legal.all.articles.map((a) => a.block).join("\n\n")}\n\n` : "";
-    const user = `${todayLine()}${articlesBlock}${q ? `[질문]\n${q}\n\n` : ""}[답변]\n${text}\n\n[고칠 곳]\n${lines}`;
+    const user = `${todayLine()}${articlesBlock}${q ? `[질문]\n${q}\n\n` : ""}[답변]\n${base}\n\n[고칠 곳]\n${lines}`;
     // 먼저 고칠 문장만 바꾼다(답 전체를 다시 쓰면 고칠 곳이 한 줄이어도 답 길이만큼 시간이 걸렸다 — 2026-10-17 실측 2~8초).
     // 바꿀 글을 답에서 못 찾거나 틀린 문장이 그대로 남으면 예전처럼 전체를 다시 쓴다.
     const patchFn = deps.revisePatch || (deps.revise ? null : revisePatch);
     const patched = patchFn
-      ? await patchFn({ model: level.reviseModel, user, ledger, timeoutMs: level.reviseMs }).then((edits) => applyEdits(text, edits, verification.fixes)).catch(() => null)
+      ? await patchFn({ model: level.reviseModel, user, ledger, timeoutMs: level.reviseMs }).then((edits) => applyEdits(base, edits, pend.fixes)).catch(() => null)
       : null;
     const revised = patched ? `<answer>${patched}</answer>` : await revise({
       model: level.reviseModel,
@@ -626,12 +723,12 @@ export async function checkAnswer({ question = "", answer, level: levelKey = "fa
       label: "check_revise",
       ...(level.reviseMs ? { timeoutMs: level.reviseMs } : {}),
     }).catch(() => "");
-    const cleaned = cleanRevised(revised, text);
+    const cleaned = cleanRevised(revised, base);
     if (cleaned) finalText = cleaned;
-    else if (verification.fixes.length || verification.hedged.length) {
+    else if (pend.fixes.length || pend.hedged.length) {
       // 고쳐 쓰기가 실패해도 틀린 답을 그대로 돌려주지 않는다 — 바로잡을 곳을 답 아래에 분명히 붙인다.
       verification.revise_failed = true;
-      finalText = appendCorrections(text, verification);
+      finalText = appendCorrections(base, pend);
     }
   }
   return { text: finalText, changed: finalText !== text, verification };

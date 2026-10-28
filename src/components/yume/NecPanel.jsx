@@ -29,15 +29,17 @@ function Meter({ label, value, hint, invert = false }) {
 // 등급 이름(nonexistent "부존재 확실")은 특허 청구항의 용어다. 화면에서 0.75에 "확실"을
 // 붙이면 바로 아래 설명("가능성이 높습니다")과 말이 어긋나고, 실제로 있는 판결을 법제처가
 // 수록하지 않았을 가능성도 남아 있다. 사람이 읽는 말은 점수 크기대로 고른다.
+// 0.9 미만은 "확인 불가"로 읽는다 — 서버가 판정을 '확인되지 않음'으로 두는 기준과 같다(server/citationSplit.js NEC_CONFIRM).
 function gradeText(nec) {
   if (nec.grade !== "nonexistent") return t(nec.gradeLabel || "확인 불가");
-  return Number(nec.score) >= 0.9 ? t("존재하지 않음") : t("존재하지 않을 가능성 높음");
+  if (nec.display_grade) return nec.display_grade === "absent_confirmed" ? t("존재하지 않음") : t("확인 불가 · 부존재 가능성 높음");
+  return Number(nec.score) >= 0.9 ? t("존재하지 않음") : t("확인 불가 · 부존재 가능성 높음");
 }
 
 export default function NecPanel({ nec }) {
   const [open, setOpen] = useState(false);
   if (!nec) return null;
-  const sure = nec.grade === "nonexistent";
+  const sure = nec.grade === "nonexistent" && (nec.display_grade ? nec.display_grade === "absent_confirmed" : Number(nec.score) >= 0.9);
   const searched = (nec.coverage?.searched || []).filter((s) => s.ok);
   const failing = (nec.formatError?.checks || []).filter((c) => c.score > 0);
   const similar = nec.proximity?.similar || [];

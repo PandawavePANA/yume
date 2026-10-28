@@ -1,4 +1,5 @@
 // Anthropic Messages API 호출 (서버 전용 — API 키는 절대 클라이언트로 내려가지 않음).
+import { fixAllowed, fixPasses } from "./citationSplit.js";
 import { restoreConditions } from "./claimFidelity.js";
 import { RECORDEDNESS } from "./nec/searchSpace.js";
 import { classifyUpstream, noteUpstreamFailure, noteUpstreamSuccess } from "./upstream.js";
@@ -596,9 +597,10 @@ const FIX_PROMPT = `당신은 '베리라인' 팩트체크의 마지막 단계입
 {"fixes":[{"n":1,"fix":"고친 문장"}]}`;
 
 export async function writeSuggestedFixes(claims, { ledger = null } = {}) {
+  // 원문 근거가 있는 판정만 고친다(citationSplit.fixAllowed) — 근거 없는 고친 문장은 "책임지는 문장"이 될 수 없다.
   const targets = claims
     .map((c, i) => ({ c, i }))
-    .filter(({ c }) => c.verdict === "false" && String(c.explanation || "").trim());
+    .filter(({ c }) => fixAllowed(c) && String(c.explanation || "").trim());
   if (!targets.length) return claims;
   const list = targets
     .map(({ c }, k) => `${k + 1}. 원문 문장: ${c.quote || c.text}\n   판정 근거: ${String(c.explanation).slice(0, 400)}`)
@@ -609,7 +611,9 @@ export async function writeSuggestedFixes(claims, { ledger = null } = {}) {
   targets.forEach(({ c, i }, k) => {
     const fix = byN.get(k + 1);
     // 원문과 같으면 고친 게 아니다. 너무 길면 문장이 아니라 해설을 쓴 것이다.
-    if (fix && fix !== (c.quote || c.text).trim() && fix.length <= 400) out[i] = { ...c, suggested_fix: fix };
+    if (fix && fix !== (c.quote || c.text).trim() && fix.length <= 400 && fixPasses(c, fix)) out[i] = { ...c, suggested_fix: fix };
+    // 모델이 근거를 못 대 빈 문자열을 냈거나 마지막 검사에서 걸렸으면, 고칠 수 없다고 적는다.
+    else if (!out[i].suggested_fix) out[i] = { ...c, fix_status: "needs_human" };
   });
   return out;
 }

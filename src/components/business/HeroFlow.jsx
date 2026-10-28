@@ -29,6 +29,7 @@ export function HeroFlow({ gateAt = 0.62 }) {
         x: initial ? Math.random() * w : w + Math.random() * 200,
         len: 24 + Math.random() * 46,
         v: 0.35 + Math.random() * 0.55,
+        hue: "123,149,255", // 2026-10-27 "코인 사이트 같다" — 지난 뒤 색은 코발트 하나로
         passed: false,
       };
     };
@@ -66,9 +67,10 @@ export function HeroFlow({ gateAt = 0.62 }) {
         const after = l.x + l.len < gx();
         if (!l.passed && l.x < gx()) { l.passed = true; marks.push({ y: l.y, a: 0.55 }); }
         const grad = ctx.createLinearGradient(l.x, 0, l.x + l.len, 0);
+        // 검증선을 지나기 전은 흰색, 지난 뒤는 줄마다 코발트 · 보라 · 청록 중 하나(2026-10-26 "더 다채롭게")
         if (after || l.passed) {
-          grad.addColorStop(0, "rgba(123,149,255,0.55)");
-          grad.addColorStop(1, "rgba(123,149,255,0)");
+          grad.addColorStop(0, `rgba(${l.hue},0.6)`);
+          grad.addColorStop(1, `rgba(${l.hue},0)`);
         } else {
           grad.addColorStop(0, "rgba(255,255,255,0.28)");
           grad.addColorStop(1, "rgba(255,255,255,0)");

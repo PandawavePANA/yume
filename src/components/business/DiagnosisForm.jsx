@@ -1,7 +1,7 @@
 // 무료 진단 신청 — 메인 마지막 구역에 바로 놓인 양식(창을 띄우지 않는다: 결정한 사람이 한 번 더 누를 일을 없앤다).
 // 도입 문의와 같은 /api/inquiry 로 보내 운영자 데스크의 대화로 들어가고(kind: veriline_diagnosis), 담당자 메일로 대화 링크가 간다.
 import { useState } from "react";
-import { API_ORIGIN } from "../../businessConfig.js";
+import { API_ORIGIN, FORM_PRIVACY_NOTE, PRIVACY_URL } from "../../businessConfig.js";
 
 const FIELDS = ["노무", "법률", "세무", "의료", "기타"];
 
@@ -66,7 +66,7 @@ export default function DiagnosisForm() {
       <input tabIndex={-1} autoComplete="off" aria-hidden="true" value={f.website} onChange={set("website")} style={{ position: "absolute", left: "-9999px", width: 1, height: 1, opacity: 0 }} />
       {error && <div className="err" role="alert">{error}</div>}
       <button type="submit" className="vl-btn key" disabled={state === "sending"}>{state === "sending" ? "보내는 중…" : "무료 진단 신청 →"}</button>
-      <p className="fine">보내 주신 정보는 진단 결과 안내에만 씁니다. 결과는 귀사에만 비공개로 드립니다.</p>
+      <p className="fine">보내 주신 정보는 진단 결과 안내에만 씁니다. 결과는 귀사에만 비공개로 드립니다.<br />{FORM_PRIVACY_NOTE} <a href={PRIVACY_URL} target="_blank" rel="noreferrer">개인정보처리방침</a></p>
     </form>
   );
 }

@@ -15,7 +15,7 @@ console.log("dist-business/business.html -> dist-business/index.html");
 // 영업용 한 장짜리라 색인 대상은 자기 주소 하나뿐이다.
 import { writeFile } from "node:fs/promises";
 
-const ORIGIN = process.env.BUSINESS_ORIGIN || "https://business.yume-reamer.com";
+const ORIGIN = process.env.BUSINESS_ORIGIN || "https://veriline.kr"; // 2026-10-27 기업용 주소가 veriline.kr로 바뀜
 const at = (p) => fileURLToPath(new URL(`../dist-business/${p}`, import.meta.url));
 
 await writeFile(at("robots.txt"), `User-agent: *\nAllow: /\n\nSitemap: ${ORIGIN}/sitemap.xml\n`);
@@ -28,3 +28,11 @@ await writeFile(
 `,
 );
 console.log(`dist-business robots.txt · sitemap.xml (${ORIGIN})`);
+
+// public/의 apple-touch-icon.png · favicon.png는 세 빌드가 같이 쓰는 옛 유메(달) 아이콘이다. 링크 태그를 보지 않고
+// /apple-touch-icon.png를 바로 찾는 브라우저 · 메신저 미리보기가 있어, 기업용 빌드에서는 같은 이름에 베리라인 마크를 덮어쓴다(2026-10-28).
+import { copyFile } from "node:fs/promises";
+await copyFile(at("veriline-apple-touch-icon.png"), at("apple-touch-icon.png"));
+await copyFile(at("veriline-favicon-48.png"), at("favicon.png"));
+await copyFile(at("veriline-favicon-192.png"), at("favicon-64.png"));
+console.log("dist-business 아이콘 → 베리라인 마크");

@@ -288,7 +288,7 @@ test("감사 데스크: 약관 → 검사 → 재확인 → 체크리스트 → 
   assert.match(rep.text, /AI 할루시네이션 감사 보고서/);
   assert.match(rep.text, /class="verdict (risk|caution|good)"/);
   assert.match(rep.text, /판정 기준/);
-  assert.match(rep.text, /YUME-AUD-\d{4}-\d{4}/);
+  assert.match(rep.text, /VL-AUD-\d{4}-\d{4}/);
   const fileId = d.files[0].id;
   assert.equal((await call("GET", `/audit/p/${token}/file/${fileId}`, null, {})).status, 200);
   assert.equal((await call("GET", `/audit/p/${"x".repeat(24)}/file/${fileId}`, null, {})).status, 404);

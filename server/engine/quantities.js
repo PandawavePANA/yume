@@ -102,10 +102,17 @@ const tokens = (s) => new Set((String(s || "").match(/[가-힣]{2,}/g) || []).ma
 // 처벌 문장(징역 · 벌금 · 과태료)은 의무 조문이 아니라 벌칙 · 과태료 조문과 비교한다 — 2026-10-26 비교 시험에서
 // "제27조의 보험계약 … 3년 이하의 징역"을 의무 조문 제27조와 비교해 벌칙 조문(제50조, 1년 이하)의 불일치를 놓쳤다.
 const PENALTY_TITLE = /벌칙|과태료|양벌/;
+// 처벌 종류까지 맞춘다 — 징역 · 벌금 문장은 징역 · 벌금을 정한 벌칙 조문과, 과태료 문장은 과태료 조문과(같은 날, 징역 문장을 과태료 조문 제53조와
+// 비교해 "형벌이라 했는데 조문은 과태료"라는 엉뚱한 단서가 나갔다).
 function nearestArticle(sentence, articles, { penalty = false } = {}) {
   const t = tokens(sentence);
   let best = null;
-  const pool = penalty ? articles.filter((a) => PENALTY_TITLE.test(a.title || "") || PENALTY_TITLE.test(String(a.text || "").slice(0, 40))) : [];
+  let pool = penalty ? articles.filter((a) => PENALTY_TITLE.test(a.title || "") || PENALTY_TITLE.test(String(a.text || "").slice(0, 40))) : [];
+  if (pool.length) {
+    const want = new Set(sanctionKinds(sentence).map(classOf));
+    const sameClass = pool.filter((a) => sanctionKinds(a.text).some((k) => want.has(classOf(k))));
+    if (sameClass.length) pool = sameClass;
+  }
   for (const a of pool.length ? pool : articles) {
     const at = tokens(`${a.title || ""} ${a.text || ""}`);
     let n = 0;

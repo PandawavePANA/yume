@@ -13,7 +13,7 @@ import { requireAdmin } from "./adminApi.js";
 import { audit as auditLog } from "./audit.js";
 import { mailConfigured, sendMail } from "./mailer.js";
 import { logError } from "./errorLog.js";
-import { COMPANY, esc } from "./renderPages.js";
+import { COMPANY, esc, VERILINE } from "./renderPages.js";
 import {
   PAY_METHODS,
   STATUS_LABEL,
@@ -92,8 +92,8 @@ function quoteMailHtml(q, lead) {
       <tr><td style="padding:3px 14px 3px 0;color:#857e98">품목</td><td>${esc(productLabel(q.product))}</td></tr>
       <tr><td style="padding:3px 14px 3px 0;color:#857e98">합계</td><td><b>${won(q.total_krw)}</b> (공급가액 ${won(q.supply_krw)} + 부가세 ${won(q.vat_krw)})</td></tr>
     </table>
-    <p style="margin:16px 0"><a href="${quoteUrl(q)}" style="display:inline-block;padding:11px 18px;border-radius:10px;background:#6b4fa8;color:#fff;text-decoration:none;font-weight:700">견적서 열기</a></p>
-    <p style="margin:0;font-size:12.5px;color:#857e98">견적서 화면에서 인쇄·PDF 저장과 계약 신청을 할 수 있습니다. 문의: ${esc(COMPANY.email)} · ${esc(COMPANY.tel)}</p>
+    <p style="margin:16px 0"><a href="${quoteUrl(q)}" style="display:inline-block;padding:11px 18px;border-radius:10px;background:#2F5BFF;color:#fff;text-decoration:none;font-weight:700">견적서 열기</a></p>
+    <p style="margin:0;font-size:12.5px;color:#857e98">견적서 화면에서 인쇄·PDF 저장과 계약 신청을 할 수 있습니다. 문의: ${esc(VERILINE.email)} · ${esc(COMPANY.tel)}</p>
   </div>`;
 }
 
@@ -118,7 +118,7 @@ b2bRouter.post("/b2b/quote", cors, limitMiddleware(quoteLimiter, (req) => `b2bq:
 
   mailSafe({
     to: q.email,
-    replyTo: COMPANY.email,
+    replyTo: VERILINE.email,
     subject: `[베리라인] 견적서 ${quoteNumber(q)} — ${productLabel(q.product)}`,
     text: `${q.company} ${q.contact_name || ""}님, 요청하신 견적서입니다.\n\n견적번호 ${quoteNumber(q)}\n합계 ${won(q.total_krw)} (부가세 포함)\n\n${quoteUrl(q)}\n\n견적서 화면에서 인쇄·PDF 저장과 계약 신청을 할 수 있습니다.`,
     html: quoteMailHtml(q, `${esc(q.company)} ${esc(q.contact_name || "")}님, 요청하신 견적서입니다.`),

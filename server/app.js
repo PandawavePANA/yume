@@ -61,6 +61,7 @@ import { renderProductPage } from "./renderProductPage.js";
 import { openExportDownload, purgeOldExportFiles } from "./dataset.js";
 import { renderAdminPage } from "./renderAdminPage.js";
 import { renderResetPasswordPage, renderTermsPage, renderPrivacyPage, renderRefundPage, renderProductsPage, renderAccountDeletionPage, renderApiDocsPage, renderExtensionPrivacyPage } from "./renderPages.js";
+import { replayReceipt } from "./engine/v2/receipt.js";
 import { clientIp, createLimiter, limitMiddleware, sameOriginGuard, securityHeaders, IS_PROD } from "./security.js";
 import { localizeResponses } from "./i18n.js";
 import { mailConfigured } from "./mailer.js";
@@ -85,7 +86,8 @@ const APEX_HOST = CANONICAL_HOST.replace(/^www\./, "");
 // 2026-10-26 대표: 새로 산 veriline.kr = 베리라인 기업용 메인, yume-reamer.com = 유메 개인용(B2C).
 // 같은 서버가 두 주소를 받고, 첫 화면만 주소에 따라 다르다. www.veriline.kr · veriline.co.kr은 veriline.kr 하나로 모은다.
 const VERILINE_HOST = (process.env.VERILINE_HOST || "veriline.kr").toLowerCase();
-const VERILINE_ALIASES = new Set([`www.${VERILINE_HOST}`, "veriline.co.kr", "www.veriline.co.kr"]);
+// business.yume-reamer.com: 예전 기업용 주소. veriline.kr와 같은 Railway 서비스(business)에 붙어 있어 같은 판을 돌린다 — 새 주소로 넘긴다
+const VERILINE_ALIASES = new Set([`www.${VERILINE_HOST}`, "veriline.co.kr", "www.veriline.co.kr", "business.yume-reamer.com"]);
 const PERSONAL_ORIGIN = `https://${CANONICAL_HOST}`;
 const hostOf = (req) => String(req.hostname || "").toLowerCase();
 const isLocalHost = (req) => /^(localhost|127\.0\.0\.1|\[::1\])$/.test(hostOf(req));
@@ -143,6 +145,19 @@ app.use("/api", documentsWebRouter);
 app.use("/api", express.json({ limit: "28mb" }), screenshotRouter);
 
 const verifyLimiter = createLimiter({ windowMs: 60_000, max: 6 });
+
+// 판정 영수증 다시 확인 — "AI가 AI를 검증하는 것 아니냐"에 대한 답. 영수증(검증 결과의 verification.receipts 한 건)을 보내면
+// 법제처에서 조문을 다시 받아 원문 지문 · 근거 문장 · 코드 판정을 확인한다. 모델을 부르지 않는다(models_called: 0) — 누구나 같은 결과.
+const replayLimiter = createLimiter({ windowMs: 60_000, max: 20 });
+app.post("/api/receipts/replay", limitMiddleware(replayLimiter, (req) => `replay:${clientIp(req)}`), async (req, res) => {
+  const receipt = req.body?.receipt;
+  if (!receipt || typeof receipt !== "object" || !receipt.source) return res.status(400).json({ error: "영수증(receipt)을 보내 주세요." });
+  try {
+    res.json(await replayReceipt(receipt));
+  } catch (e) {
+    res.status(502).json({ error: "법제처 조문을 다시 받지 못했어요. 잠시 뒤 다시 시도해 주세요." });
+  }
+});
 
 // 방문 한 줄(유입 측정). 화면이 세션마다 한 번 보낸다. 받는 값은 헤더의 익명 id와 출처뿐이다.
 const evLimiter = createLimiter({ windowMs: 60_000, max: 20 });
@@ -732,6 +747,9 @@ export async function maintenance() {
     await run("DELETE FROM api_idempotency WHERE created_at < :t", { t: now() - DAY_MS });
     await run("DELETE FROM documents WHERE created_at < :t", { t: now() - 365 * DAY_MS });
     await run("DELETE FROM chat_messages WHERE created_at < :t", { t: now() - 180 * DAY_MS });
+    // 기업 문의 · 무료 진단 신청: 접수일로부터 1년(개인정보처리방침 · veriline.kr 폼 아래 고지와 같은 기간).
+    // 리머 개발 문의(같은 표)는 리머 방침을 따르므로 베리라인 폼에서 온 것만 지운다.
+    await run("DELETE FROM inquiries WHERE kind IN ('veriline_diagnosis', 'yume_api') AND created_at < :t", { t: now() - 365 * DAY_MS });
     await run("DELETE FROM error_logs WHERE created_at < :t", { t: now() - 90 * DAY_MS });
     // 적립 후 1년이 지난 크레딧 소멸(이니시스 포인트충전 조건, 환불정책 제4조).
     await expireAllCredits();

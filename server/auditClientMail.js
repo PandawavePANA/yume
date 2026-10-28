@@ -47,11 +47,11 @@ export function clientAuditMail(detail, { cardUrl = `${(process.env.PUBLIC_BASE_
   const chips = lawChips(detail);
   const clean = !confirmed.length;
 
-  const chip = (t) => `<span style="display:inline-block;margin:0 6px 8px 0;padding:6px 11px;border-radius:999px;background:#F3EFFA;color:#4B3A78;font-size:13px;font-weight:700;white-space:nowrap">${esc(t)}</span>`;
+  const chip = (t) => `<span style="display:inline-block;margin:0 6px 8px 0;padding:6px 11px;border-radius:999px;background:#EEF2FF;color:#1E46E0;font-size:13px;font-weight:700;white-space:nowrap">${esc(t)}</span>`;
 
   const html = `<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><style>table{table-layout:fixed}td,div,p,a{overflow-wrap:anywhere;word-break:keep-all}</style></head>
-<body style="margin:0;padding:0;background:#F4F2F8;font-family:${FONT};-webkit-text-size-adjust:100%">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="table-layout:fixed;background:#F4F2F8"><tr><td align="center" style="padding:14px 8px 26px">
+<body style="margin:0;padding:0;background:#F2F3F5;font-family:${FONT};-webkit-text-size-adjust:100%">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="table-layout:fixed;background:#F2F3F5"><tr><td align="center" style="padding:14px 8px 26px">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="table-layout:fixed;width:100%;max-width:560px;background:#FFFFFF;border-radius:16px">
   <tr><td style="padding:22px 24px 0">
     <span style="display:inline-block;font-size:11px;font-weight:800;letter-spacing:1px;color:#8A4B2F;background:#FDF0E8;border-radius:6px;padding:4px 9px">비공개 · ${esc(brand)} 한정</span>

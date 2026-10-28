@@ -914,6 +914,14 @@ export default {
   "민원담당자": "Complaints contact",
   "법제처 공식 대조 · OFFICIAL SOURCE · 짐작이 아니라 확인 · ": "CHECKED AGAINST OFFICIAL LAW DATA · OFFICIAL SOURCE · VERIFIED, NOT GUESSED · ",
   "법률": "Law",
+  "노무": "Labor law",
+  "세무": "Tax",
+  "부동산": "Real estate",
+  "형사": "Criminal law",
+  "민사": "Civil law",
+  "확인 불가 · 부존재 가능성 높음": "Unverifiable · likely doesn't exist",
+  "수정 불가 · 사람 확인 필요": "No fix · needs human review",
+  "법령 원문 근거가 확인된 값이 없어 고친 문장을 만들지 않았습니다.": "No value was confirmed against the statute text, so no corrected sentence was written.",
   "의료": "Health",
   "금융": "Finance",
   "역사": "History",
@@ -928,8 +936,8 @@ export default {
   "AI 생성": "AI-generated",
   "고친 본문의 수정 문장은 생성형 AI가 근거의 값으로 고쳐 쓴 것입니다. 내보내기 전에 한 번 읽어 확인하세요.":
     "Corrected sentences in this text were rewritten by generative AI using the values in the evidence. Read it once before you send it out.",
-  "베리라인은 검증 과정에 생성형 AI를 사용합니다. 판정은 공개 원문과 대조한 검증 정보이며 법률·의료·금융 자문이나 보증이 아닙니다.":
-    "VERILINE uses generative AI in its checking process. Verdicts are verification information based on public sources, not legal, medical or financial advice, and not a guarantee.",
+  "판정은 공개 원문과 대조한 검증 정보이며 법률·의료·금융 자문이나 보증이 아닙니다.":
+    "Verdicts are verification information based on public sources, not legal, medical or financial advice, and not a guarantee.",
   "이 결과는 인용된 법령·판례가 실재하고 원문과 맞는지 확인한 정보이며, 법률 자문이 아닙니다. 개별 사안은 변호사와 상담하세요.":
     "This result checks whether the cited statutes and cases exist and match the official text. It is not legal advice; consult a lawyer about your own case.",
   "의료 정보는 진단이나 처방이 아닙니다. 치료와 복약은 의사·약사와 상담하세요.":

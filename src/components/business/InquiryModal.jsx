@@ -5,7 +5,7 @@
 // 같은 문의 API로 보낸다 — 보내는 순간 의뢰 대화가 열리고, 운영자 데스크에서 답장·견적·카드 결제까지
 // 한 줄로 이어진다. 베리라인은 리머가 운영하므로 견적과 결제도 리머의 대화 화면에서 진행된다.
 import { useEffect, useState } from "react";
-import { API_ORIGIN } from "../../businessConfig.js";
+import { API_ORIGIN, FORM_PRIVACY_NOTE, PRIVACY_URL } from "../../businessConfig.js";
 import { API_RATES } from "../../../server/apiRates.js";
 
 const UI = {
@@ -34,7 +34,7 @@ export const PLAN_CHOICES = [
 
 const field = {
   width: "100%", boxSizing: "border-box", padding: "11px 13px", borderRadius: 11, border: `1px solid ${UI.hairline}`,
-  background: "#fff", color: UI.ink, font: "inherit", fontSize: 14.5,
+  background: "#fff", color: UI.ink, font: "inherit", fontSize: 16, // 16px 미만이면 아이폰이 입력할 때 화면을 확대한다
 };
 const labelStyle = { display: "grid", gap: 6, fontSize: 13, fontWeight: 600, color: UI.ink2 };
 
@@ -158,6 +158,7 @@ export default function InquiryModal({ plan = "unsure", note = "", onClose }) {
             <input tabIndex={-1} autoComplete="off" value={form.website} onChange={set("website")} aria-hidden="true"
               style={{ position: "absolute", left: "-9999px", width: 1, height: 1, opacity: 0 }} />
             {error && <div style={{ fontSize: 13.5, color: "#B23B2B", background: "#FDEFEC", borderRadius: 10, padding: "10px 12px" }}>{error}</div>}
+            <p style={{ margin: 0, fontSize: 12, color: UI.ink3, lineHeight: 1.6 }}>{FORM_PRIVACY_NOTE} <a href={PRIVACY_URL} target="_blank" rel="noreferrer" style={{ color: UI.ink2 }}>개인정보처리방침</a></p>
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", flexWrap: "wrap" }}>
               <button type="button" onClick={onClose} style={{ padding: "11px 16px", borderRadius: 12, border: `1px solid ${UI.hairline}`, background: "#fff", color: UI.ink2, fontSize: 14, cursor: "pointer" }}>취소</button>
               <button type="submit" disabled={state === "sending"} style={{ padding: "11px 20px", borderRadius: 12, border: 0, background: UI.accent, color: "#fff", fontWeight: 600, fontSize: 14.5, cursor: "pointer", opacity: state === "sending" ? 0.6 : 1 }}>

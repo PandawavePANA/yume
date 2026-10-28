@@ -9,6 +9,7 @@ import { reviewAccusations } from "./reviewAccusations.js";
 import { applyCache, storeAll } from "./claimCache.js";
 import { dropStaleFix, sanitizeClaim } from "./claimGuard.js";
 import { applyStance } from "./claimStance.js";
+import { markUnfixable, splitCitationClaims, withField } from "./citationSplit.js";
 import { buildOverallVerdict } from "./overallVerdict.js";
 import { LAW_HINT, applyStatuteReview, reviewStatutes } from "./statuteReview.js";
 import { resolveProductLinks } from "./coupang.js";
@@ -156,6 +157,8 @@ async function processVerification({ id, text, source, onProgress = () => {}, on
       });
       onClaims(claims.map(({ from_claim_cache: _c, ...rest }) => rest));
     }
+    // 인용이 붙은 주장은 출처 판정과 내용 판정을 나눈다. 가짜 출처라는 사실만으로 내용을 판정하지 않는다(citationSplit.js).
+    claims = splitCitationClaims(claims);
     // 이번에 새로 판단한 것만 캐시에 넣는다(확인되지 않음은 저장하지 않는다).
     await storeAll(claims);
     // 내부 표시는 여기서 뗀다. 중간에 떼면 지목 재확인과 저장이 캐시된 주장을 구분하지
@@ -166,7 +169,9 @@ async function processVerification({ id, text, source, onProgress = () => {}, on
     // 위치와 고친 문장은 판정이 다 끝난 뒤에 붙인다. 판정이 중간에 바뀌면(지목 철회·근거 부족)
     // 고친 문장이 맞는 문장을 고치라고 권하게 된다.
     claims = attachSpans(text, claims);
-    if (claims.some((c) => c.verdict === "false")) {
+    // 원문 근거가 없는 '사실과 다름'은 고친 문장을 만들지 않고 "수정 불가 · 사람 확인 필요"로 둔다.
+    claims = markUnfixable(claims);
+    if (claims.some((c) => c.verdict === "false" && c.fix_status !== "needs_human")) {
       onProgress("틀린 문장을 어떻게 고치면 되는지 정리하는 중…");
       // 고친 문장은 덤이다. 실패해도 판정은 그대로 나간다.
       claims = await writeSuggestedFixes(claims, { ledger }).catch((e) => {
@@ -175,7 +180,7 @@ async function processVerification({ id, text, source, onProgress = () => {}, on
       });
     }
     // 내부 표시는 내보내지 않는다(기준 자료로 판정했다는 사실은 verified_via: "reference"가 말한다).
-    claims = claims.map(dropStaleFix).map(({ from_reference: _r, ...rest }) => rest).map(withUncertainReason);
+    claims = claims.map(dropStaleFix).map(({ from_reference: _r, ...rest }) => rest).map(withUncertainReason).map(withField);
     const overall = buildOverallVerdict(claims);
     // 기업 API 응답에는 상품 링크를 싣지 않는다(publicVerification이 빼고 보낸다). 쿠팡 조회도 하지 않는다.
     const relatedProducts = source === "api" ? [] : await resolveProductLinks(extracted.related_products);

@@ -25,7 +25,12 @@ export function computeNec({ C, F, P, weights }) {
 
 export const GRADE_LABEL = { nonexistent: "부존재 확실", unverifiable: "확인 불가" };
 
-const pct = (x) => `${Math.round(x * 100)}%`;
+// 문장에는 "검색공간의 약 95%(추정)"처럼 설명할 수 없는 비율 대신 실제로 찾아본 곳을 적는다(2026-10-28 핸드오프 P2).
+// 추정 커버리지 값은 근거 보기의 C 막대에 산출 근거(출처별 수록 범위)와 함께 남는다.
+function searchedText(coverage, space) {
+  const names = (coverage?.searched || []).filter((s) => s.ok && s.label).map((s) => s.label);
+  return names.length ? `${names.join(" · ")}` : `${space.label} 공식 자료`;
+}
 
 // identifier: identifiers.js의 검사 결과, coverage: searchSpace.coverageFor 결과(또는 형식오류로
 // 탐색을 생략한 경우 논리적 커버리지 1), similar: [{ value, title, url, similarity }]
@@ -43,11 +48,11 @@ export function buildNecReport({ identifier, spaceKey, coverage, similar = [], s
     const worst = [...identifier.checks].sort((a, b) => b.score - a.score)[0];
     summary = `형식상 존재할 수 없는 식별자라 외부 조회 없이 판정했습니다 — ${worst?.note || "형식 오류"}`;
   } else if (grade === "nonexistent") {
-    summary = `${space.label} 검색공간의 약 ${pct(C)}(추정)를 탐색했지만 찾지 못했고, 가까운 실재 항목도 없어 존재하지 않을 가능성이 높습니다.`;
+    summary = `${searchedText(coverage, space)}에서 찾지 못했고, 가까운 실재 항목도 없어 존재하지 않을 가능성이 높습니다.`;
   } else if (sortedSimilar[0]?.similarity >= 0.75) {
     summary = `그대로는 찾지 못했지만 매우 비슷한 ‘${sortedSimilar[0].value}’가 실재합니다 — 이를 잘못 인용했을 수 있어 부존재로 단정하지 않습니다.`;
   } else {
-    summary = `공식 자료에서 찾지 못했지만, 탐색한 범위가 ${space.label} 검색공간의 약 ${pct(C)}(추정)에 그쳐 부존재로 단정하지 않습니다.`;
+    summary = `${searchedText(coverage, space)}에서 찾지 못했지만, 아직 찾아보지 못한 곳이 남아 부존재로 단정하지 않습니다.`;
   }
 
   return {

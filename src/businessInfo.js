@@ -27,6 +27,10 @@ export const BUSINESS = {
   mailOrderNo: env.VITE_MAIL_ORDER_NO || "",
 };
 
+// 베리라인 기업용 화면(veriline.kr)에 보여 줄 연락처 — 2026-10-27 Google Workspace 별칭 도메인으로 연 주소.
+// 사업자 신원정보(BUSINESS.email)와 같은 메일함으로 들어온다. 리머 · 이니시스 심사 쪽은 BUSINESS.email을 그대로 쓴다.
+export const VERILINE_EMAIL = "contact@veriline.kr";
+
 // 민원 책임 고지 — KG이니시스 포인트충전 입점 조건으로 사이트 하단에 늘 보여야 한다.
 // 서버 페이지(server/renderPages.js)에도 같은 문장이 있다. 바꾸면 둘 다 고칠 것.
 export const COMPLAINT_NOTICE = "모든 거래에 대한 책임과 환불, 민원 등은 리머에서 진행합니다.";

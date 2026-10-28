@@ -121,6 +121,16 @@ function publicClaim(c) {
   if (c.legal_ref) out.legal_ref = c.legal_ref;
   if (c.identifiers) out.identifiers = c.identifiers;
   if (c.nec) out.nec = c.nec;
+  // 세부 분야(노무 · 세무 · 부동산 · 의료 · 형사 · 민사). domain은 큰 갈래라 그대로 둔다.
+  if (c.field) out.field = c.field;
+  // 인용이 붙은 주장: 출처 판정(absent_confirmed | unverifiable)과 내용 판정(false | unverified)을 따로 준다.
+  if (c.source_check?.status) out.source_check = { target: c.source_check.label || c.source_check.target, status: c.source_check.status, score: c.source_check.score, threshold: c.source_check.threshold };
+  if (c.content_verdict) {
+    out.content_claim = c.content_claim;
+    out.content_verdict = c.content_verdict;
+  }
+  // needs_human: 원문 근거가 없어 고친 문장을 만들지 않았다(사람 확인 필요).
+  if (c.fix_status) out.fix_status = c.fix_status;
   return out;
 }
 

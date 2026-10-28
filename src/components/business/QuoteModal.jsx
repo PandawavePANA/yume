@@ -4,7 +4,7 @@
 // 문의를 남기고 하루를 기다려야 했다. 금액은 서버가 요율표(server/apiRates.js)로 계산하고, 여기서는
 // 같은 표로 미리 보여 주기만 한다 — 화면 숫자와 견적서 숫자가 어긋날 자리가 없다.
 import { useEffect, useMemo, useState } from "react";
-import { API_ORIGIN } from "../../businessConfig.js";
+import { API_ORIGIN, FORM_PRIVACY_NOTE, PRIVACY_URL } from "../../businessConfig.js";
 import { API_RATES, AUDIT_LEAD, AUDIT_ORDER_DOMAINS, AUDIT_RATES } from "../../../server/apiRates.js";
 
 const UI = { ink: "#0F1522", ink2: "#4A5468", ink3: "#8A93A6", accent: "#2F6BFF", hairline: "rgba(30, 45, 90, 0.12)", soft: "#F5F7FA" };
@@ -18,7 +18,7 @@ export const QUOTE_PRODUCTS = {
   ...Object.fromEntries(Object.entries(AUDIT_RATES).map(([k, a]) => [k, { label: `${a.label} — ${won(a.krw)} / ${a.unit}`, unit: a.unit, min: 1, max: k === "audit_regular" ? 4 : 1, step: 1, def: 1, unitKrw: a.krw, qtyLabel: k === "audit_regular" ? "분기 수" : "수량", audit: true, spec: a.spec }])),
 };
 
-const field = { width: "100%", boxSizing: "border-box", padding: "11px 13px", borderRadius: 11, border: `1px solid ${UI.hairline}`, background: "#fff", color: UI.ink, font: "inherit", fontSize: 14.5 };
+const field = { width: "100%", boxSizing: "border-box", padding: "11px 13px", borderRadius: 11, border: `1px solid ${UI.hairline}`, background: "#fff", color: UI.ink, font: "inherit", fontSize: 16 }; // 16px 미만이면 아이폰이 입력할 때 화면을 확대한다
 const labelStyle = { display: "grid", gap: 6, fontSize: 13, fontWeight: 600, color: UI.ink2 };
 
 export default function QuoteModal({ product = "growth", onClose }) {
@@ -152,6 +152,7 @@ export default function QuoteModal({ product = "growth", onClose }) {
             </label>}
             <input tabIndex={-1} autoComplete="off" aria-hidden="true" value={form.website} onChange={set("website")} style={{ position: "absolute", left: -9999, width: 1, height: 1, opacity: 0 }} />
             {error && <div role="alert" style={{ color: "#C2410C", fontSize: 13.5 }}>{error}</div>}
+            <p style={{ margin: 0, fontSize: 12, color: UI.ink3, lineHeight: 1.6 }}>{FORM_PRIVACY_NOTE} <a href={PRIVACY_URL} target="_blank" rel="noreferrer" style={{ color: UI.ink2 }}>개인정보처리방침</a></p>
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", flexWrap: "wrap" }}>
               <button type="button" onClick={onClose} style={{ padding: "11px 16px", borderRadius: 12, border: 0, background: "none", color: UI.ink3, cursor: "pointer", fontSize: 14 }}>닫기</button>
               <button type="submit" disabled={state === "sending" || !preview} style={{ padding: "11px 18px", borderRadius: 12, border: 0, background: UI.accent, color: "#fff", fontWeight: 650, fontSize: 14.5, cursor: "pointer", opacity: state === "sending" || !preview ? 0.6 : 1 }}>

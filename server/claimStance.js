@@ -57,7 +57,12 @@ export function sameTarget(target, found) {
  */
 export function applyStance(claim) {
   if (!claim || !claim.existence) return claim;
-  const { existence: ex, ...c } = claim;
+  const { existence: ex, ...claimRest } = claim;
+  // 인용한 식별자를 못 찾은 주장은, existence를 지우더라도 "출처 판정"을 남긴다 — 내용 판정과 나누는 데 쓴다
+  // (citationSplit.splitCitationClaim, 2026-10-28 핸드오프 P0).
+  const c = ex.status === "absent"
+    ? { ...claimRest, source_check: { target: ex.target, label: ex.label || ex.target, score: ex.score ?? null, kind: ex.kind || claimRest.nec?.identifier?.type || null, ...(ex.deleted ? { deleted: true } : {}) } }
+    : claimRest;
   const target = absenceTarget(c);
   if (!target || !sameTarget(target, ex.target)) return c;
   const label = ex.label || ex.target;

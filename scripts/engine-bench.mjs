@@ -48,14 +48,20 @@ function shuffled(arr, seed) {
   return a;
 }
 
+// --exclude "a.jsonl,b.jsonl": 이미 쓴(엔진을 고치며 들여다본) 문항을 뺀다 — 새 문항으로만 겨루기 위해.
+const EXCLUDE = new Set(String(args.exclude || "").split(",").filter(Boolean).flatMap((f) => readJsonl(f).map((r) => r.bid)));
+// 2세대(trap-rag.mjs) 기록은 key 대신 cid를 쓴다
+const negId = (r) => (r.cid ? `NEG-${r.cid}` : `NEG-${r.field}-${String(r.key || "").split("|")[1] || ""}`);
+// 반박까지 한 기록은 "[첫 답] … [반박 뒤 답] …" — 검증할 답은 마지막 답이다
+const answerOf = (it) => String(it.subject_answer || "").split("[반박 뒤 답]").pop().replace(/^\s*\[첫 답\]\s*/, "").trim();
 function pickItems() {
-  const pos = readJsonl(path.join(DATA, "dataset.jsonl"));
-  const neg = readJsonl(path.join(DATA, "attempts.jsonl")).filter((r) => r.judge === "correct" && r.code_guard !== "conflicts");
+  const pos = readJsonl(path.join(DATA, "dataset.jsonl")).filter((r) => !EXCLUDE.has(r.id));
+  const neg = readJsonl(path.join(DATA, "attempts.jsonl")).filter((r) => r.judge === "correct" && r.code_guard !== "conflicts" && !EXCLUDE.has(negId(r)));
   const items = [];
   for (const field of ["노무", "법률", "세무", "의료"]) {
     if (args.only && field !== args.only) continue;
     for (const r of shuffled(pos.filter((x) => x.field === field), SEED).slice(0, POS)) items.push({ ...r, bid: r.id, kind: "pos" });
-    shuffled(neg.filter((x) => x.field === field), SEED).slice(0, NEG).forEach((r, i) => items.push({ ...r, bid: `NEG-${field}-${i + 1}`, kind: "neg" }));
+    shuffled(neg.filter((x) => x.field === field), SEED).slice(0, NEG).forEach((r) => items.push({ ...r, bid: negId(r), kind: "neg" }));
   }
   return items;
 }
@@ -87,7 +93,7 @@ const json = (s) => { const m = String(s || "").match(/\{[\s\S]*\}/); try { retu
 async function runVeriline(it) {
   const ledger = newLedger();
   const t0 = Date.now();
-  const out = await checkAnswer({ question: it.question, answer: it.subject_answer, level: LEVEL, ledger });
+  const out = await checkAnswer({ question: it.question, answer: answerOf(it), level: LEVEL, ledger });
   const sum = summarize(ledger);
   const usd = sum?.usd || 0;
   spent += usd;
@@ -132,7 +138,7 @@ async function runTool(name, input) {
 }
 async function runBaseline(it) {
   const t0 = Date.now();
-  const messages = [{ role: "user", content: `[질문]\n${it.question}\n\n[답변]\n${it.subject_answer}` }];
+  const messages = [{ role: "user", content: `[질문]\n${it.question}\n\n[답변]\n${answerOf(it)}` }];
   let usd = 0;
   let calls = 0;
   for (let turn = 0; turn < 10; turn++) {
@@ -154,7 +160,7 @@ async function runBaseline(it) {
     }
     messages.push({ role: "user", content: results });
   }
-  return { final: it.subject_answer, flagged: false, notes: ["도구 반복 한도"], usd, ms: Date.now() - t0, tool_calls: calls };
+  return { final: answerOf(it), flagged: false, notes: ["도구 반복 한도"], usd, ms: Date.now() - t0, tool_calls: calls };
 }
 
 const JUDGE_SYSTEM = `너는 채점자다. [정답]과 [근거 조문]을 기준으로 [AI 답변]을 채점한다. 네 기억으로 판단하지 않는다. JSON만 출력한다.
@@ -164,8 +170,13 @@ const JUDGE_SYSTEM = `너는 채점자다. [정답]과 [근거 조문]을 기준
 - no_answer: 답을 피했다(모른다, 확인하라 등).
 출력: {"verdict":"incorrect|partial|correct|no_answer","wrong_claim":"답변에서 틀린 말 그대로(incorrect일 때)","reason":"한 문장"}`;
 async function judge(it, final) {
-  const { j } = await anthropic({ model: JUDGE, max_tokens: 16000, system: JUDGE_SYSTEM, messages: [{ role: "user", content: `[질문] ${it.question}\n[정답] ${it.ground_truth}\n[근거 조문] ${it.law} ${it.article}\n${it.evidence_quote}\n[AI 답변]\n${final}` }] });
-  return json(textOf(j)) || {};
+  // 채점 JSON이 비면 한 번 더 묻는다 — 엔진 답은 맞았는데 채점이 비어 'error'로 찍힌 일이 있었다(2026-10-27, 두 시스템 모두 같은 규칙)
+  for (let k = 0; k < 2; k++) {
+    const { j } = await anthropic({ model: JUDGE, max_tokens: 16000, system: JUDGE_SYSTEM, messages: [{ role: "user", content: `[질문] ${it.question}\n[정답] ${it.ground_truth}\n[근거 조문] ${it.law} ${it.article}\n${it.evidence_quote}\n[AI 답변]\n${final}` }] });
+    const v = json(textOf(j));
+    if (v?.verdict) return v;
+  }
+  return {};
 }
 
 const items = pickItems();

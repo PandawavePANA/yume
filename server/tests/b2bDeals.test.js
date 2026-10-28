@@ -94,7 +94,7 @@ test("견적 → 계약 신청 → 입금 확인: 브라우저가 보낸 금액�
   assert.equal(q.status, 201);
   const starter = API_RATES.tiers.find((x) => x.key === "starter");
   assert.equal(q.json.total, starter.monthlyKrw * 2 + Math.floor(starter.monthlyKrw * 2 * 0.1));
-  assert.match(q.json.number, /^YM-\d{8}-\d{4}$/);
+  assert.match(q.json.number, /^VL-\d{8}-\d{4}$/);
   const token = tokenOf(q.json.url);
 
   // 감사 상품은 감사할 서비스 정보 없이는 주문서를 낼 수 없다.
@@ -191,7 +191,7 @@ test("감사 보고서의 '다음 단계': 데스크에서 낸 견적이 맨 앞
   const q = await call("POST", "/api/admin/b2b/quotes", { product: "audit", auditId, company: "다음단계노무", items: [{ name: "AI 정밀 감사", qty: 1, unitKrw: 2_000_000 }] }, ADMIN);
   assert.equal(q.status, 201);
   const report = await reportOf();
-  assert.match(report, /준비된 견적서 — YM-\d{8}-\d{4}/);
+  assert.match(report, /준비된 견적서 — VL-\d{8}-\d{4}/);
   assert.match(report, /\/b2b\/quote\//);
   assert.doesNotMatch(report, /2,000,000|2,200,000/, "보고서에는 금액을 싣지 않는다");
   assert.match(report, /\/b2b\/dpa/);

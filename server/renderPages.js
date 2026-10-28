@@ -11,6 +11,13 @@ let addressOverride = null;
 export const setAddressOverride = (v) => {
   addressOverride = v ? String(v) : null;
 };
+// 베리라인 기업용(veriline.kr) 고객에게 보이는 연락처와 사이트 — 리머 사업자 정보(COMPANY)와 같은 메일함으로 들어온다(2026-10-27).
+// 기업 고객이 받는 견적 · 보고서 · 메일에 리머 주소(d-reamer.com)나 옛 주소(business.yume-reamer.com)가 섞이지 않게 여기서 읽는다.
+export const VERILINE = {
+  email: process.env.VERILINE_EMAIL || "contact@veriline.kr",
+  site: (process.env.BUSINESS_URL || "https://veriline.kr").replace(/\/+$/, ""),
+};
+
 export const COMPANY = {
   name: process.env.COMPANY_NAME || "리머(REAMER)",
   ceo: process.env.COMPANY_CEO || "정원영",
@@ -425,6 +432,7 @@ export function renderPrivacyPage() {
 <tr><td>AI 어시스턴트 대화</td><td>대화 내용</td><td>대화 응답, 서비스 품질 확인</td></tr>
 <tr><td>카카오톡 채널</td><td>카카오가 제공하는 채널 사용자 식별값, 메시지 내용</td><td>채널 대화·검증 제공, 이용 한도 관리</td></tr>
 <tr><td>API 이용 기업</td><td>담당자 이메일·회사명, API 호출 기록</td><td>API 제공, 사용량 집계와 과금</td></tr>
+<tr><td>기업 문의·무료 진단·견적 신청(veriline.kr)</td><td>담당자 성함, 회사명, 이메일, AI 서비스 주소, 남긴 내용</td><td>진단 결과 안내, 견적·주문서 발행, 문의 답변</td></tr>
 <tr><td>본인확인(통합인증서비스, 해당 기능 이용 시)</td><td>이름, 생년월일, 성별, 휴대전화번호, 연계정보(CI), 중복가입확인정보(DI)</td><td>본인 확인, 만 14세 미만 가입 제한, 중복 가입 및 부정 이용 방지, 유료 서비스 이용 시 본인 확인</td></tr>
 </table>
 <p>판정 결과는 개인을 알아볼 수 없는 집계 숫자(검사한 글·주장의 수, 판정 종류별 비율, 분야)로만 VERILINE 할루시네이션 지수에 공개될 수 있습니다. 입력한 글의 내용과 이용자 정보는 공개하지 않습니다.</p>
@@ -437,6 +445,7 @@ export function renderPrivacyPage() {
 <tr><td>회원 정보와 회원의 검증 기록</td><td>탈퇴 시까지(회원이 기록을 삭제하면 즉시 파기). 무료 플랜은 최근 50건만 보관</td></tr>
 <tr><td>비회원 웹 검증 기록, 카카오톡 채널 기록, AI 어시스턴트 대화</td><td>수집일로부터 180일</td></tr>
 <tr><td>API 검증 기록과 호출 기록</td><td>수집일로부터 1년(과금·분쟁 대응)</td></tr>
+<tr><td>기업 문의·무료 진단 신청</td><td>접수일로부터 1년(계약이 맺어지면 계약·대금 기록은 전자상거래법 등 관계 법령에 따른 기간)</td></tr>
 <tr><td>본인확인 정보(이름·생년월일·성별·휴대전화번호·CI·DI)</td><td>탈퇴 시까지</td></tr>
 <tr><td>로그인 세션</td><td>마지막 이용 후 30일</td></tr>
 <tr><td>오류 기록</td><td>90일</td></tr>

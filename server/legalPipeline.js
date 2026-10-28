@@ -35,6 +35,7 @@ import {
 import { caseSpaceKey, coverageFor } from "./nec/searchSpace.js";
 import { lawNameSimilarity, caseSimilarity, caseVariants } from "./nec/similarity.js";
 import { buildNecReport, NEC_WEIGHTS, T1_SKIP_SEARCH } from "./nec/nec.js";
+import { courtTip } from "./citationSplit.js";
 
 const WEIGHTS = NEC_WEIGHTS.legal;
 
@@ -273,7 +274,7 @@ async function resolveFoundStatute(claim, ident, search, aliasNote, ctx) {
         explanation: `${aliasNote}"${search.lawNameOfficial}"에는 현재 시행 중인 ${articleLabel}가 없습니다(부존재 신뢰도 ${nec.score}). 조문이 삭제·이동됐거나 존재하지 않는 조문입니다.`,
         sources,
         nec,
-        existence: { status: "absent", target: `${search.lawNameOfficial} ${articleLabel}`, label: `${search.lawNameOfficial} ${articleLabel}`, score: nec.score, sources },
+        existence: { status: "absent", kind: "article", target: `${search.lawNameOfficial} ${articleLabel}`, label: `${search.lawNameOfficial} ${articleLabel}`, score: nec.score, sources },
         ...dateField(search.effectiveDate),
       };
     }
@@ -447,9 +448,10 @@ async function resolveCase(claim, ref, ctx) {
 // 판례 부존재 판정에는 사람이 한 번 더 확인할 길을 붙인다. 법제처 DB는 공개 판례만 싣고,
 // 법원 판결서 인터넷열람은 더 넓지만 공개 API가 없어 베리라인이 직접 조회하지 못한다.
 // 공개 범위(형사 2013년·민사 등 2015년 이후 확정분)도 함께 적어 둔다 — 오래된 사건은 거기에도 없을 수 있다.
+// 헌법재판소 사건(헌가·헌바·헌마 …)은 헌재 판례검색으로 안내한다 — 헌재 결정에 대법원 판결서 열람을 권하던 오류(2026-10-28 핸드오프 P1).
 function recheckTip(nec) {
   if (nec?.identifier?.type !== "case" || nec.formatError?.skippedSearch) return "";
-  return " 실제 판결서는 대법원 사법정보공개포털 ‘판결서 인터넷열람’에서 사건번호로 한 번 더 확인할 수 있습니다(형사 2013년·민사 등 2015년 이후 확정 판결 수록).";
+  return courtTip(nec.identifier.value || nec.identifier.canonical);
 }
 
 // ───────────────────────── 판정 결합 ─────────────────────────

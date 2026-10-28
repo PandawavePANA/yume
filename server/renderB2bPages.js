@@ -6,7 +6,7 @@
 //
 // 계약 문서는 "표준본"이다. 실제로 하는 일만 적는다 — 보관 기간·위탁·국외 이전은 개인정보처리방침과
 // 같은 값이고, 받지 않은 인증이나 지키지 못할 수치(SLA)는 적지 않는다.
-import { COMPANY, COMPLAINT_NOTICE, complaintOfficer, businessLine, esc, layout } from "./renderPages.js";
+import { COMPANY, COMPLAINT_NOTICE, complaintOfficer, businessLine, esc, layout, VERILINE } from "./renderPages.js";
 import { API_RATES, API_UNIT_CHARS, AUDIT_LEAD, AUDIT_RATES } from "./apiRates.js";
 import { kstDate } from "./businessDays.js";
 import {
@@ -22,6 +22,8 @@ import {
   parseBilling,
   parseItems,
   quoteNumber,
+  payMethodsOffered,
+  cardEnabled,
 } from "./b2bDeals.js";
 
 const won = (n) => `${Number(n).toLocaleString("ko-KR")}원`;
@@ -98,6 +100,17 @@ function sheetPage(title, body, script = "") {
 <body>${body}${script}</body></html>`;
 }
 
+/**
+ * API 상품의 키 안내 — 입금(계약) 확인 때 서버가 "고객 이메일과 같은 계정의 가장 최근 키"에 월 한도를 건다.
+ * 개발팀이 다른 이메일로 가입하면 한도가 걸리지 않으니, 어떤 이메일로 어디서 키를 받는지 화면에 박아 둔다.
+ */
+function apiKeyHelp(q, billing) {
+  if (isAuditProduct(q.product)) return "";
+  const mail = q.email || billing?.taxEmail || "";
+  const main = (process.env.PUBLIC_BASE_URL || "https://www.yume-reamer.com").replace(/\/+$/, "");
+  return `<br/><br/><b>API 키 받기</b> — 개발팀이 <a href="${esc(main)}/?open=api">베리라인 개발자 키 발급</a>에서 <b>${esc(mail)}</b>로 가입해 키를 받아 두세요. 입금(계약)이 확인되면 그 계정의 키에 이 계약의 월 한도가 자동으로 걸립니다. 연결 방법: <a href="${esc(main)}/docs/api">API 문서</a>`;
+}
+
 /** 견적서 + (발행 상태면) 계약 신청서. */
 export function renderQuotePage(q) {
   const items = parseItems(q);
@@ -127,7 +140,7 @@ export function renderQuotePage(q) {
       <b>${esc(COMPANY.name)}</b> · 대표 ${esc(COMPANY.ceo)}<br/>
       사업자등록번호 ${esc(COMPANY.regNo)}<br/>
       ${esc(COMPANY.address)}<br/>
-      ${esc(COMPANY.tel)} · ${esc(COMPANY.email)}
+      ${esc(COMPANY.tel)} · ${esc(VERILINE.email)}
     </div>
   </div>
   <div class="sum"><span class="l">합계 금액 (공급가액 + 부가세)</span><span class="v">${won(q.total_krw)}</span></div>
@@ -149,12 +162,12 @@ export function renderQuotePage(q) {
     <b>조건</b>
     <ol>
       ${isAudit
-        ? `<li>결제: 계좌이체(전자세금계산서 발급) 또는 법인카드. 입금(카드 결제) 확인 후 <b>${esc(AUDIT_LEAD)}</b> 안에 비공개 감사 보고서를 보냅니다. 로그인이 필요한 서비스는 테스트 계정을 받은 날부터 셉니다.</li>
+        ? `<li>결제: 계좌이체(전자세금계산서 발급)${cardEnabled() ? " 또는 법인카드" : ""}. 입금 확인 후 <b>${esc(AUDIT_LEAD)}</b> 안에 비공개 감사 보고서를 보냅니다. 로그인이 필요한 서비스는 테스트 계정을 받은 날부터 셉니다.</li>
       <li>감사는 일반 사용자로서 서비스에 질문을 넣고, 베리라인이 원문과 대조한 뒤 사람이 공식 원문으로 재확인한 오류만 보고서에 담습니다. 자동으로 대량 질의하지 않습니다.</li>
       <li>착수 전에 취소하면 전액 환불합니다. 보고서는 귀사에만 드리며, 회사 이름은 서면 동의가 있을 때만 공개합니다.</li>`
         : isMetered
         ? `<li>종량제는 후불입니다. 수량은 예상 월 호출 수이며, 매달 말일까지의 실제 사용량 × 단가로 정산해 다음 달 10일까지 전자세금계산서를 발급합니다. 예상 물량을 월 상한으로 설정하고, 늘릴 때는 알려 주시면 됩니다.</li>`
-        : `<li>결제: 계좌이체(전자세금계산서 발급) 또는 법인카드. 월 약정은 매달 선결제이며, 쓰지 않은 호출은 다음 달로 넘어가지 않습니다.</li>`}
+        : `<li>결제: 계좌이체(전자세금계산서 발급)${cardEnabled() ? " 또는 법인카드" : ""}. 월 약정은 매달 선결제이며, 쓰지 않은 호출은 다음 달로 넘어가지 않습니다.</li>`}
       ${isAudit ? "" : `<li>보낸 글 ${API_UNIT_CHARS.toLocaleString("ko-KR")}자마다 1건으로 셉니다. 처리하지 못하고 실패한 건은 세지 않고, 같은 요청을 다시 보내도 멱등 키로 두 번 과금되지 않습니다.</li>`}
       <li>서비스 조건은 <b>베리라인 기업 서비스 이용 조건</b>(${esc(TERMS_VERSION)})과 <b>데이터 처리 부속서</b>를 따르며, 귀사 계약서 양식으로 진행할 수도 있습니다.</li>
       <li>베리라인의 판정은 검증 시점의 공개 원문으로 확인한 기록이며, 서비스 품질 보증이나 법률·의료·금융 자문이 아닙니다.</li>
@@ -165,16 +178,16 @@ export function renderQuotePage(q) {
 
   let tail = "";
   if (q.status === "cancelled") {
-    tail = `<section class="state warn"><h2>취소된 견적입니다</h2>새 견적이 필요하시면 <a href="/#pricing">기업용 페이지</a>에서 다시 받거나 ${esc(COMPANY.email)}로 알려 주세요.</section>`;
+    tail = `<section class="state warn"><h2>취소된 견적입니다</h2>새 견적이 필요하시면 <a href="${esc(VERILINE.site)}/#pricing">베리라인</a>에서 다시 받거나 ${esc(VERILINE.email)}로 알려 주세요.</section>`;
   } else if (q.status === "paid" && isAudit) {
     const done = Number(q.rounds_done || 0);
     tail = `<section class="state ok"><h2>${done ? "감사 보고서를 보냈습니다" : "감사를 진행하고 있습니다"}</h2>
       ${esc(kdate(q.paid_at))} 입금 확인.${done
         ? ` 보고서는 ${esc(kdate(q.delivered_at))}에 ${esc(billing?.taxEmail || q.email || "담당자 이메일")}로 보냈습니다.${q.due_at && Number(q.due_at) > Number(q.delivered_at) ? ` 다음 정기 감사는 ${esc(kstDate(q.due_at))} 무렵입니다.` : ""}`
-        : ` 보고서는 <b>${q.due_at ? esc(kstDate(q.due_at)) : esc(AUDIT_LEAD)}까지</b> 보내 드립니다. 로그인이 필요한 서비스라면 테스트 계정을 ${esc(COMPANY.email)}로 보내 주세요.`}
+        : ` 보고서는 <b>${q.due_at ? esc(kstDate(q.due_at)) : esc(AUDIT_LEAD)}까지</b> 보내 드립니다. 로그인이 필요한 서비스라면 테스트 계정을 ${esc(VERILINE.email)}로 보내 주세요.`}
       전자세금계산서는 ${esc(billing?.taxEmail || "등록하신 이메일")}로 발급됩니다.</section>`;
   } else if (q.status === "paid") {
-    tail = `<section class="state ok"><h2>${isMetered ? "계약이 확정됐습니다" : "입금이 확인됐습니다"}</h2>${esc(kdate(q.paid_at))} 확인. 전자세금계산서는 ${esc(billing?.taxEmail || "등록하신 이메일")}로 발급됩니다. 문의: ${esc(COMPANY.email)}</section>`;
+    tail = `<section class="state ok"><h2>${isMetered ? "계약이 확정됐습니다" : "입금이 확인됐습니다"}</h2>${esc(kdate(q.paid_at))} 확인. 전자세금계산서는 ${esc(billing?.taxEmail || "등록하신 이메일")}로 발급됩니다. 문의: ${esc(VERILINE.email)}${apiKeyHelp(q, billing)}</section>`;
   } else if (q.status === "requested") {
     tail = `<section class="state ok"><h2>계약 신청이 접수됐습니다</h2>
       ${esc(kdate(q.requested_at))} 접수 · 결제 방법: ${esc(PAY_METHODS[q.pay_method] || "-")}<br/>
@@ -185,10 +198,10 @@ export function renderQuotePage(q) {
             ? `입금 계좌: <b>${esc(bank)}</b> · 입금자명에 견적번호 <b>${esc(no)}</b> 또는 회사명을 적어 주세요. 입금이 확인되면 전자세금계산서를 발급하고 ${isAudit ? "감사를 시작합니다" : "이용을 시작합니다"}.`
             : `입금 계좌는 영업일 하루 안에 ${esc(billing?.taxEmail || q.email || "담당자 이메일")}로 보내 드립니다.`
         : "법인카드 결제 링크를 영업일 하루 안에 보내 드립니다."}
-      ${isAudit ? `<br/>입금이 확인되면 <b>${esc(AUDIT_LEAD)}</b> 안에 감사 보고서를 보내 드립니다.` : ""}
+      ${isAudit ? `<br/>입금이 확인되면 <b>${esc(AUDIT_LEAD)}</b> 안에 감사 보고서를 보내 드립니다.` : apiKeyHelp(q, billing)}
       <div class="noprint" style="margin-top:8px;font-size:12.5px;color:#857e98">이 주소를 즐겨찾기해 두시면 진행 상태를 언제든 확인할 수 있습니다.</div></section>`;
   } else if (expired) {
-    tail = `<section class="state warn"><h2>유효기간이 지난 견적입니다</h2>같은 조건으로 <a href="/#pricing">새 견적</a>을 받아 주세요.</section>`;
+    tail = `<section class="state warn"><h2>유효기간이 지난 견적입니다</h2>같은 조건으로 <a href="${esc(VERILINE.site)}/#pricing">새 견적</a>을 받아 주세요.</section>`;
   } else {
     tail = `
 <form class="req" id="req" novalidate>
@@ -207,7 +220,7 @@ export function renderQuotePage(q) {
     <label class="f">귀사 발주(구매)번호 <small>있으면</small><input id="poNumber" name="poNumber" /></label>
   </div>
   <div class="radio" role="radiogroup" aria-label="결제 방법">
-    ${Object.entries(PAY_METHODS).map(([k, v], i) => `<label><input type="radio" name="payMethod" value="${k}" ${i === 0 ? "checked" : ""} /> <span>${esc(v)}${k === "transfer" && isMetered ? " — 매달 사용량으로 청구" : ""}</span></label>`).join("")}
+    ${Object.entries(payMethodsOffered()).map(([k, v], i) => `<label><input type="radio" name="payMethod" value="${k}" ${i === 0 ? "checked" : ""} /> <span>${esc(v)}${k === "transfer" && isMetered ? " — 매달 사용량으로 청구" : ""}</span></label>`).join("")}
   </div>
   <label class="agree"><input type="checkbox" id="agree" /> <span><a href="/b2b/terms" target="_blank" rel="noopener">베리라인 기업 서비스 이용 조건</a>과 <a href="/b2b/dpa" target="_blank" rel="noopener">데이터 처리 부속서</a>(${esc(TERMS_VERSION)})를 읽었고 동의합니다. 귀사 계약서로 진행하시려면 신청 후 메일로 보내 주세요.</span></label>
   <div><button class="btn" type="submit" id="send">${isAudit ? "감사 신청하기" : "계약 신청하기"}</button></div>
@@ -237,7 +250,7 @@ export function renderQuotePage(q) {
 })();
 </script>` : "";
 
-  const bar = `<div class="bar"><a href="/">← 베리라인 기업용</a><span style="display:flex;gap:8px"><button class="btn ghost" type="button" onclick="window.print()">인쇄 · PDF 저장</button><span class="btn ghost" style="cursor:default">${esc(STATUS_LABEL[q.status] || q.status)}${expired ? " · 기간 만료" : ""}</span></span></div>`;
+  const bar = `<div class="bar"><a href="${esc(VERILINE.site)}">← 베리라인 기업용</a><span style="display:flex;gap:8px"><button class="btn ghost" type="button" onclick="window.print()">인쇄 · PDF 저장</button><span class="btn ghost" style="cursor:default">${esc(STATUS_LABEL[q.status] || q.status)}${expired ? " · 기간 만료" : ""}</span></span></div>`;
   return sheetPage(`견적서 ${no}`, bar + sheet + tail, script);
 }
 
@@ -259,7 +272,7 @@ export function renderB2bTerms() {
 <ol>
 <li><b>검증 API·문서 검사</b>: 글 속 사실 주장을 떼어 내 공식 원문(법제처 국가법령정보 공동활용 API, DOI 레지스트리 등)과 공개 출처에 대조하고, 주장별 판정·근거·출처·원문 속 위치를 돌려줍니다.</li>
 <li><b>AI 감사</b>: 귀사 AI 서비스를 일반 사용자로서 질문해 답변을 수집하고, 베리라인이 원문과 대조한 뒤 사람이 공식 원문으로 재확인한 오류만 담은 비공개 보고서를 드립니다. 자동으로 대량 질의하지 않습니다.</li>
-<li>베리라인의 판정과 보고서는 검증 시점에 공개된 원문으로 확인한 <b>기록</b>입니다. 서비스 품질이나 앞으로의 답변을 보증하지 않으며, 법률·의료·금융 자문이 아닙니다. 최종 판단과 규제 준수 책임은 귀사에 있습니다.</li>
+<li>베리라인의 판정과 보고서는 검증 시점에 공개된 원문으로 확인한 <b>기록</b>입니다. 제10조의2의 범위를 넘어 서비스 품질이나 앞으로의 답변을 보증하지 않으며, 법률·의료·금융 자문이 아닙니다. 최종 판단과 규제 준수 책임은 귀사에 있습니다.</li>
 <li>베리라인은 주장 추출·검색어 작성·고친 문장 제안에 생성형 AI(Anthropic Claude)를 씁니다. 판정은 원문과 출처 문장으로만 단정하고, 근거를 대지 못한 판정은 '확인되지 않음'으로 둡니다.</li>
 </ol>
 
@@ -300,6 +313,14 @@ export function renderB2bTerms() {
 
 <h2>제10조 (책임의 한도)</h2>
 <p>어느 쪽이든 고의 또는 중대한 과실이 없는 한, 이 계약과 관련한 손해배상은 직접 손해로 한정하고 그 금액은 손해가 생긴 날 직전 3개월 동안 귀사가 이 계약으로 지급한 금액을 넘지 않습니다.</p>
+
+<h2>제10조의2 (베리라인이 고친 부분에 대한 책임)</h2>
+<ol>
+<li>베리라인은 <b>베리라인이 법령 원문으로 바로잡은 부분</b>, 곧 판정 영수증(판정 주체 · 근거 조문 · 시행일 · 원문 지문이 적힌 기록)이 있는 판정에 대해 책임집니다. 검증 결과의 '책임 범위(guarantee)' 항목에 그 목록이 표시됩니다.</li>
+<li>그 부분이 판정 시점의 법제처 현행 원문과 다른 것으로 확인되면, 베리라인은 해당 검증 건의 이용료를 환불하고, 영업일 3일 안에 정정 보고서를 드립니다. AI 감사 보고서의 경우 해당 오류 항목을 정정하고, 그 보고서 금액의 범위에서 환불하거나 재감사합니다.</li>
+<li>다음은 책임 범위에 들지 않습니다: (가) 결과에 '확인하지 못함'으로 표시된 주장 (나) 판정 영수증 없이 생성형 AI가 이어 쓴 문장 (다) 판정 이후의 법령 개정(영수증의 원문 지문으로 개정 여부를 확인할 수 있습니다) (라) 귀사가 바꾸어 쓴 문장 (마) 공식 원문이 아닌 출처에 기댄 판정.</li>
+<li>이 조의 책임은 제10조의 한도 안에서 집니다. 판정이 원문과 같은지는 판정 영수증을 모델 호출 없이 다시 계산하는 재현 기능(/api/receipts/replay)으로 확인합니다.</li>
+</ol>
 
 <h2>제11조 (비밀 유지)</h2>
 <p>양 당사자는 계약 과정에서 알게 된 상대방의 영업상 정보(감사 결과, 미공개 문서, 기준 자료 등)를 상대방의 동의 없이 제3자에게 공개하지 않습니다. 법령에 따른 제출 요구는 예외입니다.</p>

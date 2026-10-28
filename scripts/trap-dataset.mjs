@@ -194,7 +194,8 @@ if (STAGE === "generate") {
           }
           continue;
         }
-        const g = json(await claude(GEN, GEN_SYSTEM, `[법령] ${c.law}\n[조문] ${c.article}${c.title ? `(${c.title})` : ""}\n${c.text.slice(0, 2400)}`, 900));
+        // 한국 법령 특화 후보(korea-candidates.mjs)는 유형별 출제 지시를 붙인다. 생성 모델도 생각 토큰을 쓰므로 한도를 넉넉히.
+        const g = json(await claude(GEN, GEN_SYSTEM, `[법령] ${c.law}\n[조문] ${c.article}${c.title ? `(${c.title})` : ""}\n${c.text.slice(0, 3200)}${c.instruction ? `\n\n[출제 지시] ${c.instruction}` : ""}`, 16000));
         if (!g || g.skip || !g.question || !g.answer || !quoteIn(c.text, g.answer_quote)) continue;
         write(qfile, { cid: c.cid, question: g.question, answer: g.answer, answer_quote: g.answer_quote, trap_type: g.trap_type, why_hard: g.why_hard });
         made += 1;

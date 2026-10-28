@@ -102,12 +102,14 @@ inquiryRouter.post("/inquiry", cors, limitMiddleware(limiter, (req) => `inquiry:
   if (!mailConfigured()) return;
   const to = process.env.INQUIRY_TO || process.env.COMPANY_EMAIL || "reamer@d-reamer.com";
   const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+  // 베리라인(기업용) 문의는 베리라인 이름으로 — 리머 개발 문의와 섞여 보이면 첫 고객 문의를 놓친다(2026-10-27)
+  const veriline = kind === "veriline_diagnosis" || kind === "yume_api";
   sendMail({
-    brand: "REAMER",
+    brand: veriline ? "YUME" : "REAMER",
     to,
     // 연락처가 이메일이면 그대로 답장할 수 있게 건다. 전화번호면 걸 것이 없다.
     replyTo: looksEmail(contact) ? contact : undefined,
-    subject: `[리머 문의 #${id}] ${name} · ${kindLabel}`,
+    subject: `[${veriline ? "베리라인 문의" : "리머 문의"} #${id}] ${name} · ${kindLabel}${company ? ` · ${company}` : ""}`,
     text: [
       `이름: ${name}`,
       company ? `회사: ${company}` : null,
@@ -118,7 +120,7 @@ inquiryRouter.post("/inquiry", cors, limitMiddleware(limiter, (req) => `inquiry:
       message,
     ].filter(Boolean).join("\n"),
     html: `<div style="font-family:system-ui,sans-serif;line-height:1.7;color:#141118">
-      <p style="margin:0 0 14px;font-size:13px;color:#8B8694">리머 개발 문의 #${id}</p>
+      <p style="margin:0 0 14px;font-size:13px;color:#8B8694">${veriline ? "베리라인 기업 문의" : "리머 개발 문의"} #${id}</p>
       <table style="border-collapse:collapse;font-size:14px">
         <tr><td style="padding:3px 14px 3px 0;color:#8B8694">이름</td><td><b>${esc(name)}</b></td></tr>
         ${company ? `<tr><td style="padding:3px 14px 3px 0;color:#8B8694">회사</td><td>${esc(company)}</td></tr>` : ""}

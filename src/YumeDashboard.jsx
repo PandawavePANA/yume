@@ -1780,7 +1780,7 @@ export default function YumeDashboard() {
                           <DrawnMark verdict={c.verdict} play={i < revealed} delay={0.08} />
                           <div style={{ minWidth: 0 }}>
                             <div style={{ fontSize: 12.5, fontWeight: 600, color: UI.ink3, marginBottom: 6, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                              <span>{t(c.domain)} · <span style={{ color: (VERDICT[c.verdict] || VERDICT.uncertain).color }}>{t(verdictLabel(c))}</span></span>
+                              <span>{t(c.field || c.domain)} · <span style={{ color: (VERDICT[c.verdict] || VERDICT.uncertain).color }}>{t(verdictLabel(c))}</span></span>
                               {c.verified_via === "official" && (
                                 <span style={{ fontSize: 11, fontWeight: 600, color: UI.ink2, border: `1px solid ${UI.hairlineStrong}`, borderRadius: 999, padding: "2px 9px" }}>
                                   법제처 공식 확인{c.effective_date ? ` · ${c.effective_date} 시행 기준` : ""}
@@ -1817,6 +1817,12 @@ export default function YumeDashboard() {
                               <div style={{ marginTop: 10, padding: "10px 13px", borderRadius: 12, background: "rgba(40,160,100,0.07)", border: "1px solid rgba(40,160,100,0.22)" }}>
                                 <div style={{ fontSize: 11.5, fontWeight: 700, color: "#1F7A52", marginBottom: 4 }}>{t("이렇게 고치면 맞습니다")} <span style={{ fontWeight: 500, color: UI.ink3 }}>· {t("AI가 근거의 값으로 고친 문장")}</span></div>
                                 <div style={{ fontSize: 14, color: UI.ink, lineHeight: 1.65 }}>{c.suggested_fix}</div>
+                              </div>
+                            )}
+                            {/* 원문 근거가 없어 고친 문장을 만들지 않은 경우. 근거 없는 고친 문장은 내보내지 않는다(citationSplit.js). */}
+                            {c.fix_status === "needs_human" && (c.verdict === "false" || c.source_check) && (
+                              <div style={{ marginTop: 10, padding: "9px 13px", borderRadius: 12, background: "rgba(118,118,128,0.07)", border: "1px solid rgba(118,118,128,0.22)", fontSize: 13, color: UI.ink2, lineHeight: 1.6 }}>
+                                <b style={{ color: UI.ink }}>{t("수정 불가 · 사람 확인 필요")}</b> — {t("법령 원문 근거가 확인된 값이 없어 고친 문장을 만들지 않았습니다.")}
                               </div>
                             )}
                             <NecPanel nec={c.nec} />
@@ -2200,7 +2206,7 @@ export default function YumeDashboard() {
               </div>
               {/* 이니시스 포인트충전 조건 — 거래 책임과 민원 담당자를 하단에 늘 적는다. */}
               <div>{t(COMPLAINT_NOTICE)} {t("민원담당자")} {COMPLAINT_CONTACT}</div>
-              <div style={{ marginTop: 6 }}>{t("베리라인은 검증 과정에 생성형 AI를 사용합니다. 판정은 공개 원문과 대조한 검증 정보이며 법률·의료·금융 자문이나 보증이 아닙니다.")}</div>
+              <div style={{ marginTop: 6 }}>{t("판정은 공개 원문과 대조한 검증 정보이며 법률·의료·금융 자문이나 보증이 아닙니다.")}</div>
               <div style={{ marginTop: 6 }}>{COPYRIGHT}</div>
             </address>
             <span style={{ display: "flex", gap: 0 }}>

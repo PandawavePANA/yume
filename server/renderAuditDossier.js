@@ -4,7 +4,7 @@
 // 결과 요약에는 숫자만 쓴다. "심각하다", "나쁘다" 같은 평가는 쓰지 않는다 — 공정하게 쓰는 것이
 // 이 보고서의 신뢰이고, 잘된 점을 같은 무게로 적는 것도 그 때문이다.
 // 공개 감사 기록은 회사가 공개에 동의했을 때만 열린다. 배지는 그 기록으로 가는 문이다.
-import { esc } from "./renderPages.js";
+import { esc, VERILINE } from "./renderPages.js";
 import { CATEGORIES, SUMMARY_VALID_DAYS, methodOf } from "./auditDesk.js";
 import { METHOD_VERSION } from "./hallucinationIndex.js";
 import { COMPANY } from "./renderPages.js";
@@ -54,7 +54,7 @@ th { width:150px; color:var(--ink3); font-weight:600; }
 .shots img { max-width:240px; max-height:200px; border:1px solid var(--line); border-radius:4px; }
 .ok { color:var(--good); font-weight:700; }
 .muted { color:var(--ink3); font-size:12.5px; }
-.note { font-size:13px; color:var(--ink2); background:#F8F5FC; border-radius:8px; padding:12px 14px; margin-top:10px; }
+.note { font-size:13px; color:var(--ink2); background:#F7F7F8; border-radius:8px; padding:12px 14px; margin-top:10px; }
 ul { padding-left:18px; margin:6px 0; } li { font-size:13.5px; margin:3px 0; }
 .foot { margin-top:26px; padding-top:12px; border-top:1px solid var(--line); font-size:11.5px; color:var(--ink3); line-height:1.8; }
 .lead { font-size:16px; line-height:1.7; margin:6px 0 12px; }
@@ -79,7 +79,7 @@ ul { padding-left:18px; margin:6px 0; } li { font-size:13.5px; margin:3px 0; }
 .vs .truth { background:#EEF6F1; border-left:3px solid var(--good); } .vs .truth .k { color:var(--good); }
 .vs .src { margin-top:6px; font-size:12.5px; }
 .why { margin:10px 0 0; font-size:13.5px; } .why b { display:inline-block; margin-right:8px; font-size:12px; color:var(--ink3); }
-.test { margin:6px 0 0; font-size:12.5px; color:var(--ink2); background:#F8F5FC; border-radius:6px; padding:7px 10px; }
+.test { margin:6px 0 0; font-size:12.5px; color:var(--ink2); background:#F7F7F8; border-radius:6px; padding:7px 10px; }
 .ask { margin-top:8px; font-size:12.5px; } .ask summary { cursor:pointer; color:var(--ink3); } .ask p { margin:6px 0 0; }
 .meta { margin-top:6px; font-size:11.5px; color:var(--ink3); }
 .tbl { overflow-x:auto; }
@@ -346,17 +346,17 @@ export function verdictOf(results, confirmed, criticalCount) {
 }
 
 const REPORT_STYLE = `
-:root { --ink:#16131D; --ink2:#4B4559; --ink3:#857E93; --line:#E7E3EE; --soft:#F7F5FA; --brand:#4B2F8F;
+:root { --ink:#111113; --ink2:#5C5C64; --ink3:#8E8E97; --line:#E6E6E9; --soft:#F5F5F6; --brand:#2F5BFF;
   --risk:#C2410C; --risk-bg:#FFF1EA; --caution:#B7791F; --caution-bg:#FFF7E6; --good:#2F7D5B; --good-bg:#EAF6EF;
   --crit:#9F1239; --crit-bg:#FFE4E8; --high:#C2410C; --high-bg:#FFEDE3; --med:#946200; --med-bg:#FFF4D6; }
 * { box-sizing:border-box; }
-body { margin:0; background:#EEEBF3; color:var(--ink); font-family:"Noto Sans KR",-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif; word-break:keep-all; line-height:1.65; -webkit-font-smoothing:antialiased; }
+body { margin:0; background:#F2F3F5; color:var(--ink); font-family:"Noto Sans KR",-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif; word-break:keep-all; line-height:1.65; -webkit-font-smoothing:antialiased; }
 a { color:var(--brand); }
 .bar { max-width:880px; margin:18px auto 0; padding:0 16px; display:flex; gap:10px; justify-content:flex-end; }
 .bar button, .bar a { font:inherit; font-size:13px; padding:8px 14px; border-radius:8px; border:1px solid var(--line); background:#fff; color:var(--ink); cursor:pointer; text-decoration:none; }
 .doc { max-width:880px; margin:14px auto 40px; background:#fff; border-radius:4px; box-shadow:0 12px 40px rgba(20, 35, 80,.10); overflow:hidden; }
-.cover { background:#1B1430; color:#F3F0FA; padding:28px clamp(22px,5vw,48px) 26px; }
-.cover-top { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; font-size:11.5px; letter-spacing:.14em; font-weight:700; color:#BDB2DA; }
+.cover { background:#0A0A0B; color:#F3F0FA; padding:28px clamp(22px,5vw,48px) 26px; }
+.cover-top { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; font-size:11.5px; letter-spacing:.14em; font-weight:700; color:#8E8E97; }
 .cover-top .cls { color:#FFB59A; border:1px solid #FFB59A; padding:2px 8px; border-radius:3px; letter-spacing:.1em; }
 .cover h1 { margin:18px 0 4px; font-size:28px; line-height:1.3; letter-spacing:-.02em; font-weight:800; }
 .cover .target { margin:0; font-size:16px; color:#D9D2EE; }
@@ -441,7 +441,7 @@ function reportShell(title, body) {
 <style>${REPORT_STYLE}</style></head><body>${body}</body></html>`;
 }
 
-const docNo = (audit) => `YUME-AUD-${new Date(Number(audit.created_at) || Date.now()).getFullYear()}-${String(Number(audit.id) || 0).padStart(4, "0")}`;
+const docNo = (audit) => `VL-AUD-${new Date(Number(audit.created_at) || Date.now()).getFullYear()}-${String(Number(audit.id) || 0).padStart(4, "0")}`;
 
 function findingCard(x, files, fileUrl) {
   const { f, item, c, sev, code } = x;
@@ -486,7 +486,7 @@ function auditNumbers(results) {
 function nextSteps(detail, confirmed) {
   const { audit } = detail;
   const www = (process.env.PUBLIC_BASE_URL || "https://www.yume-reamer.com").replace(/\/+$/, "");
-  const biz = (process.env.BUSINESS_URL || "https://business.yume-reamer.com").replace(/\/+$/, "");
+  const biz = VERILINE.site;
   const abs = (u) => (/^https?:/.test(u) ? u : `${www}${u}`);
   const open = (detail.quotes || []).find((q) => q.status === "requested" || (q.status === "issued" && !q.expired));
   const cards = [];
@@ -501,7 +501,7 @@ function nextSteps(detail, confirmed) {
     cards.push({ href: `${biz}/?inquiry=audit_regular`, t: "깨끗한 결과를 기록으로", d: "동의하시면 공개 감사 기록 페이지와 홈페이지 배지(90일 유효)를 드립니다. 분기마다 재감사해 기록을 이어 갑니다.", a: "정기 감사 문의 →" });
     cards.push({ href: `${biz}/?quote=growth#pricing`, t: "매 답변을 상시 확인", d: "표본 감사 사이의 답변은 검증 API로 상시 확인할 수 있습니다. 개정·신설 조문이 나와도 현행 원문과 대조합니다.", a: "API 견적서 받기 →" });
   }
-  cards.push({ href: `mailto:${COMPANY.email}?subject=${encodeURIComponent(`[${docNo(audit)}] 감사 결과 설명 요청`)}`, t: "결과 설명 (30분)", d: "발견 사항마다 원문을 같이 열어 보며 설명드리고, 개선 우선순위를 함께 정합니다. 비용은 없습니다.", a: "메일로 시간 정하기 →" });
+  cards.push({ href: `mailto:${VERILINE.email}?subject=${encodeURIComponent(`[${docNo(audit)}] 감사 결과 설명 요청`)}`, t: "결과 설명 (30분)", d: "발견 사항마다 원문을 같이 열어 보며 설명드리고, 개선 우선순위를 함께 정합니다. 비용은 없습니다.", a: "메일로 시간 정하기 →" });
   return `<div class="next">${cards.map((c) => `<a${c.main ? ' class="main"' : ""} href="${esc(c.href)}" target="_blank" rel="noopener"><b>${esc(c.t)}</b><span>${esc(c.d)}</span><i>${esc(c.a)}</i></a>`).join("")}</div>
   <p class="docs">계약 서류: <a href="${www}/b2b/terms">기업 서비스 이용 조건</a> · <a href="${www}/b2b/dpa">데이터 처리 부속서</a> · <a href="${www}/b2b/security">보안·데이터 처리 설명서</a> — 전자세금계산서 발급, 귀사 계약서 양식으로도 진행합니다.</p>`;
 }
@@ -604,7 +604,7 @@ export function renderAuditReport(detail, { fileUrl = null, mode = "shared" } = 
   <p style="font-size:14px;margin:4px 0">이 보고서는 ${esc(audit.company)}에만 전달되었으며 외부에 공개되지 않았습니다. 베리라인은 이 결과를 공개할 계획이 없습니다.</p>
 
   <div class="foot">
-    감사: 베리라인(YUME) · ${esc(COMPANY.name)} · 대표 ${esc(COMPANY.ceo)} · ${esc(COMPANY.email)}<br />
+    감사: 베리라인(VERILINE) · ${esc(COMPANY.name)} · 대표 ${esc(COMPANY.ceo)} · ${esc(VERILINE.email)}<br />
     베리라인은 감사 과정(주장 추출·채점 보조)에 생성형 AI를 사용합니다. 판정의 근거는 발견 사항마다 붙인 공식 원문입니다. 문서 ${esc(docNo(audit))} · 방법 ${esc(METHOD_VERSION)}.
   </div>
   </div>
@@ -622,7 +622,7 @@ export function renderAuditSummary(summary) {
   const p = results.probe;
   const c = results.claims;
   const status = expired
-    ? `<span style="display:inline-block;padding:5px 12px;border-radius:999px;background:#9A8FB0;color:#fff;font-weight:800;font-size:13px">재검사 필요</span>`
+    ? `<span style="display:inline-block;padding:5px 12px;border-radius:999px;background:#8E8E97;color:#fff;font-weight:800;font-size:13px">재검사 필요</span>`
     : `<span style="display:inline-block;padding:5px 12px;border-radius:999px;background:#2F7D5B;color:#fff;font-weight:800;font-size:13px">✓ 검사 기록 유효</span>`;
   const embed = `<a href="https://www.yume-reamer.com/a/${esc(audit.public_id)}"><img src="https://www.yume-reamer.com/a/${esc(audit.public_id)}/badge.svg" alt="VERILINE 할루시네이션 감사 기록" height="30" /></a>`;
   const body = `<main class="sheet">
@@ -660,7 +660,7 @@ export function auditBadgeSvg(summary) {
   const to = summary?.results?.period?.to;
   const ym = to ? new Date(Number(to) + 9 * 3600 * 1000).toISOString().slice(0, 7).replace("-", ".") : "";
   const label = !summary ? "기록 없음" : valid ? `검사 완료 ${ym}` : "재검사 필요";
-  const color = !summary ? "#9A8FB0" : valid ? "#2F7D5B" : "#9A8FB0";
+  const color = !summary ? "#8E8E97" : valid ? "#2F7D5B" : "#8E8E97";
   const left = 98;
   const right = Math.ceil(textWidth(label) + 22);
   const w = left + right;

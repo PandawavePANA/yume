@@ -23,7 +23,7 @@ export const VAT_RATE = 0.1;
 export const QUOTE_VALID_DAYS = 30;
 // 계약 신청 때 동의받는 조건의 판. 문서(/b2b/terms·/b2b/dpa)를 고치면 함께 올린다 — 누가 어느 판에
 // 동의했는지 남아야 나중에 다툴 일이 없다.
-export const TERMS_VERSION = "B2B-2026-10-14";
+export const TERMS_VERSION = "B2B-2026-10-27"; // 2026-10-27 제10조의2(고친 부분 책임) 추가
 const DAY = 86_400_000;
 
 const tier = (key) => API_RATES.tiers.find((t) => t.key === key);
@@ -82,6 +82,10 @@ export const PAY_METHODS = {
   transfer: "계좌이체 + 전자세금계산서",
   card: "법인카드 (결제 링크를 보내 드립니다)",
 };
+// 카드 결제 링크를 실제로 보낼 수단(PG)이 붙었을 때만 켠다(B2B_CARD_ENABLED=1). 꺼져 있으면 고객 화면에 법인카드를 보이지 않는다 —
+// "링크를 보내 드립니다"라고 하고 보낼 방법이 없던 구멍(2026-10-27 고객 여정 점검)
+export const cardEnabled = () => process.env.B2B_CARD_ENABLED === "1";
+export const payMethodsOffered = () => Object.fromEntries(Object.entries(PAY_METHODS).filter(([k]) => k !== "card" || cardEnabled()));
 
 export const STATUS_LABEL = { issued: "견적 발행", requested: "계약 신청", paid: "입금 확인", cancelled: "취소" };
 
@@ -143,7 +147,7 @@ export const formatBizNo = (raw) => {
 export function quoteNumber(q) {
   const d = new Date(Number(q.created_at) + 9 * 3600_000);
   const ymd = `${d.getUTCFullYear()}${String(d.getUTCMonth() + 1).padStart(2, "0")}${String(d.getUTCDate()).padStart(2, "0")}`;
-  return `YM-${ymd}-${String(q.id).padStart(4, "0")}`;
+  return `VL-${ymd}-${String(q.id).padStart(4, "0")}`;
 }
 
 export const parseItems = (q) => {
@@ -266,7 +270,7 @@ export async function requestContract(token, body, { ip = null } = {}) {
     contactPhone: clean(body?.contactPhone, 40),
     poNumber: clean(body?.poNumber, 60),
   };
-  const payMethod = PAY_METHODS[body?.payMethod] ? body.payMethod : "";
+  const payMethod = payMethodsOffered()[body?.payMethod] ? body.payMethod : "";
   if (!validBizNo(billing.bizNo)) return { error: "사업자등록번호를 다시 확인해 주세요(10자리, 검증번호 불일치).", status: 400 };
   if (!billing.bizName) return { error: "상호(사업자등록증의 이름)를 입력해 주세요.", status: 400 };
   if (!billing.ceo) return { error: "대표자 성명을 입력해 주세요.", status: 400 };
