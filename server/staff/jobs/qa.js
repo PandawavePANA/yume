@@ -4,7 +4,7 @@
 // 판단한다(배경지식 금지) — 조금이라도 해석이 갈리면 "제외"를 권한다. 틀린 지적 하나가 보고서 전체를 무너뜨린다.
 // 확정은 대표가 결재로 한다: 결재 문서에서 원문 링크를 열어 보고 항목마다 확정·제외를 바꿀 수 있다.
 import { all } from "../../db.js";
-import { isChecking, reviewFinding } from "../../auditDesk.js";
+import { isChecking, reviewFinding, CODE_ONLY_NOTE } from "../../auditDesk.js";
 
 const SYSTEM = `당신은 AI 답변 감사의 QA 검수자입니다. 각 항목은 "질문, AI가 한 말, 공식 법령 원문, 1차 채점 이유"입니다.
 AI가 한 말이 공식 원문과 실제로 어긋나는지 판단하세요. 공식 원문 밖의 배경지식으로 판단하지 마세요.
@@ -86,12 +86,18 @@ export async function apply(payload, input = {}) {
   const decisions = input.decisions || {};
   const out = { confirmed: 0, excluded: 0, yume_wrong: 0, failed: 0 };
   for (const x of payload.items || []) {
-    const v = decisions[x.id] || x.qa;
-    const r = await reviewFinding(x.id, {
+    let v = decisions[x.id] || x.qa;
+    const note = `QA(수아): ${x.qaReason}${decisions[x.id] && decisions[x.id] !== x.qa ? ` → 대표가 ${v}로 결정` : ""}`;
+    let r = await reviewFinding(x.id, {
       review: v,
       ...(v === "confirmed" ? { checked_url: x.url, ...(x.title ? { report_title: x.title } : {}) } : {}),
-      review_note: `QA(수아): ${x.qaReason}${decisions[x.id] && decisions[x.id] !== x.qa ? ` → 대표가 ${v}로 결정` : ""}`,
+      review_note: note,
     });
+    // 코드 확정 모드에서 코드로 대조되지 않는 오류는 확정하지 않고 참고로 둔다(보고서 제외)
+    if (r.code === "not_proven") {
+      v = "excluded";
+      r = await reviewFinding(x.id, { review: v, review_note: `${CODE_ONLY_NOTE} · ${note}` });
+    }
     if (r.error) out.failed += 1;
     else out[v] += 1;
   }

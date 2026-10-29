@@ -93,6 +93,8 @@ export function renderAuditDeskPage() {
   .shot { position:relative; } .shot button { position:absolute; top:-6px; right:-6px; width:18px; height:18px; border-radius:50%; border:0; background:#3a1a14; color:#ffb4a2; font-size:11px; cursor:pointer; padding:0; line-height:18px; }
   .find { border:1px solid var(--line); border-radius:12px; padding:12px 13px; display:grid; gap:7px; }
   .find.confirmed { border-color:rgba(224,116,92,.45); } .find.excluded, .find.yume_wrong { opacity:.6; }
+  .proof { margin:8px 0; padding:10px 12px; border:1px solid rgba(70,170,110,.45); border-radius:10px; background:rgba(70,170,110,.08); }
+  .proof .ph { font-weight:700; margin-bottom:6px; } .proof mark { padding:0 3px; border-radius:3px; }
   .kv { display:grid; grid-template-columns:86px minmax(0,1fr); gap:8px; font-size:12.5px; line-height:1.6; }
   .kv b { color:var(--faint); font-weight:500; }
   .said { border-left:3px solid var(--bad); padding-left:8px; } .truth { border-left:3px solid var(--good); padding-left:8px; }
@@ -525,22 +527,30 @@ export function renderAuditDeskPage() {
     var goods = d.findings.filter(function (f) { return f.polarity === "good"; });
     var r = d.results.issues;
     body.appendChild(h("div", { class: "box" }, h("h3", null, "5단계 · 직접 재확인", h("span", { class: "pill " + (r.pending ? "w" : "g"), text: r.pending ? "남은 항목 " + r.pending : "모두 확인" })),
-      h("p", { class: "help", text: "베리라인도 틀릴 수 있고, 틀린 지적 하나가 전체 신뢰를 무너뜨립니다. 오류 후보마다 공식 원문을 직접 열어 확인하고 그 주소를 남기세요. 조금이라도 애매하면 '애매해서 제외'. 원문으로 확인한 것만 보고서·지수에 들어갑니다." }),
+      h("p", { class: "help", text: d.codeOnly
+        ? "코드 확정 모드 — 틀린 지적 하나가 전체 신뢰를 무너뜨립니다. 그래서 보고서에는 코드가 원문과 기계적으로 대조한 오류(값 · 없는 조문 · 삭제 · 제재 종류)만 싣습니다. 초록 상자의 'AI가 한 말'과 '원문'을 나란히 보고 숫자·이름이 다르면 '불일치 맞음'을 누르세요. 법을 몰라도 됩니다. 코드로 확정되지 않은 후보는 참고로만 남깁니다(한 번에 빼기)."
+        : "베리라인도 틀릴 수 있고, 틀린 지적 하나가 전체 신뢰를 무너뜨립니다. 오류 후보마다 공식 원문을 직접 열어 확인하고 그 주소를 남기세요. 조금이라도 애매하면 '애매해서 제외'. 원문으로 확인한 것만 보고서·지수에 들어갑니다." }),
       h("div", { class: "nums", style: "margin-top:10px" }, [["오류 후보", r.total], ["확인", r.confirmed], ["제외", r.excluded], ["베리라인 오판", r.yume_wrong], ["남음", r.pending]].map(function (x) { return h("div", null, h("div", { class: "k", text: x[0] }), h("div", { class: "v", text: n(x[1]) })); })),
       (function () {
         // 판정 강도 — 어디부터 볼지. 약한 후보는 한 번에 뺄 수 있다(빼는 쪽만 일괄, 확정은 한 건씩).
         var pend = issues.filter(function (f) { return f.review === "pending"; });
         var cnt = function (lv) { return pend.filter(function (f) { return f.strength && f.strength.level === lv; }).length; };
         var weak = cnt("weak");
+        var proven = pend.filter(function (f) { return f.proof && f.proof.proven; }).length;
+        var drop = d.codeOnly ? pend.filter(function (f) { return !(f.proof && f.proof.proven) || (f.strength && f.strength.level === "weak"); }).length : weak;
         return h("div", { class: "actions" },
-          h("span", { class: "help", text: "남은 후보의 판정 강도 — 강함 " + cnt("strong") + " · 보통 " + cnt("medium") + " · 약함 " + weak + ". 강함부터 위에 놓았습니다. 숫자가 원문과 다르면 붉게 표시됩니다." }),
-          weak ? h("button", { class: "btn warn", onclick: run(async function () { if (!confirm("근거가 약한 " + weak + "건을 '애매해서 제외'로 처리할까요? 확정은 한 건씩만 할 수 있습니다.")) return; var x = await api("POST", "/api/admin/audits/" + d.audit.id + "/exclude-weak"); toast(x.excluded + "건을 제외했어요."); await refresh(); }) }, "약함 " + weak + "건 한 번에 제외") : null);
+          h("span", { class: "help", text: d.codeOnly
+            ? "남은 후보 " + pend.length + "건 중 코드 확정 " + proven + "건 · 참고 " + (pend.length - proven) + "건. 코드 확정부터 위에 놓았습니다."
+            : "남은 후보의 판정 강도 — 강함 " + cnt("strong") + " · 보통 " + cnt("medium") + " · 약함 " + weak + ". 강함부터 위에 놓았습니다. 숫자가 원문과 다르면 붉게 표시됩니다." }),
+          drop ? h("button", { class: "btn warn", onclick: run(async function () { if (!confirm((d.codeOnly ? "코드로 확정할 수 없는 " : "근거가 약한 ") + drop + "건을 '애매해서 제외'(참고)로 처리할까요? 확정은 한 건씩만 할 수 있습니다.")) return; var x = await api("POST", "/api/admin/audits/" + d.audit.id + "/exclude-weak"); toast(x.excluded + "건을 제외했어요."); await refresh(); }) }, (d.codeOnly ? "참고 " : "약함 ") + drop + "건 한 번에 제외") : null);
       })()));
     if (!issues.length) body.appendChild(h("div", { class: "empty", text: d.results.checked ? "베리라인이 지목한 오류 후보가 없어요. 질문을 더 하거나, 이 서비스는 이번 표본에서 깨끗했다고 기록하세요." : "검사를 먼저 실행하세요." }));
     var RANK = { strong: 0, medium: 1, weak: 2 };
     issues.slice().sort(function (x, y) {
       var px = x.review === "pending" ? 0 : 1, py = y.review === "pending" ? 0 : 1;
       if (px !== py) return px - py;
+      var cx = x.proof && x.proof.proven ? 0 : 1, cy = y.proof && y.proof.proven ? 0 : 1;
+      if (cx !== cy) return cx - cy;
       return (RANK[x.strength && x.strength.level] || 1) - (RANK[y.strength && y.strength.level] || 1);
     }).forEach(function (f) { body.appendChild(findingCard(f, items[f.item_id])); });
 
@@ -583,10 +593,24 @@ export function renderAuditDeskPage() {
     function rv(v) { return run(async function () { await api("PATCH", "/api/admin/audits/findings/" + f.id, { review: v, checked_url: url.value, review_note: note.value }); toast({ confirmed: "불일치로 확정했어요.", excluded: "제외했어요.", yume_wrong: "베리라인 오판으로 돌렸어요.", pending: "되돌렸어요." }[v]); state.focusNext = v !== "pending"; await refresh(); }); }
     var label = { pending: ["재확인 전", "w"], confirmed: ["불일치 확정", "b"], excluded: ["제외", ""], yume_wrong: ["베리라인 오판", ""] }[f.review] || [f.review, ""];
     var st = f.strength;
+    var pf = f.proof;
+    var proven = !!(pf && pf.proven);
+    var canConfirm = !state.detail.codeOnly || proven;
+    // 코드 확정 — AI가 한 말과 원문을 나란히. 법을 몰라도 숫자 · 이름 두 개를 비교해 확인한다.
+    var proofBox = proven ? h("div", { class: "proof" },
+      h("div", { class: "ph", text: "코드 확정 · " + ({ value: "값이 다름", stance: "첫 문장이 틀린 전제에 동의(본문은 정정)", flip: "반박에 굴복", nonexist: "없는 조문", fake_case: "없는 판례", fake_doi: "없는 논문", fake_law: "없는 법률", deleted: "삭제된 조문", denied_new: "있는 제도를 없다고 함", sanction: "제재 종류가 다름", claim_value: "값이 다름" }[pf.kind] || pf.kind) }),
+      h("div", { class: "kv" },
+        h("b", { text: "AI가 한 말" }), h("div", { class: "said", text: pf.ai_line || "" }),
+        h("b", { text: "원문" }), h("div", { class: "truth" }, pf.source_line || "", pf.url ? h("div", null, h("a", { href: pf.url, target: "_blank", rel: "noopener nofollow", text: "법제처·공식 원문 열기 ↗" })) : null),
+        h("b", { text: "다른 점" }), h("div", null, h("mark", { text: pf.wrong || "" }), "  →  원문: ", h("b", { text: pf.correct || "" }))),
+      h("div", { class: "help", text: pf.why || "" }))
+      : state.detail.codeOnly && f.polarity === "issue" ? h("div", { class: "help", style: "margin:6px 0", text: "참고 — " + ((pf && pf.why) || "코드로 확정할 수 없는 항목입니다.") }) : null;
     return h("div", { class: "find " + f.review },
       h("div", { class: "meta" }, h("span", { class: "pill " + label[1], text: label[0] }), h("span", { class: "pill", text: (f.source === "probe" ? "기준 문항 · " : "주장 · ") + (SEVERITY[f.severity] || f.severity) }),
+        proven ? h("span", { class: "pill g", text: "코드 확정" }) : state.detail.codeOnly ? h("span", { class: "pill", text: "참고" }) : null,
         st ? h("span", { class: "pill " + ({ strong: "g", medium: "", weak: "w" }[st.level] || ""), text: "판정 강도 " + ({ strong: "강함", medium: "보통", weak: "약함" }[st.level] || st.level) + " · " + st.why }) : null,
         f.nec_score !== null && f.nec_score !== undefined ? h("span", { class: "pill", text: "부존재 신뢰도 " + Number(f.nec_score).toFixed(2) }) : null),
+      proofBox,
       h("div", { class: "kv" },
         h("b", { text: "질문" }), h("div", { text: it.question || "" }),
         h("b", { text: "AI 답변" }), h("div", { class: "said" }, markNumbers(f.ai_quote || f.claim || "", f.truth || "")),
@@ -595,7 +619,8 @@ export function renderAuditDeskPage() {
       h("div", { class: "grid2" }, h("div", { style: "display:flex;gap:6px" }, url, f.source_url ? h("button", { class: "ghost", title: "베리라인이 댄 원문을 새 창으로 열고 그 주소를 적어요", onclick: function () { window.open(f.source_url, "_blank", "noopener"); url.value = f.source_url; } }, "원문 열기") : null), note),
       title ? h("div", { style: "margin-top:8px" }, title) : null,
       h("div", { class: "actions", style: "margin-top:0" },
-        h("button", { class: "btn bad", onclick: rv("confirmed") }, "원문 확인 — 불일치 맞음"), h("button", { class: "btn warn", onclick: rv("excluded") }, "애매해서 제외"), h("button", { class: "ghost", onclick: rv("yume_wrong") }, "베리라인 오판"), f.review !== "pending" ? h("button", { class: "ghost", onclick: rv("pending") }, "되돌리기") : null,
+        canConfirm ? h("button", { class: "btn bad", onclick: rv("confirmed") }, proven ? "두 값이 다름 — 불일치 맞음" : "원문 확인 — 불일치 맞음") : null,
+        h("button", { class: "btn warn", onclick: rv("excluded") }, canConfirm ? "애매해서 제외" : "참고로 두기(보고서 제외)"), h("button", { class: "ghost", onclick: rv("yume_wrong") }, "베리라인 오판"), f.review !== "pending" ? h("button", { class: "ghost", onclick: rv("pending") }, "되돌리기") : null,
         f.review === "confirmed" ? h("label", { class: "help", style: "display:flex;gap:6px;align-items:center;margin-left:8px" }, h("input", { type: "checkbox", style: "width:auto", checked: Number(f.featured), onchange: run(async function (e) { await api("PATCH", "/api/admin/audits/findings/" + f.id, { featured: e.target.checked }); await refresh(); }) }), "보고서 대표 사례") : null,
         f.review === "confirmed" ? h("label", { class: "help", style: "display:flex;gap:6px;align-items:center" }, h("input", { type: "checkbox", style: "width:auto", checked: Number(f.in_index), onchange: run(async function (e) { await api("PATCH", "/api/admin/audits/findings/" + f.id, { in_index: e.target.checked }); await refresh(); }) }), "지수 사례(익명)") : null));
   }

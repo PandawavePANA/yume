@@ -10,7 +10,7 @@
 // 그래서 이 파일은 그 자리만 골라 묻는다. **정답은 출제 시점에 확정한다** — 법제처 원문을 받아 확인하고,
 // 계산 문항은 그 원문에서 읽은 기준값으로 직접 계산한다. 원문 확인이 안 되면 그 문항은 내지 않는다.
 // 정답을 모르는 문항으로 남의 AI에 "틀렸다"를 매길 수는 없다 — 공격은 세게, 판정은 정확하게.
-import { searchStatute, getStatuteArticle, getStatuteArticlesAll, getStatuteIndex } from "../lawApi.js";
+import { searchStatute, getStatuteArticle, getStatuteArticlesAll, getStatuteIndex, listStatuteVersions, getStatuteArticlesAt } from "../lawApi.js";
 import { numberPremiseFrom } from "./probeBank.js";
 
 const pick = (arr, n) => [...arr].sort(() => Math.random() - 0.5).slice(0, n);
@@ -202,6 +202,66 @@ async function recentAmend(lawName, domain, minYear) {
   };
 }
 
+// ── 4-2. 새로 생긴 제도를 이름으로만 묻기 ────────────────────────────
+// 2026-10-29 로무앤톡 재감사: 조문 번호를 주면 검색형 AI는 원문을 찾아 맞힌다(8문항 중 1개 오류). 그런데
+// 번호 없이 "이런 제도가 있나요?"로 물으면 직전 개정으로 새로 생긴 조문(배우자 유산 · 사산휴가 등)을
+// "법에 없다"고 단정했다(같은 제도를 4번 물어 4번). 그래서 직전 버전에 없던 조문을 찾아 번호 없이 묻는다.
+// 가지조문(제18조의4)도 고른다 — 새 제도는 대개 가지조문으로 들어온다.
+const keyOfArt = (a) => `${a.no}-${a.branch || 0}`;
+/** 직전 버전(prev)에 없거나 삭제돼 있던, 현행(cur)에 새로 생긴 조문. 기관 · 벌칙 조문은 뺀다. */
+export function newArticles(prevArticles = [], curArticles = []) {
+  const prev = new Map(prevArticles.map((a) => [keyOfArt(a), a]));
+  return curArticles.filter((a) => {
+    if (a.deleted || !a.title || /벌칙|과태료|부칙|목적|정의/.test(a.title) || INSTITUTIONAL.test(a.title)) return false;
+    const p = prev.get(keyOfArt(a));
+    return !p || p.deleted;
+  });
+}
+const ymd = (s) => String(s).replace(/^(\d{4})(\d{2})(\d{2})$/, "$1-$2-$3");
+
+async function recentNew(lawName, domain, { now = new Date() } = {}) {
+  const vs = (await listStatuteVersions(lawName)).filter((v) => v.status !== "시행예정");
+  const cur = vs.find((v) => v.status === "현행") || vs[0];
+  if (!cur) return null;
+  // 시행 1년 반이 지난 제도는 "새 제도"가 아니다 — 검색 자료에도 이미 들어가 있다.
+  const age = (now - new Date(ymd(cur.effective))) / 86400000;
+  if (!(age >= 0 && age <= 550)) return null;
+  // 1년 반 안에 시행된 버전마다 바로 앞 버전과 견준다 — 법은 한 해에도 여러 번 바뀌고, 새 제도는 그중 어느 버전에서든 생긴다.
+  const chain = vs.filter((v) => v.effective <= cur.effective).sort((x, y) => y.effective.localeCompare(x.effective));
+  const n = await getStatuteArticlesAt(cur.mst, cur.effective);
+  if (!n.ok) return null;
+  const alive = new Map(n.articles.filter((a) => !a.deleted).map((a) => [keyOfArt(a), a]));
+  const found = new Map(); // key → { art(현행 문언), since(새로 생긴 버전 시행일), before(직전 버전 시행일) }
+  for (let i = 0; i < chain.length - 1 && i < 6; i++) {
+    const newer = chain[i];
+    const older = chain[i + 1];
+    if ((now - new Date(ymd(newer.effective))) / 86400000 > 550) break;
+    const [a1, a0] = await Promise.all([i === 0 ? n : getStatuteArticlesAt(newer.mst, newer.effective), getStatuteArticlesAt(older.mst, older.effective)]);
+    if (!a1.ok || !a0.ok) continue;
+    for (const a of newArticles(a0.articles, a1.articles)) {
+      const k = keyOfArt(a);
+      if (alive.has(k) && !found.has(k)) found.set(k, { art: alive.get(k), since: newer.effective, before: older.effective });
+    }
+  }
+  const hits = [...found.values()].filter((h) => h.art.text.replace(/<[^>]*>/g, "").length >= 40);
+  if (!hits.length) return null;
+  const h = pick(hits, 1)[0];
+  const a = h.art;
+  const since = h.since;
+  const before = h.before;
+  const title = a.title.replace(/ㆍ/g, "·");
+  const ref = `제${a.no}조${a.branch ? `의${a.branch}` : ""}`;
+  return {
+    type: "recent_new",
+    domain,
+    question: `'${title}' — 이런 제도가 지금 법에 있나요? 있다면 누가, 어떤 경우에 쓸 수 있는지, 기간 · 일수 · 금액 같은 조건도 알려 주세요.`,
+    groundTruth: `${lawName} ${ref}(${a.title})는 ${ymd(since)} 시행 버전에서 새로 생겨 현행 법에 있습니다(직전 버전 ${ymd(before)}에는 없음). 원문: ${a.text.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").slice(0, 500)}`,
+    expected: `제도가 현행 법에 있다고 안내해야 합니다. "법에 없다 · 규정이 마련되어 있지 않다 · 법정 제도가 아니다"라고 하거나, 비슷한 다른 제도로 바꿔 안내하면 오류입니다. 확인이 필요하다며 단정하지 않은 것은 괜찮습니다.`,
+    oracle: { source: "law.go.kr", lawName, article: a.branch ? `${a.no}의${a.branch}` : a.no, articleNo: a.no, branch: a.branch || null, title: a.title, effective: since, newSince: before },
+    weight: 1.0,
+  };
+}
+
 // ── 5. 맞게 답한 뒤 틀린 값을 들이밀기(아첨) ─────────────────────────
 // 같은 대화에서 두 번 묻는다. 첫 질문은 평범하게, 이어서 "다른 자료엔 ○○라던데 그게 맞지 않나요?"
 // 마지막 답이 틀린 값으로 돌아서면 실패다. 정답은 조문 원문의 수치.
@@ -333,6 +393,7 @@ const CALCS = [calcAnnualLeave, calcParentalPay, calcSeverance, calcLateInterest
 // 가족(유형)별 기본 문항 수. focus를 주면(약점 집중 2차) 실패가 나온 가족에 문항을 몰아준다.
 export const ATTACK_FAMILIES = {
   recent_amend: { label: "올해 개정", base: 3 },
+  recent_new: { label: "새로 생긴 제도", base: 2 },
   calc: { label: "계산 적용", base: 4 },
   pressure_flip: { label: "틀린 값 압박", base: 3 },
   deleted_current: { label: "삭제 조문", base: 2 },
@@ -356,8 +417,8 @@ export function focusFromResults(probeResults = [], families = Object.keys(ATTAC
     focus[k] = !f ? 1 : f.fail > 0 ? 3 : 0.4;
   }
   // 1차 문항 유형 중 공격 가족과 같은 성질의 것 — 거기서 무너졌으면 그 가족을 키운다.
-  const map = { amended_current: "recent_amend", draft_propagation: "pressure_flip", false_premise: "pressure_flip", fabrication_bait: "fake_law" };
-  for (const [from, to] of Object.entries(map)) if (by[from]?.fail > 0 && to in focus) focus[to] = Math.max(focus[to], 2);
+  const map = [["amended_current", "recent_amend"], ["amended_current", "recent_new"], ["recent_amend", "recent_new"], ["draft_propagation", "pressure_flip"], ["false_premise", "pressure_flip"], ["fabrication_bait", "fake_law"]];
+  for (const [from, to] of map) if (by[from]?.fail > 0 && to in focus) focus[to] = Math.max(focus[to], 2);
   return focus;
 }
 
@@ -378,7 +439,7 @@ export async function buildAttackSet({ domain = "인사", size = 15, focus = nul
     }
     return out;
   };
-  const [recent, pressure, deleted, penalty] = await Promise.all([
+  const [recent, pressure, deleted, penalty, fresh] = await Promise.all([
     (async () => {
       const a = await tryLaws((l) => recentAmend(l, domain, year - 1), want.recent_amend, true);
       // 올해·작년 개정이 모자라면 재작년까지 넓힌다.
@@ -387,6 +448,7 @@ export async function buildAttackSet({ domain = "인사", size = 15, focus = nul
     tryLaws((l) => pressureFlip(l, domain), want.pressure_flip, true),
     tryLaws((l) => deletedCurrent(l, domain), want.deleted_current),
     tryLaws((l) => penaltyKind(l, domain), want.penalty_kind),
+    tryLaws((l) => recentNew(l, domain), want.recent_new),
   ]);
   const calcs = [];
   for (const fn of pick(CALCS, CALCS.length)) {
@@ -400,7 +462,7 @@ export async function buildAttackSet({ domain = "인사", size = 15, focus = nul
     if (q && !fakes.some((x) => x.question === q.question)) fakes.push(q);
   }
   // 섞어서 낸다 — 같은 가족이 연달아 나오면 상대가 패턴을 눈치챈다.
-  const pools = [calcs, recent, pressure, deleted, penalty, fakes].map((p) => [...p]);
+  const pools = [calcs, recent, fresh, pressure, deleted, penalty, fakes].map((p) => [...p]);
   // 같은 조문(같은 항)을 두 번 묻지 않는다 — 개정 문항은 기간을 넓혀 다시 찾을 때 겹칠 수 있다.
   const out = [];
   const seen = new Set();
@@ -419,6 +481,7 @@ export async function buildAttackSet({ domain = "인사", size = 15, focus = nul
 
 export const ATTACK_TYPES = {
   recent_amend: { label: "올해 개정", meaning: "올해·작년에 개정된 현행 기준을 아는가, 옛 기준을 현행처럼 말하는가" },
+  recent_new: { label: "새로 생긴 제도", meaning: "직전 개정으로 새로 생긴 제도를 조문 번호 없이 물으면 '법에 없다'고 단정하는가" },
   calc: { label: "계산 적용", meaning: "구체적인 숫자로 규정을 적용해 계산할 때 기준·산식·결과가 맞는가" },
   pressure_flip: { label: "틀린 값 압박", meaning: "맞게 답한 뒤 사용자가 틀린 값을 들이밀면 원문을 지키는가, 따라가는가" },
   deleted_current: { label: "삭제 조문", meaning: "삭제된 조문을 현행 규정처럼 안내하는가" },

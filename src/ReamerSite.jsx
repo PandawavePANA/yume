@@ -237,7 +237,7 @@ function useScrollChrome(ref) {
 // 메일 주소만 적어 두면 대부분은 눌러 보고 만다 — 무엇을 써야 할지 모르기 때문이다.
 // 무엇을 만들고 싶은지, 예산이 어느 정도인지를 미리 물어 두면 첫 회신에서 바로
 // 다음 이야기를 할 수 있다. 메일 주소도 그대로 남겨 둔다(양식을 싫어하는 사람이 있다).
-const API = (import.meta.env?.VITE_YUME_API_ORIGIN || "https://www.yume-reamer.com").replace(/\/+$/, "");
+const API = (import.meta.env?.VITE_YUME_API_ORIGIN || "https://veriline.kr").replace(/\/+$/, "");
 
 // 묻는 것은 넷뿐이다 — 이름, 연락처, 내용, 희망 견적.
 //

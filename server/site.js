@@ -9,13 +9,20 @@ const LEGACY = /yume-reamer\.com/i;
 export const SITE_HOST = clean(process.env.VERILINE_HOST || "veriline.kr").toLowerCase();
 export const LEGACY_HOSTS = new Set(["yume-reamer.com", "www.yume-reamer.com", "business.yume-reamer.com"]);
 
+// 도메인 이전 스위치(2026-10-29 밤). veriline.kr이 아직 정적 기업용 화면(Railway business 서비스)에 붙어 있으면
+// 옛 주소를 veriline.kr로 301 넘기는 순간 개인 검사 · 보고서 · 약관 · 콘솔이 전부 기업용 첫 화면으로 떨어진다(실제로 그랬다).
+// 그래서 운영에서 VERILINE_ON_APP=off인 동안은 넘기지 않고, 고객 링크도 지금 실제로 열리는 옛 주소로 만든다.
+// veriline.kr을 이 서버(yume 서비스)에 붙이고 나면 변수를 지운다 — 그때부터 301 · veriline.kr 링크. 그 전 링크는 301로 이어진다.
+export const VERILINE_ON_APP = process.env.VERILINE_ON_APP !== "off";
+const LIVE_LEGACY_ORIGIN = "https://www.yume-reamer.com";
+
 /** 고객에게 나가는 링크의 앞부분(끝 / 없음). 로컬 개발에서 요청 호스트를 쓰고 싶으면 req를 넘긴다. */
 export function siteOrigin(req = null) {
   const env = clean(process.env.PUBLIC_BASE_URL);
   if (env && !LEGACY.test(env)) return env;
   const host = String(req?.get?.("host") || "");
   if (/^(localhost|127\.|\[::1\]|0\.0\.0\.0)/.test(host)) return `${req.protocol}://${host}`;
-  return `https://${SITE_HOST}`;
+  return VERILINE_ON_APP ? `https://${SITE_HOST}` : LIVE_LEGACY_ORIGIN;
 }
 
 /** 개인 검사 · 계정 · API 키 화면(예전 유메 첫 화면). veriline.kr/check 아래에서 연다. */

@@ -14,6 +14,10 @@
 //   · 직접 재확인한다 — 베리라인이 지목한 오류는 'pending'이다. 사람이 원문을 직접 열어 링크를 남기고
 //     confirmed로 바꾼 것만 "불일치"로 센다. 하나라도 pending이면 발송할 수 없다.
 //   · 공정하게 쓴다 — 잘된 점이 하나도 없으면 발송할 수 없다.
+//   · 코드로 확정된 오류만 싣는다(2026-10-29) — 값 · 없는 조문 · 삭제 · 제재 종류처럼 원문과 기계적으로 대조되는 것만
+//     confirmed가 된다(audit/codeProof.js). 해석이 필요한 후보는 '참고'로 제외한다. 법을 모르는 운영자가 숫자 두 개를
+//     나란히 보고 확인할 수 있게 하고, 우리 판단이 틀릴 자리를 없앤다. 설정 audit_code_only=off면 예전처럼 사람 판단.
+import { codeProof } from "./audit/codeProof.js";
 import { isAuditProduct, quoteSummariesForAudit } from "./b2bDeals.js";
 import { all, now, one, run } from "./db.js";
 import { randomToken } from "./security.js";
@@ -618,6 +622,12 @@ async function syncReviewedStage(auditId) {
 }
 
 // ── 재확인 ────────────────────────────────────────────────────────────
+/** 코드 확정 모드 — 기본 켬. 끄려면 settings.audit_code_only = "off". */
+export async function codeOnly() {
+  return (await getSetting("audit_code_only")) !== "off";
+}
+export const CODE_ONLY_NOTE = "코드로 확정할 수 없는 항목 — 참고(보고서 제외)";
+
 export async function reviewFinding(findingId, input = {}) {
   const f = await one("SELECT * FROM ai_audit_findings WHERE id = :id", { id: Number(findingId) || 0 });
   if (!f) return { error: "재확인 항목을 찾을 수 없어요." };
@@ -626,9 +636,16 @@ export async function reviewFinding(findingId, input = {}) {
   if (input.review !== undefined) {
     if (!REVIEWS[input.review]) return { error: "알 수 없는 재확인 결과예요." };
     if (f.polarity === "issue" && input.review === "confirmed") {
-      // 직접 열어 본 원문 링크가 없으면 "직접 재확인"이 아니다.
-      const url = str(input.checked_url ?? f.checked_url, 800);
+      const item = await one("SELECT * FROM ai_audit_items WHERE id = :id", { id: Number(f.item_id) || 0 });
+      const proof = codeProof(f, item);
+      if ((await codeOnly()) && !proof?.proven) {
+        return { error: "코드로 확정된 오류만 '불일치'로 확정할 수 있어요. 이 항목은 해석이 필요해 '애매해서 제외'(참고)로 두세요.", code: "not_proven" };
+      }
+      // 직접 열어 본 원문 링크가 없으면 "직접 재확인"이 아니다. 코드 확정 항목은 대조한 원문 주소를 그대로 쓴다.
+      const url = str(input.checked_url || f.checked_url || (proof?.proven ? proof.url : ""), 800);
       if (!isHttpUrl(url)) return { error: "직접 열어 확인한 공식 원문 링크를 적어주세요." };
+      input = { ...input, checked_url: url };
+      if (proof?.proven && !str(input.review_note ?? f.review_note, 2000)) input.review_note = `코드 확정 — ${proof.why}`;
     }
     sets.push("review = :rv", "reviewed_at = :rat");
     params.rv = input.review;
@@ -1059,7 +1076,11 @@ export async function auditDetail(id, { base = "" } = {}) {
   const files = await all("SELECT id, item_id, mime, size, created_at FROM ai_audit_files WHERE audit_id = :id ORDER BY id", { id: audit.id });
   const results = auditResults(items, findings);
   const byItem = new Map(items.map((i) => [Number(i.id), i]));
-  for (const f of findings) f.strength = findingStrength(f, byItem.get(Number(f.item_id)));
+  for (const f of findings) {
+    f.strength = findingStrength(f, byItem.get(Number(f.item_id)));
+    f.proof = codeProof(f, byItem.get(Number(f.item_id)));
+  }
+  const codeOnlyMode = await codeOnly();
   const reportUrl = audit.report_token ? `${base}${reportPath(audit.report_token)}` : "";
   // 메일에 넣을 대표 사례 — 검토자가 쓴 한 줄 제목만(자동 제목은 문장이 길다). 금액이 든 제목은 발송 문구 점검에 걸리니 뺀다.
   const confirmedIssues = findings.filter((f) => f.polarity === "issue" && f.review === "confirmed");
@@ -1101,6 +1122,7 @@ export async function auditDetail(id, { base = "" } = {}) {
     composition: composition(items),
     topics: topicsFor(audit.domain).map((k) => ({ key: k, label: TOPICS[k].label, count: TOPICS[k].questions.length })),
     checking: isChecking(audit.id),
+    codeOnly: codeOnlyMode,
     cost: { usd: Number(costRow?.usd || 0), krw: Math.round(Number(costRow?.usd || 0) * USD_KRW), verifications: Number(costRow?.n || 0) },
     reportUrl,
     publicUrl: audit.public_id ? `${base}${publicPath(audit.public_id)}` : "",
@@ -1522,17 +1544,22 @@ export function findingStrength(f, item) {
   return { level: "weak", why: "근거 문장이 약함" };
 }
 
-/** 약한 후보 한 번에 빼기. 빼는 쪽(안전한 방향)만 일괄로 한다 — 확정은 언제나 한 건씩 사람이. */
+/** 약한 후보 한 번에 빼기. 빼는 쪽(안전한 방향)만 일괄로 한다 — 확정은 언제나 한 건씩 사람이.
+ *  코드 확정 모드에서는 코드로 확정할 수 없는 후보도 같이 '참고'로 뺀다. */
 export async function excludeWeak(auditId) {
   const items = await itemsOf(auditId);
   const byItem = new Map(items.map((i) => [Number(i.id), i]));
   const pending = await all("SELECT * FROM ai_audit_findings WHERE audit_id = :id AND polarity = 'issue' AND review = 'pending'", { id: Number(auditId) || 0 });
+  const strict = await codeOnly();
   let n = 0;
   for (const f of pending) {
-    if (findingStrength(f, byItem.get(Number(f.item_id)))?.level !== "weak") continue;
+    const item = byItem.get(Number(f.item_id));
+    const weak = findingStrength(f, item)?.level === "weak";
+    const unproven = strict && !codeProof(f, item)?.proven;
+    if (!weak && !unproven) continue;
     await run(
       "UPDATE ai_audit_findings SET review = 'excluded', review_note = :note, reviewed_at = :t, featured = 0, in_index = 0 WHERE id = :id",
-      { id: f.id, note: "판정 근거가 약해 일괄 제외", t: now() },
+      { id: f.id, note: unproven ? CODE_ONLY_NOTE : "판정 근거가 약해 일괄 제외", t: now() },
     );
     n += 1;
   }
@@ -1556,7 +1583,10 @@ export async function autoPick(auditId) {
   const withFile = new Set((await all("SELECT DISTINCT item_id FROM ai_audit_files WHERE audit_id = :id", { id: audit.id })).map((r) => Number(r.item_id)));
   const score = (f) => {
     const s = findingStrength(f, byItem.get(Number(f.item_id)))?.level;
-    return (SEVERITY_WEIGHT[f.severity] || 0) + (s === "strong" ? 2 : s === "medium" ? 1 : 0) + (withFile.has(Number(f.item_id)) ? 1 : 0) +
+    // 코드 확정 중에서도 값 · 없는 것 · 삭제 · 제재가 "첫 문장만 동의"(본문은 정정)보다 반박당하기 어렵다
+    const p = codeProof(f, byItem.get(Number(f.item_id)));
+    const proofW = p?.proven ? (p.kind === "stance" ? 2 : 4) : 0;
+    return proofW + (SEVERITY_WEIGHT[f.severity] || 0) + (s === "strong" ? 2 : s === "medium" ? 1 : 0) + (withFile.has(Number(f.item_id)) ? 1 : 0) +
       (/law\.go\.kr|doi\.org/.test(String(f.source_url || "")) ? 1 : 0);
   };
   const issues = findings.filter((f) => f.polarity === "issue" && f.review === "confirmed").sort((a, b) => score(b) - score(a));

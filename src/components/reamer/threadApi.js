@@ -4,7 +4,7 @@
 // 토큰은 주소창의 **해시(#)** 에만 둔다. 해시는 서버로 전송되지 않고 Referer에도
 // 실리지 않아서, 링크를 아는 사람만 열린다는 성질이 브라우저 밖으로 새지 않는다.
 // 서버로 보낼 때는 쿼리스트링이 아니라 헤더에 실어 접속 로그에 남지 않게 한다.
-export const API = (import.meta.env?.VITE_YUME_API_ORIGIN || "https://www.yume-reamer.com").replace(/\/+$/, "");
+export const API = (import.meta.env?.VITE_YUME_API_ORIGIN || "https://veriline.kr").replace(/\/+$/, "");
 
 const STORE_KEY = "reamer.thread.token";
 

@@ -149,6 +149,8 @@ test("경영지원 민재: 감사 신청 → 입금 확인 결재(대표 알림)
 });
 
 test("감사팀 수아: 오류 후보를 원문과 대조해 하린 전결로 반영 — 원문 링크 없으면 확정 불가", async () => {
+  // 사람 판단 모드(코드 확정 끔)의 흐름. 코드 확정 모드는 아래 시험이 본다.
+  await desk.setSetting("audit_code_only", "off");
   const made = await desk.createAudit({ company: "재확인AI", service_url: "https://qa.example.com", domain: "인사" });
   await desk.updateAudit(made.id, { tos_verdict: "ok" });
   await desk.addCustomItem(made.id, { question: "질문1" });
@@ -175,6 +177,16 @@ test("감사팀 수아: 오류 후보를 원문과 대조해 하린 전결로 �
   assert.match(rows[0].checked_url, /law\.go\.kr/);
   assert.match(rows[0].report_title, /2주/);
   assert.equal(rows[1].review, "excluded");
+
+  // 코드 확정 모드(기본) — 수아가 "확정"이라고 해도 코드로 대조되지 않는 오류는 참고로 둔다(보고서 제외).
+  await desk.setSetting("audit_code_only", "on");
+  await db.run("UPDATE ai_audit_findings SET review = 'pending', checked_url = '', review_note = '' WHERE id = :id", { id: f1 });
+  const qa = await import("../staff/jobs/qa.js");
+  const res = await qa.apply({ items: [{ id: Number(f1), qa: "confirmed", qaReason: "1주와 2주", url: "https://www.law.go.kr/법령/고용보험법/제40조" }] });
+  assert.equal(res.ok, true);
+  const after = await db.one("SELECT review, review_note FROM ai_audit_findings WHERE id = :id", { id: f1 });
+  assert.equal(after.review, "excluded");
+  assert.match(after.review_note, /코드로 확정할 수 없는 항목/);
 });
 
 test("영업팀 지호: 후속 메일은 베리라인 도메인 인증 전에는 결재해도 안 나가고, 인증 뒤에는 베리라인 주소로 나간다", async () => {

@@ -1,6 +1,6 @@
 // 특허 탐색 실행부(140) 중 학술·서지 식별자 담당. 전부 인증키가 필요 없는 공개 API다.
 const TIMEOUT_MS = 8000;
-const UA = { "User-Agent": "YUME-FactCheck/1.0 (mailto:reamer@d-reamer.com)" };
+const UA = { "User-Agent": "VerilineFactCheck/1.0 (mailto:contact@veriline.kr)" };
 
 async function getJson(url) {
   const res = await fetch(url, { headers: UA, signal: AbortSignal.timeout(TIMEOUT_MS) });

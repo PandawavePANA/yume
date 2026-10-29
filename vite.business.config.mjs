@@ -1,6 +1,7 @@
 import { fileURLToPath, URL } from "node:url";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import { businessSeoPlugin } from "./scripts/businessSeo.mjs";
 
 // 기업용 사이트 전용 프로덕션 빌드 설정. 리머 사이트와 같은 방식이다 — 레포와
 // package.json은 유메와 공유하지만 별도 도메인에 따로 배포되므로, 자체 진입점
@@ -10,7 +11,7 @@ import react from "@vitejs/plugin-react";
 // VITE_YUME_API_ORIGIN(기본값은 유메 운영 주소)과 서버의 AUDIT_ALLOWED_ORIGINS가
 // 서로 맞아야 한다.
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), businessSeoPlugin()],
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),

@@ -219,7 +219,7 @@ export async function renderCertificatePage(mark, base) {
   <div class="fine">주장마다 대조한 근거 문장과 출처 주소는 ${esc(url.replace(/^https?:\/\//, ""))} 에서 볼 수 있습니다.</div>`, k + 2),
   );
 
-  const file = `YUME_사실검증서_${mark.id}.pdf`;
+  const file = `베리라인_사실검증서_${mark.id}.pdf`;
   return `<!doctype html>
 <html lang="ko"><head>
 <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />

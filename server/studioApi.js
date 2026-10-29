@@ -20,7 +20,7 @@ studioRouter.use(requireAdmin);
 // 자사 제품. 키를 코드에 고정해 두는 이유는, 이 넷은 사용자가 추가하는 것이
 // 아니라 회사가 운영하는 제품이어서다.
 export const PRODUCTS = [
-  { key: "yume", label: "베리라인", href: "https://www.yume-reamer.com/" },
+  { key: "yume", label: "베리라인", href: "https://veriline.kr/" },
   { key: "proba", label: "프로바", href: "https://proba.network/" },
   { key: "ballast", label: "밸러스트", href: "https://www.ballast-reamer.com/" },
   { key: "aipick", label: "아이픽", href: "https://www.aipick-reamer.com/" },

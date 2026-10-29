@@ -35,6 +35,7 @@ export function questionTypeOfProbe(probe) {
       return "number";
     case "amended_current":
     case "recent_amend":
+    case "recent_new":
       return "amended";
     case "calc":
     case "pressure_flip":

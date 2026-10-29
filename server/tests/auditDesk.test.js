@@ -218,10 +218,25 @@ test("감사 데스크: 약관 → 검사 → 재확인 → 체크리스트 → 
   const tooSoon = await call("POST", `/api/admin/audits/${id}/sent`);
   assert.equal(tooSoon.status, 400);
 
-  // 원문 링크 없이 확정하지 못한다.
+  // 코드 확정 — 없는 제200조를 설명한 답, 30일 ↔ 원문 14일. 둘 다 원문과 기계적으로 대조된다.
   const probeF = issues.find((f) => f.source === "probe");
   const claimF = issues.find((f) => f.source === "claim");
+  assert.equal(probeF.proof.proven, true);
+  assert.equal(probeF.proof.kind, "nonexist");
+  assert.equal(claimF.proof.proven, true);
+  assert.equal(claimF.proof.correct, "14일");
+  assert.equal(d.codeOnly, true);
+  // 코드로 확정할 수 없는 후보는 확정하지 못한다(참고). 원문 링크를 적어도 마찬가지다.
+  const keepAnswer = (await db.one("SELECT answer FROM ai_audit_items WHERE id = :id", { id: probeItem.id })).answer;
+  await db.run("UPDATE ai_audit_items SET answer = :a WHERE id = :id", { id: probeItem.id, a: "제200조에 관해서는 노동위원회 결정례를 함께 보시는 것이 좋습니다." });
+  const notProven = await call("PATCH", `/api/admin/audits/findings/${probeF.id}`, { review: "confirmed", checked_url: "https://www.law.go.kr/법령/근로기준법" });
+  assert.equal(notProven.status, 400);
+  assert.match(notProven.json.error, /코드로 확정된 오류만/);
+  // 설정을 끄면 예전처럼 사람이 원문 링크를 남겨 확정한다 — 원문 링크 없이는 안 된다.
+  await desk.setSetting("audit_code_only", "off");
   assert.equal((await call("PATCH", `/api/admin/audits/findings/${probeF.id}`, { review: "confirmed" })).status, 400);
+  await desk.setSetting("audit_code_only", "on");
+  await db.run("UPDATE ai_audit_items SET answer = :a WHERE id = :id", { id: probeItem.id, a: keepAnswer });
   // 확정 전에는 대표 사례·지수 사례가 될 수 없다.
   assert.equal((await call("PATCH", `/api/admin/audits/findings/${claimF.id}`, { featured: true })).status, 400);
   await call("PATCH", `/api/admin/audits/findings/${probeF.id}`, { review: "confirmed", checked_url: "https://www.law.go.kr/법령/근로기준법", featured: true, in_index: true });

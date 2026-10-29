@@ -24,6 +24,7 @@ import { API_ORIGIN, SITE_URL, CONSOLE_URL } from "./businessConfig.js";
 import { BUSINESS, telHref, COPYRIGHT, businessLine, COMPLAINT_NOTICE, COMPLAINT_OFFICER, VERILINE_EMAIL } from "./businessInfo.js";
 import BusinessAddress from "./BusinessAddress.jsx";
 import { API_RATES, API_UNIT_CHARS, AUDIT_LEAD, AUDIT_PILOT_SEATS, AUDIT_RATES } from "../server/apiRates.js";
+import { FAQ, PROOF_CASES, STEPS, TRAPS } from "./businessContent.js";
 
 const won = (n) => `${n.toLocaleString("ko-KR")}원`;
 
@@ -99,7 +100,9 @@ const CSS = `
 .vl-techrow span i { width:5px; height:5px; border-radius:50%; display:block; background:var(--key-on-dark); opacity:.8; }
 .vl-hero::before { content:""; position:absolute; inset:0; background:linear-gradient(rgba(255,255,255,.04) 1px, transparent 1px) 0 0/56px 56px, linear-gradient(90deg, rgba(255,255,255,.04) 1px, transparent 1px) 0 0/56px 56px; mask-image:radial-gradient(ellipse at 60% 50%, #000 30%, transparent 75%); -webkit-mask-image:radial-gradient(ellipse at 60% 50%, #000 30%, transparent 75%); pointer-events:none; }
 .vl-hero-grid { position:relative; display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.05fr); gap:clamp(24px,4vw,56px); align-items:center; }
-@media (max-width: 980px) { .vl-hero-grid { grid-template-columns:1fr; } }
+/* 1fr은 칸 최소 폭이 내용(줄바꿈 없는 배지 · 띠)만큼이라 휴대폰에서 칸이 화면보다 넓어져 문단 · 버튼이 잘렸다(2026-10-29) — minmax(0,1fr) + min-width:0 */
+@media (max-width: 980px) { .vl-hero-grid { grid-template-columns:minmax(0,1fr); } }
+.vl-hero-grid > * { min-width:0; }
 @media (max-width: 420px) { .vl-hero h1 { font-size:34px; } .vl-hero .lead { font-size:16px; } .vl-promise { font-size:17px; } }
 .vl-hero h1 { font-size:clamp(36px,6.4vw,88px); font-weight:700; letter-spacing:-.045em; line-height:1.06; margin:22px 0 0; text-wrap:balance; }
 .vl-hero .lead { font-size:clamp(17px,1.7vw,20px); color:#B4B4BC; line-height:1.75; margin:26px 0 0; max-width:46ch; }
@@ -502,35 +505,11 @@ const NAV = [
   ["#faq", "FAQ"],
 ];
 
-// 실제 무료 진단(노무 상담 AI A사, 2026-10-27)에서 법제처 원문으로 확정한 오류 셋 — 회사 이름은 동의 없이 쓰지 않는다.
-// 숫자 하나(26문항 중 8개)보다 "무엇을 어떻게 틀렸나"가 사는 이유가 된다(2026-10-29 대표 "강력하고 어필 가능한 내용을 앞에").
-const PROOF_CASES = [
-  { type: "바뀐 법 미반영", title: "임금체불 처벌", bad: "3년 이하 징역 · 3천만 원 이하 벌금(제109조)", good: "5년 이하 징역 · 5천만 원 이하 벌금", law: "근로기준법 제107조 ① · 2026.10.8 시행" },
-  { type: "비슷한 조문 혼동", title: "체불사업주 신용제재 기준", bad: "체불총액 3천만 원 이상", good: "2천만 원 이상 — 3천만 원은 명단 공개 기준", law: "근로기준법 제43조의3" },
-  { type: "삭제된 조문 인용", title: "임금체불 처벌불원 근거", bad: "근로기준법 제109조 제2항", good: "제107조 제2항 — 제109조 제2항은 삭제", law: "근로기준법 제107조 ②" },
-];
 
 
 const LAWS = ["근로기준법 제60조 연차 유급휴가", "고용보험법 제40조 구직급여 수급 요건", "최저임금법 제31조 과태료", "남녀고용평등법 제19조 육아휴직", "고용보험법 제50조 피보험기간", "근로자퇴직급여 보장법 제8조", "주택임대차보호법 제3조의2", "소득세법 제59조의4", "부가가치세법 제30조", "의료법 제27조", "국민건강보험법 제41조", "민법 제750조 불법행위"];
 
-// 실제 감사(2026-10 · 노무 상담 AI A사)에서 찾은 오류 — 회사 이름은 동의 없이 쓰지 않는다. 마지막 장은 지어낸 인용의 예.
-// 세무 장은 자체 데이터셋 TRAP-500(VL-TAX-004)에서 최신 AI가 실제로 틀린 답 — 2026-10-28 외부 점검 "예시가 전부 노무"에 대한 답.
-const TRAPS = [
-  { type: "숫자", title: "초단시간 근로자의 기준기간 요건", bad: "2주 소정근로일수 2일 이하", good: "1주 소정근로일수 2일 이하", law: "고용보험법 제40조 ②" },
-  { type: "개정 직후", title: "방학 단기 육아휴직", bad: "연 2회 · 회당 4주", good: "연 1회 · 1~2주", law: "남녀고용평등법 제19조" },
-  { type: "기간", title: "자영업자 피보험기간 합산", bad: "5년 이내", good: "3년 이내", law: "고용보험법 제50조" },
-  { type: "벌칙", title: "근로감독관 검사 거부", bad: "벌금 500만 원", good: "과태료 100만 원 이하", law: "최저임금법 제31조" },
-  { type: "세무 · 기한 있는 특례", title: "카드 매출 세액공제 한도", bad: "2026년까지 연 500만 원", good: "2026년까지 연 1,000만 원 · 1.3%", law: "부가가치세법 제46조" },
-  { type: "없는 법 · 예시", title: "그럴듯한 가짜 고시", bad: "공정위 고시 제2019-77호가 로열티 상한을 정한다", good: "그런 고시는 없음", law: "원문 검색으로 '없음' 판정" },
-];
 
-const STEPS = [
-  ["주장으로 쪼개기", "숫자 · 기간 · 조건 · 벌칙을 하나씩 떼어 냅니다."],
-  ["현행 원문 가져오기", "법제처에서 오늘 시행 중인 조문을 직접 받습니다."],
-  ["원문과 대조", "근거를 대지 못하는 판정은 내보내지 않습니다."],
-  ["사람이 한 번 더", "감사에서는 사람이 원문을 열어 다시 확인합니다."],
-  ["고친 문장과 근거", "틀린 문장은 원문 값으로, 근거는 몇 조 몇 항까지."],
-];
 
 // 고용보험법 제40조 ① · ②(2026-10-25 법령 원문으로 확인), 제48조 ①, 제58조.
 const SENTENCES = [
@@ -540,15 +519,6 @@ const SENTENCES = [
   { text: "구직급여는 이직일 다음 날부터 12개월 안에 받아야 합니다.", ok: true, law: "고용보험법 제48조 ①" },
 ];
 
-// 페르소나(노무 · 법률 AI 회사 PM)가 실제로 걸려 하는 순서대로.
-const FAQ = [
-  ["API 키나 내부 권한이 필요한가요?", "아니요. 일반 사용자처럼 서비스를 직접 써 보며 확인합니다. 출시 전이면 시험 계정만 주세요."],
-  ["결과가 밖으로 새지 않나요?", "보고서는 비공개 링크로 귀사에만 드리고, 언제든 회수할 수 있습니다."],
-  ["자체 테스트가 있는데도 필요할까요?", "자체 시험은 회사가 아는 질문만 묻습니다. 노무 상담 AI A사는 무료 진단 26문항 중 8개가 틀렸습니다. 자체 시험은 실사 · 제휴 심사에서 증빙도 되지 않습니다."],
-  ["어느 분야를 하나요?", "노무는 정식 서비스입니다. 법률(임대차 · 민사)과 세무는 베타로, 같은 방식으로 법제처 원문과 대조하되 결과에 베타임을 표시합니다. 의료는 준비 중입니다."],
-  ["기간과 비용은요?", `무료 진단은 보통 영업일 3일입니다. 정밀 감사는 ${won(AUDIT_RATES.audit.krw)}(부가세 별도), 첫 ${AUDIT_PILOT_SEATS}곳은 ${won(AUDIT_RATES.audit_pilot.krw)}입니다.`],
-  ["베리라인이 틀리면요?", "베리라인이 원문으로 고친 부분(판정 영수증이 있는 부분)이 원문과 다르면 이용료를 환불하고 정정 보고서를 드립니다. 확인하지 못한 부분은 결과에 그렇게 적습니다."],
-];
 
 const DIAG_STEPS = [
   ["주소를 남기세요", "서비스 주소와 연락처면 충분합니다."],
@@ -743,28 +713,26 @@ export default function BusinessPage() {
       {/* ── 8. 요금 ── */}
       <section className="vl-sec off" id="pricing">
         <div className="vl-wrap">
-          <Head eyebrow="가격" title="감사로 시작해, 구독으로" lede="부가세 별도." />
-          {/* 사기 전에 걸리는 세 가지(손해 볼까 · 틀리면 · 비쌀까)를 가격 바로 위에서 먼저 지운다 */}
+          <Head eyebrow="가격" title="무료 진단 → 한 번 감사 → 법이 바뀔 때마다" lede="부가세 별도 · 계좌이체 · 지출증빙 발급." />
+          {/* 사기 전에 걸리는 세 가지(돈만 날릴까 · 베리라인이 틀리면 · 결과가 새면)를 가격 바로 위에서 먼저 지운다(2026-10-29 고객 입장 재정비) */}
           <Reveal className="vl-safe">
-            <div><b>무료 진단부터</b><p>깨끗하면 도입을 권하지 않습니다.</p></div>
-            <div><b>고친 부분은 환불 보증</b><p>원문과 다르면 그 건 이용료 환불 + 정정 보고서.</p></div>
-            <div><b>API 매달 {API_RATES.trial.calls}건 무료</b><p>가입만 하면 개발팀이 먼저 붙여 봅니다.</p></div>
-          </Reveal>
-          <Reveal className="vl-path">
-            <span className="tag">처음이면 이 순서</span>
-            <ol><li><b>무료 진단</b>함정 질문 몇 개로 귀사 AI를 먼저 봅니다</li><li><b>파일럿 감사</b>{pilot !== 0 ? `첫 ${AUDIT_PILOT_SEATS}곳 ${won(AUDIT_RATES.audit_pilot.krw)}` : `정밀 감사 ${won(AUDIT_RATES.audit.krw)}`} · 보고서와 30분 설명</li><li><b>정기 감사 또는 API</b>법이 바뀔 때마다 · 답변마다</li></ol>
+            <div><b>무료 진단부터</b><p>틀린 곳이 없으면 도입을 권하지 않습니다.</p></div>
+            <div><b>우리 지적이 틀리면 전액 환불</b><p>보고서에는 원문과 기계 대조로 확정한 오류만 싣습니다. 하나라도 원문과 다르면 감사 금액을 모두 돌려드립니다.</p></div>
+            <div><b>결과는 귀사에만</b><p>비공개 링크로 드리고, 회사 이름은 서면 동의 없이 공개하지 않습니다.</p></div>
           </Reveal>
           <div className="vl-price-grid">
             {[
-              { key: "audit", k: "정밀 감사", price: won(AUDIT_RATES.audit.krw), per: " / 1회", d: "함정 질문 50개 · 비공개 보고서 · 30분 설명 · 재검사 1회", main: true },
-              { key: "audit_regular", k: "정기 감사", price: won(AUDIT_RATES.audit_regular.krw), per: " / 분기", d: `분기마다 30문항 · 개정 알림 · 1년 선납 ${won(AUDIT_RATES.audit_regular_year.krw)}` },
-              { key: "audit_package", k: "출시 전 패키지", price: won(AUDIT_RATES.audit_package.krw), per: " / 1식", d: "정밀 감사 + 검증 API 스타터 3개월(월 400건)" },
+              { key: "diag", k: "① 무료 진단", price: "0원", per: "", d: "함정 질문 10~15개 · 원문과 다른 답과 근거 조문 요약 · 영업일 3일", diag: true },
+              { key: "audit", k: "② 정밀 감사", price: won(AUDIT_RATES.audit.krw), per: " / 1회", d: "함정 질문 50개 · 확정된 오류만 원문과 나란히 · 30분 설명 · 고친 뒤 재검사 1회 · 지적이 틀리면 전액 환불", main: true },
+              { key: "audit_regular", k: "③ 정기 감사", price: won(Math.round(AUDIT_RATES.audit_regular.krw / 3)), per: " / 월꼴 (분기 청구)", d: `분기마다 30문항 · 관련 법이 바뀌면 바뀐 조문 질문을 바로 재검사 · 1년 선납 ${won(AUDIT_RATES.audit_regular_year.krw)}` },
             ].map((c, i) => (
               <Reveal key={c.key} delay={i * 0.08} className={`vl-pcard${c.main ? " main" : ""}`}>
                 <div className="k">{c.k}</div>
                 <div className="price">{c.price}<small>{c.per}</small></div>
                 <div className="d">{c.d}</div>
-                <button type="button" className={`vl-btn ${c.main ? "key" : "line"} sm`} onClick={() => setQuote(c.key)}>바로 신청</button>
+                {c.diag
+                  ? <a className="vl-btn line sm" href="#diagnosis" onClick={toDiag}>무료 진단 받기</a>
+                  : <button type="button" className={`vl-btn ${c.main ? "key" : "line"} sm`} onClick={() => setQuote(c.key)}>바로 신청</button>}
               </Reveal>
             ))}
           </div>
@@ -774,7 +742,8 @@ export default function BusinessPage() {
               <button type="button" className="vl-btn key sm" onClick={() => setQuote("audit_pilot")}>파일럿으로 신청</button>
             </Reveal>
           )}
-          <h3 className="vl-subh">검증 API</h3>
+          <h3 className="vl-subh">검증 API — 서비스 안에서 답이 나가기 전에</h3>
+          <p className="vl-note" style={{ marginTop: 0 }}>모든 답을 보낼 필요는 없습니다. 금액 · 기간 · 벌칙 · 조문 번호가 들어간 답부터 보내면 비용을 줄이면서 틀리면 곤란한 답을 먼저 거릅니다. 매달 {API_RATES.trial.calls}건은 무료로 먼저 붙여 보세요.</p>
           <PlanCalc onQuote={(k) => setQuote(k)} onConsult={() => setInquiry({ plan: "custom", note: "" })} />
           <details className="vl-more"><summary>요금제별 가격 전부 보기</summary>
           <div className="vl-price-grid api">
@@ -783,6 +752,7 @@ export default function BusinessPage() {
               <div key={t.key} className="vl-pcard"><div className="k">{t.label}</div><div className="price">{won(t.monthlyKrw)}<small> / 월</small></div><div className="d">매달 {t.calls.toLocaleString("ko-KR")}건 · 건당 {won(Math.round(t.monthlyKrw / t.calls))}</div><button type="button" className="vl-btn line sm" onClick={() => setQuote(t.key)}>견적서 받기</button></div>
             ))}
             <div className="vl-pcard"><div className="k">{API_RATES.enterprise.label}</div><div className="price">월 {won(API_RATES.enterprise.fromKrw)}<small>~</small></div><div className="d">전용 한도 · 계약서 · 대량 처리</div><button type="button" className="vl-btn line sm" onClick={() => setInquiry({ plan: "custom", note: "" })}>상담 요청</button></div>
+            <div className="vl-pcard"><div className="k">출시 전 패키지</div><div className="price">{won(AUDIT_RATES.audit_package.krw)}<small> / 1식</small></div><div className="d">출시 전 팀용 · 정밀 감사 + 스타터 3개월(월 {API_RATES.tiers[0].calls}건)</div><button type="button" className="vl-btn line sm" onClick={() => setQuote("audit_package")}>견적서 받기</button></div>
           </div>
           </details>
           <p className="vl-note">개발팀이 먼저 붙여 보려면 <a href={`${CONSOLE_URL}?open=api`}>가입하고 체험 키 받기</a>(매달 {API_RATES.trial.calls}건 무료) · <a href={`${SITE_URL}/docs/api`}>API 문서</a></p>

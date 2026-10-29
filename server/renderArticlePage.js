@@ -6,7 +6,7 @@ import { esc } from "./renderPages.js";
 import { page } from "./renderIndexPage.js";
 import { ARTICLES, ARTICLE_BASE, HUB, PUBLISHED, SPECIAL_ISSUES, articlePath } from "./articles.js";
 
-import { siteOrigin } from "./site.js";
+import { siteOrigin, VERILINE_ON_APP } from "./site.js";
 const SITE = siteOrigin();
 const ORG = { "@type": "Organization", name: "베리라인(VERILINE)", url: SITE, logo: `${SITE}/veriline-icon-512.png` };
 const kDate = (iso) => {
@@ -84,7 +84,7 @@ export function renderArticle(slug, { base = "" } = {}) {
       mainEntityOfPage: `${SITE}${path}`,
       isPartOf: { "@type": "PublicationIssue", name: `VERILINE 할루시네이션 지수 · ${issue.title}`, url: `${SITE}/hallucination-index/${issue.slug}` },
       about: ["AI 할루시네이션", "AI 환각", "할루시네이션 체크"],
-      image: `${SITE}/og-yume.png`,
+      image: `${SITE}/og-veriline.png`,
     }),
     ld({
       "@context": "https://schema.org",
@@ -131,7 +131,7 @@ export function renderHub({ base = "" } = {}) {
       publisher: ORG,
       mainEntityOfPage: `${SITE}${path}`,
       about: ["AI 할루시네이션", "AI 환각", "할루시네이션 체크"],
-      image: `${SITE}/og-yume.png`,
+      image: `${SITE}/og-veriline.png`,
     }),
     ld({
       "@context": "https://schema.org",
@@ -209,7 +209,9 @@ ${tryBox()}</section>`;
 // 사이트맵 — 정적 페이지 + 글 + 발행한 지수. 검색엔진이 새 글을 빨리 찾게 서버가 만든다.
 export function sitemapXml(issues = []) {
   const urls = [
-    ["/", "weekly", "1.0", null],
+    // 도메인 이전 전(VERILINE_ON_APP=off)에는 이 서버의 "/"가 veriline.kr을 표준 주소로 가리키는 기업용 화면 사본이라 싣지 않는다
+    ...(VERILINE_ON_APP ? [["/", "weekly", "1.0", null]] : []),
+    ["/check", "weekly", "0.9", null],
     [ARTICLE_BASE, "monthly", "0.9", PUBLISHED],
     ...Object.keys(ARTICLES).map((s) => [articlePath(s), "monthly", "0.8", ARTICLES[s].updated || PUBLISHED]),
     ["/hallucination-index", "weekly", "0.8", null],

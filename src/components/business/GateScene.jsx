@@ -96,6 +96,8 @@ const CSS = `
 .gs-pill.p1 b { background:${RED}; }
 .gs-pill.p2 { color:${TEAL}; }
 .gs-pill.p2 b { background:${TEAL}; }
+/* 좁은 폰(360px)에서 영문 꼬리표가 화면 밖으로 밀려 잘렸다 — 한글 이름만 남긴다 */
+@media (max-width: 400px) { .gs-pill em { display:none; } }
 /* 엔진 표시(왼쪽 위) */
 .gs-hud { position:absolute; left:6px; top:4px; z-index:4; font-family:"IBM Plex Mono", "IBM Plex Sans KR", "Malgun Gothic", monospace; font-size:11px; color:#A9A9B6; display:flex; flex-direction:column; gap:7px; }
 .gs-hud .name { display:flex; align-items:center; gap:8px; color:#fff; font-size:12px; font-weight:600; letter-spacing:.06em; }

@@ -67,7 +67,7 @@ import { localizeResponses } from "./i18n.js";
 import { mailConfigured } from "./mailer.js";
 import { UpstreamError, OPERATOR_NOTE, userMessageFor, upstreamStatus, engineGate } from "./upstream.js";
 
-import { siteOrigin, SITE_HOST, LEGACY_HOSTS, consolePath } from "./site.js";
+import { siteOrigin, SITE_HOST, LEGACY_HOSTS, consolePath, VERILINE_ON_APP } from "./site.js";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const distDir = path.join(__dirname, "..", "dist");
 
@@ -90,7 +90,8 @@ app.use((req, res, next) => {
   // trust proxy가 켜져 있어 req.hostname은 프록시가 붙인 X-Forwarded-Host를 따른다.
   const host = hostOf(req);
   if (VERILINE_ALIASES.has(host)) return res.redirect(301, `https://${VERILINE_HOST}${req.originalUrl}`);
-  if (LEGACY_HOSTS.has(host)) {
+  // veriline.kr이 아직 이 서버에 붙지 않았으면(VERILINE_ON_APP=off) 옛 주소에서 그대로 연다 — server/site.js
+  if (LEGACY_HOSTS.has(host) && VERILINE_ON_APP) {
     if ((req.method === "GET" || req.method === "HEAD") && !isApiPath(req.path)) {
       // 옛 첫 화면(개인 검사)은 veriline.kr/check로 — 기업용 첫 화면과 겹치지 않게.
       const to = req.path === "/" ? consolePath(req.originalUrl.split("?")[1] || "") : req.originalUrl;
@@ -602,6 +603,44 @@ app.get(/^\/hallucination-index\/(special-[0-9]+)$/, (req, res, next) => {
   if (!out) return next();
   html(res.set("Cache-Control", "public, max-age=600"), out);
 });
+// llms.txt — AI 검색(ChatGPT · Perplexity 등)이 사이트를 요약할 때 읽는 안내문(llmstxt.org 형식). 화면 HTML이 나가던 자리(2026-10-29 점검).
+function llmsTxt(origin) {
+  return `# 베리라인 (VERILINE)
+
+> AI 답이 나가기 전, 마지막 검증선. 노무 · 세무 · 법률 AI 챗봇의 답을 법제처 국가법령정보센터의 현행 원문과 대조해 틀린 숫자 · 기간 · 벌칙, 삭제된 조문, 없는 조문 · 판례를 찾고 근거 조문과 함께 고칩니다. 판정은 공개 원문과 대조한 검증 정보이며 법률 · 의료 · 금융 자문이 아닙니다.
+
+## 기업용
+- [기업용 첫 화면](${origin}/): 무료 진단 → 정밀 감사 → 정기 감사(법이 바뀔 때마다 재검사), 실제 진단 사례
+- [기업 서비스 이용 조건](${origin}/b2b/terms): 판정 영수증, 오류 지적이 원문과 다르면 환불하는 조건
+- [API 문서](${origin}/docs/api): 답변 검증 API(OpenAI 형식 /v1)
+
+## 개인용
+- [AI 할루시네이션 체크](${origin}/check): AI가 쓴 글의 근거를 공식 원문과 한 줄씩 대조
+
+## 읽을거리
+- [AI 할루시네이션이란](${origin}/hallucination): 뜻 · 원인 · 유형 · 사례 · 체크 방법
+- [할루시네이션 지수](${origin}/hallucination-index): 같은 함정 질문으로 잰 AI별 기록
+
+## 연락
+- contact@veriline.kr
+`;
+}
+
+// robots.txt도 서버가 만든다 — 정적 파일은 사이트맵을 veriline.kr(기업용 한 장)로 가리켜, 도메인 이전 전에는 글 · 지수 사이트맵을 못 찾았다(2026-10-29).
+app.get("/robots.txt", (req, res) => {
+  const maps = [...new Set([`${siteOrigin()}/sitemap.xml`, `https://${SITE_HOST}/sitemap.xml`])];
+  res.set("Content-Type", "text/plain; charset=utf-8").set("Cache-Control", "public, max-age=86400")
+    .send(`User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /v1/
+Disallow: /admin
+Disallow: /datasets/
+Disallow: /reset-password
+
+${maps.map((m) => `Sitemap: ${m}`).join("\n")}
+`);
+});
 // 사이트맵은 서버가 만든다 — 글과 발행한 지수가 늘 때마다 정적 파일을 고치지 않아도 된다(public/sitemap.xml보다 먼저 잡힌다).
 app.get("/sitemap.xml", async (req, res) => {
   const issues = await all("SELECT slug, published_at FROM index_issues WHERE status = 'published' ORDER BY period_end DESC");
@@ -698,6 +737,10 @@ if (fs.existsSync(appDir)) {
 }
 
 if (fs.existsSync(distDir)) {
+  // 링크 태그를 보지 않고 /favicon.ico · /apple-touch-icon.png를 바로 찾는 검색엔진 · 메신저가 있다. 없으면 화면 HTML이 나가
+  // 구글이 옛 유메(달) 아이콘을 계속 썼다(2026-10-29 대표 지적) — 베리라인 마크로 고정한다.
+  app.get("/favicon.ico", (req, res, next) => res.set("Cache-Control", "public, max-age=86400").sendFile(path.join(distDir, "veriline-favicon.ico"), (err) => (err ? next() : undefined)));
+  app.get("/apple-touch-icon.png", (req, res, next) => res.set("Cache-Control", "public, max-age=86400").sendFile(path.join(distDir, "veriline-apple-touch-icon.png"), (err) => (err ? next() : undefined)));
   // 화면 나누기(2026-10-29): veriline.kr/ = 기업용 첫 화면(business.html), veriline.kr/check = 개인 검사 · 계정 · API 키(index.html).
   // 개인 흐름의 쿼리(결제 복귀 · 본인확인 · 비밀번호 재설정 · 추천 · 메뉴 열기)로 첫 화면에 오면 /check로 넘긴다.
   // 메인 빌드가 두 화면을 함께 만든다(vite.config.js). 약관 · API 문서 · 지수 같은 서버 페이지는 같은 주소 아래에 있다.
@@ -718,8 +761,16 @@ if (fs.existsSync(distDir)) {
   // 예전 주소들 — 남은 링크가 있으면 새 자리로.
   app.get(/^\/business\/?$/, (req, res) => (isLocalHost(req) && hasBusiness() ? sendShell(res, businessShell) : res.redirect(301, `/${queryOf(req) ? `?${queryOf(req)}` : ""}`)));
   app.get(/^\/personal\/?$/, (req, res) => res.redirect(301, consolePath(queryOf(req))));
+  // 사람들이 짐작해서 치는 주소 — 예전에는 모두 기업용 첫 화면이 200으로 나가 검색엔진에 같은 화면 수십 장으로 잡혔다(2026-10-29 점검).
+  const GUESSED = { "/developers": "/docs/api", "/docs": "/docs/api", "/api-docs": "/docs/api", "/pricing": "/#pricing", "/price": "/#pricing", "/contact": "/#diagnosis", "/quote": "/#diagnosis", "/diagnosis": "/#diagnosis", "/about": "/", "/b2b": "/", "/console": consolePath(), "/index": "/hallucination-index" };
+  app.get(/^\/[a-z-]+\/?$/, (req, res, next) => {
+    const to = GUESSED[req.path.replace(/\/+$/, "")];
+    return to ? res.redirect(301, to) : next();
+  });
+  app.get("/llms.txt", (req, res) => res.type("text/plain; charset=utf-8").set("Cache-Control", "public, max-age=86400").send(llmsTxt(siteOrigin(req))));
   app.use(staticFiles(distDir));
-  app.get(/^(?!\/(api|v1)\/).*/, (req, res) => sendShell(res, hasBusiness() ? businessShell : consoleShell));
+  // 화면이 없는 주소는 404 — 화면은 기업용 첫 화면을 그대로 보여 주되(길 잃은 사람이 바로 돌아가게) 상태 코드로 검색엔진에 "없는 페이지"라고 알린다.
+  app.get(/^(?!\/(api|v1)\/).*/, (req, res) => res.status(404).set("Cache-Control", "no-cache").set("X-Robots-Tag", "noindex").sendFile(hasBusiness() ? businessShell : consoleShell));
 }
 
 // 잘못된 JSON 본문 등 — HTML 에러 페이지 대신 JSON으로.

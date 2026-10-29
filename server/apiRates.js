@@ -53,11 +53,14 @@ export const AUDIT_LEAD = "영업일 기준 1~3일";
 export const AUDIT_LEAD_DAYS = 3;
 export const AUDIT_PILOT_SEATS = 3;
 // aftercare: 보고서를 보낸 뒤에도 남는 포함 항목 — 유료 감사 보고서 메일(auditDesk.js)과 견적서 화면이 같은 목록을 쓴다(2026-10-29).
+// 2026-10-29 고객 입장 재정비(금액은 그대로): 보고서에는 코드로 원문과 대조해 확정한 오류만 싣고(audit/codeProof.js),
+// 그 지적이 원문과 다르면 감사 금액 전액을 돌려준다. 정기 감사는 분기 재감사에 더해 관련 법이 바뀌면 바뀐 조문 질문을 바로 다시 잰다.
+export const AUDIT_REFUND = "보고서의 오류 지적이 하나라도 법제처 원문과 다르면 감사 금액 전액 환불";
 export const AUDIT_RATES = {
-  audit: { label: "AI 정밀 감사", krw: 870000, unit: "회", spec: "50문항(고난도 함정·공격형) · 사람 재확인 · 보고서 · 30분 설명 · 고친 뒤 재검사 1회", rounds: 1, aftercare: ["보고서 설명 통화 30분", "고치신 뒤 같은 질문으로 재검사 1회"] },
-  audit_pilot: { label: "AI 정밀 감사 — 파일럿", krw: 435000, unit: "회", spec: "정밀 감사와 같은 범위 · 첫 3곳 50% · 결과 피드백 통화 30분", rounds: 1, aftercare: ["결과 피드백 통화 30분", "고치신 뒤 같은 질문으로 재검사 1회"] },
-  audit_regular: { label: "AI 정기 감사", krw: 450000, unit: "분기", spec: "분기마다 30문항 · 법령 개정 추적 알림 · 공개 감사 기록·배지(동의 시)", rounds: 1, aftercare: ["분기마다 30문항 정기 감사"] },
-  audit_regular_year: { label: "AI 정기 감사 — 1년 선납", krw: 1620000, unit: "년", spec: "4분기 · 정기 감사 4회 값에서 10% 할인", rounds: 4, aftercare: ["분기마다 30문항 정기 감사(4회)"] },
+  audit: { label: "AI 정밀 감사", krw: 870000, unit: "회", spec: "50문항(고난도 함정·공격형) · 원문과 기계 대조로 확정한 오류만 보고 · 30분 설명 · 고친 뒤 재검사 1회 · 지적이 틀리면 전액 환불", rounds: 1, aftercare: ["보고서 설명 통화 30분", "고치신 뒤 같은 질문으로 재검사 1회", AUDIT_REFUND] },
+  audit_pilot: { label: "AI 정밀 감사 — 파일럿", krw: 435000, unit: "회", spec: "정밀 감사와 같은 범위 · 첫 3곳 50% · 결과 피드백 통화 30분 · 지적이 틀리면 전액 환불", rounds: 1, aftercare: ["결과 피드백 통화 30분", "고치신 뒤 같은 질문으로 재검사 1회", AUDIT_REFUND] },
+  audit_regular: { label: "AI 정기 감사", krw: 450000, unit: "분기", spec: "분기마다 30문항 · 관련 법이 바뀌면 바뀐 조문 질문을 바로 재검사(추가 비용 없음) · 공개 감사 기록·배지(동의 시)", rounds: 1, aftercare: ["분기마다 30문항 정기 감사", "관련 법이 바뀌면 바뀐 조문 질문 재검사(추가 비용 없음)"] },
+  audit_regular_year: { label: "AI 정기 감사 — 1년 선납", krw: 1620000, unit: "년", spec: "4분기 · 정기 감사 4회 값에서 10% 할인 · 개정 시 재검사 포함", rounds: 4, aftercare: ["분기마다 30문항 정기 감사(4회)", "관련 법이 바뀌면 바뀐 조문 질문 재검사(추가 비용 없음)"] },
   audit_package: { label: "출시 전 패키지", krw: 1170000, unit: "식", spec: "정밀 감사 + API 스타터 3개월(월 400건)", rounds: 1, aftercare: ["보고서 설명 통화 30분", "고치신 뒤 같은 질문으로 재검사 1회"] },
 };
 // 감사 주문서에서 고르는 업종 — 고객이 보는 이름(2026-10-29: 사이트 범위와 맞춤. 노무 정식 · 법률 · 세무 베타, 의료는 준비 중이라 뺐다).

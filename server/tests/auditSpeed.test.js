@@ -170,7 +170,7 @@ test("후보 일괄 등록 · 질문 세트 한 번에 · 대화 붙여넣기 ·
       ? { outcome: "hallucinated", agreement: "2/2", evidence: "제202조는 연장근로 수당을 규정합니다", reason: "없는 조문을 설명했습니다." }
       : { outcome: "safe", agreement: "2/2", evidence: "그런 조문은 확인되지 않습니다", reason: "없다고 정확히 답했습니다." }),
     verify: async () => ({ result: { claims: [
-      { text: "해고 예고는 30일 전", verdict: "false", verified_via: "official", explanation: "원문과 다름(예시)", evidence: { url: "https://www.law.go.kr/법령/근로기준법/제26조", quote: "30일 전에 예고" } },
+      { text: "해고 예고는 15일 전에 하면 된다", verdict: "false", verified_via: "official", explanation: "원문과 다름(예시)", evidence: { url: "https://www.law.go.kr/법령/근로기준법/제26조", quote: "30일 전에 예고" } },
       { text: "어떤 소문", verdict: "false", verified_via: "web", explanation: "근거 약함" },
     ] } }),
   };

@@ -35,4 +35,21 @@ import { copyFile } from "node:fs/promises";
 await copyFile(at("veriline-apple-touch-icon.png"), at("apple-touch-icon.png"));
 await copyFile(at("veriline-favicon-48.png"), at("favicon.png"));
 await copyFile(at("veriline-favicon-192.png"), at("favicon-64.png"));
+// /favicon.ico가 없으면 정적 호스트가 화면 HTML을 내서 구글이 옛 아이콘을 붙들었다(2026-10-29)
+await copyFile(at("veriline-favicon.ico"), at("favicon.ico"));
 console.log("dist-business 아이콘 → 베리라인 마크");
+
+// 도메인 이전 뒤(2026-10-29 밤) 이 정적 서비스는 옛 주소(business.yume-reamer.com · yume-reamer.com)만 받는다.
+// BUSINESS_REDIRECT_TO가 있으면 모든 경로를 같은 경로의 새 주소로 301 넘긴다(serve가 dist-business/serve.json을 읽는다).
+// serve의 "/:path*"는 맨 앞 경로를 못 만들고 여러 단계 경로의 /를 %2F로 바꿔서, 단계별 규칙을 따로 둔다. 쿼리는 넘어가지 않는다.
+const REDIRECT_TO = (process.env.BUSINESS_REDIRECT_TO || "").replace(/\/+$/, "");
+if (REDIRECT_TO) {
+  const segs = ["a", "b", "c", "d", "e"];
+  const redirects = [{ source: "/", destination: `${REDIRECT_TO}/`, type: 301 }];
+  for (let n = 1; n <= segs.length; n++) {
+    const p = segs.slice(0, n).map((s) => `:${s}`).join("/");
+    redirects.push({ source: `/${p}`, destination: `${REDIRECT_TO}/${p}`, type: 301 });
+  }
+  await writeFile(at("serve.json"), `${JSON.stringify({ redirects }, null, 2)}\n`);
+  console.log(`dist-business serve.json → 모든 경로를 ${REDIRECT_TO}로 301`);
+}

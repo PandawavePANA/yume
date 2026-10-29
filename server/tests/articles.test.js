@@ -56,7 +56,7 @@ test("글 여섯 편과 허브가 서버에서 완성된 HTML로 나온다 — �
   const faq = jsonLd(hub.text).find((x) => x["@type"] === "FAQPage");
   assert.equal(faq.mainEntity.length, HUB.faq.length);
   for (const slug of Object.keys(ARTICLES)) assert.match(hub.text, new RegExp(`/hallucination/${slug}"`));
-  assert.equal((await get("/hallucination/no-such-article")).status, 200); // SPA로 넘어간다(빌드가 없으면 404)
+  assert.equal((await get("/hallucination/no-such-article")).status, 404); // 없는 글은 404(2026-10-29: 예전엔 SPA 화면이 200으로 나가 검색엔진에 중복 페이지로 잡혔다)
 });
 
 test("'할루시네이션 체크' 글과 메인 제목이 그 말을 담는다", async () => {

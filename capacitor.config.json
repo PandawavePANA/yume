@@ -1,11 +1,11 @@
 {
   "appId": "com.reamer.yume",
-  "appName": "유메",
+  "appName": "베리라인",
   "webDir": "app-shell",
   "backgroundColor": "#F6F2FC",
   "appendUserAgent": "YumeApp/1.0",
   "server": {
-    "url": "https://www.yume-reamer.com/app/",
+    "url": "https://veriline.kr/app/",
     "errorPath": "offline.html"
   },
   "android": {

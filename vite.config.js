@@ -2,9 +2,10 @@ import { fileURLToPath, URL } from "node:url";
 
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import { businessSeoPlugin } from "./scripts/businessSeo.mjs";
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), businessSeoPlugin()],
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),

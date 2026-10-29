@@ -72,7 +72,7 @@ function sendReceipt(order, { method, planExpiresAt }) {
         seller,
       ].join("\n"),
       html: `<div style="font-family:system-ui,-apple-system,'Noto Sans KR',sans-serif;max-width:560px;color:#241F33;line-height:1.7">
-  <p style="margin:0 0 6px;font-size:13px;color:#8577A8">베리라인 YUME</p>
+  <p style="margin:0 0 6px;font-size:13px;color:#8577A8">베리라인</p>
   <h2 style="margin:0 0 18px;font-size:19px">결제가 완료되었습니다</h2>
   <table style="border-collapse:collapse;font-size:14px;width:100%">
     ${rows.map(([k, v]) => `<tr><td style="padding:7px 14px 7px 0;color:#8577A8;white-space:nowrap">${esc(k)}</td><td style="padding:7px 0"><b>${esc(v)}</b></td></tr>`).join("")}

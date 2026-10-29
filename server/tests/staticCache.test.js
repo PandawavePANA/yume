@@ -52,9 +52,10 @@ maybe("해시가 붙은 파일은 1년 동안 묻지 않고 쓴다", async () =>
 });
 
 maybe("index.html은 매번 새로 확인한다", async () => {
-  for (const url of ["/", "/some/deep/route"]) {
+  // 없는 주소는 404지만 화면은 같은 껍데기라 캐시 규칙도 같아야 한다(2026-10-29: 없는 주소가 200이던 것을 404로).
+  for (const [url, status] of [["/", 200], ["/some/deep/route", 404]]) {
     const r = await fetch(base + url);
-    assert.equal(r.status, 200, url);
+    assert.equal(r.status, status, url);
     const cc = r.headers.get("cache-control") || "";
     assert.match(cc, /no-cache/, `${url}는 no-cache여야 한다 — 옛 화면을 쥐면 흰 화면이 된다`);
     assert.doesNotMatch(cc, /immutable|max-age=31536000/, url);
