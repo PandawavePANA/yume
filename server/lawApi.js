@@ -457,6 +457,14 @@ export async function getStatuteIndex(mst) {
   };
 }
 
+/** 특정 버전(MST + 시행일)의 조문 전부 — 개정 전 벌칙 지도를 만들 때 쓴다(2026-10-29). */
+export async function getStatuteArticlesAt(mst, efYd) {
+  const r = await callLawApi("lawService.do", { target: "eflaw", MST: mst, efYd });
+  if (!r.ok) return r;
+  const arr = toArray(r.data?.["법령"]?.["조문"]?.["조문단위"]).filter((u) => u["조문여부"] === "조문");
+  return { ok: true, articles: arr.map((u) => ({ no: Number(normalizeArticleNo(u["조문번호"])) || 0, branch: Number(u["조문가지번호"]) || 0, title: String(u["조문제목"] || "").trim(), text: flattenArticleText(u) || "", deleted: isDeletedArticleText(flattenArticleText(u)) })) };
+}
+
 // 법령의 부칙 단위(공포일 · 내용). 본문과 같은 요청이라 캐시에서 바로 나온다 — 시행일 · 적용례 · 경과조치를 계산할 때 쓴다(2026-10-29).
 // 조문 옆 <개정 2026.4.7>은 공포일이고, 실제 시행일은 부칙 제1조에 있다(근로기준법 2026.4.7 공포 → 10.8 시행).
 export async function getStatuteAddenda(mst) {

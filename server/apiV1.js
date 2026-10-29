@@ -577,7 +577,10 @@ router.post("/answer-check", express.json({ limit: "1mb" }), requireApiKey, engi
     logApiCost(`ac${started}`, "api_answer_check", cost);
     await recordOpsCost("api_answer_check", key.user_id, cost);
   }
-  res.json({ ...out, level, elapsed_ms: Date.now() - started, billed_units: units, usage: await usageInfo(key) });
+  // 아무것도 확인하지 못한 결과(모델 · 법제처 장애)는 과금하지 않고, 확인했다고 말하지 않는다(2026-10-29)
+  const unverified = out.verification?.status === "unverified";
+  if (unverified && usageId) await finishApiUsage(usageId, { statusCode: 200, cached: false, billable: false });
+  res.json({ ...out, level, elapsed_ms: Date.now() - started, billed_units: unverified ? 0 : units, ...(unverified ? { warning: "이번 요청은 확인을 마치지 못했습니다(원문 대조가 돌지 못함). 답을 그대로 내보내지 말고 다시 보내 주세요. 과금하지 않았습니다." } : {}), usage: await usageInfo(key) });
 });
 
 // 학습 신호 — 사용자가 '틀렸어요'로 신고했고 운영자가 맞다고 본 오류(베리라인이 놓친 것). 과금하지 않는다.

@@ -138,6 +138,12 @@ const CSS = `
 .vl-proof b.key { color:var(--key); }
 .vl-proof em { display:block; font-style:normal; font-size:14px; color:var(--g2); margin-top:8px; }
 @media (max-width: 760px) { .vl-proof { grid-template-columns:1fr; } .vl-proof > div + div { border-left:0; border-top:1px solid var(--line); padding-left:0; } .vl-proof > div { padding:24px 0; } }
+.vl-proofcases { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; margin-top:40px; }
+.vl-proofcases .vl-trap { flex:none; min-height:0; }
+@media (max-width: 900px) { .vl-proofcases { grid-template-columns:1fr; } }
+.vl-proofcta { display:flex; flex-wrap:wrap; gap:16px 24px; align-items:center; justify-content:space-between; margin-top:28px; padding:22px 26px; border-radius:16px; background:var(--off); }
+.vl-proofcta p { margin:0; font-size:16.5px; color:var(--g1); max-width:60ch; }
+.vl-proofcta p b { color:var(--ink); }
 .vl-quote { font-size:clamp(22px,2.6vw,32px); font-weight:600; letter-spacing:-.025em; line-height:1.45; margin:72px 0 0; max-width:30ch; text-wrap:balance; }
 .vl-quote span { color:var(--g2); }
 /* 가로 레일 */
@@ -487,13 +493,21 @@ const CSS = `
 // 2026-10-26 대표 "다른 기업 IR 덱 흐름을 참고해 — IR 내용과 가격 제안이 함께". 순서는 IR 덱의 정석(문제 → 왜 지금 →
 // 해결 → 기술 · 해자 → 제품 → 시장 → 비즈니스 모델 · 가격 → 경쟁 → 성과 · 로드맵 → 팀 → 문의)을 따르되,
 // 고객이 읽어도 결정에 필요한 것(증거 · 받는 것 · 가격 · 신뢰 · FAQ · 무료 진단)이 빠지지 않게 끼워 넣었다.
+// 2026-10-29: 사는 사람이 먼저 보는 순서로 — 사례 → 작동 방식 → 가격. 성능 숫자는 기술 뒤로.
 const NAV = [
   ["#proof", "사례"],
-  ["#bench", "성능"],
   ["#how", "작동 방식"],
   ["#tech", "기술"],
   ["#pricing", "가격"],
   ["#faq", "FAQ"],
+];
+
+// 실제 무료 진단(노무 상담 AI A사, 2026-10-27)에서 법제처 원문으로 확정한 오류 셋 — 회사 이름은 동의 없이 쓰지 않는다.
+// 숫자 하나(26문항 중 8개)보다 "무엇을 어떻게 틀렸나"가 사는 이유가 된다(2026-10-29 대표 "강력하고 어필 가능한 내용을 앞에").
+const PROOF_CASES = [
+  { type: "바뀐 법 미반영", title: "임금체불 처벌", bad: "3년 이하 징역 · 3천만 원 이하 벌금(제109조)", good: "5년 이하 징역 · 5천만 원 이하 벌금", law: "근로기준법 제107조 ① · 2026.10.8 시행" },
+  { type: "비슷한 조문 혼동", title: "체불사업주 신용제재 기준", bad: "체불총액 3천만 원 이상", good: "2천만 원 이상 — 3천만 원은 명단 공개 기준", law: "근로기준법 제43조의3" },
+  { type: "삭제된 조문 인용", title: "임금체불 처벌불원 근거", bad: "근로기준법 제109조 제2항", good: "제107조 제2항 — 제109조 제2항은 삭제", law: "근로기준법 제107조 ②" },
 ];
 
 
@@ -531,6 +545,7 @@ const FAQ = [
   ["API 키나 내부 권한이 필요한가요?", "아니요. 일반 사용자처럼 서비스를 직접 써 보며 확인합니다. 출시 전이면 시험 계정만 주세요."],
   ["결과가 밖으로 새지 않나요?", "보고서는 비공개 링크로 귀사에만 드리고, 언제든 회수할 수 있습니다."],
   ["자체 테스트가 있는데도 필요할까요?", "자체 시험은 회사가 아는 질문만 묻습니다. 노무 상담 AI A사는 무료 진단 26문항 중 8개가 틀렸습니다. 자체 시험은 실사 · 제휴 심사에서 증빙도 되지 않습니다."],
+  ["어느 분야를 하나요?", "노무는 정식 서비스입니다. 법률(임대차 · 민사)과 세무는 베타로, 같은 방식으로 법제처 원문과 대조하되 결과에 베타임을 표시합니다. 의료는 준비 중입니다."],
   ["기간과 비용은요?", `무료 진단은 보통 영업일 3일입니다. 정밀 감사는 ${won(AUDIT_RATES.audit.krw)}(부가세 별도), 첫 ${AUDIT_PILOT_SEATS}곳은 ${won(AUDIT_RATES.audit_pilot.krw)}입니다.`],
   ["베리라인이 틀리면요?", "베리라인이 원문으로 고친 부분(판정 영수증이 있는 부분)이 원문과 다르면 이용료를 환불하고 정정 보고서를 드립니다. 확인하지 못한 부분은 결과에 그렇게 적습니다."],
 ];
@@ -621,7 +636,8 @@ export default function BusinessPage() {
         <div className="vl-wrap vl-hero-grid">
           <div>
             {/* 2026-10-28: 실제 검증 성숙도대로 표기한다(외부 점검 — 헤드라인이 실제 범위보다 넓다는 지적) */}
-            <Reveal><div className="vl-badge"><b>ENGINE 3.1</b><span>노무 정식 · 법률 · 세무 베타 · 의료 준비 중</span></div></Reveal>
+            {/* 2026-10-29: 기술 이름 · 베타 표시 대신 "지금 확인할 이유"(실제 개정). 분야 범위는 FAQ "어느 분야를 하나요?"에 그대로 밝힌다 */}
+            <Reveal><div className="vl-badge"><b>10.8 시행</b><span>근로기준법 벌칙 개정 — 귀사 AI는 바뀐 형량으로 답하나요?</span></div></Reveal>
             <SplitWords as="h1" text={"AI 답이 나가기 전, \n 마지막 검증선."} accent={[5, 6]} accentClass="vl-grad" delay={0.1} />
             <Reveal delay={0.5}>
               {/* 2026-10-28: "책임집니다"를 계약상 한도가 보이는 문장으로(사업 진단 — 무한책임으로 읽힐 소지). 범위는 판정 영수증과 기업 이용 조건 제10조의2 */}
@@ -629,7 +645,7 @@ export default function BusinessPage() {
               <p className="lead">틀린 법 안내 한 줄이 소송이 됩니다. 베리라인이 원문과 맞춰 보고 고쳐 드립니다.</p>
               <div className="ctas">
                 <a className="vl-btn key" href="#diagnosis" onClick={toDiag}>우리 AI 무료 진단 받기 <span className="arr">→</span></a>
-                <a className="vl-btn line-dark" href="#how">작동 방식 보기</a>
+                <a className="vl-btn line-dark" href="/sample-report.pdf" target="_blank" rel="noopener">샘플 보고서 보기</a>
               </div>
               <div className="vl-techrow" aria-label="검증 방식">
                 <span><i />법제처 현행 조문</span>
@@ -656,16 +672,24 @@ export default function BusinessPage() {
           <Reveal className="vl-proof" style={{ gridTemplateColumns: "1fr" }}>
             <div><small>A사 무료 진단 26문항</small><b className="key"><CountUp to={8} suffix="개" /></b><em>틀림 · 현행 법과 다른 답 7 · 삭제된 조문 인용 1</em><CellGrid total={26} hits={8} /></div>
           </Reveal>
+          <div className="vl-proofcases">
+            {PROOF_CASES.map((t, i) => (
+              <Reveal key={t.title} delay={i * 0.06} className="vl-trap">
+                <div className="type">{t.type}</div>
+                <h3>{t.title}</h3>
+                <div className="row"><span>AI 답</span><s>{t.bad}</s></div>
+                <div className="row"><span>현행 원문</span><span className="right">{t.good}</span></div>
+                <div className="law">§ {t.law}</div>
+              </Reveal>
+            ))}
+          </div>
+          <Reveal className="vl-proofcta">
+            <p>서비스 중인 AI도 바뀐 법 앞에서 이렇게 틀립니다. <b>귀사 AI는 어떻게 답하는지, 무료로 먼저 확인해 드립니다.</b></p>
+            <a className="vl-btn key" href="#diagnosis" onClick={toDiag}>무료 진단 받기 <span className="arr">→</span></a>
+          </Reveal>
         </div>
       </section>
 
-      {/* ── 2-1. 성능: 자체 데이터셋 · 정확도 · 가격 ── */}
-      <section className="vl-sec off" id="bench">
-        <div className="vl-wrap">
-          <Head eyebrow="성능 · 자체 데이터셋" title="최신 AI가 틀린 505문항으로 단련했습니다" lede="숫자는 모두 실제로 잰 값입니다." />
-          <BenchBoard onTry={toDiag} />
-        </div>
-      </section>
 
 
       {/* ── 3. 어디서 틀리나: 함정 유형(가로 레일, 오른쪽 → 왼쪽) ── */}
@@ -702,6 +726,14 @@ export default function BusinessPage() {
         <div className="vl-wrap">
           <Head dark eyebrow="기술 · 엔진 3.0" title="판정은 AI가 아니라 원문과 코드가 합니다" />
           <Reveal><EnginePipeline /></Reveal>
+        </div>
+      </section>
+
+      {/* ── 성능: 자체 데이터셋 · 정확도 · 가격(2026-10-29 기술 뒤로 — 사례 · 작동 방식이 먼저) ── */}
+      <section className="vl-sec off" id="bench">
+        <div className="vl-wrap">
+          <Head eyebrow="성능 · 자체 데이터셋" title="최신 AI가 틀린 505문항으로 단련했습니다" lede="숫자는 모두 실제로 잰 값입니다." />
+          <BenchBoard onTry={toDiag} />
         </div>
       </section>
 

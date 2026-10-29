@@ -734,5 +734,17 @@ export async function checkAnswer({ question = "", answer, level: levelKey = "fa
       finalText = appendCorrections(base, pend);
     }
   }
+  // 확인하지 못했으면 "확인함"이라고 말하지 않는다(2026-10-29) — 모델 호출이 실패하면(키 · 잔액 · 장애) 법령 대조도 사실 확인도
+  // 돌지 못한 채 checked: true · 고칠 곳 0개로 나가, 틀린 답이 '검증 통과'처럼 보였다(로컬 키 오류로 재현: 3천만 원 오답이 그대로).
+  // 법령 질문인데 법령 대조가 돌지 못했거나 사실 확인이 실패했으면 표시하고, 아무것도 확인하지 못했으면 checked를 false로 둔다.
+  const legalFailed = legalTalk && !legal?.ran;
+  if (legalFailed) verification.legal_check_failed = true;
+  const touched = verification.fixes.length + verification.supported.length + (verification.hedged || []).length + (verification.cleared || 0) + (verification.facts_checked || 0) + (verification.computed || 0);
+  if ((legalFailed || verification.fact_check_failed) && !touched) {
+    verification.checked = false;
+    verification.status = "unverified";
+  } else {
+    verification.status = legalFailed || verification.fact_check_failed ? "partial" : "verified";
+  }
   return { text: finalText, changed: finalText !== text, verification };
 }
