@@ -14,7 +14,7 @@
 //   · 직접 재확인한다 — 베리라인이 지목한 오류는 'pending'이다. 사람이 원문을 직접 열어 링크를 남기고
 //     confirmed로 바꾼 것만 "불일치"로 센다. 하나라도 pending이면 발송할 수 없다.
 //   · 공정하게 쓴다 — 잘된 점이 하나도 없으면 발송할 수 없다.
-import { quoteSummariesForAudit } from "./b2bDeals.js";
+import { isAuditProduct, quoteSummariesForAudit } from "./b2bDeals.js";
 import { all, now, one, run } from "./db.js";
 import { randomToken } from "./security.js";
 import { buildProbeSet, buildHardSet, focusFromResults, AUDIT_DOMAINS, PROBE_TYPES, explainResult, splitAnswerText } from "./audit/index.js";
@@ -30,6 +30,7 @@ import { USD_KRW } from "./costGuard.js";
 import { logError } from "./errorLog.js";
 
 import { SITE_HOST } from "./site.js";
+import { AUDIT_RATES } from "./apiRates.js";
 export const DESK_DOMAINS = [...AUDIT_DOMAINS, "범용"];
 export const CATEGORIES = { service: "특정 회사 AI 서비스", general: "범용 AI 서비스" };
 // 질문을 보낸 방법. 보고서·메일·체크리스트 문장이 이걸 따른다 — 실제와 다른 방법을 적으면 보고서 전체를 믿지 않는다.
@@ -790,12 +791,18 @@ const hasNondisclosure = (s) => /공개하지\s*않았/.test(s) && /공개할\s*
 // 서명에 쓰는 주소 — veriline.kr(server/site.js). 2026-10-29까지 옛 주소(yume-reamer.com)가 박혀 나갔다.
 const SITE = SITE_HOST;
 
+// 유료 주문 감사에 들어 있는 사후 관리(apiRates.js AUDIT_RATES의 aftercare). 보고서 메일 · 견적서 화면이 같은 목록을 쓴다.
+// 2026-10-29: 돈을 내고 맡긴 감사의 보고서가 영업용 첫 메일 틀((광고) 제목 · "필요 없으시면 넘기셔도 됩니다" · 수신 거부 ·
+// 후속 메일 "이후로는 연락드리지 않겠습니다")로 나가고, 포함된 설명 통화 · 재검사를 어디서도 알려 주지 않았다.
+/** 이 감사 건에 연결된 입금 확인된 감사 주문(없으면 null) — 영업용 감사와 유료 감사를 가른다. */
+export const paidOrderOf = (quotes) => (quotes || []).find((q) => q.status === "paid" && isAuditProduct(q.product)) || null;
+
 /** 부록 C의 메일 네 통. C-1은 운영자가 고친 제목·본문이 있으면 그것을 쓴다. */
 // issues: 원문으로 확정한 오류 수, wrongAnswers: 그 오류가 들어 있던 답변 수, examples: 대표 사례 한 줄 제목(최대 3).
 // 숫자와 사례를 메일 본문에 바로 쓴다 — "일부가 다르다"로는 열어 볼 이유가 생기지 않는다.
 // clean: 재확인을 마쳤는데 확정된 오류가 없는 감사 — "이상 없음" 결과를 알리고 공개 감사 기록(배지)을 권한다.
 // goodExamples: 그때 메일에 넣을 잘한 점 한 줄(검토자가 쓴 제목).
-export function mailDrafts(audit, results, { reportUrl = "", issues = 0, wrongAnswers = 0, examples = [], clean = false, goodExamples = [] } = {}) {
+export function mailDrafts(audit, results, { reportUrl = "", issues = 0, wrongAnswers = 0, examples = [], clean = false, goodExamples = [], order = null } = {}) {
   const who = audit.contact_name ? `${audit.contact_name}님` : "담당자님";
   const service = audit.service_name || audit.company;
   const phrase = domainPhrase(audit.domain);
@@ -804,6 +811,7 @@ export function mailDrafts(audit, results, { reportUrl = "", issues = 0, wrongAn
   // 제목은 짧고 한 번에 읽히게(2026-10-13 대표: "제목이 너무 길다, 임팩트 있게 컴팩트하게"). 휴대폰 받은편지함에서
   // 잘리지 않는 길이 — 브랜드 이름 + 숫자 하나 + 근거. 법인명((주)…)이면 서비스 이름의 첫 낱말을 브랜드로 쓴다.
   const brand = /\(주\)|주식회사|㈜/.test(audit.company || "") ? String(service).split(/\s+/)[0] : audit.company || String(service).split(/\s+/)[0];
+  if (order) return clientMailDrafts(audit, { who, service, brand, n, sign, reportUrl, issues, wrongAnswers, clean, goodExamples, order });
   // 제목 앞 (광고): 받는 쪽이 요청하지 않은 첫 메일이고 서비스 소개로 이어지므로 정보통신망법 제50조 표기를 붙인다(2026-10-29).
   const subject = issues
     ? `(광고) [비공개] ${brand} AI 오답 ${issues}건 — 법령 원문 대조`
@@ -865,12 +873,66 @@ export function mailDrafts(audit, results, { reportUrl = "", issues = 0, wrongAn
   };
 }
 
+// 돈을 내고 맡긴 감사의 보고서 메일 — 영업 문구 · (광고) · 수신 거부를 빼고, 포함된 사후 관리를 적는다.
+// 금액 · "견적"은 쓰지 않는다(발송 문구 점검은 그대로 돈다). 주문번호로 어느 주문의 납품인지 알 수 있게 한다.
+function clientMailDrafts(audit, { who, service, brand, n, sign, reportUrl, issues, wrongAnswers, clean, goodExamples, order }) {
+  const care = AUDIT_RATES[order.product]?.aftercare || [];
+  const regular = /^audit_regular/.test(order.product);
+  const subject = `[베리라인 · 비공개] ${brand} AI 감사 보고서 (주문 ${order.number})`;
+  const finding = issues
+    ? `${wrongAnswers}개 답변에서 법령 원문과 다른 내용을 확인했습니다.`
+    : clean
+      ? "원문과 다른 내용은 확인되지 않았습니다."
+      : "원문과 대조한 결과를 정리했습니다.";
+  const body = [
+    `안녕하세요${audit.contact_name ? `, ${audit.contact_name}님` : ""}. 베리라인 ${COMPANY.ceo}입니다.`,
+    `맡겨 주신 ${service} AI 감사(${order.productLabel})를 마쳤습니다.`,
+    "",
+    `${(ASKED[audit.input_method] || ASKED.manual)(service, n)} ${finding}`,
+    ...(goodExamples.length ? ["", "정확하게 처리한 질문도 함께 적었습니다.", ...goodExamples.slice(0, 3).map((e) => `- ${e}`)] : []),
+    "",
+    "질문별 답변, 대조한 법령 원문, 판정 근거를 감사 보고서에 정리했습니다.",
+    reportUrl ? `감사 보고서: ${reportUrl}` : "",
+    "",
+    NONDISCLOSURE,
+    ...(care.length
+      ? ["", "이 감사에 포함된 것:", ...care.map((c) => `- ${c}${/통화/.test(c) ? " — 편하신 시간 두세 개를 답장으로 알려 주세요." : /재검사/.test(c) ? " — 고치신 뒤 이 메일로 알려 주시면 같은 질문으로 다시 확인합니다." : ""}`)]
+      : []),
+    ...(regular ? ["다음 회차를 시작할 때 미리 알려 드리겠습니다."] : []),
+    "",
+    "보고서의 판정이 원문과 다르다고 보시는 항목이 있으면 알려 주세요. 원문으로 다시 확인하고, 베리라인의 판정이 틀렸으면 정정 보고서를 드립니다.",
+    "",
+    "감사합니다.",
+    sign,
+  ]
+    .filter((l, i, a) => !(l === "" && a[i - 1] === ""))
+    .join("\n");
+  return {
+    first: { subject: audit.mail_subject || subject, body: audit.mail_body || body, edited: !!(audit.mail_subject || audit.mail_body), defaultSubject: subject, defaultBody: body },
+    followup: {
+      subject: `Re: ${subject}`,
+      body: `${who}, 지난번 보내 드린 감사 보고서는 잘 받으셨는지요? ${regular ? "다음 회차 전에 함께 확인하고 싶은 질문이 있으면 알려 주세요." : "포함된 설명 통화와 재검사는 편하실 때 말씀 주시면 바로 일정을 잡겠습니다."} 확인이 필요한 항목은 원문과 함께 설명드리겠습니다.\n\n${COMPANY.ceo} 드림`,
+    },
+    interested: {
+      subject: `Re: ${subject}`,
+      body: "답장 감사합니다. 설명 통화는 15~30분이면 됩니다. 편하신 시간 두세 개를 알려 주시면 맞추겠습니다.",
+    },
+    callQuestions: [
+      "보고서에서 가장 먼저 고치실 부분은 어디인가요?",
+      "오류가 몰린 자리(개정 직후 · 형제 조문 · 단서)가 내부에서 예상하신 것과 같았나요?",
+      "고친 뒤 재검사는 언제쯤이 좋을까요?",
+      "다음에 함께 확인하고 싶은 분야나 질문 유형이 있나요?",
+    ],
+    client: true,
+  };
+}
+
 // ── 발송 전 체크리스트(부록 D-1) ──────────────────────────────────────
 // 자동으로 볼 수 있는 건 자동으로 본다. 사람이 아니면 알 수 없는 것(손으로 입력했는가, 애매한 걸
 // 다 뺐는가, 받는 사람이 담당자 개인인가)만 운영자가 체크한다.
 export const MANUAL_CHECKS = ["manual_input", "ambiguous_removed", "recipient_person"];
 
-export function checklist(audit, items, findings, files, mail) {
+export function checklist(audit, items, findings, files, mail, { paid = false } = {}) {
   const manual = parse(audit.checklist_json) || {};
   const res = auditResults(items, findings);
   const answered = items.filter((i) => String(i.answer || "").trim());
@@ -958,17 +1020,25 @@ export function checklist(audit, items, findings, files, mail) {
       ok: overclaim.length === 0,
       detail: overclaim.length ? overclaim.map((p) => `“${p.match}” — ${p.why}`).join(" / ") : "걸린 표현 없음",
     },
-    {
-      key: "recipient_person",
-      label: "받는 사람이 담당자 개인이다",
-      ok: !!manual.recipient_person && isPersonalEmail(audit.contact_email),
-      manual: true,
-      detail: !audit.contact_email
-        ? "담당자 이메일을 적어주세요."
-        : isPersonalEmail(audit.contact_email)
-          ? `${audit.contact_email}`
-          : `${audit.contact_email}는 대표 메일함으로 보여요. 담당자 개인 주소를 찾아주세요.`,
-    },
+    // 유료 주문은 고객이 계약 신청 때 적은 주소로 보낸다 — 대표 메일함이어도 고객이 고른 받는 곳이다.
+    paid
+      ? {
+          key: "recipient_person",
+          label: "받는 사람이 주문한 고객이 적은 이메일이다",
+          ok: !!audit.contact_email,
+          detail: audit.contact_email ? `${audit.contact_email} (주문 때 적은 주소)` : "주문의 담당자 이메일이 비어 있어요.",
+        }
+      : {
+          key: "recipient_person",
+          label: "받는 사람이 담당자 개인이다",
+          ok: !!manual.recipient_person && isPersonalEmail(audit.contact_email),
+          manual: true,
+          detail: !audit.contact_email
+            ? "담당자 이메일을 적어주세요."
+            : isPersonalEmail(audit.contact_email)
+              ? `${audit.contact_email}`
+              : `${audit.contact_email}는 대표 메일함으로 보여요. 담당자 개인 주소를 찾아주세요.`,
+        },
   ];
   return { items: list, passed: list.every((c) => c.ok), lint };
 }
@@ -1001,6 +1071,10 @@ export async function auditDetail(id, { base = "" } = {}) {
     .filter((f) => f.polarity === "good" && Number(f.featured) && String(f.report_title || "").trim())
     .map((f) => String(f.report_title).trim())
     .filter((t) => !lintCopy(t).length);
+  // 이 감사에서 이어진 견적(데스크에서 발행 · 유료 주문). 보고서의 "다음 단계"와 데스크 10단계가 같은 목록을 본다.
+  // 입금 확인된 감사 주문이 있으면 고객 납품이다 — 메일 · 체크리스트가 영업용과 다르다.
+  const quotes = await quoteSummariesForAudit(audit.id, base).catch(() => []);
+  const order = paidOrderOf(quotes);
   const mail = mailDrafts(audit, results, {
     reportUrl,
     issues: confirmedIssues.length,
@@ -1008,13 +1082,12 @@ export async function auditDetail(id, { base = "" } = {}) {
     examples,
     clean: !!results.reviewComplete && !confirmedIssues.length && results.answered > 0,
     goodExamples,
+    order,
   });
   const costRow = await one(
     `SELECT COALESCE(SUM(v.cost_usd), 0) AS usd, COUNT(v.id) AS n FROM ai_audit_items i JOIN verifications v ON v.id = i.verification_id WHERE i.audit_id = :id`,
     { id: audit.id },
   );
-  // 이 감사에서 이어진 견적(데스크에서 발행). 보고서의 "다음 단계"와 데스크 10단계가 같은 목록을 본다.
-  const quotes = await quoteSummariesForAudit(audit.id, base).catch(() => []);
   return {
     audit,
     items,
@@ -1023,7 +1096,8 @@ export async function auditDetail(id, { base = "" } = {}) {
     results,
     mail,
     quotes,
-    checklist: checklist(audit, items, findings, files, mail),
+    order,
+    checklist: checklist(audit, items, findings, files, mail, { paid: !!order }),
     composition: composition(items),
     topics: topicsFor(audit.domain).map((k) => ({ key: k, label: TOPICS[k].label, count: TOPICS[k].questions.length })),
     checking: isChecking(audit.id),

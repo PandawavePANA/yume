@@ -6,7 +6,7 @@
 // 영업일 3일, b2bDeals.markPaid의 due_at)이 붙는다.
 //
 // 따로 표를 두지 않고 b2b_quotes에서 계산한다 — 상태가 두 군데에 있으면 반드시 어긋난다.
-import { all, now, run } from "./db.js";
+import { all, now, one, run } from "./db.js";
 import { AUDIT_RATES } from "./apiRates.js";
 import { createAudit, updateAudit } from "./auditDesk.js";
 import { isAuditProduct, parseBilling, parseOrder, quoteById, quoteNumber } from "./b2bDeals.js";
@@ -89,6 +89,18 @@ export async function markDelivered(quoteId) {
   return { quote: await quoteById(q.id), finished: done + 1 >= total };
 }
 
+/**
+ * 감사 데스크에서 유료 감사의 보고서 발송을 기록하면 그 주문의 첫 회차도 '보냄'으로 맞춘다.
+ * 2026-10-29: 두 화면(감사 데스크 발송 · 작업 리스트 '보고서 보냄')을 따로 눌러야 해서, 하나만 누르면 고객의 견적서 화면이
+ * 보고서를 보낸 뒤에도 "보내 드립니다"로 남고 작업 리스트에도 마감 지난 일로 남았다. 둘째 회차부터(정기 감사)는 작업 리스트에서 누른다.
+ */
+export async function deliveredFromDesk(auditId) {
+  const q = await one("SELECT * FROM b2b_quotes WHERE audit_id = :id AND status = 'paid' ORDER BY id DESC LIMIT 1", { id: Number(auditId) || 0 });
+  if (!q || !isAuditProduct(q.product) || Number(q.rounds_done || 0) > 0) return null;
+  const r = await markDelivered(q.id);
+  return r.error ? null : r.quote;
+}
+
 const won = (n) => `${Number(n).toLocaleString("ko-KR")}원`;
 
 function card(q, at) {
@@ -123,6 +135,8 @@ function card(q, at) {
     roundsDone: done,
     waitingDays: q.requested_at ? Math.floor((at - Number(q.requested_at)) / DAY) : null,
     totalLabel: won(q.total_krw),
+    // 보고서를 보낸 뒤에도 남은 포함 항목(설명 통화 · 재검사) — '최근 보낸 보고서'에서 잊지 않게(2026-10-29)
+    aftercare: AUDIT_RATES[q.product]?.aftercare || [],
   };
 }
 

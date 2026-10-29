@@ -5,7 +5,7 @@
 //   · 견적 안부(견적만 받고 3일) · 입금 안내(신청 후 영업일 2일) — 각 1회. 자동 모드면 근무 시간에 바로 보낸다.
 import { all } from "../../db.js";
 import { AUDIT_RATES } from "../../apiRates.js";
-import { auditDetail, reportPath, shareReport } from "../../auditDesk.js";
+import { auditDetail, markSent, reportPath, shareReport } from "../../auditDesk.js";
 import { isAuditProduct, parseBilling, quoteById, quoteNumber } from "../../b2bDeals.js";
 import { markDelivered, roundsOf } from "../../workList.js";
 import { addBusinessDays, kstDate } from "../../businessDays.js";
@@ -92,6 +92,11 @@ export async function run(ctx) {
   // ④ 입금 안내 1회 — 계좌이체 신청 후 영업일 2일
   for (const q of await all("SELECT * FROM b2b_quotes WHERE status = 'requested' AND pay_method = 'transfer' AND product <> 'metered' AND pay_reminded_at IS NULL ORDER BY id ASC LIMIT 10")) {
     if (addBusinessDays(Number(q.requested_at), 2) > t) continue;
+    // 계좌가 설정돼 있지 않으면 "입금 계좌: (별도 안내)"라는 빈 안내가 나간다(2026-10-29) — 보내지 않고 대표에게 알린다.
+    if (!bank()) {
+      await ctx.log(`${q.company} 입금 안내를 보내지 못했어요 — 입금 계좌(B2B_BANK_ACCOUNT)가 설정돼 있지 않습니다. 계좌를 직접 회신해 주세요.`, { level: "warn", ref: `quote:${q.id}` });
+      continue;
+    }
     const mail = payReminder(q);
     await sendOrPropose(ctx, { kind: "pay_reminder", q, mail, column: "pay_reminded_at", title: `입금 안내 — ${q.company}`, dedupe: `payremind:quote:${q.id}` });
   }
@@ -131,7 +136,7 @@ export function payReminder(q) {
 export async function sendCustomerMail(payload, input = {}, deps = {}) {
   const to = String(input.to || payload.to || "").trim();
   if (!to) return { ok: false, result: "받는 사람이 없어요." };
-  await deps.sendMail({ brand: "YUME", to, replyTo: COMPANY.email, subject: payload.subject, text: payload.body, html: htmlOf(payload.body) });
+  await deps.sendMail({ brand: "VERILINE", to, replyTo: COMPANY.email, subject: payload.subject, text: payload.body, html: htmlOf(payload.body) });
   if (payload.column === "reminded_at" || payload.column === "pay_reminded_at") {
     const { run } = await import("../../db.js");
     await run(`UPDATE b2b_quotes SET ${payload.column} = :t WHERE id = :id`, { id: payload.quoteId, t: Date.now() });
@@ -156,8 +161,12 @@ export async function deliverReport(payload, input = {}, deps = {}) {
   const to = String(input.to || payload.to || "").trim();
   if (!to) return { ok: false, result: "받는 사람이 없어요." };
   const b = parseBilling(q) || {};
-  const body = `${b.bizName || q.company} 담당자님, 베리라인 ${COMPANY.ceo}입니다.\n\n의뢰하신 ${productLabel(q)} 보고서를 보내 드립니다.\n\n감사 보고서: ${d.reportUrl}\n\n답변 ${d.results.answered}개를 법령 원문과 대조했고, 사람이 공식 원문으로 다시 확인한 결과만 담았습니다. 보고서는 귀사에만 드리는 비공개 링크이며, 회수를 원하시면 알려 주세요.\n궁금하신 점은 이 메일에 답장 주시면 원문과 함께 설명드리겠습니다.\n\n감사합니다.\n${COMPANY.ceo} 드림`;
-  await deps.sendMail({ brand: "YUME", to, replyTo: COMPANY.email, subject: `[베리라인] 감사 보고서 — ${quoteNumber(q)}`, text: body, html: htmlOf(body) });
+  // 감사 데스크가 유료 주문용으로 쓴 납품 메일(포함된 설명 통화 · 재검사 안내 포함)을 그대로 쓴다 — 두 길이 같은 말을 하게(2026-10-29).
+  const client = d.mail?.client ? d.mail.first : null;
+  const body = client ? client.body : `${b.bizName || q.company} 담당자님, 베리라인 ${COMPANY.ceo}입니다.\n\n의뢰하신 ${productLabel(q)} 보고서를 보내 드립니다.\n\n감사 보고서: ${d.reportUrl}\n\n답변 ${d.results.answered}개를 법령 원문과 대조했고, 사람이 공식 원문으로 다시 확인한 결과만 담았습니다. 보고서는 귀사에만 드리는 비공개 링크이며, 회수를 원하시면 알려 주세요.\n궁금하신 점은 이 메일에 답장 주시면 원문과 함께 설명드리겠습니다.\n\n감사합니다.\n${COMPANY.ceo} 드림`;
+  await deps.sendMail({ brand: "VERILINE", to, replyTo: COMPANY.email, subject: client ? client.subject : `[베리라인] 감사 보고서 — ${quoteNumber(q)}`, text: body, html: htmlOf(body) });
   const m = await markDelivered(q.id);
+  // 감사 데스크에도 보냄으로 남긴다(첫 회차만 — 데스크 발송 기록은 한 번). 실패해도 고객 메일은 이미 나갔다.
+  if (Number(payload.round || 1) === 1) await markSent(payload.auditId, { base: base(), override: true, reason: `유료 감사 보고서 — 경영지원팀 결재로 발송(${quoteNumber(q)})` }).catch(() => null);
   return m.error ? { ok: false, result: `보냈지만 전달 처리 실패: ${m.error}` } : { ok: true, result: `${to}로 보고서 보냄${m.finished ? "" : " · 다음 회차는 한 분기 뒤"}` };
 }

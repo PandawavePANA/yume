@@ -94,7 +94,7 @@ const SCRIPT = `
         section('입금 대기', '입금(카드 결제)을 확인하면 감사가 시작됩니다', w.pay.map(payRow), '기다리는 신청이 없습니다.') +
         section('예정된 정기 감사', '다음 회차 마감 2주 전에 위로 올라옵니다', w.later.map(function(c){ return plainRow(c, '다음 회차 ' + (c.dueLabel || '')); }), '예정된 회차가 없습니다.') +
         section('견적만 받은 곳', '신청 전 · 연락해 볼 후보', w.quoted.map(function(c){ return plainRow(c, '견적만'); }), '최근 30일 견적이 없습니다.') +
-        section('최근 보낸 보고서', '30일', w.done.map(function(c){ return plainRow(c, '완료'); }), '아직 없습니다.');
+        section('최근 보낸 보고서', '30일 · 포함된 설명 통화 · 재검사는 고객이 요청하면 여기서 챙깁니다', w.done.map(function(c){ var care = (c.aftercare || []).filter(function(x){ return !/정기 감사/.test(x); }); return plainRow(c, care.length ? '남은 것: ' + care.join(' · ') : '완료'); }), '아직 없습니다.');
     } catch (e) { box.innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; }
   }
   document.addEventListener('click', async function(e){

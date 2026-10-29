@@ -9,10 +9,14 @@
 import { COMPANY, COMPLAINT_NOTICE, complaintOfficer, businessLine, esc, layout, VERILINE } from "./renderPages.js";
 import { API_RATES, API_UNIT_CHARS, AUDIT_LEAD, AUDIT_RATES } from "./apiRates.js";
 import { kstDate } from "./businessDays.js";
-import { siteOrigin } from "./site.js";
+import { consolePath, siteOrigin } from "./site.js";
 import { canIssueTaxInvoice } from "./receiptInfo.js";
 // 견적서 결제 줄의 증빙 표시 — 일반과세 시작 전에는 세금계산서를 약속하지 않는다(2026-10-29).
 const proofLabel = () => (canIssueTaxInvoice() ? "전자세금계산서 발급" : "지출증빙 현금영수증 발급 · 일반과세 전환 뒤 세금계산서");
+// 입금 뒤 상태 문장도 같은 기준 — 공급 시점(입금 확인일)이 일반과세 전이면 현금영수증으로 안내한다(b2bApi.js proofLine과 같은 말).
+const proofSentence = (to, at = Date.now()) =>
+  canIssueTaxInvoice(at) ? `전자세금계산서는 ${to}로 발급됩니다.` : `증빙은 지출증빙 현금영수증(사업자번호)으로 발급해 ${to}로 알려 드립니다.`;
+const proofShort = () => (canIssueTaxInvoice() ? "전자세금계산서를 발급하고" : "지출증빙 현금영수증을 발급하고");
 import {
   DESK_PRODUCTS,
   isAuditProduct,
@@ -112,7 +116,7 @@ function apiKeyHelp(q, billing) {
   if (isAuditProduct(q.product)) return "";
   const mail = q.email || billing?.taxEmail || "";
   const main = siteOrigin();
-  return `<br/><br/><b>API 키 받기</b> — 개발팀이 <a href="${esc(main)}/?open=api">베리라인 개발자 키 발급</a>에서 <b>${esc(mail)}</b>로 가입해 키를 받아 두세요. 입금(계약)이 확인되면 그 계정의 키에 이 계약의 월 한도가 자동으로 걸립니다. 연결 방법: <a href="${esc(main)}/docs/api">API 문서</a>`;
+  return `<br/><br/><b>API 키 받기</b> — 개발팀이 <a href="${esc(main)}${consolePath("open=api")}">베리라인 개발자 키 발급</a>에서 <b>${esc(mail)}</b>로 가입해 키를 받아 두세요. 입금(계약)이 확인되면 그 계정의 키에 이 계약의 월 한도가 자동으로 걸립니다. 연결 방법: <a href="${esc(main)}/docs/api">API 문서</a>`;
 }
 
 /** 견적서 + (발행 상태면) 계약 신청서. */
@@ -170,7 +174,7 @@ export function renderQuotePage(q) {
       <li>감사는 일반 사용자로서 서비스에 질문을 넣고, 베리라인이 원문과 대조한 뒤 사람이 공식 원문으로 재확인한 오류만 보고서에 담습니다. 자동으로 대량 질의하지 않습니다.</li>
       <li>착수 전에 취소하면 전액 환불합니다. 보고서는 귀사에만 드리며, 회사 이름은 서면 동의가 있을 때만 공개합니다.</li>`
         : isMetered
-        ? `<li>종량제는 후불입니다. 수량은 예상 월 호출 수이며, 매달 말일까지의 실제 사용량 × 단가로 정산해 다음 달 10일까지 전자세금계산서를 발급합니다. 예상 물량을 월 상한으로 설정하고, 늘릴 때는 알려 주시면 됩니다.</li>`
+        ? `<li>종량제는 후불입니다. 수량은 예상 월 호출 수이며, 매달 말일까지의 실제 사용량 × 단가로 정산해 다음 달 10일까지 ${canIssueTaxInvoice() ? "전자세금계산서" : "증빙(일반과세 전환 전에는 지출증빙 현금영수증)"}을 발급합니다. 예상 물량을 월 상한으로 설정하고, 늘릴 때는 알려 주시면 됩니다.</li>`
         : `<li>결제: 계좌이체(${proofLabel()})${cardEnabled() ? " 또는 법인카드" : ""}. 월 약정은 매달 선결제이며, 쓰지 않은 호출은 다음 달로 넘어가지 않습니다.</li>`}
       ${isAudit ? "" : `<li>보낸 글 ${API_UNIT_CHARS.toLocaleString("ko-KR")}자마다 1건으로 셉니다. 처리하지 못하고 실패한 건은 세지 않고, 같은 요청을 다시 보내도 멱등 키로 두 번 과금되지 않습니다.</li>`}
       <li>서비스 조건은 <b>베리라인 기업 서비스 이용 조건</b>(${esc(TERMS_VERSION)})과 <b>데이터 처리 부속서</b>를 따르며, 귀사 계약서 양식으로 진행할 수도 있습니다.</li>
@@ -185,21 +189,27 @@ export function renderQuotePage(q) {
     tail = `<section class="state warn"><h2>취소된 견적입니다</h2>새 견적이 필요하시면 <a href="${esc(VERILINE.site)}/#pricing">베리라인</a>에서 다시 받거나 ${esc(VERILINE.email)}로 알려 주세요.</section>`;
   } else if (q.status === "paid" && isAudit) {
     const done = Number(q.rounds_done || 0);
+    const to = billing?.taxEmail || q.email || "담당자 이메일";
+    const care = AUDIT_RATES[q.product]?.aftercare || [];
+    // 보고서를 보낸 뒤에도 포함된 사후 관리(설명 통화 · 재검사)를 어떻게 쓰는지 이 화면에서 알 수 있게(2026-10-29)
+    const careLine = done && care.length && !/^audit_regular/.test(q.product)
+      ? `<br/><br/><b>포함된 사후 관리</b> — ${care.map(esc).join(" · ")}. 고치신 뒤 ${esc(VERILINE.email)}로 알려 주시면 같은 질문으로 다시 확인하고, 설명 통화는 편하신 시간에 잡습니다. 보고서의 판정이 원문과 다르다고 보시는 항목은 원문으로 다시 확인해 정정 보고서를 드립니다.`
+      : "";
     tail = `<section class="state ok"><h2>${done ? "감사 보고서를 보냈습니다" : "감사를 진행하고 있습니다"}</h2>
       ${esc(kdate(q.paid_at))} 입금 확인.${done
-        ? ` 보고서는 ${esc(kdate(q.delivered_at))}에 ${esc(billing?.taxEmail || q.email || "담당자 이메일")}로 보냈습니다.${q.due_at && Number(q.due_at) > Number(q.delivered_at) ? ` 다음 정기 감사는 ${esc(kstDate(q.due_at))} 무렵입니다.` : ""}`
-        : ` 보고서는 <b>${q.due_at ? esc(kstDate(q.due_at)) : esc(AUDIT_LEAD)}까지</b> 보내 드립니다. 로그인이 필요한 서비스라면 테스트 계정을 ${esc(VERILINE.email)}로 보내 주세요.`}
-      전자세금계산서는 ${esc(billing?.taxEmail || "등록하신 이메일")}로 발급됩니다.</section>`;
+        ? ` 보고서는 ${esc(kdate(q.delivered_at))}에 ${esc(to)}로 보냈습니다.${q.due_at && Number(q.due_at) > Number(q.delivered_at) ? ` 다음 정기 감사는 ${esc(kstDate(q.due_at))} 무렵입니다.` : ""}`
+        : ` 보고서는 <b>${q.due_at ? esc(kstDate(q.due_at)) : esc(AUDIT_LEAD)}까지</b> 비공개 링크로 ${esc(to)}에 보내 드립니다. 로그인이 필요한 서비스라면 테스트 계정을 ${esc(VERILINE.email)}로 보내 주세요.`}
+      ${esc(proofSentence(billing?.taxEmail || "등록하신 이메일", Number(q.paid_at) || Date.now()))}${careLine}</section>`;
   } else if (q.status === "paid") {
-    tail = `<section class="state ok"><h2>${isMetered ? "계약이 확정됐습니다" : "입금이 확인됐습니다"}</h2>${esc(kdate(q.paid_at))} 확인. 전자세금계산서는 ${esc(billing?.taxEmail || "등록하신 이메일")}로 발급됩니다. 문의: ${esc(VERILINE.email)}${apiKeyHelp(q, billing)}</section>`;
+    tail = `<section class="state ok"><h2>${isMetered ? "계약이 확정됐습니다" : "입금이 확인됐습니다"}</h2>${esc(kdate(q.paid_at))} 확인. ${esc(proofSentence(billing?.taxEmail || "등록하신 이메일", Number(q.paid_at) || Date.now()))} 문의: ${esc(VERILINE.email)}${apiKeyHelp(q, billing)}</section>`;
   } else if (q.status === "requested") {
     tail = `<section class="state ok"><h2>계약 신청이 접수됐습니다</h2>
       ${esc(kdate(q.requested_at))} 접수 · 결제 방법: ${esc(PAY_METHODS[q.pay_method] || "-")}<br/>
       ${q.pay_method === "transfer"
         ? isMetered
-          ? "종량제는 후불이라 지금 입금하실 것은 없습니다. 이용을 시작하면 매달 사용량으로 세금계산서를 발급합니다."
+          ? `종량제는 후불이라 지금 입금하실 것은 없습니다. 이용을 시작하면 매달 사용량으로 ${canIssueTaxInvoice() ? "세금계산서" : "증빙(일반과세 전환 전에는 지출증빙 현금영수증)"}을 발급합니다.`
           : bank
-            ? `입금 계좌: <b>${esc(bank)}</b> · 입금자명에 견적번호 <b>${esc(no)}</b> 또는 회사명을 적어 주세요. 입금이 확인되면 전자세금계산서를 발급하고 ${isAudit ? "감사를 시작합니다" : "이용을 시작합니다"}.`
+            ? `입금 계좌: <b>${esc(bank)}</b> · 입금자명에 견적번호 <b>${esc(no)}</b> 또는 회사명을 적어 주세요. 입금이 확인되면 ${proofShort()} ${isAudit ? "감사를 시작합니다" : "이용을 시작합니다"}.`
             : `입금 계좌는 영업일 하루 안에 ${esc(billing?.taxEmail || q.email || "담당자 이메일")}로 보내 드립니다.`
         : "법인카드 결제 링크를 영업일 하루 안에 보내 드립니다."}
       ${isAudit ? `<br/>입금이 확인되면 <b>${esc(AUDIT_LEAD)}</b> 안에 감사 보고서를 보내 드립니다.` : apiKeyHelp(q, billing)}
@@ -312,7 +322,7 @@ export function renderB2bTerms() {
 <ol>
 <li>월 약정은 다음 결제일 전에 알려 주시면 그다음 달부터 해지됩니다. 이미 시작된 달은 환불하지 않고 그달 말까지 쓰실 수 있습니다.</li>
 <li>감사·PoC는 착수 전에 취소하면 전액 환불하고, 착수 후에는 진행한 범위만큼 정산합니다.</li>
-<li>환불할 때는 수정세금계산서(또는 카드 결제 취소)를 함께 처리합니다.</li>
+<li>환불할 때는 발급한 증빙을 함께 바로잡습니다 — 세금계산서는 수정세금계산서, 현금영수증은 취소분 발급, 카드 결제는 결제 취소로 처리합니다.</li>
 </ol>
 
 <h2>제10조 (책임의 한도)</h2>

@@ -249,14 +249,45 @@ test("감사 바로 구매: 주문서 → 감사 신청 → 입금 확인 → �
   assert.ok(doing.due_at > Date.now());
   assert.ok(doing.daysLeft <= 3 && doing.daysLeft >= 1);
   assert.equal(doing.audit_id, paid.json.auditId);
-  assert.match((await call("GET", `/b2b/quote/${token}`)).text, /감사를 진행하고 있습니다/);
+  const progress = (await call("GET", `/b2b/quote/${token}`)).text;
+  assert.match(progress, /감사를 진행하고 있습니다/);
+  // 증빙 안내는 공급 시점의 과세 상태대로 — 일반과세 전이면 세금계산서를 약속하지 않는다(2026-10-29)
+  const { canIssueTaxInvoice } = await import("../receiptInfo.js");
+  const paidRow = await deals.quoteById(waiting.id);
+  if (canIssueTaxInvoice(Number(paidRow.paid_at))) assert.match(progress, /전자세금계산서는/);
+  else {
+    assert.match(progress, /지출증빙 현금영수증/);
+    assert.doesNotMatch(progress, /전자세금계산서는/);
+  }
 
-  // 보고서 보냄 → 완료로
-  const done = await call("POST", `/api/admin/b2b/quotes/${waiting.id}/delivered`, {}, ADMIN);
-  assert.equal(done.json.finished, true);
+  // 유료 감사의 보고서 메일은 영업용 첫 메일 틀이 아니다 — (광고) · 수신 거부 · "넘기셔도" 없이, 포함된 설명 통화 · 재검사를 적는다
+  const detail = (await call("GET", `/api/admin/audits/${paid.json.auditId}`, null, ADMIN)).json;
+  assert.equal(detail.mail.client, true);
+  assert.doesNotMatch(detail.mail.first.subject, /\(광고\)/);
+  assert.match(detail.mail.first.subject, /AI 감사 보고서 \(주문 /);
+  assert.match(detail.mail.first.body, /설명 통화 30분/);
+  assert.match(detail.mail.first.body, /재검사 1회/);
+  assert.doesNotMatch(detail.mail.first.body, /수신 거부|넘기셔도/);
+  assert.doesNotMatch(detail.mail.followup.body, /따로 연락드리지 않겠습니다/);
+  const { lintCopy } = await import("../auditDesk.js");
+  assert.deepEqual(lintCopy(`${detail.mail.first.subject}\n${detail.mail.first.body}`), [], "발송 문구 점검을 그대로 통과");
+  assert.equal(detail.checklist.items.find((c) => c.key === "recipient_person").ok, true, "주문 때 적은 주소면 대표 메일함이어도 된다");
+
+  // 감사 데스크에서 발송을 기록하면 주문도 '보고서 보냄'으로 맞춘다(두 화면을 따로 누르지 않게)
+  const { deliveredFromDesk } = await import("../workList.js");
+  const synced = await deliveredFromDesk(paid.json.auditId);
+  assert.equal(Number(synced.rounds_done), 1);
+  assert.equal(await deliveredFromDesk(paid.json.auditId), null, "두 번 맞추지 않는다");
+  const sent = (await call("GET", `/b2b/quote/${token}`)).text;
+  assert.match(sent, /감사 보고서를 보냈습니다/);
+  assert.match(sent, /포함된 사후 관리/);
+  assert.match(sent, /재검사 1회/);
+
+  // 보고서 보냄 → 완료로(데스크 발송으로 맞춰진 주문은 작업 리스트 '완료'에 있고, 더 보낼 회차가 없다)
   w = (await call("GET", "/api/admin/b2b/work", null, ADMIN)).json;
   assert.ok(!w.now.find((c) => c.id === waiting.id));
   assert.ok(w.done.find((c) => c.id === waiting.id));
+  assert.match(w.done.find((c) => c.id === waiting.id).aftercare.join(" "), /재검사 1회/, "보낸 뒤 남은 포함 항목이 작업 리스트에 보인다");
   assert.equal((await call("POST", `/api/admin/b2b/quotes/${waiting.id}/delivered`, {}, ADMIN)).status, 400, "회차를 넘겨 보낼 수 없다");
 
   const { renderWorkPage } = await import("../renderWorkPage.js");

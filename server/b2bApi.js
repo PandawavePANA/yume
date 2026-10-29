@@ -237,7 +237,7 @@ function notifyPaid(q, applied) {
     const b = parseBilling(q) || {};
     const to = b.taxEmail || q.email;
     if (to) {
-      const due = q.due_at ? `\n감사 보고서는 ${kstDate(q.due_at)}까지 보내 드립니다(${AUDIT_LEAD}). 감사에 테스트 계정이 필요하면 이 메일에 답장으로 알려 주세요.` : "";
+      const due = q.due_at ? `\n감사 보고서는 ${kstDate(q.due_at)}까지 비공개 링크로 이 주소에 보내 드립니다(${AUDIT_LEAD}). 감사에 테스트 계정이 필요하면 이 메일에 답장으로 알려 주세요.` : "";
       mailSafe({
         to,
         replyTo: VERILINE.email,

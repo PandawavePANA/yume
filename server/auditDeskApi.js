@@ -62,6 +62,8 @@ import {
   publishIssue,
   updateDraft,
 } from "./hallucinationIndex.js";
+import { deliveredFromDesk } from "./workList.js";
+import { logError } from "./errorLog.js";
 
 export const auditDeskRouter = patchAsync(express.Router());
 auditDeskRouter.use(requireAdmin);
@@ -196,7 +198,12 @@ auditDeskRouter.delete("/audits/:id/share", async (req, res) => {
 auditDeskRouter.post("/audits/:id/sent", async (req, res) => {
   const override = req.body?.override === true;
   const r = await markSent(req.params.id, { base: baseOf(req), override, reason: req.body?.reason });
-  if (!r.error) log(req, override ? "audit_desk.sent_override" : "audit_desk.sent", req.params.id);
+  if (!r.error) {
+    log(req, override ? "audit_desk.sent_override" : "audit_desk.sent", req.params.id);
+    // 유료 감사면 주문도 '보고서 보냄'으로(고객 견적서 화면 · 작업 리스트가 같이 바뀐다)
+    const q = await deliveredFromDesk(req.params.id).catch((e) => (logError("audit_desk:delivered", e), null));
+    if (q) r.delivered = { quoteId: Number(q.id), roundsDone: Number(q.rounds_done) };
+  }
   send(res, r);
 });
 auditDeskRouter.post("/audits/:id/public", async (req, res) => {
