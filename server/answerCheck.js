@@ -630,7 +630,7 @@ export async function checkAnswer({ question = "", answer, level: levelKey = "fa
   const [legal, facts, cases] = await Promise.all([legalCheck, factCheck, caseCheck]);
   for (const c of cases || []) {
     if (c.found) verification.supported.push({ claim: c.claim, quote: c.quote, url: c.url, evidence: c.title, field: "law", official: true });
-    else verification.hedged.push({ quote: c.quote, claim: c.claim, field: "law", note: `법제처 판례 · 결정례 목록에서 ${c.caseNumber} 사건을 찾지 못함 — 사건번호를 빼거나 확인되지 않았다고 쓸 것` });
+    else verification.hedged.push({ quote: c.quote, claim: c.claim, field: "law", note: `법제처 판례 · 결정례 목록에서 ${c.caseNumber} 사건을 찾지 못함 — 사건번호를 빼거나 확인되지 않았다고 쓸 것. 판례의 내용을 고칠 때 언론 기사 · 블로그를 출처로 쓰지 말고, 법제처에서 확인한 판례 번호가 없으면 번호 없이 \"대법원 판례\"로만 적을 것` });
   }
   if (cases?.length) verification.cases = cases.map((c) => ({ caseNumber: c.caseNumber, found: c.found, url: c.url || "" }));
 

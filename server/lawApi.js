@@ -457,6 +457,15 @@ export async function getStatuteIndex(mst) {
   };
 }
 
+// 법령의 부칙 단위(공포일 · 내용). 본문과 같은 요청이라 캐시에서 바로 나온다 — 시행일 · 적용례 · 경과조치를 계산할 때 쓴다(2026-10-29).
+// 조문 옆 <개정 2026.4.7>은 공포일이고, 실제 시행일은 부칙 제1조에 있다(근로기준법 2026.4.7 공포 → 10.8 시행).
+export async function getStatuteAddenda(mst) {
+  const r = await lawBody(mst);
+  if (!r.ok) return r;
+  const flat = (v) => (typeof v === "string" ? v : Array.isArray(v) ? v.map(flat).join("\n") : v && typeof v === "object" ? Object.values(v).map(flat).join("\n") : String(v ?? ""));
+  return { ok: true, addenda: toArray(r.data?.["법령"]?.["부칙"]?.["부칙단위"]).map((u) => ({ date: String(u["부칙공포일자"] || ""), text: flat(u["부칙내용"]) })) };
+}
+
 // 법령 전체 조문(본문 포함)을 한 번에. 최근 개정된 항을 찾을 때처럼 조문을 훑어야 할 때 쓴다 —
 // getStatuteArticle을 조문마다 부르면 같은 법령을 조문 수만큼 다시 받는다.
 export async function getStatuteArticlesAll(mst) {
